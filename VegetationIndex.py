@@ -6,12 +6,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import viplab_lib as vip
 
-#import validators
-#import requests
-#from requests_file import FileAdapter
 
-
-class ImageUtilities:
+class VegetationIndex:
 
     def __init__(self):
         self.initialized = False
@@ -29,6 +25,9 @@ class ImageUtilities:
         self.lambdaRed = 670 #nm
         self.lambdaGreen = 550 #nm
         self.lambdaBlue = 480 #nm
+
+    def GetImage(self):
+        return self.img
 
     def Load(self, location: str):
         # TODO: Make this work for URLs
@@ -48,8 +47,8 @@ class ImageUtilities:
         self.images.append(self.img)
 
         # Display the image
-        plt.imshow(self.img)
-        plt.show()
+        #plt.imshow(self.img)
+        #plt.show()
 
         # This hangs, not sure what is going on here.
         #cv.imshow("Image", img)
@@ -82,23 +81,84 @@ class ImageUtilities:
         self.greenBandMasked = self.greenBand * negated  # DataGREEN * negated
         self.blueBandMasked = self.blueBand * negated  # DataBLUE * negated
 
-    def getImage(self):
-        return vip.Image_getRGB(self.redBandMasked,self.greenBandMasked,self.blueBandMasked,8000)
+    def GetImage(self):
+        return(self.img)
 
-    def applyNDI(self):
+    def ShowImage(self, title : str, index : np.ndarray):
+
+        plt.title(title)
+        plt.imshow(index, cmap='gray', vmin=0, vmax=255)
+        plt.show()
+
+    def ExcessRedMask(self) -> np.ndarray:
+
+        excessRed = 1.3*self.redBand - self.greenBand
+
+        return excessRed
+
+    def ExcessGreenMask(self) -> np.ndarray:
+        # 2g-r-b
+
+        excessGreen = 2*self.greenBand - self.redBand - self.blueBand
+
+        return excessGreen
+
+    def ExGR(self):
+        exgr = np.empty_like(self.redBand)
+
+        exgr = self.ExcessGreenMask() - self.ExcessRedMask()
+
+        return exgr
+
+    def CIVEMask(self):
+
+        cive = 0.441*self.redBand - 0.811*self.greenBand + 0.385*self.blueBand + 18.78745
+
+        return cive
+
+    def NGRDI(self):
+
+        ngrdi = (self.greenBand - self.redBand) / (self.greenBand + self.redBand)
+
+        return ngrdi
+
+    def VEGMask(self):
+
+        veg = self.greenBand / self.redBand ** 0.667 * self.blueBand ** (1-0.667)
+
+        return veg
+
+    def COM1Mask(self):
+
+        com1 = self.ExcessGreenMask() + self.CIVEMask() + self.ExGR() + self.VEGMask()
+
+        return com1
+
+    def MEXGMask(self):
+
+        mexg = 1.262 * self.greenBand - 0.884 * self.redBand - 0.311 * self.blueBand
+
+        return mexg
+
+    def COM2Mask(self):
+
+        com2 = (0.36 * self.ExcessGreenMask()) + (0.47 * self.CIVEMask()) + (0.17 * self.VEGMask())
+
+        return com2
+
+    def NDIMask(self):
 
         img = self.images[0]
 
         NDI_Numerator=self.greenBand - self.redBand #DataGREEN-DataRED
-        NDI_Denominator=self.greenBand - self.redBand #DataGREEN+DataRED
+        NDI_Denominator=self.greenBand + self.redBand #DataGREEN+DataRED
         with np.errstate(divide='ignore', invalid='ignore'):
-            NDI =np.true_divide(NDI_Numerator,NDI_Denominator)
+            NDI =np.true_divide(NDI_Numerator,NDI_Denominator) + 1
+            NDI= NDI * 128
             NDI[NDI == np.inf] = 0
             NDI = np.nan_to_num(NDI)
 
         MaskNDI = NDI > 0.100
-        plt.imshow(MaskNDI)
-        plt.show()
 
         # The mask we computed above is the opposite of what is needed
         # We want the green bits to show through.
@@ -110,18 +170,36 @@ class ImageUtilities:
 
         RGBImage=vip.Image_getRGB(DataREDMasked,DataGREENMasked,DataBLUEMasked,8000)
 
+        return NDI
         #result = cv.bitwise_and(RGBImage,MaskNDI)
 
-        plt.imshow(RGBImage)
-        plt.imsave('crop.jpg', RGBImage)
-        plt.show()
-
 if __name__ == "__main__":
-    utility = ImageUtilities()
+    utility = VegetationIndex()
 
+    #utility.Load('./IMG_1302.jpg')
     utility.Load('./overhead.jpg')
     #utility.Load('./drone-pictures/DJI_0074.jpg')
-    mask = utility.TGIMask(110)
+
+    utility.ShowImage("Source", utility.GetImage())
+
+    indices = {"NDI": utility.NDIMask,
+               "EGr": utility.ExcessGreenMask,
+               "ExR": utility.ExcessRedMask,
+               "CIVE": utility.CIVEMask,
+               "ExGR": utility.ExGR,
+               "NGRDI": utility.NGRDI,
+               "VEG": utility.VEGMask,
+               "COM1": utility.COM1Mask,
+               "MExG": utility.MEXGMask,
+               "COM2": utility.COM2Mask}
+
+    for indexName, createIndex in indices.items():
+        vegIndex = createIndex()
+        utility.ShowImage(indexName, vegIndex)
+
+    #utility.NDIMask()
+    #utility.ExcessGreenMask()
+    mask = utility.TGIMask(100)
     plt.imshow(mask)
     plt.show()
     utility.applyMask()
