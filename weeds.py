@@ -5,6 +5,7 @@
 import argparse
 import sys
 import numpy as np
+import cv2 as cv
 from CameraFile import CameraFile, CameraPhysical
 from VegetationIndex import VegetationIndex
 from ImageManipulation import ImageManipulation
@@ -89,12 +90,12 @@ try:
         veg.applyMask()
         #image = veg.GetMaskedImage()
         image = veg.GetImage()
-        ImageManipulation.show("Masked", image)
+        #ImageManipulation.show("Masked", image)
 
         manipulated = ImageManipulation(image)
 
         # Find the plants in the image
-        contours, hierarchy, blobs, largest = manipulated.findBlobs()
+        contours, hierarchy, blobs, largest = manipulated.findBlobs(500)
 
         classifier = Classifier(blobs)
 
@@ -106,6 +107,9 @@ try:
         #manipulated.drawBoundingBoxes(contours)
         manipulated.drawBoxes(classifiedBlobs)
 
+        # Write out the processed image
+        #cv.imwrite("processed.jpg", manipulated.image)
+        logger.logImage("processed", manipulated.image)
         #ImageManipulation.show("Greyscale", manipulated.toGreyscale())
 
 except IOError:
