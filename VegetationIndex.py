@@ -16,13 +16,13 @@ class VegetationIndex:
     def __init__(self):
         self.initialized = False
         self.images = []
-        self.redBand = np.empty([0,0])
-        self.greenBand = np.empty([0,0])
-        self.blueBand = np.empty([0,0])
+        self.redBand = np.empty([0,0], dtype=np.uint8)
+        self.greenBand = np.empty([0,0], dtype=np.uint8)
+        self.blueBand = np.empty([0,0], dtype=np.uint8)
 
-        self.redBandMasked = np.empty([0,0])
-        self.greenBandMasked = np.empty([0,0])
-        self.blueBandMasked = np.empty([0,0])
+        self.redBandMasked = np.empty([0,0], dtype=np.uint8)
+        self.greenBandMasked = np.empty([0,0], dtype=np.uint8)
+        self.blueBandMasked = np.empty([0,0], dtype=np.uint8)
 
         self.mask = np.empty([0,0])
 
@@ -112,8 +112,15 @@ class VegetationIndex:
     def GetImage(self) -> np.ndarray:
         return self.img
 
+    # The VIP routine is quite slow
     def GetMaskedImage(self) -> np.ndarray:
         maskedRGB = vip.Image_getRGB(self.redBandMasked, self.greenBandMasked, self.blueBandMasked, 8000)
+        return maskedRGB
+
+    # The opencv routine is fast, but seems to introduce some noise in the image
+    # that must be cleaned up later.
+    def GetImage(self):
+        maskedRGB = cv.merge((self.blueBandMasked, self.greenBandMasked, self.redBandMasked))
         return maskedRGB
 
     def ReplaceNonZeroPixels(self, image: np.ndarray, value : float) -> np.ndarray:
@@ -134,6 +141,14 @@ class VegetationIndex:
         """
         data = Image.fromarray((self.GetMaskedImage() * 255).astype(np.uint8))
         data.save(name)
+
+    def SetImage(self, image):
+        self.img = image
+
+        self.imgNP = np.array(self.img).astype(dtype=np.int16)
+        self.redBand = self.imgNP[:, :, self.CV_RED]
+        self.greenBand = self.imgNP[:, :, self.CV_GREEN]
+        self.blueBand = self.imgNP[:, :, self.CV_BLUE]
 
     def Load(self, location: str):
         # TODO: Make this work for URLs
@@ -209,7 +224,7 @@ class VegetationIndex:
 
         return TGI
 
-    def MaskFromIndex(self, index: np.ndarray, negate: bool, int, threshold: int = None) -> np.ndarray:
+    def MaskFromIndex(self, index: np.ndarray, negate: bool, direction: int, threshold: int = None) -> np.ndarray:
         """
         Create a mask based on the index
         :param index:
@@ -315,6 +330,7 @@ class VegetationIndex:
         :return:
         The index as a numpy array
         """
+        ngrdi = np.zeros_like(self.img)
         ngrdi_numerator = self.greenBand - self.redBand
         ngrdi_denominator = self.greenBand + self.redBand
 
