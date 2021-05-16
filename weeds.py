@@ -99,7 +99,7 @@ try:
 
         classifier = Classifier(blobs)
 
-        classifier.classifyByRatio(largest, 5)
+        classifier.classifyByRatio(largest, size=manipulated.image.shape, ratio=5)
 
         classifiedBlobs = classifier.blob
 
