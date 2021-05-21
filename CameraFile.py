@@ -35,12 +35,12 @@ class Camera(ABC):
         return
 
     @abstractmethod
-    def getResolution(self):
+    def getResolution(self) -> ():
         self._connected = False
         return (0,0)
 
     @abstractmethod
-    def getMMPerPixel(self):
+    def getMMPerPixel(self) -> float:
         return
 
 
@@ -87,41 +87,68 @@ class CameraFile(Camera):
         else:
             raise EOFError
 
-    def getResolution(self):
+    def getResolution(self) -> ():
         # TODO: Get the first image and return the image size
         #return self._flist[self._currentImage].shape()
-        return
+        return (0,0)
 
-    def getMMPerPixel(self):
-        raise NotImplementedError
+    def getMMPerPixel(self) -> float:
+        return 0.5
 
 class CameraPhysical(Camera):
     def __init__(self, options: str):
      self._connected = False
      self._currentImage = 0
+     self._cam = cv.VideoCapture(0)
      super().__init__(options)
      return
 
     def connect(self):
         """
-        Connects to a directory and finds all images there. This method will not traverse subdirectories
+        Connects to the camera and sets it to to highest resolution for capture.
         :return:
+        True if connection was successful
         """
         # Read calibration information here
-        raise NotImplementedError
+        HIGH_VALUE = 10000
+        WIDTH = HIGH_VALUE
+        HEIGHT = HIGH_VALUE
+
+        # A bit a hack to set the camera to the highest resolution
+        self._cam.set(cv.CAP_PROP_FRAME_WIDTH, WIDTH)
+        self._cam.set(cv.CAP_PROP_FRAME_HEIGHT, HEIGHT)
+
+        return True
 
     def disconnect(self):
         raise NotImplementedError
 
-    def diagnostics(self):
-        raise NotImplementedError
+    def diagnostics(self) -> (bool, str):
+        """
+        Execute diagnostics on the camera.
+        :return:
+        Boolean result of the diagnostics and a string of the details
+        """
+        return True, "Camera diagnostics not provided"
 
     def capture(self) -> np.ndarray:
-        raise NotImplementedError
+        """
+        Capture a single image from the camera.
+        Requires calling the connect() method before this call.
+        :return:
+        The image as a numpy array
+        """
+        ret, frame = self._cam.read()
+        if not ret:
+            raise IOError("There was an error encountered communicating with the camera")
+        #cv.imwrite("camera.jpg", frame)
+        return frame
 
-    def getResolution(self):
-        raise NotImplementedError
+    def getResolution(self) -> ():
+        w = self._cam.get(cv.CAP_PROP_FRAME_WIDTH)
+        h = self._cam.get(cv.CAP_PROP_FRAME_HEIGHT)
+        return (w, h)
 
     # This should be part of the calibration procedure
-    def getMMPerPixel(self):
-        raise NotImplementedError
+    def getMMPerPixel(self) -> float:
+        return 0.0

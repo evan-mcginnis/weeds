@@ -58,7 +58,8 @@ class VegetationIndex:
                            self.ALG_VEG,
                            self.ALG_COM1,
                            self.ALG_MEXG,
-                           self.ALG_COM2]
+                           self.ALG_COM2,
+                           self.ALG_TGI]
 
         thresholds = {"NDI": 0,
                       "EXG": 200,
@@ -193,7 +194,7 @@ class VegetationIndex:
     #     return None
 
     def TGI(self) -> np.ndarray:
-        img = self.images[0]
+        #img = self.images[0]
 
         # Avoid conversion problems
         # shape = self.redBand.shape
