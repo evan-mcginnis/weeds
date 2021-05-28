@@ -110,7 +110,7 @@ try:
         # TODO: Simply this to just imsge=brg.GetMaskedImage(results.algorithm)
         # Compute the index using the requested algorithm
         index = veg.Index(results.algorithm)
-        #ImageManipulation.show("index", index)
+        ImageManipulation.show("index", index)
         cv.imwrite("index.jpg", index)
 
         # Get the mask
@@ -127,6 +127,8 @@ try:
         # Find the plants in the image
         contours, hierarchy, blobs, largest = manipulated.findBlobs(500)
 
+        manipulated.identifyOverlappingVegetation()
+
         classifier = Classifier(blobs)
 
         classifier.classifyByRatio(largest, size=manipulated.image.shape, ratio=5)
@@ -141,10 +143,10 @@ try:
         manipulated.identifyCropRowCandidates()
         manipulated.substituteRectanglesForVegetation()
 
-        logger.logImage("crop-line", manipulated.croplineImage)
         #logger.logImage("cropline", manipulated.croplineImage)
         manipulated.detectLines()
-        #manipulated.drawCropline()
+        manipulated.drawCropline()
+        logger.logImage("crop-line", manipulated.croplineImage)
         manipulated.drawContours()
 
         # Just a test of stitching. This needs some more thought

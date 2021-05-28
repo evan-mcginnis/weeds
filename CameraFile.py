@@ -121,7 +121,7 @@ class CameraPhysical(Camera):
         return True
 
     def disconnect(self):
-        raise NotImplementedError
+        self._cam.release()
 
     def diagnostics(self) -> (bool, str):
         """

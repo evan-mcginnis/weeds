@@ -15,6 +15,7 @@ import constants
 COLOR_WEED = (255,0,0)
 COLOR_CROP = (0,0,255)
 COLOR_UNKNOWN = (0,255,0)
+COLOR_UNTREATED = (0,127,0)
 
 # How far outside the midline of the image vegetation should be considered the cropline
 MIDDLE_THRESHOLD = 200
@@ -72,6 +73,15 @@ class ImageManipulation:
     def write(self, image: np.ndarray, name: str):
         cv.imwrite(name, image)
 
+    def toHSV(self) -> np.ndarray:
+        """
+        The current image converted to the HSV colorspace
+        :return:
+        The HSV values as a numpy array
+        """
+        self._imgAsHSV =  cv.cvtColor(self._image.astype(np.uint8), cv.COLOR_BGR2HSV)
+        return self._imgAsHSV
+
     def toGreyscale(self) -> np.ndarray:
         """
         The current image converted to greyscale
@@ -88,6 +98,12 @@ class ImageManipulation:
         #self._imgAsGreyscale = self._image.astype(np.uint8)
         # If the conversion to uint8 is not there, opencv complains when we try to find the
         # contours.  Strictly speaking this is not required for just the greyscale conversion
+
+        # Blurring the image before we start trying to detect objects seems to improve things
+        # in that noise is not identified as objects, but this is a very slow method
+
+        #blurred = cv.pyrMeanShiftFiltering(self._image.astype(np.uint8),31,101)
+        #img = cv.cvtColor(blurred, cv.COLOR_BGR2GRAY)
 
         img = cv.cvtColor(self._image.astype(np.uint8), cv.COLOR_BGR2GRAY)
         #cv.imwrite("converted.jpg", img)
@@ -129,7 +145,7 @@ class ImageManipulation:
         # Convert to binary image
         # Works
         #ret,thresh = cv.threshold(self._cartooned,127,255,0)
-        ret,thresh = cv.threshold(self._imgAsGreyscale, 127,255,cv.THRESH_BINARY)
+        ret,thresh = cv.threshold(self._imgAsGreyscale, 127,255,cv.THRESH_BINARY+cv.THRESH_OTSU)
         #self.write(thresh, "threshold.jpg")
         kernel = np.ones((5,5),np.uint8)
         erosion = cv.erode(self._cartooned, kernel,iterations = 3)
@@ -143,12 +159,15 @@ class ImageManipulation:
 
         # Originally
         # candidate = erosion
+
         candidate = closing
+        self.write(candidate, "candidate.jpg")
         # find contours in the binary image
         #im2, contours, hierarchy = cv.findContours(thresh,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
         # We don't need the hierarchy at this point, so the RETR_LIST seems faster
         #contours, hierarchy = cv.findContours(erosion,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
-        contours, hierarchy = cv.findContours(candidate,cv.RETR_LIST,cv.CHAIN_APPROX_SIMPLE)
+        contours, hierarchy = cv.findContours(candidate,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
+
         self._contours = contours
 
         # Calculate the area of each box
@@ -171,7 +190,8 @@ class ImageManipulation:
             infoAboutBlob = {constants.NAME_LOCATION: location,
                              constants.NAME_CENTER: center,
                              constants.NAME_AREA: area,
-                             constants.NAME_TYPE: type}
+                             constants.NAME_TYPE: type,
+                             constants.NAME_CONTOUR: c}
             name = "blob" + str(i)
             # Ignore items in the image that are smaller in area than the
             # threshold.  Things in shadow and noise will be identified as shapes
@@ -187,7 +207,24 @@ class ImageManipulation:
         self._largestName = largestName
         self._largestArea = area
 
+        self._hierarchy = hierarchy
         return contours, hierarchy, self._blobs, largestName
+
+    def identifyOverlappingVegetation(self):
+        i = 0
+
+        for contour in self._hierarchy[0]:
+            (next, previous, child, parent) = contour
+            name = "blob" + str(i)
+            if parent != -1:
+                if name in self._blobs:
+                    attributes = self._blobs[name]
+                    attributes[constants.NAME_TYPE] = constants.TYPE_UNTREATED
+                    print("detected overlap")
+            i = i + 1
+
+    def identifyCloseVegetation(self):
+        return
 
     def identifyCropRowCandidates(self):
         """
@@ -242,6 +279,8 @@ class ImageManipulation:
         """
         Draw a cropline on the current image if one has been found.
         """
+        (height, width, depth) = self.image.shape
+        cv.line(self.cropline_image, (0,int(height/2)), (width, int(height/2)), (0,0,255), 3, cv.LINE_AA)
         if self.linesP is not None:
             for i in range(0, len(self.linesP)):
                 l = self.linesP[i][0]
@@ -273,6 +312,8 @@ class ImageManipulation:
                 color = COLOR_UNKNOWN
             elif type == constants.TYPE_UNDESIRED:
                 color = COLOR_WEED
+            elif type == constants.TYPE_UNTREATED:
+                color = COLOR_UNTREATED
             else:
                 color = COLOR_CROP
             self._image = cv.rectangle(self._image,(x,y),(x+w,y+h),color,2)

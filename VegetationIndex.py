@@ -425,13 +425,13 @@ if __name__ == "__main__":
     utility = VegetationIndex()
 
     # Load the target -- this must be done first
-    utility.Load('./20190118_124612.jpg')
-    #utility.Load('./overhead.jpg')
+    #utility.Load('./20190118_124612.jpg')
+    utility.Load('./overhead.jpg')
     #utility.Load('./LettuceBed.jpg')
     #utility.Load('./drone-pictures/DJI_0074.jpg')
     #utility.Load("./Oasis_Area.png")
     # Not required.  Just show our starting point
-    utility.ShowImage("Source", utility.GetImage())
+    #utility.ShowImage("Source", utility.GetImage())
     from mpl_toolkits import mplot3d
     import numpy as np
     import matplotlib.pyplot as plt
