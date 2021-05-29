@@ -43,3 +43,5 @@ def showGraph():
 
 def thresholdHSV(saturationThresholdLow: int, saturationThresholdHigh: int):
     saturationMatrix = np.where((saturation >= saturationThresholdLow | saturation <= saturationThresholdHigh),1,0)
+
+showGraph()
