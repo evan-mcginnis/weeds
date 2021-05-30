@@ -6,12 +6,15 @@ import argparse
 import sys
 import numpy as np
 import cv2 as cv
+import matplotlib.pyplot as plt
+
 from CameraFile import CameraFile, CameraPhysical
 from VegetationIndex import VegetationIndex
 from ImageManipulation import ImageManipulation
 from Logger import Logger
 from Classifier import Classifier
 from Odometer import VirtualOdometer
+from Performance import Performance
 
 veg = VegetationIndex()
 
@@ -25,6 +28,8 @@ parser.add_argument("-a", '--algorithm', action="store", help="Vegetation Index 
 parser.add_argument("-t", "--threshold", action="store", type=int, default=0)
 parser.add_argument("-s", "--stitch", action="store_true", help="Stitch images together")
 parser.add_argument("-v", "--verbose", action="store_true", default=False)
+parser.add_argument("-p", '--plot', action="store_true", help="Show 3D plot of index", default=False)
+parser.add_argument("-P", "--performance", action="store", type=str, default="performance.csv")
 
 results = parser.parse_args()
 
@@ -70,6 +75,10 @@ def startupOdometer():
 
     return odometer
 
+def startupPerformance() -> Performance:
+    performance = Performance(results.performance)
+    return performance
+
 #
 # L O G G E R
 #
@@ -77,10 +86,22 @@ def startupOdometer():
 def startupLogger() -> Logger:
     logger = Logger()
     if not logger.connect("./output"):
-        print("Unable to connect to logging")
+        print("Unable to connect to logging. ./output does not exist.")
         sys.exit(1)
     return logger
 
+def plot3D(index, title):
+    yLen,xLen = index.shape
+    x = np.arange(0, xLen, 1)
+    y = np.arange(0, yLen, 1)
+    x, y = np.meshgrid(x, y)
+
+    fig = plt.figure(figsize=(10,10))
+    axes = fig.gca(projection ='3d')
+    plt.title(title)
+    axes.scatter(x, y, index, c=index, cmap='BrBG', s=0.25)
+    plt.show()
+    cv.waitKey()
 #
 # Start up various subsystems
 #
@@ -88,6 +109,7 @@ def startupLogger() -> Logger:
 camera = startupCamera()
 odometer = startupOdometer()
 logger = startupLogger()
+performance = startupPerformance()
 
 mmPerPixel = camera.getMMPerPixel()
 
@@ -99,7 +121,10 @@ try:
     # Loop and process images until requested to stop
     # TODO: Accept signal to stop processing
     while True:
+        performance.start()
         image = camera.capture()
+        performance.stopAndRecord("aquire")
+
         #ImageManipulation.show("Source",image)
         veg.SetImage(image)
 
@@ -109,9 +134,14 @@ try:
 
         # TODO: Simply this to just imsge=brg.GetMaskedImage(results.algorithm)
         # Compute the index using the requested algorithm
+        performance.start()
         index = veg.Index(results.algorithm)
-        ImageManipulation.show("index", index)
-        cv.imwrite("index.jpg", index)
+        performance.stopAndRecord("index")
+
+        #ImageManipulation.show("index", index)
+        #cv.imwrite("index.jpg", index)
+        if results.plot:
+            plot3D(index, results.algorithm)
 
         # Get the mask
         mask, threshold = veg.MaskFromIndex(index, True, 1, results.threshold)
@@ -125,13 +155,20 @@ try:
         manipulated.mmPerPixel = mmPerPixel
 
         # Find the plants in the image
+        performance.start()
         contours, hierarchy, blobs, largest = manipulated.findBlobs(500)
+        performance.stopAndRecord("contours")
 
+
+        performance.start()
         manipulated.identifyOverlappingVegetation()
+        performance.stopAndRecord("overlap")
 
         classifier = Classifier(blobs)
 
+        performance.start()
         classifier.classifyByRatio(largest, size=manipulated.image.shape, ratio=5)
+        performance.stopAndRecord("classify")
 
         classifiedBlobs = classifier.blob
 
