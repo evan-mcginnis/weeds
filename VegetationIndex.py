@@ -8,6 +8,8 @@ import datetime
 import viplab_lib as vip
 from mpl_toolkits import mplot3d
 
+from ImageManipulation import ImageManipulation
+
 
 class VegetationIndex:
     """
@@ -25,6 +27,8 @@ class VegetationIndex:
         self.blueBandMasked = np.empty([0,0], dtype=np.uint8)
 
         self.mask = np.empty([0,0])
+
+        self.HSV_COLOR_THRESHOLD = 20
 
         # Band positions for openCV (BGR)
         self.CV_BLUE = 0
@@ -47,6 +51,7 @@ class VegetationIndex:
         self.ALG_COM1="com1"
         self.ALG_MEXG="mexg"
         self.ALG_COM2="com2"
+        self.ALG_RGD="rgd"
 
         self.algorithms = [self.ALG_NDI,
                            self.ALG_TGI,
@@ -59,7 +64,8 @@ class VegetationIndex:
                            self.ALG_COM1,
                            self.ALG_MEXG,
                            self.ALG_COM2,
-                           self.ALG_TGI]
+                           self.ALG_TGI,
+                           self.ALG_RGD]
 
         thresholds = {"NDI": 0,
                       "EXG": 200,
@@ -83,7 +89,8 @@ class VegetationIndex:
                              self.ALG_COM1    : {"description": "Combined Index 1", "create": self.COM1, "threshold": thresholds["COM1"]} ,
                              self.ALG_MEXG    : {"description": "Modified Excess Green", "create": self.MExG, "threshold": thresholds["MEXG"]},
                              self.ALG_COM2    : {"description": "Combined Index 2", "create": self.COM2, "threshold": thresholds["COM2"]},
-                             self.ALG_TGI     : {"description": "TGI", "create": self.TGI, "threshold": thresholds["TGI"]}}
+                             self.ALG_TGI     : {"description": "TGI", "create": self.TGI, "threshold": thresholds["TGI"]},
+                             self.ALG_RGD     : {"description": "Red Green Dots", "create": self.redGreenDots, "threshold": 0}}
 
 
     def Index(self, name: str)-> np.ndarray:
@@ -225,7 +232,7 @@ class VegetationIndex:
 
         return TGI
 
-    def MaskFromIndex(self, index: np.ndarray, negate: bool, direction: int, threshold: int = None) -> np.ndarray:
+    def MaskFromIndex(self, index: np.ndarray, negate: bool, direction: int, threshold: () = None) -> np.ndarray:
         """
         Create a mask based on the index
         :param index:
@@ -242,13 +249,26 @@ class VegetationIndex:
             #ret, thresholdedImage = cv.threshold(greyScale,0,255,cv.THRESH_BINARY+cv.THRESH_OTSU)
             ret, thresholdedImage = cv.threshold(greyScale,0,255,cv.THRESH_BINARY+cv.THRESH_OTSU)
             threshold = ret
+            threshold1 = ret
+            threshold2 = -9999
+        else:
+            # Thresholds are (up, down)
+            threshold1 = threshold[0]
+            threshold2 = threshold[1]
+
+        # If the direction is 1, interpret the two thresholds as up, down
+        # To make this go back to the original implementation, set the second threshold to -9999
 
         if direction > 0:
-            thresholdedIndex = index > threshold
-            finalMask = thresholdedIndex
+            thresholdedIndex = index > threshold1
+            if threshold2 != -9999:
+                thresholdIndex2 = index < threshold2
+                finalMask = np.logical_or(thresholdedIndex, thresholdIndex2)
+            else:
+                finalMask = thresholdedIndex
             negated = finalMask
         else:
-            thresholdedIndex = index < threshold
+            thresholdedIndex = index < threshold1
             #negated = np.logical_not(thresholdedIndex)
             negated = thresholdedIndex
             finalMask = negated
@@ -261,6 +281,10 @@ class VegetationIndex:
 
         return finalMask, threshold
 
+    @property
+    def imageMask(self):
+        return self.mask
+
     def applyMask(self):
         #negated = np.logical_not(self.mask)
         #negated = np.logical_not(index)
@@ -271,12 +295,13 @@ class VegetationIndex:
         return
 
     def GetMask(self):
-        return np.dstack(self.redBandMasked, self.greenBandMasked, self.blueBandMasked)
+        return np.dstack([self.redBandMasked, self.greenBandMasked, self.blueBandMasked])
 
     def ShowImage(self, title : str, index : np.ndarray):
 
         plt.title(title)
-        plt.imshow(index, cmap='gray', vmin=0, vmax=255)
+        #plt.imshow(index, cmap='gray', vmin=0, vmax=255)
+        plt.imshow(index, cmap='gray', vmin=-1, vmax=1)
         plt.show()
 
     def ExR(self) -> np.ndarray:
@@ -421,16 +446,77 @@ class VegetationIndex:
         return NDI
         #result = cv.bitwise_and(RGBImage,MaskNDI)
 
+    #
+    # Not really an index for things found in nature, but intended for the colored dots
+    # technique where green is for crop and red is for weeds.
+    #
+    def redGreenDots(self):
+        # Convert the image to HSV
+        manipulation = ImageManipulation(self.img)
+        hsv = manipulation.toHSV()
+
+        # Pure colors
+        green = np.uint8([[[0,255,0 ]]])
+        red = np.uint8([[[0,0,255]]])
+
+        # Get the HSV for the color green
+        hsv_green = cv.cvtColor(green,cv.COLOR_BGR2HSV)
+        # Compute the lower and upper bound of what we consider green
+        lowerGreen = np.array([int(hsv_green[0,0,0]) - self.HSV_COLOR_THRESHOLD,100,100])
+        upperGreen = np.array([int(hsv_green[0,0,0]) + self.HSV_COLOR_THRESHOLD, 255,255])
+
+        hsv_red = cv.cvtColor(red,cv.COLOR_BGR2HSV)
+        # Compute the lower and upper bound of what we consider green
+        lowerRed = np.array([int(hsv_red[0,0,0]) - 5,100,100])
+        upperRed = np.array([int(hsv_red[0,0,0]) + 5, 255,255])
+        # lower boundary RED color range values; Hue (0 - 10)
+
+        # Another red attempt
+        # This looks odd, but eliminates the hue of red in the floor
+        lower1 = np.array([0, 100, 20])
+        #upper1 = np.array([10, 255, 255])
+        upper1 = np.array([0, 255, 255])
+
+        # upper boundary RED color range values; Hue (160 - 180)
+        lower2 = np.array([160,100,20])
+        upper2 = np.array([179,255,255])
+
+        lower_mask = cv.inRange(hsv, lower1, upper1)
+        upper_mask = cv.inRange(hsv, lower2, upper2)
+
+        maskRed = lower_mask + upper_mask
+
+        #result = cv2.bitwise_and(result, result, mask=full_mask)
+
+
+
+
+        maskGreen = cv.inRange(hsv, lowerGreen, upperGreen)
+        #maskRed = cv.inRange(hsv, lowerRed, upperRed)
+
+        # The final mask where either of the two colors are present
+        mask = cv.bitwise_or(maskGreen, maskRed)
+
+        # Crap, this does not work well on the test data -- the floor has too much red in it.
+        # So the results have way too much in them to be useful.
+        # I'll try this with blue, but in the meantime, just use the green mask
+        #mask = maskGreen
+
+        # Bitwise-AND mask and original image
+        #res = cv.bitwise_and(self.img,self.img, mask= mask)
+        return mask
+
 if __name__ == "__main__":
     utility = VegetationIndex()
 
     # Load the target -- this must be done first
     #utility.Load('./20190118_124612.jpg')
-    utility.Load('./overhead.jpg')
+    #utility.Load('./overhead.jpg')
     #utility.Load('./LettuceBed.jpg')
     #utility.Load('./drone-pictures/DJI_0074.jpg')
     #utility.Load("./Oasis_Area.png")
-    # Not required.  Just show our starting point
+    utility.Load("./test-images/purslane.png")
+    #Not required.  Just show our starting point
     #utility.ShowImage("Source", utility.GetImage())
     from mpl_toolkits import mplot3d
     import numpy as np
@@ -455,6 +541,7 @@ if __name__ == "__main__":
                    "COM2"  : 80,
                    "TGI"   : 0}
 
+    # Original thresholds
     threshOverhead = {"NDI"   : 125,
                       "EXG"   : 100,
                       "EXR"   : 20,
@@ -467,6 +554,18 @@ if __name__ == "__main__":
                       "COM2"  : 15,
                       "TGI"   : 0}
 
+    # Thresholds where we need two sides (like red stems we want to pick up)
+    threshOverhead = {"NDI"   : (125,0),
+                      "EXG"   : (100,0),
+                      "EXR"   : (20,0),
+                      "CIVE"  : (40,10),
+                      "EXGEXR": (60,0),
+                      "NGRDI" : (0,0),
+                      "VEG"   : (1,0),
+                      "COM1"  : (5,0), # Originally 25
+                      "MEXG"  : (10,0), # Orignally 40
+                      "COM2"  : (15,0),
+                      "TGI"   : (0,0)}
     threholds = threshOverhead
 
     # All of the indices
@@ -485,8 +584,9 @@ if __name__ == "__main__":
                "Triangulation Greenness Index": {"short": "TGI", "create": utility.TGI, "negate": False, "threshold": threholds["TGI"], "direction": 1}}
 
     # Debug the implementations:
-    _indices = {
-        "Combined Index 2": {"short": "COM2", "create": utility.COM2, "negate": False, "threshold": None, "direction": 1},
+    indices = {
+        "Color Index of Vegetation Extraction": {"short": "CIVE", "create": utility.CIVE, "negate": False,
+                                                 "threshold": threholds["CIVE"], "direction": 1},
     }
 
 
@@ -514,12 +614,12 @@ if __name__ == "__main__":
 
         indexData["index"] = vegIndex
 
-        if plot:
-            transectRow = vegIndex[100,:]
-            plt.figure()
-            plt.plot(transectRow)
-            plt.title(indexName)
-            plt.show()
+        # if plot:
+        #     transectRow = vegIndex[100,:]
+        #     plt.figure()
+        #     plt.plot(transectRow)
+        #     plt.title(indexName)
+        #     plt.show()
 
         # Force otsu
         #threshold = None

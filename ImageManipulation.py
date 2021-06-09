@@ -8,6 +8,8 @@ from PIL import Image
 import numpy as np
 import matplotlib.pyplot as plt
 import cv2 as cv
+import math
+import pandas as pd
 
 import constants
 
@@ -16,6 +18,7 @@ COLOR_WEED = (255,0,0)
 COLOR_CROP = (0,0,255)
 COLOR_UNKNOWN = (0,255,0)
 COLOR_UNTREATED = (0,127,0)
+COLOR_IGNORED = (255,255,255)
 
 # How far outside the midline of the image vegetation should be considered the cropline
 MIDDLE_THRESHOLD = 200
@@ -33,6 +36,8 @@ class ImageManipulation:
         self._cropRowCandidates = {}
         self._mmPerPixel = 0
         self._stitcher = cv.Stitcher.create(cv.Stitcher_PANORAMA)
+        self._centers = []
+        self._angles = None
 
     def init(self):
         self._cvimage = cv.cvtColor(self._image)
@@ -146,27 +151,30 @@ class ImageManipulation:
         # Works
         #ret,thresh = cv.threshold(self._cartooned,127,255,0)
         ret,thresh = cv.threshold(self._imgAsGreyscale, 127,255,cv.THRESH_BINARY+cv.THRESH_OTSU)
-        #self.write(thresh, "threshold.jpg")
+        self.write(thresh, "threshold.jpg")
         kernel = np.ones((5,5),np.uint8)
         erosion = cv.erode(self._cartooned, kernel,iterations = 3)
+        #erosion = cv.erode(erosion, kernel,iterations = 3)
         #self.write(erosion, "erosion.jpg")
-        erosion = cv.dilate(erosion,kernel,iterations = 3)
+        erosion = cv.dilate(erosion,kernel,iterations = 12) # originally 3
 
         closing = cv.morphologyEx(erosion, cv.MORPH_CLOSE, kernel)
-        #self.write(closing, "closing.jpg")
+        self.write(closing, "closing.jpg")
         #self.show("binary", erosion)
-        #self.write(erosion, "binary.jpg")
+        self.write(erosion, "binary.jpg")
 
         # Originally
         # candidate = erosion
 
+        largestName = "unknown"
+        area = 0
         candidate = closing
         self.write(candidate, "candidate.jpg")
         # find contours in the binary image
         #im2, contours, hierarchy = cv.findContours(thresh,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
-        # We don't need the hierarchy at this point, so the RETR_LIST seems faster
+        # We don't need the hierarchy at this point, so the RETR_EXTERNAL seems faster
         #contours, hierarchy = cv.findContours(erosion,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
-        contours, hierarchy = cv.findContours(candidate,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
+        contours, hierarchy = cv.findContours(candidate,cv.RETR_TREE,cv.CHAIN_APPROX_NONE)
 
         self._contours = contours
 
@@ -183,7 +191,10 @@ class ImageManipulation:
                 cX, cY = 0, 0
 
             x,y,w,h = cv.boundingRect(c)
-            area = w*h
+            # The area of the bounding rectangle
+            #area = w*h
+            # The area of the vegetation
+            area = cv.contourArea(c)
             type = constants.TYPE_UNKNOWN
             location = (x,y,w,h)
             center = (cX,cY)
@@ -213,14 +224,22 @@ class ImageManipulation:
     def identifyOverlappingVegetation(self):
         i = 0
 
+        # walk through the hierarchy to determine if any blob is contained within another
         for contour in self._hierarchy[0]:
             (next, previous, child, parent) = contour
             name = "blob" + str(i)
-            if parent != -1:
-                if name in self._blobs:
-                    attributes = self._blobs[name]
-                    attributes[constants.NAME_TYPE] = constants.TYPE_UNTREATED
-                    print("detected overlap")
+            # If an object has a parent, that means it is contained within another
+            if parent != -1 and name in self._blobs:
+                attributes = self._blobs[name]
+                print("Find: " + str(attributes[constants.NAME_CENTER]))
+                # Determine if the point is within the blob
+                isInsideContour = cv.pointPolygonTest(attributes[constants.NAME_CONTOUR],attributes[constants.NAME_CENTER], False)
+                if isInsideContour:
+                    attributes[constants.NAME_TYPE] = constants.TYPE_IGNORED
+                # if name in self._blobs:
+                #     attributes = self._blobs[name]
+                #     attributes[constants.NAME_TYPE] = constants.TYPE_UNTREATED
+                #     print("detected overlap")
             i = i + 1
 
     def identifyCloseVegetation(self):
@@ -254,7 +273,7 @@ class ImageManipulation:
             (x,y,w,h) = blobAttributes[constants.NAME_LOCATION]
             (x,y) = blobAttributes[constants.NAME_CENTER]
             #cv.circle(self.blank_image,(x,y),1, (255,255,255), -1)
-            self.cropline_image = cv.rectangle(self.cropline_image, (x, y), (x + 20, y + 10), (255, 255, 255), 2)
+            self.cropline_image = cv.rectangle(self.cropline_image, (x, y), (x + 100, y + 30), (255, 255, 255), 2)
 
         #filename = "candidates-" + str(uuid.uuid4()) + ".jpg"
 
@@ -268,30 +287,146 @@ class ImageManipulation:
         # This allows for some plants in the crop line to be slightly offset from other plants
         # in the same row
         # What is needed is to detect roughly horizontal lines
-        self.linesP = cv.HoughLinesP(dst, 1, np.pi / 180, 1, None, minLineLength=100, maxLineGap=1000)
-        if self.linesP is not None:
-            for i in range(0, len(self.linesP)):
-                l = self.linesP[i][0]
-                cv.line(self.cropline_image, (l[0], l[1]), (l[2], l[3]), (0, 0, 255), 3, cv.LINE_AA)
+        self.linesP = cv.HoughLinesP(dst, 1, np.pi / 120, 50, None, minLineLength=100, maxLineGap=1500)
+
+        self.lines = cv.HoughLines(dst, 50, np.pi/2, 200)
+
+        # if self.linesP is not None:
+        #     for i in range(0, len(self.linesP)):
+        #         l = self.linesP[i][0]
+        #         cv.line(self.cropline_image, (l[0], l[1]), (l[2], l[3]), (0, 0, 255), 3, cv.LINE_AA)
         #cv.imwrite("crop-lines.jpg", self.cropline_image)
+
+    def angleOf(self, p1: (), p2: ()) -> float:
+        """
+        Calculate the angles between all elements. Results are in _angles
+        """
+        (p1x1, p1y1) = p1
+        (p2x2, p2y2) = p2
+        deltaY = p1y1 - p2y2
+        deltaX = p1x1 - p2x2
+        angle = math.atan2(deltaY, deltaX)
+        degrees = math.degrees(angle)
+        if degrees < 0:
+            final_degrees = 180 + degrees
+        else:
+            final_degrees = 180 - degrees
+        if p1x1 > p2x2:
+            final_degrees = 180 - final_degrees
+
+        return final_degrees
+
+    def findAngles(self):
+
+        self._centersUnsorted = []
+        self._centers = []
+
+        centerCount = 0
+        for blobName, blobAttributes in self._blobs.items():
+            if(blobAttributes[constants.NAME_TYPE]) != constants.TYPE_UNDESIRED:
+                centerCount = centerCount + 1
+                print(blobName + ": " + str(blobAttributes[constants.NAME_CENTER]))
+                # Keep the name with the coordinates so we know which blob this refers to
+                self._centersUnsorted.append(blobAttributes[constants.NAME_CENTER] + tuple([blobName]))
+        print(self._centersUnsorted)
+
+        # Create an array to hold the angles between the blobs
+        self._angles = np.zeros((centerCount, centerCount))
+
+        # Sort the centers by the X value -- the first
+        #self._centers = sorted(self._centersUnsorted, key=lambda x: x[0])
+        #print(self._centers)
+
+        self._centers = self._centersUnsorted
+
+        # There may ve only one crop in the image
+        if len(self._centers) > 1:
+            for i in range(len(self._centers)):
+                for j in range(len(self._centers)):
+                    point1 = self._centers[i]
+                    point2 = self._centers[j]
+                    angle = self.angleOf((point1[0], point1[1]), (point2[0], point2[1]))
+                    self._angles[i, j] = angle
+                    #print(str(point1) + " to " + str(point2) + " angle " + str(angle))
+                    #cv.line(self._image, (point1[0], point1[1]), (point2[0], point2[1]), (0,255,0), 3, cv.LINE_AA)
+        else:
+            (x,y,name) = self._centers[0]
+            self._cropY = y
+            return
+
+        # Change 180 to zero -- this is the case when we compute from/to the same point
+        self._angles = np.where(self._angles == 180, 0, self._angles)
+        # Threshold the values so we can tell roughly what is in a line
+        self._angles = np.where(self._angles > 5, np.nan, self._angles)
+
+        # TODO: This logic is a mess. Clean up
+        # Create a dataframe from the angles computed
+        self._df = pd.DataFrame(data=self._angles)
+
+        # Find the entry with the smallest number of NaNs
+        sums = self._df.isnull().sum().nsmallest(1)
+        print(sums)
+
+        smallestDistanceFromY = 10000
+        smallestIndex = 10000
+
+        (y, centerX, depth) = self._image.shape
+        centerY = int(y/2)
+
+
+
+        for index, row in sums.iteritems():
+
+            (x, y, blobName) = self._centers[index]
+            distanceFromY = abs(centerY - y)
+            print("Distance from Y: " + str(distanceFromY) + " smallestY: " + str(smallestDistanceFromY))
+            if(distanceFromY < smallestDistanceFromY):
+                smallestIndex = index
+                smallestDistanceFromY = distanceFromY
+
+        (cropX, cropY, blobName) = self._centers[smallestIndex]
+
+        # This is all we need. The Y location of the crop line in the image
+        self._cropY = cropY
+
+        return
 
     def drawCropline(self):
         """
         Draw a cropline on the current image if one has been found.
         """
         (height, width, depth) = self.image.shape
-        cv.line(self.cropline_image, (0,int(height/2)), (width, int(height/2)), (0,0,255), 3, cv.LINE_AA)
-        if self.linesP is not None:
-            for i in range(0, len(self.linesP)):
-                l = self.linesP[i][0]
-                cv.line(self._image, (l[0], l[1]), (l[2], l[3]), (0, 0, 255), 3, cv.LINE_AA)
-                cv.putText(self._image,
-                           str(self.mmBetweenPoints((l[0],l[1]), (l[2], l[3]), self._mmPerPixel)) + " mm",
-                           (l[0] + 25, l[1] + 25),
-                           cv.FONT_HERSHEY_SIMPLEX,
-                           0.75,
-                           (255,255,255),
-                           2)
+        cv.line(self._image, (0,int(height/2)), (width, int(height/2)), (0,127,127), 3, cv.LINE_AA)
+        cv.putText(self._image,
+                   "Center Line",
+                   (int(width/2), int(height/2) + 20),
+                   cv.FONT_HERSHEY_SIMPLEX,
+                   0.75,
+                   (0,127,127),
+                   2)
+
+        cv.line(self._image, (0,self._cropY), (width, self._cropY), (255,255,255), 3, cv.LINE_AA)
+        cv.putText(self._image,
+                   "Crop Line",
+                   (int(width/2) + 200, self._cropY + 20),
+                   cv.FONT_HERSHEY_SIMPLEX,
+                   0.75,
+                   (255,255,255),
+                   2)
+
+
+
+        # if self.linesP is not None:
+        #     for i in range(0, len(self.linesP)):
+        #         l = self.linesP[i][0]
+        #         cv.line(self._image, (l[0], l[1]), (l[2], l[3]), (0, 0, 255), 3, cv.LINE_AA)
+        #         cv.putText(self._image,
+        #                    str(self.mmBetweenPoints((l[0],l[1]), (l[2], l[3]), self._mmPerPixel)) + " mm",
+        #                    (l[0] + 25, l[1] + 25),
+        #                    cv.FONT_HERSHEY_SIMPLEX,
+        #                    0.75,
+        #                    (255,255,255),
+        #                    2)
 
 
     def drawContours(self):
@@ -307,6 +442,7 @@ class ImageManipulation:
         for rectName, rectAttributes in rectangles.items():
             (x,y,w,h) = rectAttributes[constants.NAME_LOCATION]
             (cX,cY) = rectAttributes[constants.NAME_CENTER]
+            area = rectAttributes[constants.NAME_AREA]
             type = rectAttributes[constants.NAME_TYPE]
             if type == constants.TYPE_UNKNOWN:
                 color = COLOR_UNKNOWN
@@ -314,12 +450,16 @@ class ImageManipulation:
                 color = COLOR_WEED
             elif type == constants.TYPE_UNTREATED:
                 color = COLOR_UNTREATED
+            elif type == constants.TYPE_IGNORED:
+                color = COLOR_IGNORED
             else:
                 color = COLOR_CROP
             self._image = cv.rectangle(self._image,(x,y),(x+w,y+h),color,2)
             cv.circle(self._image, (cX, cY), 5, (255, 255, 255), -1)
             location = "(" + str(cX) + "," + str(cY) + ")"
+            areaText = "[" + str(area) + "]"
             cv.putText(self._image, location, (cX - 25, cY - 25),cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+            cv.putText(self._image, areaText, (cX - 25, cY - 50),cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
 
             #asRGB = self._image * 255
 

@@ -15,6 +15,13 @@ from Logger import Logger
 from Classifier import Classifier
 from Odometer import VirtualOdometer
 from Performance import Performance
+from Reporting import Reporting
+import constants
+
+def tuple_type(strings):
+    strings = strings.replace("(", "").replace(")", "")
+    mapped_int = map(int, strings.split(","))
+    return tuple(mapped_int)
 
 veg = VegetationIndex()
 
@@ -25,11 +32,15 @@ parser.add_argument('-o', '--output', action="store", help="Output directory for
 parser.add_argument("-a", '--algorithm', action="store", help="Vegetation Index algorithm",
                     choices=veg.GetSupportedAlgorithms(),
                     default="ngrdi")
-parser.add_argument("-t", "--threshold", action="store", type=int, default=0)
+parser.add_argument("-t", "--threshold", action="store", type=tuple_type, default="(0,0)")
 parser.add_argument("-s", "--stitch", action="store_true", help="Stitch images together")
 parser.add_argument("-v", "--verbose", action="store_true", default=False)
 parser.add_argument("-p", '--plot', action="store_true", help="Show 3D plot of index", default=False)
 parser.add_argument("-P", "--performance", action="store", type=str, default="performance.csv")
+parser.add_argument("-n", "--nonegate", action="store_true", default=False)
+parser.add_argument("-m", "--mask", action="store_true", default=False, help="Mask only -- no processing")
+parser.add_argument("-d", "--decorate", action="store_true", default=False, help="Full decorations")
+parser.add_argument("-hg", "--histograms", action="store_true", default=False, help="Show histograms")
 
 results = parser.parse_args()
 
@@ -83,9 +94,9 @@ def startupPerformance() -> Performance:
 # L O G G E R
 #
 
-def startupLogger() -> Logger:
+def startupLogger(outputDirectory: str) -> Logger:
     logger = Logger()
-    if not logger.connect("./output"):
+    if not logger.connect(outputDirectory):
         print("Unable to connect to logging. ./output does not exist.")
         sys.exit(1)
     return logger
@@ -108,7 +119,7 @@ def plot3D(index, title):
 
 camera = startupCamera()
 odometer = startupOdometer()
-logger = startupLogger()
+logger = startupLogger(results.output)
 performance = startupPerformance()
 
 mmPerPixel = camera.getMMPerPixel()
@@ -144,11 +155,19 @@ try:
             plot3D(index, results.algorithm)
 
         # Get the mask
-        mask, threshold = veg.MaskFromIndex(index, True, 1, results.threshold)
+        #mask, threshold = veg.MaskFromIndex(index, True, 1, results.threshold)
+        mask, threshold = veg.MaskFromIndex(index, not results.nonegate, 1, results.threshold)
 
         veg.applyMask()
         #image = veg.GetMaskedImage()
         image = veg.GetImage()
+        if results.mask:
+            logger.logImage("processed", image)
+            veg.ShowImage("index", index)
+            plt.imshow(veg.imageMask, cmap='gray', vmin=0, vmax=1)
+            plt.show()
+            #logger.logImage("mask", veg.imageMask)
+            break
         #ImageManipulation.show("Masked", image)
 
         manipulated = ImageManipulation(image)
@@ -157,6 +176,7 @@ try:
         # Find the plants in the image
         performance.start()
         contours, hierarchy, blobs, largest = manipulated.findBlobs(500)
+
         performance.stopAndRecord("contours")
 
 
@@ -175,6 +195,8 @@ try:
         # Draw boxes around the images we found
         #manipulated.drawBoundingBoxes(contours)
         manipulated.drawBoxes(classifiedBlobs)
+
+        manipulated.findAngles()
 
         # Crop row processing
         manipulated.identifyCropRowCandidates()
@@ -204,6 +226,11 @@ try:
         #cv.imwrite("processed.jpg", manipulated.image)
         logger.logImage("processed", manipulated.image)
         #ImageManipulation.show("Greyscale", manipulated.toGreyscale())
+
+        reporting = Reporting(blobs)
+
+        if results.histograms:
+            reporting.showHistogram("Areas", 20, constants.NAME_AREA)
 
 except IOError:
     print("There was a problem communicating with the camera")
