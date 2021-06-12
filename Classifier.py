@@ -14,6 +14,9 @@ class Classifier:
     def blob(self):
         return self._blobs
 
+    def classifyWithinCropRow(self):
+        return
+
     def classifyByRatio(self, largest: int, size : (),ratio: int):
         """
         Classify blobs in the image my size ratio.
