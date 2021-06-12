@@ -5,6 +5,7 @@
 import uuid
 
 from PIL import Image
+from numpy import linalg as LA
 import numpy as np
 import matplotlib.pyplot as plt
 import cv2 as cv
@@ -38,6 +39,7 @@ class ImageManipulation:
         self._stitcher = cv.Stitcher.create(cv.Stitcher_PANORAMA)
         self._centers = []
         self._angles = None
+        self._shapeIndices = []
 
     def init(self):
         self._cvimage = cv.cvtColor(self._image)
@@ -156,7 +158,7 @@ class ImageManipulation:
         erosion = cv.erode(self._cartooned, kernel,iterations = 3)
         #erosion = cv.erode(erosion, kernel,iterations = 3)
         #self.write(erosion, "erosion.jpg")
-        erosion = cv.dilate(erosion,kernel,iterations = 12) # originally 3
+        erosion = cv.dilate(erosion,kernel,iterations = 3) # originally 3
 
         closing = cv.morphologyEx(erosion, cv.MORPH_CLOSE, kernel)
         self.write(closing, "closing.jpg")
@@ -242,6 +244,66 @@ class ImageManipulation:
                 #     print("detected overlap")
             i = i + 1
 
+    def computeShapeIndices(self):
+        """
+        Compute shape indices for all objects in image.
+        The formula for this is given by Lin as e/4*sqrt(A)
+        :return:
+        """
+        for blobName, blobAttributes in self._blobs.items():
+            # The perimeter of the contour of the object
+            perimeter = cv.arcLength(blobAttributes[constants.NAME_CONTOUR],True)
+            shapeIndex = perimeter / (4 * math.sqrt(blobAttributes[constants.NAME_AREA]))
+            blobAttributes[constants.NAME_SHAPE_INDEX] = shapeIndex
+            self._shapeIndices.append(shapeIndex)
+        return
+
+    @property
+    def shapeIndices(self):
+        return self._shapeIndices
+
+    def decorateBlobs(self):
+        return
+
+    @staticmethod
+    def lengthWidthRatio(contour: np.ndarray) -> float:
+        """
+        Returns the length/width ratio given a contour.
+        :param contour:
+        :return: A float of the length/width ratio
+        """
+        # Taken from:
+        # Lin, F., D. Zhang, Y. Huang, X. Wang, and X. Chen. 2017.
+        # “Detection of Corn and Weed Species by the Combination of Spectral, Shape and Textural Features.”
+        # Sustainability (Switzerland) 9 (8). https://doi.org/10.3390/su9081335.
+
+        # The X values of the contour
+        xCoordinates = contour[:,0,0]
+        # The Y values of the contour
+        yCoordinates = contour[:,0,1]
+
+        varX = np.var(xCoordinates)
+        varY = np.var(yCoordinates)
+        covXY = np.cov(xCoordinates, yCoordinates)[0,1]
+
+        # The covariance matrix shown in Lin 2017 equation 2
+        s = np.array([[varX,covXY],[covXY,varY]])
+        # The eiginvalue computation
+        w, v = np.linalg.eig(s)
+        ratio = w.max() / w.min()
+        return ratio
+
+    def computeLengthWidthRatios(self):
+        """
+        Inserts the length width ratio for all blobs.
+        :return:
+        """
+        for blobName, blobAttributes in self._blobs.items():
+            contour = blobAttributes[constants.NAME_CONTOUR]
+            blobAttributes[constants.NAME_RATIO] = self.lengthWidthRatio(contour)
+
+        return
+
     def identifyCloseVegetation(self):
         return
 
@@ -265,6 +327,7 @@ class ImageManipulation:
 
     def substituteRectanglesForVegetation(self):
         """
+        Deprecated. Do not use this method.
         Using the identified centers of where the vegetation, draw low height rectangles
         that are later used for crop line detection
         """
@@ -323,7 +386,7 @@ class ImageManipulation:
 
         centerCount = 0
         for blobName, blobAttributes in self._blobs.items():
-            if(blobAttributes[constants.NAME_TYPE]) != constants.TYPE_UNDESIRED:
+            if blobAttributes[constants.NAME_TYPE] != constants.TYPE_UNDESIRED and blobAttributes[constants.NAME_TYPE] != constants.TYPE_IGNORED:
                 centerCount = centerCount + 1
                 print(blobName + ": " + str(blobAttributes[constants.NAME_CENTER]))
                 # Keep the name with the coordinates so we know which blob this refers to
@@ -339,7 +402,7 @@ class ImageManipulation:
 
         self._centers = self._centersUnsorted
 
-        # There may ve only one crop in the image
+        # There may have only one crop in the image
         if len(self._centers) > 1:
             for i in range(len(self._centers)):
                 for j in range(len(self._centers)):
@@ -364,7 +427,7 @@ class ImageManipulation:
         self._df = pd.DataFrame(data=self._angles)
 
         # Find the entry with the smallest number of NaNs
-        sums = self._df.isnull().sum().nsmallest(1)
+        sums = self._df.isnull().sum().nsmallest(5)
         print(sums)
 
         smallestDistanceFromY = 10000
@@ -393,7 +456,7 @@ class ImageManipulation:
 
     def drawCropline(self):
         """
-        Draw a cropline on the current image if one has been found.
+        Draw a cropline on the current image if one has been found and a centerline for reference.
         """
         (height, width, depth) = self.image.shape
         cv.line(self._image, (0,int(height/2)), (width, int(height/2)), (0,127,127), 3, cv.LINE_AA)
@@ -430,9 +493,15 @@ class ImageManipulation:
 
 
     def drawContours(self):
-        self._contours_image = np.zeros(self._image.shape, np.uint8)
-        cv.drawContours(self._contours_image, self._contours, contourIdx=-1, color=(255,0,0),thickness=30)
-        cv.imwrite("contours.jpg", self._contours_image)
+        """
+        Draw the contours on the image
+        """
+        for blobName, blobAttributes in self._blobs.items():
+            contour = blobAttributes[constants.NAME_CONTOUR]
+            cv.drawContours(self._image, contour, contourIdx=-1, color=(255,0,0),thickness=5)
+        # self._contours_image = np.zeros(self._image.shape, np.uint8)
+        # cv.drawContours(self._contours_image, self._contours, contourIdx=-1, color=(255,0,0),thickness=2)
+        # cv.imwrite("contours.jpg", self._contours_image)
 
     def drawBoxes(self, rectangles: []):
         """
@@ -454,12 +523,20 @@ class ImageManipulation:
                 color = COLOR_IGNORED
             else:
                 color = COLOR_CROP
-            self._image = cv.rectangle(self._image,(x,y),(x+w,y+h),color,2)
-            cv.circle(self._image, (cX, cY), 5, (255, 255, 255), -1)
-            location = "(" + str(cX) + "," + str(cY) + ")"
-            areaText = "[" + str(area) + "]"
-            cv.putText(self._image, location, (cX - 25, cY - 25),cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
-            cv.putText(self._image, areaText, (cX - 25, cY - 50),cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+
+            # Not drawing the ignored type yields a cleaner image in the test set
+
+            if type != constants.TYPE_IGNORED:
+                self._image = cv.rectangle(self._image,(x,y),(x+w,y+h),color,2)
+                cv.circle(self._image, (cX, cY), 5, (255, 255, 255), -1)
+                location = "(" + str(cX) + "," + str(cY) + ")"
+                areaText = "[" + str(area) + "]"
+                shapeText = "Shape: " + "{:.4f}".format(rectAttributes[constants.NAME_SHAPE_INDEX])
+                lengthWidthRatioText = "L/W Ratio: " + "{:4f}".format(rectAttributes[constants.NAME_RATIO])
+                cv.putText(self._image, location, (cX - 25, cY - 25),cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+                cv.putText(self._image, areaText, (cX - 25, cY - 50),cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+                cv.putText(self._image, shapeText, (cX - 25, cY - 75), cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+                cv.putText(self._image, lengthWidthRatioText, (cX - 25, cY - 100), cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
 
             #asRGB = self._image * 255
 

@@ -192,6 +192,14 @@ try:
 
         classifiedBlobs = classifier.blob
 
+        performance.start()
+        manipulated.computeShapeIndices()
+        performance.stopAndRecord("shapes")
+
+        performance.start()
+        manipulated.computeLengthWidthRatios()
+        performance.stopAndRecord("LW Ratio")
+
         # Draw boxes around the images we found
         #manipulated.drawBoundingBoxes(contours)
         manipulated.drawBoxes(classifiedBlobs)
@@ -200,13 +208,17 @@ try:
 
         # Crop row processing
         manipulated.identifyCropRowCandidates()
-        manipulated.substituteRectanglesForVegetation()
 
         #logger.logImage("cropline", manipulated.croplineImage)
-        manipulated.detectLines()
+        # This is using the hough transform which we abandoned as a technique
+        #manipulated.detectLines()
         manipulated.drawCropline()
-        logger.logImage("crop-line", manipulated.croplineImage)
+        #logger.logImage("crop-line", manipulated.croplineImage)
         manipulated.drawContours()
+
+
+        # Put annotations on the images on screen
+        manipulated.decorateBlobs()
 
         # Just a test of stitching. This needs some more thought
         # we can't stitch things where there is nothing in common between the two images
@@ -231,6 +243,7 @@ try:
 
         if results.histograms:
             reporting.showHistogram("Areas", 20, constants.NAME_AREA)
+            reporting.showHistogram("Shape", 20, constants.NAME_SHAPE_INDEX)
 
 except IOError:
     print("There was a problem communicating with the camera")
