@@ -118,6 +118,10 @@ class ImageManipulation:
 
         return self._imgAsGreyscale
 
+    @property
+    def greyscale(self):
+        return self._imgAsGreyscale
+
     def findEdges(self, image: np.ndarray):
         self._edges = cv.Canny(self._imgAsGreyscale, 20, 30)
         return
@@ -155,7 +159,7 @@ class ImageManipulation:
         ret,thresh = cv.threshold(self._imgAsGreyscale, 127,255,cv.THRESH_BINARY+cv.THRESH_OTSU)
         self.write(thresh, "threshold.jpg")
         kernel = np.ones((5,5),np.uint8)
-        erosion = cv.erode(self._cartooned, kernel,iterations = 3)
+        erosion = cv.erode(self._cartooned, kernel,iterations = 4)
         #erosion = cv.erode(erosion, kernel,iterations = 3)
         #self.write(erosion, "erosion.jpg")
         erosion = cv.dilate(erosion,kernel,iterations = 3) # originally 3
@@ -200,6 +204,10 @@ class ImageManipulation:
             type = constants.TYPE_UNKNOWN
             location = (x,y,w,h)
             center = (cX,cY)
+
+
+
+
             infoAboutBlob = {constants.NAME_LOCATION: location,
                              constants.NAME_CENTER: center,
                              constants.NAME_AREA: area,
@@ -226,6 +234,9 @@ class ImageManipulation:
     def identifyOverlappingVegetation(self):
         i = 0
 
+        if self._hierarchy is None:
+            return
+
         # walk through the hierarchy to determine if any blob is contained within another
         for contour in self._hierarchy[0]:
             (next, previous, child, parent) = contour
@@ -250,10 +261,26 @@ class ImageManipulation:
         The formula for this is given by Lin as e/4*sqrt(A)
         :return:
         """
+        # Taken from:
+        # Lin, F., D. Zhang, Y. Huang, X. Wang, and X. Chen. 2017.
+        # “Detection of Corn and Weed Species by the Combination of Spectral, Shape and Textural Features.”
+        # Sustainability (Switzerland) 9 (8). https://doi.org/10.3390/su9081335.
+
         for blobName, blobAttributes in self._blobs.items():
-            # The perimeter of the contour of the object
-            perimeter = cv.arcLength(blobAttributes[constants.NAME_CONTOUR],True)
-            shapeIndex = perimeter / (4 * math.sqrt(blobAttributes[constants.NAME_AREA]))
+            #
+            # This is the case of vegetation at the edge of the image. The ratio and the shape index
+            # are not accurate, as there will be a long straight section that will throw off the calculations
+            #
+            (maxY, maxX, depth) = self._image.shape
+            # The bounding rectangle of the blob
+            (x, y, w, h) = blobAttributes[constants.NAME_LOCATION]
+            if(x == 0 or x+w >= maxX):
+                shapeIndex = 0
+            else:
+                # The perimeter of the contour of the object
+                perimeter = cv.arcLength(blobAttributes[constants.NAME_CONTOUR],True)
+                shapeIndex = perimeter / (4 * math.sqrt(blobAttributes[constants.NAME_AREA]))
+
             blobAttributes[constants.NAME_SHAPE_INDEX] = shapeIndex
             self._shapeIndices.append(shapeIndex)
         return
@@ -299,8 +326,19 @@ class ImageManipulation:
         :return:
         """
         for blobName, blobAttributes in self._blobs.items():
-            contour = blobAttributes[constants.NAME_CONTOUR]
-            blobAttributes[constants.NAME_RATIO] = self.lengthWidthRatio(contour)
+            #
+            # This is the case of vegetation at the edge of the image. The ratio and the shape index
+            # are not accurate, as there will be a long straight section that will throw off the calculations
+            #
+            (maxY, maxX, depth) = self._image.shape
+            # The bounding rectangle of the blob
+            (x, y, w, h) = blobAttributes[constants.NAME_LOCATION]
+            if(x == 0 or x+w >= maxX):
+                lengthWidthRatio = 0
+                blobAttributes[constants.NAME_RATIO] = 0
+            else:
+                contour = blobAttributes[constants.NAME_CONTOUR]
+                blobAttributes[constants.NAME_RATIO] = self.lengthWidthRatio(contour)
 
         return
 
@@ -503,7 +541,7 @@ class ImageManipulation:
         # cv.drawContours(self._contours_image, self._contours, contourIdx=-1, color=(255,0,0),thickness=2)
         # cv.imwrite("contours.jpg", self._contours_image)
 
-    def drawBoxes(self, rectangles: []):
+    def drawBoxes(self, rectangles: [], decorations: []):
         """
         Draw colored boxes around the blobs based on what type they are
         :param rectangles: A list of rectangles surrounding the blobs
@@ -533,15 +571,15 @@ class ImageManipulation:
                 areaText = "[" + str(area) + "]"
                 shapeText = "Shape: " + "{:.4f}".format(rectAttributes[constants.NAME_SHAPE_INDEX])
                 lengthWidthRatioText = "L/W Ratio: " + "{:4f}".format(rectAttributes[constants.NAME_RATIO])
-                cv.putText(self._image, location, (cX - 25, cY - 25),cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
-                cv.putText(self._image, areaText, (cX - 25, cY - 50),cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
-                cv.putText(self._image, shapeText, (cX - 25, cY - 75), cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
-                cv.putText(self._image, lengthWidthRatioText, (cX - 25, cY - 100), cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+                if constants.NAME_LOCATION in decorations:
+                    cv.putText(self._image, location, (cX - 25, cY - 25),cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+                if constants.NAME_AREA in decorations:
+                    cv.putText(self._image, areaText, (cX - 25, cY - 50),cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+                if constants.NAME_SHAPE_INDEX in decorations:
+                    cv.putText(self._image, shapeText, (cX - 25, cY - 75), cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+                if constants.NAME_RATIO in decorations:
+                    cv.putText(self._image, lengthWidthRatioText, (cX - 25, cY - 100), cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
 
-            #asRGB = self._image * 255
-
-        #asRGB = Image.fromarray(self._image.astype(np.float32))
-        #self.save(self._image, "centers.jpg")
         #cv.imwrite("opencv-centers.jpg", self._image)
         #self.show("centers", self._image)
         #cv.waitKey()

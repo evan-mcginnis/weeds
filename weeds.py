@@ -35,12 +35,14 @@ parser.add_argument("-a", '--algorithm', action="store", help="Vegetation Index 
 parser.add_argument("-t", "--threshold", action="store", type=tuple_type, default="(0,0)")
 parser.add_argument("-s", "--stitch", action="store_true", help="Stitch images together")
 parser.add_argument("-v", "--verbose", action="store_true", default=False)
+parser.add_argument("-c", "--contours", action="store_true", default=False, help="Show contours on images")
 parser.add_argument("-p", '--plot', action="store_true", help="Show 3D plot of index", default=False)
 parser.add_argument("-P", "--performance", action="store", type=str, default="performance.csv")
 parser.add_argument("-n", "--nonegate", action="store_true", default=False)
 parser.add_argument("-m", "--mask", action="store_true", default=False, help="Mask only -- no processing")
 parser.add_argument("-d", "--decorate", action="store_true", default=False, help="Full decorations")
 parser.add_argument("-hg", "--histograms", action="store_true", default=False, help="Show histograms")
+parser.add_argument("-r", "--results", action="store", default="results.csv", help="Name of results file")
 
 results = parser.parse_args()
 
@@ -124,7 +126,25 @@ performance = startupPerformance()
 
 mmPerPixel = camera.getMMPerPixel()
 
+# Keep track of everything seen in processing
+
+reporting = Reporting()
+
 previousImage = None
+sequence = 0
+
+# These are the attributes that will decorate objects in the images
+featuresToShow = [constants.NAME_AREA,
+                  constants.NAME_TYPE,
+                  constants.NAME_LOCATION,
+                  constants.NAME_CENTER,
+                  constants.NAME_SHAPE_INDEX,
+                  constants.NAME_RATIO]
+
+# The contours are a bit distracting
+if results.contours:
+    featuresToShow.append(constants.NAME_CONTOUR)
+
 #
 # G R A N D  L O O P
 #
@@ -133,13 +153,13 @@ try:
     # TODO: Accept signal to stop processing
     while True:
         performance.start()
-        image = camera.capture()
+        rawImage = camera.capture()
         performance.stopAndRecord("aquire")
 
         #ImageManipulation.show("Source",image)
-        veg.SetImage(image)
+        veg.SetImage(rawImage)
 
-        manipulated = ImageManipulation(image)
+        manipulated = ImageManipulation(rawImage)
         manipulated.mmPerPixel = mmPerPixel
         #ImageManipulation.show("Greyscale", manipulated.toGreyscale())
 
@@ -159,26 +179,44 @@ try:
         mask, threshold = veg.MaskFromIndex(index, not results.nonegate, 1, results.threshold)
 
         veg.applyMask()
+        # This is the slow call
         #image = veg.GetMaskedImage()
         image = veg.GetImage()
+        normalized = np.zeros_like(image)
+        finalImage = cv.normalize(image,  normalized, 0, 255, cv.NORM_MINMAX)
         if results.mask:
-            logger.logImage("processed", image)
-            veg.ShowImage("index", index)
-            plt.imshow(veg.imageMask, cmap='gray', vmin=0, vmax=1)
+            filledMask = mask.copy().astype(np.uint8)
+            cv.floodFill(filledMask, None, (0,0),255)
+            filledMaskInverted = cv.bitwise_not(filledMask)
+            manipulated.toGreyscale()
+            threshold, imageThresholded = cv.threshold(manipulated.greyscale, 0,255, cv.THRESH_BINARY_INV)
+            finalMask = cv.bitwise_not(filledMaskInverted)
+            logger.logImage("processed", finalImage)
+            veg.ShowImage("Thresholded", imageThresholded)
+            logger.logImage("inverted", filledMaskInverted)
+            veg.ShowImage("Filled", filledMask)
+            veg.ShowImage("Inverted", filledMaskInverted)
+            veg.ShowImage("Final", finalMask)
+            logger.logImage("final", finalMask)
+            #plt.imshow(veg.imageMask, cmap='gray', vmin=0, vmax=1)
+            plt.imshow(finalImage)
             plt.show()
             #logger.logImage("mask", veg.imageMask)
             break
         #ImageManipulation.show("Masked", image)
 
-        manipulated = ImageManipulation(image)
+        manipulated = ImageManipulation(finalImage)
         manipulated.mmPerPixel = mmPerPixel
 
         # Find the plants in the image
         performance.start()
         contours, hierarchy, blobs, largest = manipulated.findBlobs(500)
-
         performance.stopAndRecord("contours")
 
+        # The test should probably be if we did not find any blobs
+        if largest == "unknown":
+            logger.logImage("error", manipulated.image)
+            continue
 
         performance.start()
         manipulated.identifyOverlappingVegetation()
@@ -202,7 +240,7 @@ try:
 
         # Draw boxes around the images we found
         #manipulated.drawBoundingBoxes(contours)
-        manipulated.drawBoxes(classifiedBlobs)
+        manipulated.drawBoxes(classifiedBlobs, featuresToShow)
 
         manipulated.findAngles()
 
@@ -214,7 +252,8 @@ try:
         #manipulated.detectLines()
         manipulated.drawCropline()
         #logger.logImage("crop-line", manipulated.croplineImage)
-        manipulated.drawContours()
+        if results.contours:
+            manipulated.drawContours()
 
 
         # Put annotations on the images on screen
@@ -239,16 +278,19 @@ try:
         logger.logImage("processed", manipulated.image)
         #ImageManipulation.show("Greyscale", manipulated.toGreyscale())
 
-        reporting = Reporting(blobs)
+        reporting.addBlobs(sequence, blobs)
+        sequence = sequence + 1
 
-        if results.histograms:
-            reporting.showHistogram("Areas", 20, constants.NAME_AREA)
-            reporting.showHistogram("Shape", 20, constants.NAME_SHAPE_INDEX)
 
 except IOError:
     print("There was a problem communicating with the camera")
     sys.exit(1)
 except EOFError:
     print("End of input")
-    sys.exit(0)
+    #sys.exit(0)
 
+if results.histograms:
+    reporting.showHistogram("Areas", 20, constants.NAME_AREA)
+    reporting.showHistogram("Shape", 20, constants.NAME_SHAPE_INDEX)
+
+reporting.writeSummary(results.results)

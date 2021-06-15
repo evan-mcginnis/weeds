@@ -4,11 +4,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 from mpl_toolkits.mplot3d import Axes3D
 import datetime
+import argparse
 
 import viplab_lib as vip
 from mpl_toolkits import mplot3d
 
 from ImageManipulation import ImageManipulation
+
+
 
 
 class VegetationIndex:
@@ -122,7 +125,7 @@ class VegetationIndex:
 
     # The VIP routine is quite slow
     def GetMaskedImage(self) -> np.ndarray:
-        maskedRGB = vip.Image_getRGB(self.redBandMasked, self.greenBandMasked, self.blueBandMasked, 8000)
+        maskedRGB = vip.Image_getBGR(self.redBandMasked, self.greenBandMasked, self.blueBandMasked, 8000)
         return maskedRGB
 
     # The opencv routine is fast, but seems to introduce some noise in the image
@@ -151,7 +154,9 @@ class VegetationIndex:
         data.save(name)
 
     def SetImage(self, image):
-        self.img = image
+        normalized = np.zeros_like(image)
+        finalImage = cv.normalize(image,  normalized, 0, 255, cv.NORM_MINMAX)
+        self.img = finalImage
 
         self.imgNP = np.array(self.img).astype(dtype=np.int16)
         self.redBand = self.imgNP[:, :, self.CV_RED]
@@ -242,6 +247,8 @@ class VegetationIndex:
         :return:
         The mask as a numpy array with RGB channels
         """
+
+        # TODO: This routine is a mess. Rewrite
         # If a threshold is not supplied, use Otsu
         if threshold == None:
             # Convert to a grayscale#
@@ -277,8 +284,28 @@ class VegetationIndex:
             finalMask = np.logical_not(thresholdedIndex)
             #negated = finalMask
 
+        # Touch up the mask with some floodfill
+        filledMask = finalMask.copy().astype(np.uint8)
+        cv.floodFill(filledMask, None, (0,0),255)
+        filledMaskInverted = cv.bitwise_not(filledMask)
+        # finalMask = cv.bitwise_not(filledMaskInverted)
+        # #plt.imshow(finalMask, cmap='gray', vmin=0, vmax=1)
+        # #plt.show()
+        # As we apply this mask as multiplying, convert 255s to 1
+        filledMaskInverted = np.where(filledMaskInverted > 0, 1, filledMaskInverted)
+
+        self.mask = filledMaskInverted
+        finalMask = filledMaskInverted
+
+        negated = filledMaskInverted
+        #negated = np.logical_not(filledMaskInverted)
+        # End floodfill touch up
+
+
         self.mask = negated
 
+
+        # FYI: the mask value returned here is not used
         return finalMask, threshold
 
     @property
@@ -286,8 +313,6 @@ class VegetationIndex:
         return self.mask
 
     def applyMask(self):
-        #negated = np.logical_not(self.mask)
-        #negated = np.logical_not(index)
         self.redBandMasked = self.redBand * self.mask # DataRED * negated
         self.greenBandMasked = self.greenBand * self.mask  # DataGREEN * negated
         self.blueBandMasked = self.blueBand * self.mask  # DataBLUE * negated
@@ -403,7 +428,7 @@ class VegetationIndex:
 
     def NDI(self) -> np.ndarray:
 
-        img = self.images[0]
+        #img = self.images[0]
 
 
         # Avoid conversion problems and set the dtype explicitly
@@ -508,6 +533,18 @@ class VegetationIndex:
 
 if __name__ == "__main__":
     utility = VegetationIndex()
+    parser = argparse.ArgumentParser("Show various vegetation indices")
+
+    parser.add_argument('-i', '--input', action="store", required=True, type=str, help="Image to process")
+    parser.add_argument('-o', '--output', action="store", help="Output directory for processed images")
+    parser.add_argument('-p', '--plot', action="store_true", default=False, help="Plot the index")
+    parser.add_argument('-s', '--show', action="store_true", default=False, help="Show intermediate images")
+    parser.add_argument('-t', '--threshold', action="store_true", default=False, help="Calculate thresholds")
+
+    arguments = parser.parse_args()
+
+
+    utility.Load(arguments.input)
 
     # Load the target -- this must be done first
     #utility.Load('./20190118_124612.jpg')
@@ -515,16 +552,13 @@ if __name__ == "__main__":
     #utility.Load('./LettuceBed.jpg')
     #utility.Load('./drone-pictures/DJI_0074.jpg')
     #utility.Load("./Oasis_Area.png")
-    utility.Load("./test-images/purslane.png")
+    #utility.Load("./test-images/purslane.png")
     #Not required.  Just show our starting point
     #utility.ShowImage("Source", utility.GetImage())
     from mpl_toolkits import mplot3d
     import numpy as np
     import matplotlib.pyplot as plt
 
-
-
-    plt.show()
 
     # The thresholds are probably dependant on the image selected, so
     # we can't use fixed values in practice.
@@ -555,24 +589,24 @@ if __name__ == "__main__":
                       "TGI"   : 0}
 
     # Thresholds where we need two sides (like red stems we want to pick up)
-    threshOverhead = {"NDI"   : (125,0),
-                      "EXG"   : (100,0),
+    threshOverhead = {"NDI"   : (130,0),
+                      "EXG"   : (50,0),
                       "EXR"   : (20,0),
-                      "CIVE"  : (40,10),
-                      "EXGEXR": (60,0),
-                      "NGRDI" : (0,0),
-                      "VEG"   : (1,0),
-                      "COM1"  : (5,0), # Originally 25
-                      "MEXG"  : (10,0), # Orignally 40
-                      "COM2"  : (15,0),
-                      "TGI"   : (0,0)}
+                      "CIVE"  : (40,5),
+                      "EXGEXR": (50,-9999),
+                      "NGRDI" : (0,-9999),
+                      "VEG"   : (2,-9999),
+                      "COM1"  : (5,-9999), # Originally 25
+                      "MEXG"  : (30,-9999), # Originally 40
+                      "COM2"  : (15,-9999),
+                      "TGI"   : (20,-9999)}
     threholds = threshOverhead
 
     # All of the indices
     indices = {"Normalized Difference": {"short": "NDI", "create": utility.NDI, "negate": True, "threshold": threholds["NDI"], "direction": 1},
                "Excess Green": {"short": "ExG", "create": utility.ExG, "negate": True, "threshold": threholds["EXG"], "direction": 1},
                "Excess Red": {"short": "ExR", "create": utility.ExR, "negate": False, "threshold": threholds["EXR"], "direction": -1},
-               "Color Index of Vegetation Extraction": {"short": "CIVE", "create": utility.CIVE, "negate": False, "threshold": threholds["CIVE"], "direction": -1},
+               "Color Index of Vegetation Extraction": {"short": "CIVE", "create": utility.CIVE, "negate": True, "threshold": threholds["CIVE"], "direction": 1},
                "Excess Green - Excess Red": {"short": "ExGR", "create": utility.ExGR, "negate": True, "threshold": threholds["EXGEXR"], "direction": 1},
                "Normalized Green Red Difference": {"short": "NGRDI", "create": utility.NGRDI, "negate": True, "threshold": threholds["NGRDI"], "direction": 1},
                "Vegetative Index": {"short": "VEG", "create": utility.VEG, "negate": True, "threshold": threholds["VEG"], "direction": 1},
@@ -585,8 +619,8 @@ if __name__ == "__main__":
 
     # Debug the implementations:
     indices = {
-        "Color Index of Vegetation Extraction": {"short": "CIVE", "create": utility.CIVE, "negate": False,
-                                                 "threshold": threholds["CIVE"], "direction": 1},
+        "Normalized Difference": {"short": "NDI", "create": utility.NDI, "negate": True, "threshold": threholds["NDI"],
+                                  "direction": 1},
     }
 
 
@@ -594,8 +628,8 @@ if __name__ == "__main__":
     for indexName, indexData in indices.items():
         creationMethod = indexData["create"]
 
-        showImages = True
-        plot = True
+        showImages = arguments.show
+        plot = arguments.plot
 
         startTime = datetime.datetime.now()
         vegIndex = creationMethod()
@@ -622,7 +656,9 @@ if __name__ == "__main__":
         #     plt.show()
 
         # Force otsu
-        #threshold = None
+        if arguments.threshold:
+            threshold = None
+
         mask, thresholdUsed = utility.MaskFromIndex(vegIndex, negate, direction, threshold)
         # Determing threshold from image
         #utility.MaskFromIndex(vegIndex)
