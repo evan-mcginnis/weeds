@@ -37,12 +37,14 @@ parser.add_argument("-s", "--stitch", action="store_true", help="Stitch images t
 parser.add_argument("-v", "--verbose", action="store_true", default=False)
 parser.add_argument("-c", "--contours", action="store_true", default=False, help="Show contours on images")
 parser.add_argument("-p", '--plot', action="store_true", help="Show 3D plot of index", default=False)
-parser.add_argument("-P", "--performance", action="store", type=str, default="performance.csv")
-parser.add_argument("-n", "--nonegate", action="store_true", default=False)
+parser.add_argument("-P", "--performance", action="store", type=str, default="performance.csv", help="Name of performance file")
+parser.add_argument("-n", "--nonegate", action="store_true", default=False, help="Negate image mask")
 parser.add_argument("-m", "--mask", action="store_true", default=False, help="Mask only -- no processing")
 parser.add_argument("-d", "--decorate", action="store_true", default=False, help="Full decorations")
 parser.add_argument("-hg", "--histograms", action="store_true", default=False, help="Show histograms")
 parser.add_argument("-r", "--results", action="store", default="results.csv", help="Name of results file")
+parser.add_argument("-ma", "--minarea", action="store", default=500, type=int, help="Minimum area of a blob")
+parser.add_argument("-mr", "--minratio", action="store", default=5, type=int, help="Minimum size ratio for classifier")
 
 results = parser.parse_args()
 
@@ -210,7 +212,7 @@ try:
 
         # Find the plants in the image
         performance.start()
-        contours, hierarchy, blobs, largest = manipulated.findBlobs(500)
+        contours, hierarchy, blobs, largest = manipulated.findBlobs(results.minarea)
         performance.stopAndRecord("contours")
 
         # The test should probably be if we did not find any blobs
@@ -225,7 +227,7 @@ try:
         classifier = Classifier(blobs)
 
         performance.start()
-        classifier.classifyByRatio(largest, size=manipulated.image.shape, ratio=5)
+        classifier.classifyByRatio(largest, size=manipulated.image.shape, ratio=results.minratio)
         performance.stopAndRecord("classify")
 
         classifiedBlobs = classifier.blob
