@@ -12,12 +12,15 @@ import cv2 as cv
 import math
 import pandas as pd
 
+from collections import namedtuple
+from operator import mul
+
 import constants
 
 # Colors for the bounding boxes
-COLOR_WEED = (255,0,0)
-COLOR_CROP = (0,0,255)
-COLOR_UNKNOWN = (0,255,0)
+COLOR_WEED = (0,0,255)
+COLOR_CROP = (0,255,0)
+COLOR_UNKNOWN = (255,0,0)
 COLOR_UNTREATED = (0,127,0)
 COLOR_IGNORED = (255,255,255)
 
@@ -40,13 +43,18 @@ class ImageManipulation:
         self._centers = []
         self._angles = None
         self._shapeIndices = []
+        self._original = img.copy()
 
-    def init(self):
-        self._cvimage = cv.cvtColor(self._image)
+    # def init(self):
+    #     self._cvimage = cv.cvtColor(self._image)
 
     @property
     def mmPerPixel(self) -> float:
         return self._mmPerPixel
+
+    @property
+    def blobs(self):
+        return self._blobs
 
     @mmPerPixel.setter
     def mmPerPixel(self, mm : float):
@@ -111,6 +119,14 @@ class ImageManipulation:
 
         #blurred = cv.pyrMeanShiftFiltering(self._image.astype(np.uint8),31,101)
         #img = cv.cvtColor(blurred, cv.COLOR_BGR2GRAY)
+        #
+        # Sujith, A., and R. Neethu. 2021. “Classification of Plant Leaf Using Shape and Texture Features.”
+        # In 4th International Conference on Inventive Communication and Computational Technologies,
+        # ICICCT 2020, edited by Ranganathan G., Chen J., and Rocha A., 145:269–82.
+        # Springer Science and Business Media Deutschland GmbH.
+        # This article gives the greyscale conversion as:
+        # grey = 0.2989 * R + 0.5870 * G + 0.1140 * B
+        # TODO: Check the grayscale conversion from opencv
 
         img = cv.cvtColor(self._image.astype(np.uint8), cv.COLOR_BGR2GRAY)
         #cv.imwrite("converted.jpg", img)
@@ -136,6 +152,17 @@ class ImageManipulation:
         (x2, y2) = point2
         distance = int((x2 - x1) * mmPerPixel)
         return distance
+
+    @staticmethod
+    def sizeRatio(sizeOfTarget : int, sizeOfLargest: int) -> float:
+        """
+        The percentage of the area of the target relative to the largest item.
+        :param sizeOfTarget:  The area of blob to be checked
+        :param sizeOfLargest:  The area of the largest blob in the current image
+        :return: A float value indicating the size ratio of the target to the largest
+        """
+        return sizeOfTarget / sizeOfLargest
+
 
     def findBlobs(self, threshold : int) -> ([], np.ndarray, {}, str):
         """
@@ -204,15 +231,19 @@ class ImageManipulation:
             type = constants.TYPE_UNKNOWN
             location = (x,y,w,h)
             center = (cX,cY)
+            reason = constants.REASON_UNKNOWN
 
-
-
+            # This is a nonsense calculation so I can debug the R implementation
+            blueAvg = np.average(self._image[y:y+h, x:x+w, 1])
 
             infoAboutBlob = {constants.NAME_LOCATION: location,
                              constants.NAME_CENTER: center,
                              constants.NAME_AREA: area,
                              constants.NAME_TYPE: type,
-                             constants.NAME_CONTOUR: c}
+                             constants.NAME_CONTOUR: c,
+                             constants.NAME_REASON: reason,
+                             constants.NAME_BLUE: blueAvg}
+
             name = "blob" + str(i)
             # Ignore items in the image that are smaller in area than the
             # threshold.  Things in shadow and noise will be identified as shapes
@@ -225,10 +256,16 @@ class ImageManipulation:
                 largest = area
                 largestName = name
 
+
         self._largestName = largestName
         self._largestArea = area
 
         self._hierarchy = hierarchy
+
+        # Insert size ratios.  We can do this only once we have determined the largest item in the image
+        for blobName, blobAttributes in self._blobs.items():
+            blobAttributes[constants.NAME_SIZE_RATIO] = blobAttributes[constants.NAME_AREA] / largest
+
         return contours, hierarchy, self._blobs, largestName
 
     def identifyOverlappingVegetation(self):
@@ -244,7 +281,7 @@ class ImageManipulation:
             # If an object has a parent, that means it is contained within another
             if parent != -1 and name in self._blobs:
                 attributes = self._blobs[name]
-                print("Find: " + str(attributes[constants.NAME_CENTER]))
+                #print("Find: " + str(attributes[constants.NAME_CENTER]))
                 # Determine if the point is within the blob
                 isInsideContour = cv.pointPolygonTest(attributes[constants.NAME_CONTOUR],attributes[constants.NAME_CENTER], False)
                 if isInsideContour:
@@ -288,9 +325,6 @@ class ImageManipulation:
     @property
     def shapeIndices(self):
         return self._shapeIndices
-
-    def decorateBlobs(self):
-        return
 
     @staticmethod
     def lengthWidthRatio(contour: np.ndarray) -> float:
@@ -426,10 +460,10 @@ class ImageManipulation:
         for blobName, blobAttributes in self._blobs.items():
             if blobAttributes[constants.NAME_TYPE] != constants.TYPE_UNDESIRED and blobAttributes[constants.NAME_TYPE] != constants.TYPE_IGNORED:
                 centerCount = centerCount + 1
-                print(blobName + ": " + str(blobAttributes[constants.NAME_CENTER]))
+                #print(blobName + ": " + str(blobAttributes[constants.NAME_CENTER]))
                 # Keep the name with the coordinates so we know which blob this refers to
                 self._centersUnsorted.append(blobAttributes[constants.NAME_CENTER] + tuple([blobName]))
-        print(self._centersUnsorted)
+        #print(self._centersUnsorted)
 
         # Create an array to hold the angles between the blobs
         self._angles = np.zeros((centerCount, centerCount))
@@ -466,7 +500,7 @@ class ImageManipulation:
 
         # Find the entry with the smallest number of NaNs
         sums = self._df.isnull().sum().nsmallest(5)
-        print(sums)
+        #print(sums)
 
         smallestDistanceFromY = 10000
         smallestIndex = 10000
@@ -480,7 +514,7 @@ class ImageManipulation:
 
             (x, y, blobName) = self._centers[index]
             distanceFromY = abs(centerY - y)
-            print("Distance from Y: " + str(distanceFromY) + " smallestY: " + str(smallestDistanceFromY))
+            #print("Distance from Y: " + str(distanceFromY) + " smallestY: " + str(smallestDistanceFromY))
             if(distanceFromY < smallestDistanceFromY):
                 smallestIndex = index
                 smallestDistanceFromY = distanceFromY
@@ -489,6 +523,14 @@ class ImageManipulation:
 
         # This is all we need. The Y location of the crop line in the image
         self._cropY = cropY
+
+        # Add the distance from the crop line for all the blobs.
+        for blobName, blobAttributes in self._blobs.items():
+            (x, y) = blobAttributes[constants.NAME_CENTER]
+            if y >= self._cropY:
+                blobAttributes[constants.NAME_DISTANCE] = y - self._cropY
+            else:
+                blobAttributes[constants.NAME_DISTANCE] = self._cropY - y
 
         return
 
@@ -571,6 +613,8 @@ class ImageManipulation:
                 areaText = "[" + str(area) + "]"
                 shapeText = "Shape: " + "{:.4f}".format(rectAttributes[constants.NAME_SHAPE_INDEX])
                 lengthWidthRatioText = "L/W Ratio: " + "{:4f}".format(rectAttributes[constants.NAME_RATIO])
+                reasonText = "Classified By: " + constants.REASONS[rectAttributes[constants.NAME_REASON]]
+                classifiedText = "Classified As: " + constants.TYPES[rectAttributes[constants.NAME_TYPE]]
                 if constants.NAME_LOCATION in decorations:
                     cv.putText(self._image, location, (cX - 25, cY - 25),cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
                 if constants.NAME_AREA in decorations:
@@ -579,6 +623,13 @@ class ImageManipulation:
                     cv.putText(self._image, shapeText, (cX - 25, cY - 75), cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
                 if constants.NAME_RATIO in decorations:
                     cv.putText(self._image, lengthWidthRatioText, (cX - 25, cY - 100), cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+                if constants.NAME_REASON in decorations:
+                    cv.putText(self._image, reasonText, (cX - 25, cY - 125), cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+                if constants.NAME_TYPE in decorations:
+                    cv.putText(self._image, classifiedText, (cX - 25, cY - 150), cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+                if constants.NAME_DISTANCE in decorations:
+                    cv.line(self._image,(cX, cY), (cX, self._cropY), (255,255,255), 3)
+
 
         #cv.imwrite("opencv-centers.jpg", self._image)
         #self.show("centers", self._image)
@@ -623,3 +674,60 @@ class ImageManipulation:
         self.show("centers", self._image)
         cv.waitKey()
         return
+
+    # This does not do quite what is need.  If some unwanted vegetation is inside the bounding box, it is
+    # present in the extracted image.
+    # TODO: Write a routine to eliminate a class of object within the image.
+    def extractImages(self, classifiedAs: int):
+        for blobName, blobAttributes in self._blobs.items():
+            if blobAttributes[constants.NAME_TYPE] == classifiedAs:
+                (x, y, w, h) = blobAttributes[constants.NAME_LOCATION]
+                # Pull the subset from the original image so we don't see the markings
+                image = self._original[y:y+h, x:x+w]
+                blobAttributes[constants.NAME_IMAGE] = image
+
+
+
+    @staticmethod
+    def _max_rect(mat, value=0):
+        """returns (height, width, left_column, bottom_row) of the largest rectangle
+        containing all `value`'s.
+
+
+       """
+        it = iter(mat)
+        hist = [(el==value) for el in next(it, [])]
+        max_rect = max_rectangle_size(hist) + (0,)
+        for irow,row in enumerate(it):
+            hist = [(1+h) if el == value else 0 for h, el in zip(hist, row)]
+            max_rect = max(max_rect, max_rectangle_size(hist) + (irow+1,), key=area)
+            # irow+1, because we already used one row for initializing max_rect
+        return max_rect
+
+    @staticmethod
+    def _max_rectangle_size(histogram):
+        stack = []
+        Info = namedtuple('Info', 'start height')
+        top = lambda: stack[-1]
+        max_size = (0, 0, 0) # height, width and start position of the largest rectangle
+        pos = 0 # current position in the histogram
+        for pos, height in enumerate(histogram):
+            start = pos # position where rectangle starts
+            while True:
+                if not stack or height > top().height:
+                    stack.append(Info(start, height)) # push
+                elif stack and height < top().height:
+                    max_size = max(max_size, (top().height, (pos - top().start), top().start), key=area)
+                    start, _ = stack.pop()
+                    continue
+                break # height == top().height goes here
+
+        pos += 1
+        for start, height in stack:
+            max_size = max(max_size, (height, (pos - start), start), key=area)
+
+        return max_size
+
+    @staticmethod
+    def _area(size):
+        return size[0] * size[1]
