@@ -5,9 +5,11 @@
 import constants
 import cv2 as cv
 import numpy as np
+import matplotlib.pyplot as plt
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
+from sklearn.neighbors import KNeighborsClassifier
 import os.path
 
 class Classifier:
@@ -15,6 +17,13 @@ class Classifier:
     def __init__(self):
 
         self._df = pd.DataFrame()
+
+        self._xTrain = []
+        self._yTrain = pd.Series
+        self._xTest = []
+        self._yTest = []
+
+        self._blobsInView = pd.DataFrame()
 
         # # The ANN for the classifier
         # self._ann = cv.ml.ANN_MLP_create()
@@ -135,13 +144,8 @@ class Classifier:
         except KeyError:
             return
 
-    def loadLogisticRequestion(self, filename: str):
-        """
-        Initialize the logistic regression subsystem.
-        :param filename: A csv format file name with type, ratio, shape, and area columns
-        :return:
-        """
-        # Confirm the file exists
+    def load(self, filename: str):
+               # Confirm the file exists
         if not os.path.isfile(filename):
             raise FileNotFoundError
 
@@ -153,25 +157,12 @@ class Classifier:
         self._df.drop("type", axis='columns', inplace=True)
         # Split up the data
         X_train, X_test, y_train, y_test = train_test_split(self._df,y,train_size=0.4)
-        self._model = LogisticRegression()
-        self._model.fit(X_train, y_train)
+        self._xTrain = X_train
+        self._yTrain = y_train
+        self._xTest = X_test
+        self._yTest = y_test
 
-        # Debug
-        print("Logistic regression prediction")
-        print(self._model.predict(X_test))
-
-        print("Score: %s" % self._model.score(X_test,y_test))
-
-        return
-
-    def classifyByLogisticRegression(self):
-        """
-        Use logistic regression to classify objects in the image as desired on undesired
-        :return:
-        """
-        # TODO: Raise an exception
-        if self._model is None:
-            return
+    def _prepareData(self):
 
         features = []
         # Build up the list of features we will use.
@@ -182,10 +173,84 @@ class Classifier:
                              blobAttributes[constants.NAME_DISTANCE]])
 
         # Construct the dataframe we will use
-        blobsInView = pd.DataFrame(features, columns=('ratio', 'shape', 'distance'))
+        self._blobsInView = pd.DataFrame(features, columns=('ratio', 'shape', 'distance'))
+
+
+class LogisticRegressionClassifier(Classifier):
+
+    def __init__(self):
+        super().__init__()
+
+    def createModel(self, score: bool):
+        """
+        Initialize the logistic regression subsystem.
+        :param filename: A csv format file name with type, ratio, shape, and area columns
+        :return:
+        """
+        # Confirm the file exists
+        # if not os.path.isfile(filename):
+        #     raise FileNotFoundError
+
+        # # Load from the csv file and get the columns we care about
+        # self._df = pd.read_csv(filename, usecols=["ratio", "shape", "distance", "type"])
+        # # Extract the type -- there should be only two, desired and undesired
+        # y = self._df.type
+        # # Drop the type column
+        # self._df.drop("type", axis='columns', inplace=True)
+        # # Split up the data
+        # X_train, X_test, y_train, y_test = train_test_split(self._df,y,train_size=0.4)
+
+        self._model = LogisticRegression()
+        self._model.fit(self._xTrain, self._yTrain)
+
+
+        # Debug
+        if score:
+            print("Logistic regression prediction")
+            print(self._model.predict(self._xTest))
+
+            print("Score: %s" % self._model.score(self._xTest,self._yTest))
+
+        return
+
+    def scatterPlotDataset(self):
+        """
+        Display a scatterplot Matrix of the dataset
+        """
+        vegetationDataframe = pd.DataFrame(self._xTrain, columns=["ratio", "shape", "distance"])
+        pd.plotting.scatter_matrix(vegetationDataframe,
+                                   c = self._yTrain,
+                                   figsize=(15,15),
+                                   marker='o',
+                                   hist_kwds={'bins': 20},
+                                   s = 60,
+                                   alpha=.8)
+        plt.show()
+
+    def classify(self):
+        """
+        Use logistic regression to classify objects in the image as desired on undesired
+        :return:
+        """
+        # TODO: Raise an exception
+        if self._model is None:
+            return
+
+        self._prepareData()
+
+        # features = []
+        # # Build up the list of features we will use.
+        # # Reading some performance comparisons, this is the fastest way to create a dataframe
+        # for blobName, blobAttributes in self._blobs.items():
+        #     features.append([blobAttributes[constants.NAME_RATIO],
+        #                      blobAttributes[constants.NAME_SHAPE_INDEX],
+        #                      blobAttributes[constants.NAME_DISTANCE]])
+        #
+        # # Construct the dataframe we will use
+        # blobsInView = pd.DataFrame(features, columns=('ratio', 'shape', 'distance'))
 
         # Make the predictions using the model trained
-        predictions = self._model.predict(blobsInView)
+        predictions = self._model.predict(self._blobsInView)
 
         # Put the predictions into the blobs and mark the reason as logistic regression
         i = 0
@@ -194,5 +259,42 @@ class Classifier:
                 blobAttributes[constants.NAME_TYPE] = predictions[i]
                 blobAttributes[constants.NAME_REASON] = constants.REASON_LOGISTIC_REGRESSION
             i = i + 1
+        return
+
+class KNNClassifier(Classifier):
+
+    def __init__(self):
+        super().__init__()
+
+    def createModel(self, score: bool):
+
+        self._knnModel = KNeighborsClassifier(n_neighbors=1)
+        self._knnModel.fit(self._xTrain, pd.DataFrame(self._yTrain))
+
+        if score:
+            yPred = self._knnModel.predict(self._xTest)
+            print("K Neighbors prediction:\n", yPred)
+
+            print("Score: {:.2f}\n".format(self._knnModel.score(self._xTest, self._yTest)))
+
+
+    def classify(self):
+        if self._knnModel is None:
+            return
+
+        # Make a dataframe out of the current view
+        self._prepareData()
+
+        # Predict the types
+        predictions = self._knnModel.predict(self._blobsInView)
+
+        # Mark up the current view
+        i = 0
+        for blobName, blobAttributes in self._blobs.items():
+            if blobAttributes[constants.NAME_REASON] != constants.REASON_AT_EDGE:
+                blobAttributes[constants.NAME_TYPE] = predictions[i]
+                blobAttributes[constants.NAME_REASON] = constants.REASON_KNN
+            i = i + 1
+
         return
 

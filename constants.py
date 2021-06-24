@@ -28,7 +28,8 @@ REASON_UNKNOWN = 0
 REASON_AT_EDGE = 1
 REASON_SIZE_RATIO = 2
 REASON_LOGISTIC_REGRESSION = 3
-REASONS = ["Unknown", "At Edge", "Size", "Logistic"]
+REASON_KNN = 4
+REASONS = ["Unknown", "At Edge", "Size", "Logistic", "KNN"]
 
 # TYPES of vegetation
 TYPE_DESIRED = 0
@@ -37,6 +38,18 @@ TYPE_UNTREATED = 2
 TYPE_IGNORED = 3
 TYPE_UNKNOWN = 4
 TYPES = ["Desired", "Undesired", "Untreated", "Ignored", "Unknown"]
+
+# Items contained in performance csv for analysis
+
+PERF_ANGLES = "angles"
+PERF_ACQUIRE = "acquire"
+PERF_CLASSIFY = "classify"
+PERF_CONTOURS = "contours"
+PERF_INDEX = "index"
+PERF_LW_RATIO = "LWRatio"
+PERF_OVERLAP = "overlap"
+PERF_REGRESSION = "regression"
+PERF_SHAPES = "shapes"
 
 # Properties
 PROPERTY_PIXELS_PER_MM = "PIXELS-PER-MM"
