@@ -49,6 +49,10 @@ class ImageManipulation:
     #     self._cvimage = cv.cvtColor(self._image)
 
     @property
+    def original(self) -> np.ndarray:
+        return self._original
+
+    @property
     def mmPerPixel(self) -> float:
         return self._mmPerPixel
 
@@ -685,8 +689,6 @@ class ImageManipulation:
                 # Pull the subset from the original image so we don't see the markings
                 image = self._original[y:y+h, x:x+w]
                 blobAttributes[constants.NAME_IMAGE] = image
-
-
 
     @staticmethod
     def _max_rect(mat, value=0):

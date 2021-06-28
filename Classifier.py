@@ -10,6 +10,10 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.neighbors import KNeighborsClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import GradientBoostingClassifier
+
 import os.path
 
 class Classifier:
@@ -144,7 +148,20 @@ class Classifier:
         except KeyError:
             return
 
-    def load(self, filename: str):
+    def classify(self, reason : int):
+        self._prepareData()
+
+        predictions = self._classifier.predict(self._blobsInView)
+                # Mark up the current view
+        i = 0
+        for blobName, blobAttributes in self._blobs.items():
+            if blobAttributes[constants.NAME_REASON] != constants.REASON_AT_EDGE:
+                blobAttributes[constants.NAME_TYPE] = predictions[i]
+                blobAttributes[constants.NAME_REASON] = reason
+            i = i + 1
+        return
+
+    def load(self, filename: str, stratify : bool):
                # Confirm the file exists
         if not os.path.isfile(filename):
             raise FileNotFoundError
@@ -153,10 +170,14 @@ class Classifier:
         self._df = pd.read_csv(filename, usecols=["ratio", "shape", "distance", "type"])
         # Extract the type -- there should be only two, desired and undesired
         y = self._df.type
+        self._y = y
         # Drop the type column
         self._df.drop("type", axis='columns', inplace=True)
         # Split up the data
-        X_train, X_test, y_train, y_test = train_test_split(self._df,y,train_size=0.4)
+        if stratify:
+            X_train, X_test, y_train, y_test = train_test_split(self._df,y,train_size=0.4, stratify=y,random_state=42)
+        else:
+            X_train, X_test, y_train, y_test = train_test_split(self._df,y,train_size=0.4,random_state=42)
         self._xTrain = X_train
         self._yTrain = y_train
         self._xTest = X_test
@@ -174,6 +195,9 @@ class Classifier:
 
         # Construct the dataframe we will use
         self._blobsInView = pd.DataFrame(features, columns=('ratio', 'shape', 'distance'))
+
+    def visualize(self):
+        return
 
 
 class LogisticRegressionClassifier(Classifier):
@@ -200,7 +224,7 @@ class LogisticRegressionClassifier(Classifier):
         # # Split up the data
         # X_train, X_test, y_train, y_test = train_test_split(self._df,y,train_size=0.4)
 
-        self._model = LogisticRegression()
+        self._model = LogisticRegression(C=100)
         self._model.fit(self._xTrain, self._yTrain)
 
 
@@ -208,8 +232,8 @@ class LogisticRegressionClassifier(Classifier):
         if score:
             print("Logistic regression prediction")
             print(self._model.predict(self._xTest))
-
-            print("Score: %s" % self._model.score(self._xTest,self._yTest))
+            print("Training Score: {:.3f}".format(self._model.score(self._xTrain, self._yTrain)))
+            print("Testing Score: %s" % self._model.score(self._xTest,self._yTest))
 
         return
 
@@ -275,7 +299,8 @@ class KNNClassifier(Classifier):
             yPred = self._knnModel.predict(self._xTest)
             print("K Neighbors prediction:\n", yPred)
 
-            print("Score: {:.2f}\n".format(self._knnModel.score(self._xTest, self._yTest)))
+            print("Training Score: {:.3f}".format(self._knnModel.score(self._xTrain, self._yTrain)))
+            print("Testing Score: {:.2f}\n".format(self._knnModel.score(self._xTest, self._yTest)))
 
 
     def classify(self):
@@ -298,3 +323,103 @@ class KNNClassifier(Classifier):
 
         return
 
+
+class DecisionTree(Classifier):
+
+
+    def visualize(self):
+        print("Feature Importance")
+        print(self._classifier.feature_importances_)
+        #return
+        nFeatures = self._df.shape[1]
+        plt.barh(np.arange(nFeatures),
+                 self._classifier.feature_importances_,
+                 align="center")
+        #plt.yticks(np.arange(nFeatures))
+        plt.show()
+
+    def createModel(self, score: bool):
+        self._classifier = DecisionTreeClassifier(random_state=0)
+        self._classifier.fit(self._xTrain, self._yTrain)
+
+        print("Training Score: {:.3f}".format(self._classifier.score(self._xTrain, self._yTrain)))
+        print("Testing Score: {:.2f}\n".format(self._classifier.score(self._xTest, self._yTest)))
+        return
+
+    def classify(self):
+
+        self._prepareData()
+
+        predictions = self._classifier.predict(self._blobsInView)
+                # Mark up the current view
+        i = 0
+        for blobName, blobAttributes in self._blobs.items():
+            if blobAttributes[constants.NAME_REASON] != constants.REASON_AT_EDGE:
+                blobAttributes[constants.NAME_TYPE] = predictions[i]
+                blobAttributes[constants.NAME_REASON] = constants.REASON_DECISION_TREE
+            i = i + 1
+        return
+
+class RandomForest(Classifier):
+
+    def createModel(self, score: bool):
+        self._classifier = RandomForestClassifier(n_estimators=1000, max_features=1,random_state=2, n_jobs=-1)
+        self._classifier.fit(self._xTrain, self._yTrain)
+
+        if score:
+            print("Training Score: {:.3f}".format(self._classifier.score(self._xTrain, self._yTrain)))
+            print("Testing Score: {:.3f}".format(self._classifier.score(self._xTest, self._yTest)))
+        return
+
+    def visualize(self):
+        return
+
+    def classify(self):
+        self._prepareData()
+
+        predictions = self._classifier.predict(self._blobsInView)
+                # Mark up the current view
+        i = 0
+        for blobName, blobAttributes in self._blobs.items():
+            if blobAttributes[constants.NAME_REASON] != constants.REASON_AT_EDGE:
+                blobAttributes[constants.NAME_TYPE] = predictions[i]
+                blobAttributes[constants.NAME_REASON] = constants.REASON_RANDOM_FOREST
+            i = i + 1
+        return
+
+class GradientBoosting(Classifier):
+
+    def createModel(self, score: bool):
+        self._classifier = GradientBoostingClassifier(random_state=0, max_depth=4)
+        self._classifier.fit(self._xTrain, self._yTrain)
+
+        if score:
+            print("Training Score: {:.3f}".format(self._classifier.score(self._xTrain, self._yTrain)))
+            print("Testing Score: {:.3f}".format(self._classifier.score(self._xTest, self._yTest)))
+
+    def visualize(self):
+        return
+
+    def classify(self):
+        super().classify(constants.REASON_GRADIENT)
+        return
+
+class SVM(Classifier):
+
+    def createModel(self, score: bool):
+        raise NotImplementedError
+
+        self._classifier = GradientBoostingClassifier(random_state=0, max_depth=4)
+        self._classifier.fit(self._xTrain, self._yTrain)
+
+        if score:
+            print("Training Score: {:.3f}".format(self._classifier.score(self._xTrain, self._yTrain)))
+            print("Testing Score: {:.3f}".format(self._classifier.score(self._xTest, self._yTest)))
+
+    def visualize(self):
+        raise NotImplementedError
+        return
+
+    def classify(self):
+        raise NotImplementedError
+        return

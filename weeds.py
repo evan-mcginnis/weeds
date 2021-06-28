@@ -12,10 +12,11 @@ from CameraFile import CameraFile, CameraPhysical
 from VegetationIndex import VegetationIndex
 from ImageManipulation import ImageManipulation
 from Logger import Logger
-from Classifier import Classifier, LogisticRegressionClassifier, KNNClassifier
+from Classifier import Classifier, LogisticRegressionClassifier, KNNClassifier, DecisionTree, RandomForest, GradientBoosting, SVM
 from Odometer import VirtualOdometer
 from Performance import Performance
 from Reporting import Reporting
+from Treatment import Treatment
 import constants
 
 # Used in command line processing so we can accept thresholds that are tuples
@@ -37,10 +38,15 @@ parser.add_argument("-a", '--algorithm', action="store", help="Vegetation Index 
                     default="ngrdi")
 parser.add_argument("-c", "--contours", action="store_true", default=False, help="Show contours on images")
 parser.add_argument("-d", "--decorations", action="store", type=str, default="all", help="Decorations on output images")
-parser.add_argument("-df", "--data", action="store", help="Name of the data in CSV")
+parser.add_argument("-df", "--data", action="store", help="Name of the data in CSV for use in logistic regression or KNN")
 parser.add_argument("-hg", "--histograms", action="store_true", default=False, help="Show histograms")
-parser.add_argument("-k", "--knn", action="store_true", default=False, help="Predict using KNN")
-parser.add_argument("-l", "--logistic", action="store_true", default=False, help="Predict using logistic regression")
+group = parser.add_mutually_exclusive_group()
+group.add_argument("-k", "--knn", action="store_true", default=False, help="Predict using KNN. Requires data file to be specified")
+group.add_argument("-l", "--logistic", action="store_true", default=False, help="Predict using logistic regression. Requires data file to be specified")
+group.add_argument("-dt", "--tree", action="store_true", default=False, help="Predict using decision tree. Requires data file to be specified")
+group.add_argument("-f", "--forest", action="store_true", default=False, help="Predict using random forest. Requires data file to be specified")
+group.add_argument("-g", "--gradient", action="store_true", default=False, help="Predict using gradient boosting. Requires data file to be specified")
+group.add_argument("-svm", "--support", action="store_true", default=False, help="Predict using support vector machine. Requires data file to be specified")
 parser.add_argument("-m", "--mask", action="store_true", default=False, help="Mask only -- no processing")
 parser.add_argument("-ma", "--minarea", action="store", default=500, type=int, help="Minimum area of a blob")
 parser.add_argument("-mr", "--minratio", action="store", default=5, type=int, help="Minimum size ratio for classifier")
@@ -50,9 +56,11 @@ parser.add_argument("-P", "--performance", action="store", type=str, default="pe
 parser.add_argument("-r", "--results", action="store", default="results.csv", help="Name of results file")
 parser.add_argument("-s", "--stitch", action="store_true", help="Stitch adjacent images together")
 parser.add_argument("-sc", "--score", action="store_true", help="Score the prediction method")
+parser.add_argument("-sp", "--spray", action="store_true", help="Generate spray treatment grid")
 parser.add_argument("-t", "--threshold", action="store", type=tuple_type, default="(0,0)", help="Threshold tuple (x,y)")
 parser.add_argument("-v", "--verbose", action="store_true", default=False, help="Generate debugging data and text")
 parser.add_argument("-x", "--xtract", action="store_true", default=False, help="Extract each crop plant into images")
+
 
 results = parser.parse_args()
 
@@ -64,6 +72,10 @@ results = parser.parse_args()
 # area
 # distance
 decorations = [item for item in results.decorations.split(',')]
+
+if (results.logistic or results.knn or results.tree or results.forest) and results.data is None:
+    print("Data file is not specified.")
+    sys.exit(1)
 
 #
 # C A M E R A
@@ -160,16 +172,36 @@ sequence = 0
 if results.logistic:
     try:
         classifier = LogisticRegressionClassifier()
-        classifier.load(results.data)
+        classifier.load(results.data,stratify=False)
         classifier.createModel(results.score)
         #classifier.scatterPlotDataset()
     except FileNotFoundError:
         print("Regression data file %s not found\n" % results.regression)
         sys.exit(1)
 elif results.knn:
-        classifier = KNNClassifier()
-        classifier.load(results.data)
-        classifier.createModel(results.score)
+   classifier = KNNClassifier()
+   classifier.load(results.data, stratify=False)
+   classifier.createModel(results.score)
+elif results.tree:
+   classifier = DecisionTree()
+   classifier.load(results.data, stratify=False)
+   classifier.createModel(results.score)
+   classifier.visualize()
+elif results.forest:
+   classifier = RandomForest()
+   classifier.load(results.data, stratify=True)
+   classifier.createModel(results.score)
+   classifier.visualize()
+elif results.gradient:
+   classifier = GradientBoosting()
+   classifier.load(results.data, stratify=False)
+   classifier.createModel(results.score)
+   classifier.visualize()
+elif results.support:
+    classifier = SVM()
+    classifier.load(results.data, stratify=False)
+    classifier.createModel(results.score)
+    classifier.visualize()
 else:
     # TODO: This should be HeuristicClassifier
     classifier = Classifier()
@@ -177,7 +209,7 @@ else:
 
 # These are the attributes that will decorate objects in the images
 if constants.NAME_ALL in results.decorations:
-    featuresToShow = [constants.NAME_AREA,\
+    featuresToShow = [constants.NAME_AREA,
                       constants.NAME_TYPE,
                       constants.NAME_LOCATION,
                       constants.NAME_CENTER,
@@ -192,6 +224,7 @@ else:
 if results.contours:
     featuresToShow.append(constants.NAME_CONTOUR)
 
+imageNumber = 0
 #
 # G R A N D  L O O P
 #
@@ -199,6 +232,9 @@ try:
     # Loop and process images until requested to stop
     # TODO: Accept signal to stop processing
     while True:
+        imageNumber = imageNumber + 1
+        if results.verbose:
+            print("Processing image " + str(imageNumber))
         performance.start()
         rawImage = camera.capture()
         performance.stopAndRecord(constants.PERF_ACQUIRE)
@@ -297,7 +333,7 @@ try:
         manipulated.identifyCropRowCandidates()
 
         #Use either heuristics or logistic regression
-        if results.logistic or results.knn:
+        if results.logistic or results.knn or results.tree or results.forest or results.gradient:
             performance.start()
             classifier.classify()
             performance.stopAndRecord(constants.PERF_REGRESSION)
@@ -349,6 +385,15 @@ try:
         reporting.addBlobs(sequence, blobs)
         sequence = sequence + 1
 
+        if results.spray:
+            if results.verbose:
+                print("Forming treatment")
+            performance.start()
+            treatment = Treatment(manipulated.original)
+            treatment.overlayTreatmentGrid()
+            treatment.generatePlan(classifiedBlobs)
+            logger.logImage("treatment", treatment.image)
+            performance.stopAndRecord(constants.PERF_TREATMENT)
 
 except IOError:
     print("There was a problem communicating with the camera")

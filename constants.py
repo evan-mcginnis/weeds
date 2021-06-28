@@ -29,7 +29,10 @@ REASON_AT_EDGE = 1
 REASON_SIZE_RATIO = 2
 REASON_LOGISTIC_REGRESSION = 3
 REASON_KNN = 4
-REASONS = ["Unknown", "At Edge", "Size", "Logistic", "KNN"]
+REASON_DECISION_TREE = 5
+REASON_RANDOM_FOREST = 6
+REASON_GRADIENT = 7
+REASONS = ["Unknown", "At Edge", "Size", "Logistic", "KNN", "Decision Tree", "Random Forest", "Gradient"]
 
 # TYPES of vegetation
 TYPE_DESIRED = 0
@@ -50,6 +53,10 @@ PERF_LW_RATIO = "LWRatio"
 PERF_OVERLAP = "overlap"
 PERF_REGRESSION = "regression"
 PERF_SHAPES = "shapes"
+PERF_TREATMENT = "treatment"
+
+COLOR_TREATMENT_GRID = (0,255,0)
+COLOR_TREATMENT_WEED = (0,0,255)
 
 # Properties
 PROPERTY_PIXELS_PER_MM = "PIXELS-PER-MM"
