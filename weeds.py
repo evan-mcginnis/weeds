@@ -40,6 +40,7 @@ parser.add_argument("-c", "--contours", action="store_true", default=False, help
 parser.add_argument("-d", "--decorations", action="store", type=str, default="all", help="Decorations on output images")
 parser.add_argument("-df", "--data", action="store", help="Name of the data in CSV for use in logistic regression or KNN")
 parser.add_argument("-hg", "--histograms", action="store_true", default=False, help="Show histograms")
+parser.add_argument("-he", "--height", action="store_true", default=False, help="Consider height in scoring")
 group = parser.add_mutually_exclusive_group()
 group.add_argument("-k", "--knn", action="store_true", default=False, help="Predict using KNN. Requires data file to be specified")
 group.add_argument("-l", "--logistic", action="store_true", default=False, help="Predict using logistic regression. Requires data file to be specified")
@@ -62,7 +63,7 @@ parser.add_argument("-v", "--verbose", action="store_true", default=False, help=
 parser.add_argument("-x", "--xtract", action="store_true", default=False, help="Extract each crop plant into images")
 
 
-results = parser.parse_args()
+arguments = parser.parse_args()
 
 # The list of decorations on the output.
 # index
@@ -71,9 +72,9 @@ results = parser.parse_args()
 # center
 # area
 # distance
-decorations = [item for item in results.decorations.split(',')]
+decorations = [item for item in arguments.decorations.split(',')]
 
-if (results.logistic or results.knn or results.tree or results.forest) and results.data is None:
+if (arguments.logistic or arguments.knn or arguments.tree or arguments.forest) and arguments.data is None:
     print("Data file is not specified.")
     sys.exit(1)
 
@@ -82,9 +83,9 @@ if (results.logistic or results.knn or results.tree or results.forest) and resul
 #
 
 def startupCamera():
-    if results.input != None:
+    if arguments.input is not None:
         # Get the images from a directory
-        camera = CameraFile(results.input)
+        camera = CameraFile(arguments.input)
     else:
         # Get the images from an actual camera
         camera = CameraPhysical("")
@@ -120,7 +121,7 @@ def startupOdometer():
     return odometer
 
 def startupPerformance() -> Performance:
-    performance = Performance(results.performance)
+    performance = Performance(arguments.performance)
     return performance
 
 #
@@ -152,7 +153,7 @@ def plot3D(index, title):
 
 camera = startupCamera()
 odometer = startupOdometer()
-logger = startupLogger(results.output)
+logger = startupLogger(arguments.output)
 performance = startupPerformance()
 
 mmPerPixel = camera.getMMPerPixel()
@@ -169,38 +170,38 @@ sequence = 0
 
 # Initialize logistic regression only if the user specified a data file
 
-if results.logistic:
+if arguments.logistic:
     try:
         classifier = LogisticRegressionClassifier()
-        classifier.load(results.data,stratify=False)
-        classifier.createModel(results.score)
+        classifier.load(arguments.data, stratify=False)
+        classifier.createModel(arguments.score)
         #classifier.scatterPlotDataset()
     except FileNotFoundError:
-        print("Regression data file %s not found\n" % results.regression)
+        print("Regression data file %s not found\n" % arguments.regression)
         sys.exit(1)
-elif results.knn:
+elif arguments.knn:
    classifier = KNNClassifier()
-   classifier.load(results.data, stratify=False)
-   classifier.createModel(results.score)
-elif results.tree:
+   classifier.load(arguments.data, stratify=False)
+   classifier.createModel(arguments.score)
+elif arguments.tree:
    classifier = DecisionTree()
-   classifier.load(results.data, stratify=False)
-   classifier.createModel(results.score)
+   classifier.load(arguments.data, stratify=False)
+   classifier.createModel(arguments.score)
    classifier.visualize()
-elif results.forest:
+elif arguments.forest:
    classifier = RandomForest()
-   classifier.load(results.data, stratify=True)
-   classifier.createModel(results.score)
+   classifier.load(arguments.data, stratify=True)
+   classifier.createModel(arguments.score)
    classifier.visualize()
-elif results.gradient:
+elif arguments.gradient:
    classifier = GradientBoosting()
-   classifier.load(results.data, stratify=False)
-   classifier.createModel(results.score)
+   classifier.load(arguments.data, stratify=False)
+   classifier.createModel(arguments.score)
    classifier.visualize()
-elif results.support:
+elif arguments.support:
     classifier = SVM()
-    classifier.load(results.data, stratify=False)
-    classifier.createModel(results.score)
+    classifier.load(arguments.data, stratify=False)
+    classifier.createModel(arguments.score)
     classifier.visualize()
 else:
     # TODO: This should be HeuristicClassifier
@@ -208,7 +209,7 @@ else:
     print("Classify using heuristics\n")
 
 # These are the attributes that will decorate objects in the images
-if constants.NAME_ALL in results.decorations:
+if constants.NAME_ALL in arguments.decorations:
     featuresToShow = [constants.NAME_AREA,
                       constants.NAME_TYPE,
                       constants.NAME_LOCATION,
@@ -218,10 +219,19 @@ if constants.NAME_ALL in results.decorations:
                       constants.NAME_REASON,
                       constants.NAME_TYPE]
 else:
-    featuresToShow = results.decorations
+    featuresToShow = [arguments.decorations]
+
+# The factors considered in classification
+
+factors = [constants.NAME_RATIO,
+           constants.NAME_DISTANCE_NORMALIZED,
+           constants.NAME_SHAPE_INDEX]
+
+if arguments.height:
+    factors.append(constants.NAME_HEIGHT)
 
 # The contours are a bit distracting
-if results.contours:
+if arguments.contours:
     featuresToShow.append(constants.NAME_CONTOUR)
 
 imageNumber = 0
@@ -233,7 +243,7 @@ try:
     # TODO: Accept signal to stop processing
     while True:
         imageNumber = imageNumber + 1
-        if results.verbose:
+        if arguments.verbose:
             print("Processing image " + str(imageNumber))
         performance.start()
         rawImage = camera.capture()
@@ -249,17 +259,17 @@ try:
         # TODO: Simply this to just imsge=brg.GetMaskedImage(results.algorithm)
         # Compute the index using the requested algorithm
         performance.start()
-        index = veg.Index(results.algorithm)
+        index = veg.Index(arguments.algorithm)
         performance.stopAndRecord(constants.PERF_INDEX)
 
         #ImageManipulation.show("index", index)
         #cv.imwrite("index.jpg", index)
-        if results.plot:
-            plot3D(index, results.algorithm)
+        if arguments.plot:
+            plot3D(index, arguments.algorithm)
 
         # Get the mask
         #mask, threshold = veg.MaskFromIndex(index, True, 1, results.threshold)
-        mask, threshold = veg.MaskFromIndex(index, not results.nonegate, 1, results.threshold)
+        mask, threshold = veg.MaskFromIndex(index, not arguments.nonegate, 1, arguments.threshold)
 
         veg.applyMask()
         # This is the slow call
@@ -267,7 +277,7 @@ try:
         image = veg.GetImage()
         normalized = np.zeros_like(image)
         finalImage = cv.normalize(image,  normalized, 0, 255, cv.NORM_MINMAX)
-        if results.mask:
+        if arguments.mask:
             filledMask = mask.copy().astype(np.uint8)
             cv.floodFill(filledMask, None, (0,0),255)
             filledMaskInverted = cv.bitwise_not(filledMask)
@@ -293,7 +303,7 @@ try:
 
         # Find the plants in the image
         performance.start()
-        contours, hierarchy, blobs, largest = manipulated.findBlobs(results.minarea)
+        contours, hierarchy, blobs, largest = manipulated.findBlobs(arguments.minarea)
         performance.stopAndRecord(constants.PERF_CONTOURS)
 
         # The test should probably be if we did not find any blobs
@@ -327,20 +337,21 @@ try:
 
         performance.start()
         manipulated.findAngles()
+        manipulated.findCropLine()
         performance.stopAndRecord(constants.PERF_ANGLES)
 
         # Crop row processing
         manipulated.identifyCropRowCandidates()
 
         #Use either heuristics or logistic regression
-        if results.logistic or results.knn or results.tree or results.forest or results.gradient:
+        if arguments.logistic or arguments.knn or arguments.tree or arguments.forest or arguments.gradient:
             performance.start()
             classifier.classify()
-            performance.stopAndRecord(constants.PERF_REGRESSION)
+            performance.stopAndRecord(constants.PERF_CLASSIFY)
             classifiedBlobs = classifier.blobs
         else:
             performance.start()
-            classifier.classifyByRatio(largest, size=manipulated.image.shape, ratio=results.minratio)
+            classifier.classifyByRatio(largest, size=manipulated.image.shape, ratio=arguments.minratio)
             performance.stopAndRecord(constants.PERF_CLASSIFY)
 
         # Draw boxes around the images we found
@@ -352,7 +363,7 @@ try:
         #manipulated.detectLines()
         manipulated.drawCropline()
         #logger.logImage("crop-line", manipulated.croplineImage)
-        if results.contours:
+        if arguments.contours:
             manipulated.drawContours()
 
 
@@ -364,7 +375,7 @@ try:
         # The alternative is to use the original images and use the soil as the element that is common between
         # the two.  The worry here is computational efficiency
 
-        if results.stitch:
+        if arguments.stitch:
             if previousImage is not None:
                 manipulated.stitchTo(previousImage)
             else:
@@ -376,7 +387,7 @@ try:
         #ImageManipulation.show("Greyscale", manipulated.toGreyscale())
 
         # Write out the crop images so we can use them later
-        if results.xtract:
+        if arguments.xtract:
             manipulated.extractImages(classifiedAs=constants.TYPE_DESIRED)
             for blobName, blobAttributes in manipulated.blobs.items():
                 if blobAttributes[constants.NAME_TYPE] == constants.TYPE_DESIRED:
@@ -385,11 +396,11 @@ try:
         reporting.addBlobs(sequence, blobs)
         sequence = sequence + 1
 
-        if results.spray:
-            if results.verbose:
+        if arguments.spray:
+            if arguments.verbose:
                 print("Forming treatment")
             performance.start()
-            treatment = Treatment(manipulated.original)
+            treatment = Treatment(manipulated.original, manipulated.binary)
             treatment.overlayTreatmentGrid()
             treatment.generatePlan(classifiedBlobs)
             logger.logImage("treatment", treatment.image)
@@ -402,11 +413,12 @@ except EOFError:
     print("End of input")
     #sys.exit(0)
 
-if results.histograms:
+if arguments.histograms:
     reporting.showHistogram("Areas", 20, constants.NAME_AREA)
     reporting.showHistogram("Shape", 20, constants.NAME_SHAPE_INDEX)
 
 # Not quite right here to get the list of all blobs from the reporting module
 #classifier.train(reporting.blobs)
 
-reporting.writeSummary(results.results)
+reporting.writeSummary(arguments.results)
+sys.exit(0)

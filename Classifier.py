@@ -1,6 +1,7 @@
 #
 # C L A S S I F I E R
 #
+import random
 
 import constants
 import cv2 as cv
@@ -167,7 +168,13 @@ class Classifier:
             raise FileNotFoundError
 
         # Load from the csv file and get the columns we care about
-        self._df = pd.read_csv(filename, usecols=["ratio", "shape", "distance", "type"])
+        self._df = pd.read_csv(filename,
+                               usecols=["ratio",
+                                        "shape",
+                                        "distance",
+                                        constants.NAME_DISTANCE_NORMALIZED,
+                                        constants.NAME_HEIGHT,
+                                        "type"])
         # Extract the type -- there should be only two, desired and undesired
         y = self._df.type
         self._y = y
@@ -189,12 +196,19 @@ class Classifier:
         # Build up the list of features we will use.
         # Reading some performance comparisons, this is the fastest way to create a dataframe
         for blobName, blobAttributes in self._blobs.items():
+            print("Warning: Faking height data.")
+            if blobAttributes[constants.NAME_TYPE] == constants.TYPE_UNDESIRED:
+                blobAttributes[constants.NAME_HEIGHT] = random.randint(10, 25)
+            else:
+                blobAttributes[constants.NAME_HEIGHT] = random.randint(55,75)
             features.append([blobAttributes[constants.NAME_RATIO],
                              blobAttributes[constants.NAME_SHAPE_INDEX],
-                             blobAttributes[constants.NAME_DISTANCE]])
+                             blobAttributes[constants.NAME_DISTANCE],
+                             blobAttributes[constants.NAME_DISTANCE_NORMALIZED],
+                             blobAttributes[constants.NAME_HEIGHT]])
 
         # Construct the dataframe we will use
-        self._blobsInView = pd.DataFrame(features, columns=('ratio', 'shape', 'distance'))
+        self._blobsInView = pd.DataFrame(features, columns=('ratio', 'shape', 'distance','normalized_distance', 'height'))
 
     def visualize(self):
         return

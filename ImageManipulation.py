@@ -44,6 +44,10 @@ class ImageManipulation:
         self._angles = None
         self._shapeIndices = []
         self._original = img.copy()
+        self._imageAsBinary = np.ndarray
+
+        (self._maxY, self._maxX, self._depth) = img.shape
+        self._centerLineY = int(self._maxY/2)
 
     # def init(self):
     #     self._cvimage = cv.cvtColor(self._image)
@@ -51,6 +55,10 @@ class ImageManipulation:
     @property
     def original(self) -> np.ndarray:
         return self._original
+
+    @property
+    def binary(self) -> np.ndarray:
+        return self._imageAsBinary
 
     @property
     def mmPerPixel(self) -> float:
@@ -199,6 +207,7 @@ class ImageManipulation:
         self.write(closing, "closing.jpg")
         #self.show("binary", erosion)
         self.write(erosion, "binary.jpg")
+        self._imageAsBinary = erosion
 
         # Originally
         # candidate = erosion
@@ -237,16 +246,13 @@ class ImageManipulation:
             center = (cX,cY)
             reason = constants.REASON_UNKNOWN
 
-            # This is a nonsense calculation so I can debug the R implementation
-            blueAvg = np.average(self._image[y:y+h, x:x+w, 1])
-
             infoAboutBlob = {constants.NAME_LOCATION: location,
                              constants.NAME_CENTER: center,
                              constants.NAME_AREA: area,
                              constants.NAME_TYPE: type,
                              constants.NAME_CONTOUR: c,
                              constants.NAME_REASON: reason,
-                             constants.NAME_BLUE: blueAvg}
+                             constants.NAME_NEIGHBOR_COUNT: 0}
 
             name = "blob" + str(i)
             # Ignore items in the image that are smaller in area than the
@@ -455,8 +461,77 @@ class ImageManipulation:
 
         return final_degrees
 
-    def findAngles(self):
+    def normalizedDistanceToCropY(self, y: int) -> float:
+        """
+        The normalized distance from y to the crop line y
+        :param y:
+        :return: The distance as a float
+        """
+        if y >= self._cropY:
+            distanceFromY = y - self._cropY
+        else:
+            distanceFromY = self._cropY - y
+        normalizedDistance = distanceFromY / self._maxY
+        return normalizedDistance
 
+    def findCropLine(self):
+
+        # Find the number of horizontal neighbors each element has.
+
+        likelyCropLineY = int(self._maxY / 2)
+        weightedDistanceMax = 0
+
+        # for blobName, blobAttributes in self._blobs.items():
+        #     blobAttributes[constants.NAME_CROP_SCORE] = 0
+        #     point1 = blobAttributes[constants.NAME_CENTER]
+        #     for toBlobName, toBlobAttributes in self._blobs.items():
+        #         point2 = toBlobAttributes[constants.NAME_CENTER]
+        #         angle = self.angleOf((point1[0], point1[1]), (point2[0], point2[1]))
+        #         #print("Angle from {} to {} is {}".format(blobName, toBlobName, angle))
+        #         if angle < 5:
+        #             #print("Found a neighbor for {}".format(blobName))
+        #             blobAttributes[constants.NAME_NEIGHBOR_COUNT] = blobAttributes[constants.NAME_NEIGHBOR_COUNT] + 1
+        #     # This is potentially on the crop line if it is the largest thing in the image
+        #     if blobName == self._largestName:
+        #         blobAttributes[constants.NAME_CROP_SCORE] = 1
+
+        # Find the biggest item closest to the center line
+        for blobName, blobAttributes in self._blobs.items():
+            weightedDistance = blobAttributes[constants.NAME_AREA] * (1 - blobAttributes[constants.NAME_DISTANCE_NORMALIZED])
+
+            print("Weighted distance of {}: {}".format(blobName, weightedDistance))
+            if weightedDistance > weightedDistanceMax:
+                weightedDistanceMax = weightedDistance
+                likelyCropLineBlob = blobName
+                likelyCropLineY = blobAttributes[constants.NAME_CENTER][1]
+
+        self._cropY = likelyCropLineY
+        print("Crop line Y: {} for blob {}".format(self._cropY, likelyCropLineBlob))
+
+        # Step through and replace the normalized distance to the center line
+        # with the normalized distance to the crop line
+        for blobName, blobAttributes in self._blobs.items():
+            (x,y) = blobAttributes[constants.NAME_CENTER]
+            blobAttributes[constants.NAME_DISTANCE_NORMALIZED] = self.normalizedDistanceToCropY(y)
+
+        return self._cropY
+
+
+
+
+
+        return
+
+    def findAngles(self):
+        """
+        Calculate three things:
+        - the angles from every center to every center
+        - the Y of the crop line, stored in _cropY
+        - the distance from the crop line for each center
+        For some machine learning, it's best if things are on the same scale, so convert the distance to a
+        normalized value as well.
+        :return:
+        """
         self._centersUnsorted = []
         self._centers = []
 
@@ -467,7 +542,7 @@ class ImageManipulation:
                 #print(blobName + ": " + str(blobAttributes[constants.NAME_CENTER]))
                 # Keep the name with the coordinates so we know which blob this refers to
                 self._centersUnsorted.append(blobAttributes[constants.NAME_CENTER] + tuple([blobName]))
-        #print(self._centersUnsorted)
+        print(self._centersUnsorted)
 
         # Create an array to hold the angles between the blobs
         self._angles = np.zeros((centerCount, centerCount))
@@ -526,16 +601,20 @@ class ImageManipulation:
         (cropX, cropY, blobName) = self._centers[smallestIndex]
 
         # This is all we need. The Y location of the crop line in the image
-        self._cropY = cropY
+        #self._cropY = cropY
+        # Treat the centerline of the image as the potential crop line
+        self._cropY = self._centerLineY
 
         # Add the distance from the crop line for all the blobs.
         for blobName, blobAttributes in self._blobs.items():
             (x, y) = blobAttributes[constants.NAME_CENTER]
             if y >= self._cropY:
-                blobAttributes[constants.NAME_DISTANCE] = y - self._cropY
+                distanceFromY = y - self._cropY
             else:
-                blobAttributes[constants.NAME_DISTANCE] = self._cropY - y
+                distanceFromY = self._cropY - y
 
+            blobAttributes[constants.NAME_DISTANCE] = distanceFromY
+            blobAttributes[constants.NAME_DISTANCE_NORMALIZED] = distanceFromY / self._maxY
         return
 
     def drawCropline(self):
@@ -619,6 +698,8 @@ class ImageManipulation:
                 lengthWidthRatioText = "L/W Ratio: " + "{:4f}".format(rectAttributes[constants.NAME_RATIO])
                 reasonText = "Classified By: " + constants.REASONS[rectAttributes[constants.NAME_REASON]]
                 classifiedText = "Classified As: " + constants.TYPES[rectAttributes[constants.NAME_TYPE]]
+                distanceText = "Normalized Distance: " + "{:.4f}".format(rectAttributes[constants.NAME_DISTANCE_NORMALIZED])
+                nameText = "Name: {}".format(rectName)
                 if constants.NAME_LOCATION in decorations:
                     cv.putText(self._image, location, (cX - 25, cY - 25),cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
                 if constants.NAME_AREA in decorations:
@@ -631,7 +712,10 @@ class ImageManipulation:
                     cv.putText(self._image, reasonText, (cX - 25, cY - 125), cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
                 if constants.NAME_TYPE in decorations:
                     cv.putText(self._image, classifiedText, (cX - 25, cY - 150), cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+                if constants.NAME_NAME in decorations:
+                    cv.putText(self._image, nameText, (cX - 25, cY - 175), cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
                 if constants.NAME_DISTANCE in decorations:
+                    cv.putText(self._image, distanceText,(cX - 25, cY- 200), cv.FONT_HERSHEY_SIMPLEX, 0.75, (255,255,255), 2)
                     cv.line(self._image,(cX, cY), (cX, self._cropY), (255,255,255), 3)
 
 

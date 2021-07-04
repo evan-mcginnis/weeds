@@ -16,7 +16,13 @@ NAME_REASON = "reason"
 NAME_SIZE_RATIO = "size_ratio"
 NAME_BLUE = "blue"
 NAME_DISTANCE = "distance"
+NAME_DISTANCE_NORMALIZED = "normalized_distance"
 NAME_NAME = "name"
+NAME_HEIGHT = "height"
+NAME_NEIGHBOR_COUNT = "neighbors"
+
+# Temporary
+NAME_CROP_SCORE = "score"
 
 # A shortcut used for the command line
 NAME_ALL = "all"
