@@ -1,14 +1,11 @@
 
 OS := $(shell uname)
 
-ifeq ($(OS),"Darwin")
+ifeq ($(OS),Darwin)
 	PYTHON = python3
 else
 	PYTHON = python
 endif
-
-all:
-	@echo $(PYTHON)
 
 heuristic:
 	$(PYTHON) weeds.py -i input2 -o output -a ndi -t "(130,0)" -v
