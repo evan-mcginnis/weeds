@@ -166,7 +166,14 @@ reporting = Reporting()
 previousImage = None
 sequence = 0
 
-
+# The factors considered in classification
+#
+# factors = [constants.NAME_RATIO,
+#            constants.NAME_DISTANCE_NORMALIZED,
+#            constants.NAME_SHAPE_INDEX]
+#
+# if arguments.height:
+#     factors.append(constants.NAME_HEIGHT)
 
 # Initialize logistic regression only if the user specified a data file
 
@@ -221,14 +228,7 @@ if constants.NAME_ALL in arguments.decorations:
 else:
     featuresToShow = [arguments.decorations]
 
-# The factors considered in classification
 
-factors = [constants.NAME_RATIO,
-           constants.NAME_DISTANCE_NORMALIZED,
-           constants.NAME_SHAPE_INDEX]
-
-if arguments.height:
-    factors.append(constants.NAME_HEIGHT)
 
 # The contours are a bit distracting
 if arguments.contours:

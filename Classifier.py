@@ -173,13 +173,15 @@ class Classifier:
                                         "shape",
                                         "distance",
                                         constants.NAME_DISTANCE_NORMALIZED,
-                                        constants.NAME_HEIGHT,
                                         "type"])
         # Extract the type -- there should be only two, desired and undesired
         y = self._df.type
         self._y = y
         # Drop the type column
         self._df.drop("type", axis='columns', inplace=True)
+        # Drop any data that is not part of the factors we want to consider
+        # TODO: Put references to height
+
         # Split up the data
         if stratify:
             X_train, X_test, y_train, y_test = train_test_split(self._df,y,train_size=0.4, stratify=y,random_state=42)
@@ -190,25 +192,33 @@ class Classifier:
         self._xTest = X_test
         self._yTest = y_test
 
-    def _prepareData(self):
+    def _prepareData(self ):
 
         features = []
         # Build up the list of features we will use.
         # Reading some performance comparisons, this is the fastest way to create a dataframe
         for blobName, blobAttributes in self._blobs.items():
-            print("Warning: Faking height data.")
-            if blobAttributes[constants.NAME_TYPE] == constants.TYPE_UNDESIRED:
-                blobAttributes[constants.NAME_HEIGHT] = random.randint(10, 25)
-            else:
-                blobAttributes[constants.NAME_HEIGHT] = random.randint(55,75)
+        #     if constants.NAME_HEIGHT in factors:
+        #         print("Warning: Faking height data.")
+        #         if blobAttributes[constants.NAME_TYPE] == constants.TYPE_UNDESIRED:
+        #             blobAttributes[constants.NAME_HEIGHT] = random.randint(10, 25)
+        #         else:
+        #             blobAttributes[constants.NAME_HEIGHT] = random.randint(55,75)
+        #         features.append([blobAttributes[constants.NAME_RATIO],
+        #                          blobAttributes[constants.NAME_SHAPE_INDEX],
+        #                          blobAttributes[constants.NAME_DISTANCE],
+        #                          blobAttributes[constants.NAME_DISTANCE_NORMALIZED],
+        #                          blobAttributes[constants.NAME_HEIGHT]])
+        #         self._blobsInView = pd.DataFrame(features,
+        #                                          columns=( 'ratio', 'shape', 'distance', 'normalized_distance', 'height'))
+        #     else:
             features.append([blobAttributes[constants.NAME_RATIO],
                              blobAttributes[constants.NAME_SHAPE_INDEX],
                              blobAttributes[constants.NAME_DISTANCE],
-                             blobAttributes[constants.NAME_DISTANCE_NORMALIZED],
-                             blobAttributes[constants.NAME_HEIGHT]])
+                             blobAttributes[constants.NAME_DISTANCE_NORMALIZED]])
 
-        # Construct the dataframe we will use
-        self._blobsInView = pd.DataFrame(features, columns=('ratio', 'shape', 'distance','normalized_distance', 'height'))
+            # Construct the dataframe we will use
+            self._blobsInView = pd.DataFrame(features, columns=('ratio', 'shape', 'distance','normalized_distance'))
 
     def visualize(self):
         return
@@ -275,17 +285,6 @@ class LogisticRegressionClassifier(Classifier):
             return
 
         self._prepareData()
-
-        # features = []
-        # # Build up the list of features we will use.
-        # # Reading some performance comparisons, this is the fastest way to create a dataframe
-        # for blobName, blobAttributes in self._blobs.items():
-        #     features.append([blobAttributes[constants.NAME_RATIO],
-        #                      blobAttributes[constants.NAME_SHAPE_INDEX],
-        #                      blobAttributes[constants.NAME_DISTANCE]])
-        #
-        # # Construct the dataframe we will use
-        # blobsInView = pd.DataFrame(features, columns=('ratio', 'shape', 'distance'))
 
         # Make the predictions using the model trained
         predictions = self._model.predict(self._blobsInView)
