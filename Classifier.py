@@ -8,6 +8,7 @@ import cv2 as cv
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+import logging
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.neighbors import KNeighborsClassifier
@@ -30,6 +31,7 @@ class Classifier:
 
         self._blobsInView = pd.DataFrame()
 
+        self.log = logging.getLogger(__name__)
         # # The ANN for the classifier
         # self._ann = cv.ml.ANN_MLP_create()
         # self._ann.setLayerSizes(np.array([3, 8, 3], np.uint8))
@@ -104,6 +106,7 @@ class Classifier:
         Classify items as unknown if they extend off the edge of the image.
         :param size: Unused. Should be refactored out.
         """
+        self.log.info("Classify by position")
         (maxY, maxX, depth) = size
         for blobName, blobAttributes in self._blobs.items():
             (x, y, w, h) = blobAttributes.get(constants.NAME_LOCATION)
@@ -152,6 +155,7 @@ class Classifier:
     def classify(self, reason : int):
         self._prepareData()
 
+        self.log.info("Classify")
         predictions = self._classifier.predict(self._blobsInView)
                 # Mark up the current view
         i = 0
@@ -167,6 +171,7 @@ class Classifier:
         if not os.path.isfile(filename):
             raise FileNotFoundError
 
+        self.log.info("Load training file")
         # Load from the csv file and get the columns we care about
         self._df = pd.read_csv(filename,
                                usecols=["ratio",
@@ -284,6 +289,7 @@ class LogisticRegressionClassifier(Classifier):
         if self._model is None:
             return
 
+        self.log.info("Classify by logistic regression")
         self._prepareData()
 
         # Make the predictions using the model trained

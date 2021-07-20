@@ -20,6 +20,8 @@ NAME_DISTANCE_NORMALIZED = "normalized_distance"
 NAME_NAME = "name"
 NAME_HEIGHT = "height"
 NAME_NEIGHBOR_COUNT = "neighbors"
+NAME_HUE = "hue"
+NAME_HUE_MEAN = "hue_mean"
 
 # Temporary
 NAME_CROP_SCORE = "score"

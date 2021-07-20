@@ -8,6 +8,7 @@
 import numpy as np
 import pandas as pd
 import cv2 as cv
+import logging
 
 import constants
 
@@ -25,6 +26,7 @@ class Treatment:
         rows, cols = (int(self._maxRows / GRID_SIZE), int(self._maxColumns/ GRID_SIZE))
         self._treatmentGrid = [[0]*cols]*rows
         self._grid = pd.DataFrame(dtype=int)
+        self.log = logging.getLogger(__name__)
 
     @property
     def image(self):
@@ -98,6 +100,7 @@ class Treatment:
         :param classified: The blobs in the image that have already classified
         :return: a 2D matrix. Cells with the constant UNDESIRABLE are slated for treatment
         """
+        self.log.info("Generating plan")
         for classifiedName, classifiedAttributes in classified.items():
             if classifiedAttributes[constants.NAME_TYPE] == constants.TYPE_UNDESIRED:
                 center = classifiedAttributes[constants.NAME_CENTER]

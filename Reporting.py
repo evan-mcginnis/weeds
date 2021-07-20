@@ -32,12 +32,14 @@ class Reporting:
     def writeSummary(self, filename: str):
         file = open(filename, "w")
         blobNumber = 0
-        file.write("name,number,ratio,shape,distance,normalized_distance,type\n")
+        file.write("name,number,ratio,shape,distance,normalized_distance, hue_mean,type\n")
         for blobName, blobAttributes in self._blobs.items():
             # Only take desired vegetation in full view
             if (blobAttributes[constants.NAME_TYPE] == constants.TYPE_DESIRED and blobAttributes[constants.NAME_RATIO] != 0) or \
                (blobAttributes[constants.NAME_TYPE] == constants.TYPE_UNDESIRED and blobAttributes[constants.NAME_RATIO] != 0):
-                file.write("%s,%d,%f,%f,%f,%f,%d\n" %
+                hue = blobAttributes[constants.NAME_HUE]
+                hueMean = hue.mean()
+                file.write("%s,%d,%f,%f,%f,%f,%d,%d\n" %
                            (blobName,
                             blobNumber,
                             blobAttributes[constants.NAME_RATIO],
@@ -45,6 +47,7 @@ class Reporting:
                             #blobAttributes[constants.NAME_SIZE_RATIO],
                             blobAttributes[constants.NAME_DISTANCE],
                             blobAttributes[constants.NAME_DISTANCE_NORMALIZED],
+                            hueMean,
                             blobAttributes[constants.NAME_TYPE]))
                 blobNumber = blobNumber + 1
 

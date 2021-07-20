@@ -7,6 +7,10 @@ import sys
 import numpy as np
 import cv2 as cv
 import matplotlib.pyplot as plt
+import logging
+import logging.config
+import yaml
+import os
 
 from CameraFile import CameraFile, CameraPhysical
 from VegetationIndex import VegetationIndex
@@ -48,6 +52,7 @@ group.add_argument("-dt", "--tree", action="store_true", default=False, help="Pr
 group.add_argument("-f", "--forest", action="store_true", default=False, help="Predict using random forest. Requires data file to be specified")
 group.add_argument("-g", "--gradient", action="store_true", default=False, help="Predict using gradient boosting. Requires data file to be specified")
 group.add_argument("-svm", "--support", action="store_true", default=False, help="Predict using support vector machine. Requires data file to be specified")
+parser.add_argument("-lg", "--logging", action="store", default="info-logging.yaml", help="Logging configuration file")
 parser.add_argument("-m", "--mask", action="store_true", default=False, help="Mask only -- no processing")
 parser.add_argument("-ma", "--minarea", action="store", default=500, type=int, help="Minimum area of a blob")
 parser.add_argument("-mr", "--minratio", action="store", default=5, type=int, help="Minimum size ratio for classifier")
@@ -129,6 +134,25 @@ def startupPerformance() -> Performance:
 #
 
 def startupLogger(outputDirectory: str) -> Logger:
+    """
+    Initializes two logging systems: the image logger and python centric logging.
+    :param outputDirectory: The output directory for the images
+    :return: The image logger instance
+    """
+
+    # The command line argument contains the name of the YAML configuration file.
+
+    # Confirm the YAML file exists
+    if not os.path.isfile(arguments.logging):
+        print("Unable to access logging configuration file {}".format(arguments.logging))
+        sys,exit(1)
+
+    # Initialize logging
+    with open(arguments.logging, "rt") as f:
+        config = yaml.safe_load(f.read())
+        logging.config.dictConfig(config)
+        #logger = logging.getLogger(__name__)
+
     logger = Logger()
     if not logger.connect(outputDirectory):
         print("Unable to connect to logging. ./output does not exist.")
@@ -154,6 +178,7 @@ def plot3D(index, title):
 camera = startupCamera()
 odometer = startupOdometer()
 logger = startupLogger(arguments.output)
+log = logging.getLogger(__name__)
 performance = startupPerformance()
 
 mmPerPixel = camera.getMMPerPixel()
@@ -243,8 +268,10 @@ try:
     # TODO: Accept signal to stop processing
     while True:
         imageNumber = imageNumber + 1
+
         if arguments.verbose:
             print("Processing image " + str(imageNumber))
+        log.info("Processing image " + str(imageNumber))
         performance.start()
         rawImage = camera.capture()
         performance.stopAndRecord(constants.PERF_ACQUIRE)
@@ -301,6 +328,10 @@ try:
         manipulated = ImageManipulation(finalImage)
         manipulated.mmPerPixel = mmPerPixel
 
+        # TODO: Conversion to HSV should be done automatically
+        manipulated.toHSV()
+        manipulated.toHSI()
+
         # Find the plants in the image
         performance.start()
         contours, hierarchy, blobs, largest = manipulated.findBlobs(arguments.minarea)
@@ -342,6 +373,9 @@ try:
 
         # Crop row processing
         manipulated.identifyCropRowCandidates()
+
+        # Extract various features
+        #manipulated.extractImagesFrom(manipulated.hsi,0, constants.NAME_HUE)
 
         #Use either heuristics or logistic regression
         if arguments.logistic or arguments.knn or arguments.tree or arguments.forest or arguments.gradient:

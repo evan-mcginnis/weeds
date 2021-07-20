@@ -7,14 +7,23 @@ else
 	PYTHON = python
 endif
 
+clean:
+	rm weeds.log
+
 heuristic:
 	$(PYTHON) weeds.py -i input2 -o output -a ndi -t "(130,0)" -v
 
 development:	
 	$(PYTHON) weeds.py -i input2 -o output -a ndi -t "(130,0)" -df training.csv -l -sc -v -d distance
 
+lrx:	
+	$(PYTHON) weeds.py -i input2 -o output -a ndi -t "(130,0)" -df training.csv -l -sc -v -lg debug-logging.yaml
+
 lr:	
 	$(PYTHON) weeds.py -i input2 -o output -a ndi -t "(130,0)" -df training.csv -l -sc -v
+
+lr3:
+	$(PYTHON) weeds.py -i input3 -o output -a ndi -t "(130,0)" -df training.csv -l -sc -v
 
 knn:	
 	$(PYTHON) weeds.py -i input2 -o output -a ndi -t "(130,0)" -df training.csv -k -sc -v

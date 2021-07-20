@@ -77,6 +77,10 @@ class ImageManipulation:
         return self._image
 
     @property
+    def hsv(self):
+        return self._imgAsHSV
+
+    @property
     def croplineImage(self):
         return self.cropline_image
 
@@ -108,6 +112,17 @@ class ImageManipulation:
         """
         self._imgAsHSV =  cv.cvtColor(self._image.astype(np.uint8), cv.COLOR_BGR2HSV)
         return self._imgAsHSV
+
+    def toHSI(self) -> np.ndarray:
+        """
+        The current image converted to ths HSI colorspace
+        :return:
+        The HSI values as numpy array
+        """
+        # TODO: HSI Implementation
+        # self._imgAsHSI = cv.cvtColor(self._image.astype(np.uint8), cv.CV_RGB2HLS)
+        # return self._imgAsHSI
+
 
     def toGreyscale(self) -> np.ndarray:
         """
@@ -425,7 +440,9 @@ class ImageManipulation:
         #cv.imwrite(filename, self.cropline_image)
 
     def detectLines(self):
-
+        """
+        Deprecated. Do not use this method.
+        """
         dst = cv.Canny(self.cropline_image, 50, 200, None, 3)
         cv.imwrite("edges.jpg", dst)
         #self.linesP = cv.HoughLinesP(dst, 1, np.pi / 180, 50, None, minLineLength=100, maxLineGap=1000)
@@ -774,45 +791,69 @@ class ImageManipulation:
                 image = self._original[y:y+h, x:x+w]
                 blobAttributes[constants.NAME_IMAGE] = image
 
-    @staticmethod
-    def _max_rect(mat, value=0):
-        """returns (height, width, left_column, bottom_row) of the largest rectangle
-        containing all `value`'s.
+    def extractImagesFrom(self, source: np.ndarray, zslice: int, attribute: str):
+        """
+        Extract the data from the given source for every object that isn't to be ignored.
+        An example of this is pulling out the HUE layer from the HSV array.
 
+        :param source: The source of the extraction (HSI, HSV, RGB, etc.)
 
-       """
-        it = iter(mat)
-        hist = [(el==value) for el in next(it, [])]
-        max_rect = max_rectangle_size(hist) + (0,)
-        for irow,row in enumerate(it):
-            hist = [(1+h) if el == value else 0 for h, el in zip(hist, row)]
-            max_rect = max(max_rect, max_rectangle_size(hist) + (irow+1,), key=area)
-            # irow+1, because we already used one row for initializing max_rect
-        return max_rect
+        :param zslice: Which layer to extract -- TODO: make this work for things like greyscale as well
 
-    @staticmethod
-    def _max_rectangle_size(histogram):
-        stack = []
-        Info = namedtuple('Info', 'start height')
-        top = lambda: stack[-1]
-        max_size = (0, 0, 0) # height, width and start position of the largest rectangle
-        pos = 0 # current position in the histogram
-        for pos, height in enumerate(histogram):
-            start = pos # position where rectangle starts
-            while True:
-                if not stack or height > top().height:
-                    stack.append(Info(start, height)) # push
-                elif stack and height < top().height:
-                    max_size = max(max_size, (top().height, (pos - top().start), top().start), key=area)
-                    start, _ = stack.pop()
-                    continue
-                break # height == top().height goes here
+        :param attribute: The name of the attribute to use to store the result: i.e., NAME_HUE
 
-        pos += 1
-        for start, height in stack:
-            max_size = max(max_size, (height, (pos - start), start), key=area)
+        """
+        for blobName, blobAttributes in self._blobs.items():
+            # For everything that isn't ignored, extract out the slice
+            if blobAttributes[constants.NAME_TYPE] != constants.TYPE_IGNORED:
+                (x, y, w, h) = blobAttributes[constants.NAME_LOCATION]
+                # Pull the subset from the original image so we don't see the markings
+                image = source[y:y+h, x:x+w, zslice]
+                # This seems to be a very specific case.  After we have masked from the vegetation index
+                # The black values are 0,0,0.  Convert them to NaN so when we perform calculations, we don't
+                # use the black pixels
+                image = np.where(image == 0, np.nan, image)
+                blobAttributes[attribute] = image
 
-        return max_size
+    # @staticmethod
+    # def _max_rect(mat, value=0):
+    #     """returns (height, width, left_column, bottom_row) of the largest rectangle
+    #     containing all `value`'s.
+    #
+    #
+    #    """
+    #     it = iter(mat)
+    #     hist = [(el==value) for el in next(it, [])]
+    #     max_rect = max_rectangle_size(hist) + (0,)
+    #     for irow,row in enumerate(it):
+    #         hist = [(1+h) if el == value else 0 for h, el in zip(hist, row)]
+    #         max_rect = max(max_rect, max_rectangle_size(hist) + (irow+1,), key=area)
+    #         # irow+1, because we already used one row for initializing max_rect
+    #     return max_rect
+    #
+    # @staticmethod
+    # def _max_rectangle_size(histogram):
+    #     stack = []
+    #     Info = namedtuple('Info', 'start height')
+    #     top = lambda: stack[-1]
+    #     max_size = (0, 0, 0) # height, width and start position of the largest rectangle
+    #     pos = 0 # current position in the histogram
+    #     for pos, height in enumerate(histogram):
+    #         start = pos # position where rectangle starts
+    #         while True:
+    #             if not stack or height > top().height:
+    #                 stack.append(Info(start, height)) # push
+    #             elif stack and height < top().height:
+    #                 max_size = max(max_size, (top().height, (pos - top().start), top().start), key=area)
+    #                 start, _ = stack.pop()
+    #                 continue
+    #             break # height == top().height goes here
+    #
+    #     pos += 1
+    #     for start, height in stack:
+    #         max_size = max(max_size, (height, (pos - start), start), key=area)
+    #
+    #     return max_size
 
     @staticmethod
     def _area(size):
