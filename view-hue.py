@@ -14,6 +14,7 @@ parser = argparse.ArgumentParser("View HSV of image")
 parser.add_argument('-i', '--image', action="store", required = True, help="Target image")
 parser.add_argument('-o', '--output', action="store", help="Output directory for processed images")
 parser.add_argument("-v", "--verbose", action="store_true", default=False)
+parser.add_argument("-c", "--colorspace", action="store", type=str,default="hsv")
 
 results = parser.parse_args()
 
@@ -21,7 +22,14 @@ results = parser.parse_args()
 
 img = cv.imread(results.image)
 manipulated = ImageManipulation(img)
-hsv = manipulated.toHSV()
+if results.colorspace == "hsv":
+    hsv = manipulated.toHSV()
+elif results.colorspace == "hsi":
+    hsv = manipulated.toHSI()
+else:
+    print("Unknown color space: " + results.colorspace)
+    sys.exit(1)
+
 hue = hsv[:,:,0]
 saturation = hsv[:,:,1]
 value = hsv[:,:,2]
