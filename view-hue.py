@@ -21,11 +21,13 @@ results = parser.parse_args()
 # Read image
 
 img = cv.imread(results.image)
-manipulated = ImageManipulation(img)
+manipulated = ImageManipulation(img, 0)
 if results.colorspace == "hsv":
     hsv = manipulated.toHSV()
 elif results.colorspace == "hsi":
     hsv = manipulated.toHSI()
+elif results.colorspace == "yiq":
+    hsv = manipulated.toYIQ()
 else:
     print("Unknown color space: " + results.colorspace)
     sys.exit(1)
