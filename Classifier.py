@@ -173,12 +173,21 @@ class Classifier:
 
         self.log.info("Load training file")
         # Load from the csv file and get the columns we care about
+        # self._df = pd.read_csv(filename,
+        #                        usecols=["ratio",
+        #                                 "shape",
+        #                                 "distance",
+        #                                 constants.NAME_DISTANCE_NORMALIZED,
+        #                                 #"hue_mean",
+        #                                 "type"])
         self._df = pd.read_csv(filename,
-                               usecols=["ratio",
-                                        "shape",
-                                        "distance",
+                               usecols=[constants.NAME_RATIO,
+                                        constants.NAME_SHAPE_INDEX,
+                                        constants.NAME_DISTANCE,
                                         constants.NAME_DISTANCE_NORMALIZED,
-                                        "type"])
+                                        constants.NAME_HUE,
+                                        constants.NAME_I_YIQ,
+                                        constants.NAME_TYPE])
         # Extract the type -- there should be only two, desired and undesired
         y = self._df.type
         self._y = y
@@ -220,10 +229,18 @@ class Classifier:
             features.append([blobAttributes[constants.NAME_RATIO],
                              blobAttributes[constants.NAME_SHAPE_INDEX],
                              blobAttributes[constants.NAME_DISTANCE],
-                             blobAttributes[constants.NAME_DISTANCE_NORMALIZED]])
+                             blobAttributes[constants.NAME_DISTANCE_NORMALIZED],
+                             blobAttributes[constants.NAME_HUE],
+                             blobAttributes[constants.NAME_I_YIQ]])
 
             # Construct the dataframe we will use
-            self._blobsInView = pd.DataFrame(features, columns=('ratio', 'shape', 'distance','normalized_distance'))
+            #self._blobsInView = pd.DataFrame(features, columns=('ratio', 'shape', 'distance','normalized_distance', 'hue'))
+            self._blobsInView = pd.DataFrame(features, columns=(constants.NAME_RATIO,
+                                                                constants.NAME_SHAPE_INDEX, #'shape',
+                                                                constants.NAME_DISTANCE, # 'distance',
+                                                                constants.NAME_DISTANCE_NORMALIZED, # 'normalized_distance',
+                                                                constants.NAME_HUE, # 'hue'
+                                                                constants.NAME_I_YIQ)) # I std deviation
 
     def visualize(self):
         return
@@ -253,7 +270,7 @@ class LogisticRegressionClassifier(Classifier):
         # # Split up the data
         # X_train, X_test, y_train, y_test = train_test_split(self._df,y,train_size=0.4)
 
-        self._model = LogisticRegression(C=100)
+        self._model = LogisticRegression(C=100, max_iter=200)
         self._model.fit(self._xTrain, self._yTrain)
 
 

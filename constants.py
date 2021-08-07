@@ -3,6 +3,9 @@
 #
 # Various constants
 
+#
+SPRAYER_NAME = "SPRAYER"
+
 # Names for the attributes
 NAME_AREA = "area"
 NAME_TYPE = "type"
@@ -18,18 +21,24 @@ NAME_BLUE = "blue"
 NAME_DISTANCE = "distance"
 NAME_DISTANCE_NORMALIZED = "normalized_distance"
 NAME_NAME = "name"
+NAME_NUMBER = "number"
 NAME_HEIGHT = "height"
 NAME_NEIGHBOR_COUNT = "neighbors"
 NAME_HUE = "hue"
 NAME_HUE_MEAN = "hue_mean"
+NAME_SATURATION = "saturation_mean"
+NAME_I_YIQ = "in_phase"
+
+
 
 # Temporary
 NAME_CROP_SCORE = "score"
 
 # A shortcut used for the command line
 NAME_ALL = "all"
+NAME_NONE = "none"
 
-names = [NAME_AREA, NAME_TYPE, NAME_LOCATION, NAME_CENTER, NAME_CONTOUR, NAME_SHAPE_INDEX, NAME_RATIO, NAME_IMAGE, NAME_REASON]
+names = [NAME_AREA, NAME_TYPE, NAME_LOCATION, NAME_CENTER, NAME_CONTOUR, NAME_SHAPE_INDEX, NAME_RATIO, NAME_IMAGE, NAME_REASON, NAME_HUE_MEAN, NAME_SATURATION]
 
 # REASONS why things were scored the way they were
 REASON_UNKNOWN = 0
@@ -62,6 +71,7 @@ PERF_OVERLAP = "overlap"
 PERF_REGRESSION = "regression"
 PERF_SHAPES = "shapes"
 PERF_TREATMENT = "treatment"
+PERF_COLORS = "colors"
 
 COLOR_TREATMENT_GRID = (0,255,0)
 COLOR_TREATMENT_WEED = (0,0,255)

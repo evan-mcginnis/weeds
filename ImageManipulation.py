@@ -5,15 +5,20 @@
 import uuid
 
 from PIL import Image
+from skimage import color
 from numpy import linalg as LA
 import numpy as np
 import matplotlib.pyplot as plt
 import cv2 as cv
 import math
 import pandas as pd
+import logging
+from math import pi
 
 from collections import namedtuple
 from operator import mul
+
+from skimage.color import rgb2yiq
 
 import constants
 
@@ -31,8 +36,9 @@ MIDDLE_THRESHOLD = 200
 BOUNDING_BOX_THICKNESS = 2
 
 class ImageManipulation:
-    def __init__(self, img : np.ndarray):
+    def __init__(self, img : np.ndarray, sequenceNumber : int):
         self._image = img
+        self._name = constants.NAME_IMAGE + "-" + str(sequenceNumber)
         self._rectangles = []
         self._largestName = ""
         self._largestArea = 0
@@ -45,12 +51,20 @@ class ImageManipulation:
         self._shapeIndices = []
         self._original = img.copy()
         self._imageAsBinary = np.ndarray
+        self._imageAsRGB = None
+        self._imageAsYIQ = None
 
         (self._maxY, self._maxX, self._depth) = img.shape
         self._centerLineY = int(self._maxY/2)
 
+        self.log = logging.getLogger(__name__)
+
     # def init(self):
     #     self._cvimage = cv.cvtColor(self._image)
+
+    @property
+    def name(self) -> str:
+        return self._name
 
     @property
     def original(self) -> np.ndarray:
@@ -81,6 +95,18 @@ class ImageManipulation:
         return self._imgAsHSV
 
     @property
+    def hsi(self):
+        return self._imgAsHSI
+
+    @property
+    def rgb(self):
+        return self._imageAsRGB
+
+    @property
+    def yiq(self):
+        return self._imageAsYIQ
+
+    @property
     def croplineImage(self):
         return self.cropline_image
 
@@ -104,6 +130,33 @@ class ImageManipulation:
     def write(self, image: np.ndarray, name: str):
         cv.imwrite(name, image)
 
+    def toRGB(self) -> np.ndarray:
+        """
+        Converts the current image to RGB from BGR.
+        :return: The converted image as an ndarray
+        """
+        if self._imageAsRGB is None:
+            self._imageAsRGB = cv.cvtColor(self._image.astype(np.uint8), cv.COLOR_BGR2RGB)
+        return self._imageAsRGB
+
+    # The YIQ colorspace is described here:
+    # https://en.wikipedia.org/wiki/YIQ
+
+    def toYIQ(self) -> np.ndarray:
+        """
+        Converts the current image to the YIQ colorspace from RGB.
+        Converts to RGB automatically
+        :return: The converted image as an ndarray
+        """
+        # Convert to RGB, as scikit-image doesn't take BGR
+        self.toRGB()
+
+        #TODO: This is the one and only use for the scikit-image library.
+        # This can be done with some matrix multiplication instead, and is something that can
+        # be performed on a GPU
+        self._imageAsYIQ = rgb2yiq(self._imageAsRGB)
+        return self._imageAsYIQ
+
     def toHSV(self) -> np.ndarray:
         """
         The current image converted to the HSV colorspace
@@ -112,6 +165,8 @@ class ImageManipulation:
         """
         self._imgAsHSV =  cv.cvtColor(self._image.astype(np.uint8), cv.COLOR_BGR2HSV)
         return self._imgAsHSV
+
+    # This code doesn't work exactly right, as I see negative values for saturation
 
     def toHSI(self) -> np.ndarray:
         """
@@ -123,6 +178,93 @@ class ImageManipulation:
         # self._imgAsHSI = cv.cvtColor(self._image.astype(np.uint8), cv.CV_RGB2HLS)
         # return self._imgAsHSI
 
+ #       with np.errstate(divide='ignore', invalid='ignore'):
+
+        bgr = np.int32(cv.split(self._image))
+
+        blue = bgr[0]
+        green = bgr[1]
+        red = bgr[2]
+        # self.log.debug("RED min/max {}/{}".format(red.min(),red.max()))
+        # self.log.debug("GREEN min/max {}/{}".format(green.min(),green.max()))
+        # self.log.debug("BLUE min/max {}/{}".format(blue.min(),blue.max()))
+
+        intensity = np.divide(blue + green + red, 3)
+
+        minimum = np.minimum(np.minimum(red, green), blue)
+        minimum = np.where(minimum == 0, .00001, minimum)
+        rgb = red + green + blue
+        # Avoid having missed datapoints here
+        rgb = np.where(rgb == 0, .00001, rgb)
+
+        self.log.debug("Min/max {}/{}".format(minimum.min(), minimum.max()))
+        # Originally: saturation = 1 - 3 * np.divide(minimum, rgb)
+        saturation = 1 - 3 * np.divide(minimum, rgb)
+
+        sqrt_calc = np.sqrt(((red - green) * (red - green)) + ((red - blue) * (green - blue)))
+
+        # Avoid having missed datapoints here
+        sqrt_calc = np.where(sqrt_calc == 0, 1, sqrt_calc)
+
+        if (green >= blue).any():
+            hue = np.arccos((1/2 * ((red-green) + (red - blue)) / sqrt_calc))
+        else:
+            hue = 2*pi - np.arccos((1/2 * ((red-green) + (red - blue)) / sqrt_calc))
+
+        hue = hue*180/pi
+
+        self._imgAsHSI = cv.merge((hue, saturation, intensity))
+        return self._imgAsHSI
+
+    # This code is way too slow
+    def RGB2HSI(self):
+        """
+             This is the function to convert RGB color image to HSI image
+             :param rgm_img: RGB color image
+             :return: HSI image
+        """
+        rgb_img = self._image
+        #Save the number of rows and columns of the original image
+        row = np.shape(rgb_img)[0]
+        col = np.shape(rgb_img)[1]
+        #Copy the original image
+        hsi_img = rgb_img.copy()
+        #Channel splitting the image
+        B,G,R = cv.split(rgb_img)
+        # Normalize the channel to [0,1]
+        [B,G,R] = [ i/ 255.0 for i in ([B,G,R])]
+        H = np.zeros((row, col))    #Define H channel
+        I = (R + G + B) / 3.0       #Calculate I channel
+        S = np.zeros((row,col))      #Define S channel
+        for i in range(row):
+            den = np.sqrt((R[i]-G[i])**2+(R[i]-B[i])*(G[i]-B[i]))
+            thetha = np.arccos(0.5*(R[i]-B[i]+R[i]-G[i])/den)   #Calculate the included angle
+            h = np.zeros(col)               #Define temporary array
+            #den>0 and G>=B element h is assigned to thetha
+            h[B[i]<=G[i]] = thetha[B[i]<=G[i]]
+            #den>0 and G<=B element h is assigned to thetha
+            h[G[i]<B[i]] = 2*np.pi-thetha[G[i]<B[i]]
+            #den<0 element h is assigned a value of 0
+            h[den == 0] = 0
+            H[i] = h/(2*np.pi)      #Assign to the H channel after radiating
+        #Calculate S channel
+        for i in range(row):
+            min = []
+            #Find the minimum value of each group of RGB values
+            for j in range(col):
+                arr = [B[i][j],G[i][j],R[i][j]]
+                min.append(np.min(arr))
+            min = np.array(min)
+            #Calculate S channel
+            S[i] = 1 - min*3/(R[i]+B[i]+G[i])
+            #I is 0 directly assigned to 0
+            S[i][R[i]+B[i]+G[i] == 0] = 0
+        #Extend to 255 for easy display, generally H component is between [0,2pi], S and I are between [0,1]
+        # hsi_img[:,:,0] = H*255
+        # hsi_img[:,:,1] = S*255
+        # hsi_img[:,:,2] = I*255
+        self._imgAsHSI = hsi_img
+        return hsi_img
 
     def toGreyscale(self) -> np.ndarray:
         """
@@ -260,6 +402,7 @@ class ImageManipulation:
             location = (x,y,w,h)
             center = (cX,cY)
             reason = constants.REASON_UNKNOWN
+            hue = 0.0
 
             infoAboutBlob = {constants.NAME_LOCATION: location,
                              constants.NAME_CENTER: center,
@@ -267,7 +410,8 @@ class ImageManipulation:
                              constants.NAME_TYPE: type,
                              constants.NAME_CONTOUR: c,
                              constants.NAME_REASON: reason,
-                             constants.NAME_NEIGHBOR_COUNT: 0}
+                             constants.NAME_NEIGHBOR_COUNT: 0,
+                             constants.NAME_HUE: hue}
 
             name = "blob" + str(i)
             # Ignore items in the image that are smaller in area than the
@@ -516,14 +660,14 @@ class ImageManipulation:
         for blobName, blobAttributes in self._blobs.items():
             weightedDistance = blobAttributes[constants.NAME_AREA] * (1 - blobAttributes[constants.NAME_DISTANCE_NORMALIZED])
 
-            print("Weighted distance of {}: {}".format(blobName, weightedDistance))
+            self.log.debug("Weighted distance of {}: {}".format(blobName, weightedDistance))
             if weightedDistance > weightedDistanceMax:
                 weightedDistanceMax = weightedDistance
                 likelyCropLineBlob = blobName
                 likelyCropLineY = blobAttributes[constants.NAME_CENTER][1]
 
         self._cropY = likelyCropLineY
-        print("Crop line Y: {} for blob {}".format(self._cropY, likelyCropLineBlob))
+        self.log.debug("Crop line Y: {} for blob {}".format(self._cropY, likelyCropLineBlob))
 
         # Step through and replace the normalized distance to the center line
         # with the normalized distance to the crop line
@@ -559,7 +703,7 @@ class ImageManipulation:
                 #print(blobName + ": " + str(blobAttributes[constants.NAME_CENTER]))
                 # Keep the name with the coordinates so we know which blob this refers to
                 self._centersUnsorted.append(blobAttributes[constants.NAME_CENTER] + tuple([blobName]))
-        print(self._centersUnsorted)
+        #print(self._centersUnsorted)
 
         # Create an array to hold the angles between the blobs
         self._angles = np.zeros((centerCount, centerCount))
@@ -683,11 +827,15 @@ class ImageManipulation:
         # cv.drawContours(self._contours_image, self._contours, contourIdx=-1, color=(255,0,0),thickness=2)
         # cv.imwrite("contours.jpg", self._contours_image)
 
-    def drawBoxes(self, rectangles: [], decorations: []):
+    def drawBoxes(self, name: str, rectangles: [], decorations: []):
         """
         Draw colored boxes around the blobs based on what type they are
+        :param name: The name of the image
         :param rectangles: A list of rectangles surrounding the blobs
         """
+
+        cv.putText(self._image, name, (50,75), cv.FONT_HERSHEY_SIMPLEX, 2.0, (255, 255, 255), 2)
+
         for rectName, rectAttributes in rectangles.items():
             (x,y,w,h) = rectAttributes[constants.NAME_LOCATION]
             (cX,cY) = rectAttributes[constants.NAME_CENTER]
@@ -710,13 +858,14 @@ class ImageManipulation:
                 self._image = cv.rectangle(self._image,(x,y),(x+w,y+h),color,2)
                 cv.circle(self._image, (cX, cY), 5, (255, 255, 255), -1)
                 location = "(" + str(cX) + "," + str(cY) + ")"
-                areaText = "[" + str(area) + "]"
+                areaText = "Area: " + str(area)
                 shapeText = "Shape: " + "{:.4f}".format(rectAttributes[constants.NAME_SHAPE_INDEX])
                 lengthWidthRatioText = "L/W Ratio: " + "{:4f}".format(rectAttributes[constants.NAME_RATIO])
                 reasonText = "Classified By: " + constants.REASONS[rectAttributes[constants.NAME_REASON]]
                 classifiedText = "Classified As: " + constants.TYPES[rectAttributes[constants.NAME_TYPE]]
                 distanceText = "Normalized Distance: " + "{:.4f}".format(rectAttributes[constants.NAME_DISTANCE_NORMALIZED])
                 nameText = "Name: {}".format(rectName)
+                hueText = "Hue: {:.4f}".format(rectAttributes[constants.NAME_HUE])
                 if constants.NAME_LOCATION in decorations:
                     cv.putText(self._image, location, (cX - 25, cY - 25),cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
                 if constants.NAME_AREA in decorations:
@@ -731,9 +880,11 @@ class ImageManipulation:
                     cv.putText(self._image, classifiedText, (cX - 25, cY - 150), cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
                 if constants.NAME_NAME in decorations:
                     cv.putText(self._image, nameText, (cX - 25, cY - 175), cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
-                if constants.NAME_DISTANCE in decorations:
+                if constants.NAME_DISTANCE_NORMALIZED in decorations:
                     cv.putText(self._image, distanceText,(cX - 25, cY- 200), cv.FONT_HERSHEY_SIMPLEX, 0.75, (255,255,255), 2)
                     cv.line(self._image,(cX, cY), (cX, self._cropY), (255,255,255), 3)
+                if constants.NAME_HUE in decorations:
+                    cv.putText(self._image, hueText,(cX - 25, cY- 225), cv.FONT_HERSHEY_SIMPLEX, 0.75, (255,255,255), 2)
 
 
         #cv.imwrite("opencv-centers.jpg", self._image)
@@ -791,7 +942,7 @@ class ImageManipulation:
                 image = self._original[y:y+h, x:x+w]
                 blobAttributes[constants.NAME_IMAGE] = image
 
-    def extractImagesFrom(self, source: np.ndarray, zslice: int, attribute: str):
+    def extractImagesFrom(self, source: np.ndarray, zslice: int, attribute: str, manipulation):
         """
         Extract the data from the given source for every object that isn't to be ignored.
         An example of this is pulling out the HUE layer from the HSV array.
@@ -802,8 +953,11 @@ class ImageManipulation:
 
         :param attribute: The name of the attribute to use to store the result: i.e., NAME_HUE
 
+        :param manipulation: The manipulation to apply
+
         """
         for blobName, blobAttributes in self._blobs.items():
+
             # For everything that isn't ignored, extract out the slice
             if blobAttributes[constants.NAME_TYPE] != constants.TYPE_IGNORED:
                 (x, y, w, h) = blobAttributes[constants.NAME_LOCATION]
@@ -813,47 +967,17 @@ class ImageManipulation:
                 # The black values are 0,0,0.  Convert them to NaN so when we perform calculations, we don't
                 # use the black pixels
                 image = np.where(image == 0, np.nan, image)
-                blobAttributes[attribute] = image
+                if np.isnan(image).all():
+                    self.log.error("All values for attribute are NaN: " + attribute)
+                #hueMean = np.nanmean(image)
+                hueMean = manipulation(image)
+                blobAttributes[attribute] = hueMean
 
-    # @staticmethod
-    # def _max_rect(mat, value=0):
-    #     """returns (height, width, left_column, bottom_row) of the largest rectangle
-    #     containing all `value`'s.
-    #
-    #
-    #    """
-    #     it = iter(mat)
-    #     hist = [(el==value) for el in next(it, [])]
-    #     max_rect = max_rectangle_size(hist) + (0,)
-    #     for irow,row in enumerate(it):
-    #         hist = [(1+h) if el == value else 0 for h, el in zip(hist, row)]
-    #         max_rect = max(max_rect, max_rectangle_size(hist) + (irow+1,), key=area)
-    #         # irow+1, because we already used one row for initializing max_rect
-    #     return max_rect
-    #
-    # @staticmethod
-    # def _max_rectangle_size(histogram):
-    #     stack = []
-    #     Info = namedtuple('Info', 'start height')
-    #     top = lambda: stack[-1]
-    #     max_size = (0, 0, 0) # height, width and start position of the largest rectangle
-    #     pos = 0 # current position in the histogram
-    #     for pos, height in enumerate(histogram):
-    #         start = pos # position where rectangle starts
-    #         while True:
-    #             if not stack or height > top().height:
-    #                 stack.append(Info(start, height)) # push
-    #             elif stack and height < top().height:
-    #                 max_size = max(max_size, (top().height, (pos - top().start), top().start), key=area)
-    #                 start, _ = stack.pop()
-    #                 continue
-    #             break # height == top().height goes here
-    #
-    #     pos += 1
-    #     for start, height in stack:
-    #         max_size = max(max_size, (height, (pos - start), start), key=area)
-    #
-    #     return max_size
+    def _compactness(self, contour) -> float:
+        return 1
+
+    def extractAttributes(self):
+        raise NotImplementedError
 
     @staticmethod
     def _area(size):

@@ -41,7 +41,7 @@ parser.add_argument("-a", '--algorithm', action="store", help="Vegetation Index 
                     choices=veg.GetSupportedAlgorithms(),
                     default="ngrdi")
 parser.add_argument("-c", "--contours", action="store_true", default=False, help="Show contours on images")
-parser.add_argument("-d", "--decorations", action="store", type=str, default="all", help="Decorations on output images")
+parser.add_argument("-d", "--decorations", action="store", type=str, default="all", help="Decorations on output images (all and none are shortcuts)")
 parser.add_argument("-df", "--data", action="store", help="Name of the data in CSV for use in logistic regression or KNN")
 parser.add_argument("-hg", "--histograms", action="store_true", default=False, help="Show histograms")
 parser.add_argument("-he", "--height", action="store_true", default=False, help="Consider height in scoring")
@@ -52,6 +52,7 @@ group.add_argument("-dt", "--tree", action="store_true", default=False, help="Pr
 group.add_argument("-f", "--forest", action="store_true", default=False, help="Predict using random forest. Requires data file to be specified")
 group.add_argument("-g", "--gradient", action="store_true", default=False, help="Predict using gradient boosting. Requires data file to be specified")
 group.add_argument("-svm", "--support", action="store_true", default=False, help="Predict using support vector machine. Requires data file to be specified")
+parser.add_argument("-im", "--image", action="store", default=200, type=int, help="Horizontal length of image")
 parser.add_argument("-lg", "--logging", action="store", default="info-logging.yaml", help="Logging configuration file")
 parser.add_argument("-m", "--mask", action="store_true", default=False, help="Mask only -- no processing")
 parser.add_argument("-ma", "--minarea", action="store", default=500, type=int, help="Minimum area of a blob")
@@ -63,6 +64,7 @@ parser.add_argument("-r", "--results", action="store", default="results.csv", he
 parser.add_argument("-s", "--stitch", action="store_true", help="Stitch adjacent images together")
 parser.add_argument("-sc", "--score", action="store_true", help="Score the prediction method")
 parser.add_argument("-sp", "--spray", action="store_true", help="Generate spray treatment grid")
+parser.add_argument("-spe", "--speed", action="store", default=1, type=int, help="Speed in meters per second")
 parser.add_argument("-t", "--threshold", action="store", type=tuple_type, default="(0,0)", help="Threshold tuple (x,y)")
 parser.add_argument("-v", "--verbose", action="store_true", default=False, help="Generate debugging data and text")
 parser.add_argument("-x", "--xtract", action="store_true", default=False, help="Extract each crop plant into images")
@@ -111,8 +113,8 @@ def startupCamera():
 # O D O M E T E R
 #
 
-def startupOdometer():
-    odometer = VirtualOdometer("")
+def startupOdometer(imageProcessor):
+    odometer = VirtualOdometer(arguments.speed, arguments.image, imageProcessor)
     if not odometer.connect():
         print("Unable to connect to odometer")
         sys.exit(1)
@@ -145,7 +147,7 @@ def startupLogger(outputDirectory: str) -> Logger:
     # Confirm the YAML file exists
     if not os.path.isfile(arguments.logging):
         print("Unable to access logging configuration file {}".format(arguments.logging))
-        sys,exit(1)
+        sys.exit(1)
 
     # Initialize logging
     with open(arguments.logging, "rt") as f:
@@ -171,17 +173,7 @@ def plot3D(index, title):
     axes.scatter(x, y, index, c=index, cmap='BrBG', s=0.25)
     plt.show()
     cv.waitKey()
-#
-# Start up various subsystems
-#
 
-camera = startupCamera()
-odometer = startupOdometer()
-logger = startupLogger(arguments.output)
-log = logging.getLogger(__name__)
-performance = startupPerformance()
-
-mmPerPixel = camera.getMMPerPixel()
 
 # Keep track of everything seen in processing
 
@@ -249,7 +241,12 @@ if constants.NAME_ALL in arguments.decorations:
                       constants.NAME_SHAPE_INDEX,
                       constants.NAME_RATIO,
                       constants.NAME_REASON,
+                      constants.NAME_DISTANCE_NORMALIZED,
+                      constants.NAME_NAME,
+                      constants.NAME_HUE,
                       constants.NAME_TYPE]
+elif constants.NAME_NONE in arguments.decorations:
+    featuresToShow = []
 else:
     featuresToShow = [arguments.decorations]
 
@@ -260,14 +257,13 @@ if arguments.contours:
     featuresToShow.append(constants.NAME_CONTOUR)
 
 imageNumber = 0
-#
-# G R A N D  L O O P
-#
-try:
-    # Loop and process images until requested to stop
-    # TODO: Accept signal to stop processing
-    while True:
-        imageNumber = imageNumber + 1
+
+def processImage() -> bool:
+    global imageNumber
+    global sequence
+    global previousImage
+
+    try:
 
         if arguments.verbose:
             print("Processing image " + str(imageNumber))
@@ -279,7 +275,7 @@ try:
         #ImageManipulation.show("Source",image)
         veg.SetImage(rawImage)
 
-        manipulated = ImageManipulation(rawImage)
+        manipulated = ImageManipulation(rawImage, imageNumber)
         manipulated.mmPerPixel = mmPerPixel
         #ImageManipulation.show("Greyscale", manipulated.toGreyscale())
 
@@ -322,15 +318,15 @@ try:
             plt.imshow(finalImage)
             plt.show()
             #logger.logImage("mask", veg.imageMask)
-            break
         #ImageManipulation.show("Masked", image)
 
-        manipulated = ImageManipulation(finalImage)
+        manipulated = ImageManipulation(finalImage, imageNumber)
         manipulated.mmPerPixel = mmPerPixel
 
         # TODO: Conversion to HSV should be done automatically
         manipulated.toHSV()
         manipulated.toHSI()
+        manipulated.toYIQ()
 
         # Find the plants in the image
         performance.start()
@@ -340,7 +336,7 @@ try:
         # The test should probably be if we did not find any blobs
         if largest == "unknown":
             logger.logImage("error", manipulated.image)
-            continue
+            return
 
         performance.start()
         manipulated.identifyOverlappingVegetation()
@@ -359,6 +355,7 @@ try:
         performance.stopAndRecord(constants.PERF_LW_RATIO)
 
         # Classify items by where they are in image
+        # This only marks items that can't be fully seen (at edges) of image
         classifier.classifyByPosition(size=manipulated.image.shape)
 
 
@@ -375,7 +372,20 @@ try:
         manipulated.identifyCropRowCandidates()
 
         # Extract various features
-        #manipulated.extractImagesFrom(manipulated.hsi,0, constants.NAME_HUE)
+        performance.start()
+        manipulated.extractImagesFrom(manipulated.hsi,0, constants.NAME_HUE, np.nanmean)
+        #manipulated.extractImagesFrom(manipulated.hsi,1, constants.NAME_SATURATION)
+
+        # Discussion of YIQ can be found here
+        # Sabzi, Sajad, Yousef Abbaspour-Gilandeh, and Juan Ignacio Arribas. 2020.
+        # “An Automatic Visible-Range Video Weed Detection, Segmentation and Classification Prototype in Potato Field.”
+        # Heliyon 6 (5): e03685.
+        # The article refers to the I component as in-phase, but its orange-blue in the wikipedia description
+        # of YIQ.  Not sure which is correct.
+
+        manipulated.extractImagesFrom(manipulated.yiq,1, constants.NAME_I_YIQ, np.nanstd)
+
+        performance.stopAndRecord(constants.PERF_COLORS)
 
         #Use either heuristics or logistic regression
         if arguments.logistic or arguments.knn or arguments.tree or arguments.forest or arguments.gradient:
@@ -388,13 +398,14 @@ try:
             classifier.classifyByRatio(largest, size=manipulated.image.shape, ratio=arguments.minratio)
             performance.stopAndRecord(constants.PERF_CLASSIFY)
 
-        # Draw boxes around the images we found
+        # Draw boxes around the images we found with decorations for attributes selected
         #manipulated.drawBoundingBoxes(contours)
-        manipulated.drawBoxes(classifiedBlobs, featuresToShow)
+        manipulated.drawBoxes(manipulated.name, classifiedBlobs, featuresToShow)
 
         #logger.logImage("cropline", manipulated.croplineImage)
         # This is using the hough transform which we abandoned as a technique
         #manipulated.detectLines()
+        #TODO: Draw crop line as part of image decoration
         manipulated.drawCropline()
         #logger.logImage("crop-line", manipulated.croplineImage)
         if arguments.contours:
@@ -418,6 +429,7 @@ try:
         # Write out the processed image
         #cv.imwrite("processed.jpg", manipulated.image)
         logger.logImage("processed", manipulated.image)
+        logger.logImage("original", manipulated.original)
         #ImageManipulation.show("Greyscale", manipulated.toGreyscale())
 
         # Write out the crop images so we can use them later
@@ -435,24 +447,52 @@ try:
                 print("Forming treatment")
             performance.start()
             treatment = Treatment(manipulated.original, manipulated.binary)
-            treatment.overlayTreatmentGrid()
+            treatment.overlayTreatmentLanes()
             treatment.generatePlan(classifiedBlobs)
-            logger.logImage("treatment", treatment.image)
+            #treatment.drawTreatmentLanes(classifiedBlobs)
             performance.stopAndRecord(constants.PERF_TREATMENT)
+            logger.logImage("treatment", treatment.image)
 
-except IOError:
-    print("There was a problem communicating with the camera")
-    sys.exit(1)
-except EOFError:
-    print("End of input")
-    #sys.exit(0)
+        imageNumber = imageNumber + 1
 
-if arguments.histograms:
-    reporting.showHistogram("Areas", 20, constants.NAME_AREA)
-    reporting.showHistogram("Shape", 20, constants.NAME_SHAPE_INDEX)
+    except IOError as e:
+        print("There was a problem communicating with the camera")
+        print(e)
+        sys.exit(1)
+    except EOFError:
+        print("End of input")
+        return False
+
+    if arguments.histograms:
+        reporting.showHistogram("Areas", 20, constants.NAME_AREA)
+        reporting.showHistogram("Shape", 20, constants.NAME_SHAPE_INDEX)
+
+    return True
+
+#
+# Start up various subsystems
+#
+
+camera = startupCamera()
+odometer = startupOdometer(processImage)
+logger = startupLogger(arguments.output)
+log = logging.getLogger(__name__)
+performance = startupPerformance()
+
+mmPerPixel = camera.getMMPerPixel()
+
+# The odometer drives everything
+odometer.start()
+
+performance.cleanup()
 
 # Not quite right here to get the list of all blobs from the reporting module
 #classifier.train(reporting.blobs)
 
-reporting.writeSummary(arguments.results)
-sys.exit(0)
+result, reason = reporting.writeSummary(arguments.results)
+
+if not result:
+    print(reason)
+    sys.exit(1)
+else:
+    sys.exit(0)
