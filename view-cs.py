@@ -28,6 +28,8 @@ elif results.colorspace == "hsi":
     hsv = manipulated.toHSI()
 elif results.colorspace == "yiq":
     hsv = manipulated.toYIQ()
+elif results.colorspace == "ycc":
+    hsv = manipulated.toYCBCR()
 else:
     print("Unknown color space: " + results.colorspace)
     sys.exit(1)
