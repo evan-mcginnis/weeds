@@ -53,6 +53,7 @@ class ImageManipulation:
         self._imageAsBinary = np.ndarray
         self._imageAsRGB = None
         self._imageAsYIQ = None
+        self._imageAsYCBCR = None
 
         (self._maxY, self._maxX, self._depth) = img.shape
         self._centerLineY = int(self._maxY/2)
@@ -104,11 +105,26 @@ class ImageManipulation:
 
     @property
     def yiq(self):
-        return self._imageAsYIQ
+        if self._imageAsYIQ is None:
+            return self.toYIQ()
+        else:
+            return self._imageAsYIQ
+
+    @property
+    def greyscale(self):
+        return self._imgAsGreyscale
+
+    @property
+    def ycbcr(self):
+        return self._imageAsYCBCR
 
     @property
     def croplineImage(self):
         return self.cropline_image
+
+    @property
+    def shapeIndices(self):
+        return self._shapeIndices
 
     @classmethod
     def show(self, title : str, index : np.ndarray):
@@ -142,6 +158,7 @@ class ImageManipulation:
     # The YIQ colorspace is described here:
     # https://en.wikipedia.org/wiki/YIQ
 
+    # TODO: This method is quite slow, taking almost 200 ms on test machine
     def toYIQ(self) -> np.ndarray:
         """
         Converts the current image to the YIQ colorspace from RGB.
@@ -166,7 +183,17 @@ class ImageManipulation:
         self._imgAsHSV =  cv.cvtColor(self._image.astype(np.uint8), cv.COLOR_BGR2HSV)
         return self._imgAsHSV
 
+    def toYCBCR(self) -> np.ndarray:
+        """
+        The current image converted to the YCbCr (YCC) colorspace
+        :return:
+        The YCbCR values as a numpy array
+        """
+        self._imageAsYCBCR = cv.cvtColor(self._image.astype(np.uint8), cv.COLOR_BGR2YCR_CB)
+        return self._imageAsYCBCR
+
     # This code doesn't work exactly right, as I see negative values for saturation
+    # And this is unacceptably slow.  Takes over 700 ms on my machine
 
     def toHSI(self) -> np.ndarray:
         """
@@ -303,9 +330,6 @@ class ImageManipulation:
 
         return self._imgAsGreyscale
 
-    @property
-    def greyscale(self):
-        return self._imgAsGreyscale
 
     def findEdges(self, image: np.ndarray):
         self._edges = cv.Canny(self._imgAsGreyscale, 20, 30)
@@ -316,6 +340,14 @@ class ImageManipulation:
         return self._cartooned
 
     def mmBetweenPoints(self, point1: (), point2: (), mmPerPixel: float) -> int:
+        """
+        Find the physical distance between two points.
+        :param point1: A point as a tuple
+        :param point2: A point as a tuple
+        :param mmPerPixel: The distance a single pixel covers
+        :return:
+        The distance between two points as integer
+        """
         distance = 0
         (x1, y1) = point1
         (x2, y2) = point2
@@ -403,6 +435,9 @@ class ImageManipulation:
             center = (cX,cY)
             reason = constants.REASON_UNKNOWN
             hue = 0.0
+            saturationMean = 0.0
+            yiqStdDeviation = 0.0
+            blueDifferenceMean = 0.0
 
             infoAboutBlob = {constants.NAME_LOCATION: location,
                              constants.NAME_CENTER: center,
@@ -411,7 +446,10 @@ class ImageManipulation:
                              constants.NAME_CONTOUR: c,
                              constants.NAME_REASON: reason,
                              constants.NAME_NEIGHBOR_COUNT: 0,
-                             constants.NAME_HUE: hue}
+                             constants.NAME_HUE: hue,
+                             constants.NAME_SATURATION: saturationMean,
+                             constants.NAME_I_YIQ: yiqStdDeviation,
+                             constants.NAME_BLUE_DIFFERENCE: blueDifferenceMean}
 
             name = "blob" + str(i)
             # Ignore items in the image that are smaller in area than the
@@ -491,9 +529,6 @@ class ImageManipulation:
             self._shapeIndices.append(shapeIndex)
         return
 
-    @property
-    def shapeIndices(self):
-        return self._shapeIndices
 
     @staticmethod
     def lengthWidthRatio(contour: np.ndarray) -> float:
@@ -971,6 +1006,7 @@ class ImageManipulation:
                     self.log.error("All values for attribute are NaN: " + attribute)
                 #hueMean = np.nanmean(image)
                 hueMean = manipulation(image)
+                self.log.debug(attribute + ": " + str(hueMean))
                 blobAttributes[attribute] = hueMean
 
     def _compactness(self, contour) -> float:

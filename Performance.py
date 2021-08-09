@@ -2,11 +2,30 @@
 # P E R F O R M A N C E
 #
 from datetime import datetime
+import constants as constants
 
 class Performance:
     def __init__(self, performanceFile: str):
         self.times = {}
         self._performanceFile = performanceFile
+
+    def initialize(self) -> bool:
+        """
+        Initialize the performance data file, truncating it to 0 bytes.
+        This will also insert the headers for the data.
+        :return: Boolean
+        """
+        try:
+            file = open(self._performanceFile, "w")
+            # clear out any data that is there
+            file.truncate(0)
+            # Write out the headers for the performance data
+            file.write("{},{}\n".format(constants.PERF_TITLE_ACTIVITY, constants.PERF_TITLE_MILLISECONDS))
+            file.close()
+        except PermissionError:
+            print("Unable to open: {}\n".format(self._performanceFile))
+            return False
+        return True
 
     def start(self) -> int:
         """

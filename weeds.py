@@ -129,6 +129,7 @@ def startupOdometer(imageProcessor):
 
 def startupPerformance() -> Performance:
     performance = Performance(arguments.performance)
+    performance.initialize()
     return performance
 
 #
@@ -324,9 +325,18 @@ def processImage() -> bool:
         manipulated.mmPerPixel = mmPerPixel
 
         # TODO: Conversion to HSV should be done automatically
+        performance.start()
+        manipulated.toYCBCR()
+        performance.stopAndRecord(constants.PERF_YCC)
+        performance.start()
         manipulated.toHSV()
+        performance.stopAndRecord(constants.PERF_HSV)
+        performance.start()
         manipulated.toHSI()
+        performance.stopAndRecord(constants.PERF_HSI)
+        performance.start()
         manipulated.toYIQ()
+        performance.stopAndRecord(constants.PERF_YIQ)
 
         # Find the plants in the image
         performance.start()
@@ -373,8 +383,11 @@ def processImage() -> bool:
 
         # Extract various features
         performance.start()
+
+        # Compute the mean of the hue across the plant
         manipulated.extractImagesFrom(manipulated.hsi,0, constants.NAME_HUE, np.nanmean)
-        #manipulated.extractImagesFrom(manipulated.hsi,1, constants.NAME_SATURATION)
+        performance.stopAndRecord(constants.PERF_MEAN)
+        manipulated.extractImagesFrom(manipulated.hsv,1, constants.NAME_SATURATION, np.nanmean)
 
         # Discussion of YIQ can be found here
         # Sabzi, Sajad, Yousef Abbaspour-Gilandeh, and Juan Ignacio Arribas. 2020.
@@ -383,9 +396,15 @@ def processImage() -> bool:
         # The article refers to the I component as in-phase, but its orange-blue in the wikipedia description
         # of YIQ.  Not sure which is correct.
 
+        # Compute the standard deviation of the I portion of the YIQ color space
+        performance.start()
         manipulated.extractImagesFrom(manipulated.yiq,1, constants.NAME_I_YIQ, np.nanstd)
+        performance.stopAndRecord(constants.PERF_STDDEV)
 
-        performance.stopAndRecord(constants.PERF_COLORS)
+        # Compute the mean of the blue difference in the ycc color space
+        performance.start()
+        manipulated.extractImagesFrom(manipulated.ycbcr,1, constants.NAME_BLUE_DIFFERENCE, np.nanmean)
+        performance.stopAndRecord(constants.PERF_MEAN)
 
         #Use either heuristics or logistic regression
         if arguments.logistic or arguments.knn or arguments.tree or arguments.forest or arguments.gradient:

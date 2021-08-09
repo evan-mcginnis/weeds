@@ -44,15 +44,16 @@ class Reporting:
             return False, "Unable to write file " + filename
 
         blobNumber = 1
-        file.write("{},{},{},{},{},{},{},{},{}\n".format(constants.NAME_NAME,
+        file.write("{},{},{},{},{},{},{},{},{},{},{}\n".format(constants.NAME_NAME,
                                                          constants.NAME_NUMBER,
                                                          constants.NAME_RATIO,
                                                          constants.NAME_SHAPE_INDEX,
                                                          constants.NAME_DISTANCE,
                                                          constants.NAME_DISTANCE_NORMALIZED,
                                                          constants.NAME_HUE,
+                                                         constants.NAME_SATURATION,
                                                          constants.NAME_I_YIQ,
-                                                         #constants.NAME_SATURATION,
+                                                         constants.NAME_BLUE_DIFFERENCE,
                                                          constants.NAME_TYPE))
         for blobName, blobAttributes in self._blobs.items():
             # Only take desired vegetation in full view
@@ -61,7 +62,7 @@ class Reporting:
 
                 try:
                     self.log.debug("Writing out training data for : " + blobName)
-                    file.write("%s,%d,%f,%f,%f,%f,%f,%f,%d\n" %
+                    file.write("%s,%d,%f,%f,%f,%f,%f,%f,%f,%f,%d\n" %
                                (blobName,
                                 blobNumber,
                                 blobAttributes[constants.NAME_RATIO],
@@ -70,8 +71,9 @@ class Reporting:
                                 blobAttributes[constants.NAME_DISTANCE],
                                 blobAttributes[constants.NAME_DISTANCE_NORMALIZED],
                                 blobAttributes[constants.NAME_HUE],
-                                #blobAttributes[constants.NAME_SATURATION],
+                                blobAttributes[constants.NAME_SATURATION],
                                 blobAttributes[constants.NAME_I_YIQ],
+                                blobAttributes[constants.NAME_BLUE_DIFFERENCE],
                                 blobAttributes[constants.NAME_TYPE]))
                 except ValueError:
                     self.log.error("Error in writing feature data.")

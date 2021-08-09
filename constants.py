@@ -28,6 +28,7 @@ NAME_HUE = "hue"
 NAME_HUE_MEAN = "hue_mean"
 NAME_SATURATION = "saturation_mean"
 NAME_I_YIQ = "in_phase"
+NAME_BLUE_DIFFERENCE = "cb_mean"
 
 
 
@@ -72,6 +73,15 @@ PERF_REGRESSION = "regression"
 PERF_SHAPES = "shapes"
 PERF_TREATMENT = "treatment"
 PERF_COLORS = "colors"
+PERF_HSI = "hsi"
+PERF_HSV = "hsv"
+PERF_YIQ = "yiq"
+PERF_YCC = "ycc"
+PERF_MEAN = "mean"
+PERF_STDDEV = "stddev"
+
+PERF_TITLE_ACTIVITY = "activity"
+PERF_TITLE_MILLISECONDS = "milliseconds"
 
 COLOR_TREATMENT_GRID = (0,255,0)
 COLOR_TREATMENT_WEED = (0,0,255)
