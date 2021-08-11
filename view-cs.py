@@ -3,6 +3,7 @@ import sys
 import numpy as np
 import cv2 as cv
 import matplotlib.pyplot as plt
+import os.path
 
 from CameraFile import CameraFile, CameraPhysical
 from VegetationIndex import VegetationIndex
@@ -20,40 +21,51 @@ results = parser.parse_args()
 
 # Read image
 
+if not os.path.exists(results.image):
+    print("Image does not exist: " + results.image)
+    sys.exit(1)
+
 img = cv.imread(results.image)
 manipulated = ImageManipulation(img, 0)
 if results.colorspace == "hsv":
-    hsv = manipulated.toHSV()
+    factorNames = ["hue", "saturation", "value"]
+    converted = manipulated.toHSV()
 elif results.colorspace == "hsi":
-    hsv = manipulated.toHSI()
+    factorNames = ["hue", "saturation", "intensity"]
+    converted = manipulated.toHSI()
 elif results.colorspace == "yiq":
-    hsv = manipulated.toYIQ()
+    factorNames = ["yellow", "in-phase", "quadrature"]
+    converted = manipulated.toYIQ()
 elif results.colorspace == "ycc":
-    hsv = manipulated.toYCBCR()
+    factorNames = ["luma (y)", "blue-difference chroma (c)", "red-difference chroma (c)"]
+    converted = manipulated.toYCBCR()
 else:
-    print("Unknown color space: " + results.colorspace)
+    print("Unknown color space: " + results.colorspace + ". Specify one of hsv, hsi, yiq, or ycc")
     sys.exit(1)
 
-hue = hsv[:,:,0]
-saturation = hsv[:,:,1]
-value = hsv[:,:,2]
-factors = [hue, saturation, value]
+factor1 = converted[:, :, 0]
+factor2 = converted[:, :, 1]
+factor3 = converted[:, :, 2]
+factors = [factor1, factor2, factor3]
 
 def showGraph():
-    yLen,xLen, zLen = hsv.shape
+    yLen,xLen, zLen = converted.shape
     x = np.arange(0, xLen, 1)
     y = np.arange(0, yLen, 1)
     x, y = np.meshgrid(x, y)
+    factorName = 0
 
     for factor in factors:
         fig = plt.figure(figsize=(10,10))
         axes = fig.gca(projection ='3d')
-        plt.title("HSV")
+        plt.title(results.colorspace + " : " + factorNames[factorName])
         axes.scatter(x, y, factor, c=factor, cmap='BrBG', s=0.25)
         plt.show()
         cv.waitKey()
+        factorName = factorName + 1
 
 def thresholdHSV(saturationThresholdLow: int, saturationThresholdHigh: int):
-    saturationMatrix = np.where((saturation >= saturationThresholdLow | saturation <= saturationThresholdHigh),1,0)
+    saturationMatrix = np.where((factor2 >= saturationThresholdLow | factor2 <= saturationThresholdHigh), 1, 0)
 
 showGraph()
+sys.exit(0)
