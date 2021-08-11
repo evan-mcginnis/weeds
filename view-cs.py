@@ -10,12 +10,12 @@ from VegetationIndex import VegetationIndex
 from ImageManipulation import ImageManipulation
 from Logger import Logger
 
-parser = argparse.ArgumentParser("View HSV of image")
+parser = argparse.ArgumentParser("View 3D graph of image in specific colorspace")
 
 parser.add_argument('-i', '--image', action="store", required = True, help="Target image")
-parser.add_argument('-o', '--output', action="store", help="Output directory for processed images")
-parser.add_argument("-v", "--verbose", action="store_true", default=False)
-parser.add_argument("-c", "--colorspace", action="store", type=str,default="hsv")
+#parser.add_argument('-o', '--output', action="store", help="Output directory for processed images")
+#parser.add_argument("-v", "--verbose", action="store_true", default=False)
+parser.add_argument("-c", "--colorspace", action="store", type=str,default="hsv", help="hsv, hsi, yiq, or ycc")
 
 results = parser.parse_args()
 
@@ -49,6 +49,9 @@ factor3 = converted[:, :, 2]
 factors = [factor1, factor2, factor3]
 
 def showGraph():
+    """
+    Show the image as a 3D plot, one layer at a time.  Exit the window between each layer to move to the next one.
+    """
     yLen,xLen, zLen = converted.shape
     x = np.arange(0, xLen, 1)
     y = np.arange(0, yLen, 1)
@@ -58,6 +61,7 @@ def showGraph():
     for factor in factors:
         fig = plt.figure(figsize=(10,10))
         axes = fig.gca(projection ='3d')
+        # Title the plot after the colorspace and the layer we are looking at now
         plt.title(results.colorspace + " : " + factorNames[factorName])
         axes.scatter(x, y, factor, c=factor, cmap='BrBG', s=0.25)
         plt.show()
