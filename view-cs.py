@@ -15,7 +15,7 @@ parser = argparse.ArgumentParser("View 3D graph of image in specific colorspace"
 parser.add_argument('-i', '--image', action="store", required = True, help="Target image")
 #parser.add_argument('-o', '--output', action="store", help="Output directory for processed images")
 #parser.add_argument("-v", "--verbose", action="store_true", default=False)
-parser.add_argument("-c", "--colorspace", action="store", type=str,default="hsv", help="hsv, hsi, yiq, or ycc")
+parser.add_argument("-c", "--colorspace", action="store", type=str,default="hsv", help="hsv, hsi, yiq, yuc, or ycc")
 
 results = parser.parse_args()
 
@@ -39,8 +39,11 @@ elif results.colorspace == "yiq":
 elif results.colorspace == "ycc":
     factorNames = ["luma (y)", "blue-difference chroma (c)", "red-difference chroma (c)"]
     converted = manipulated.toYCBCR()
+elif results.colorspace == "yuv":
+    factorNames = ["luma (y)", "blue chroma (u)", "red chroma (v)"]
+    converted = manipulated.toYCBCR()
 else:
-    print("Unknown color space: " + results.colorspace + ". Specify one of hsv, hsi, yiq, or ycc")
+    print("Unknown color space: " + results.colorspace + ". Specify one of hsv, hsi, yiq, ycc, or yuv")
     sys.exit(1)
 
 factor1 = converted[:, :, 0]

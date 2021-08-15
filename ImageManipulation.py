@@ -33,7 +33,7 @@ COLOR_IGNORED = (255,255,255)
 MIDDLE_THRESHOLD = 200
 
 # The lines for the enclosing rectangle
-BOUNDING_BOX_THICKNESS = 2
+BOUNDING_BOX_THICKNESS = 4
 
 class ImageManipulation:
     def __init__(self, img : np.ndarray, sequenceNumber : int):
@@ -54,6 +54,7 @@ class ImageManipulation:
         self._imageAsRGB = None
         self._imageAsYIQ = None
         self._imageAsYCBCR = None
+        self._imageAsYUV = None
 
         (self._maxY, self._maxX, self._depth) = img.shape
         self._centerLineY = int(self._maxY/2)
@@ -119,6 +120,10 @@ class ImageManipulation:
         return self._imageAsYCBCR
 
     @property
+    def yuv(self):
+        return self._imageAsYUV
+
+    @property
     def croplineImage(self):
         return self.cropline_image
 
@@ -154,6 +159,16 @@ class ImageManipulation:
         if self._imageAsRGB is None:
             self._imageAsRGB = cv.cvtColor(self._image.astype(np.uint8), cv.COLOR_BGR2RGB)
         return self._imageAsRGB
+
+
+    def toYUV(self) -> np.ndarray:
+        """
+        Converts the current image to YUV from BGR
+        :return: The converted image as an ndarray
+        """
+        if self._imageAsYUV is None:
+            self._imageAsYUV = cv.cvtColor(self._image.astype(np.uint8), cv.COLOR_BGR2YUV)
+        return self._imageAsYUV
 
     # The YIQ colorspace is described here:
     # https://en.wikipedia.org/wiki/YIQ
@@ -713,11 +728,6 @@ class ImageManipulation:
         return self._cropY
 
 
-
-
-
-        return
-
     def findAngles(self):
         """
         Calculate three things:
@@ -890,7 +900,7 @@ class ImageManipulation:
             # Not drawing the ignored type yields a cleaner image in the test set
 
             if type != constants.TYPE_IGNORED:
-                self._image = cv.rectangle(self._image,(x,y),(x+w,y+h),color,2)
+                self._image = cv.rectangle(self._image,(x,y),(x+w,y+h),color,BOUNDING_BOX_THICKNESS)
                 cv.circle(self._image, (cX, cY), 5, (255, 255, 255), -1)
                 location = "(" + str(cX) + "," + str(cY) + ")"
                 areaText = "Area: " + str(area)
