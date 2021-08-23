@@ -1,0 +1,18 @@
+{
+  "builders" : [
+    {
+      "type": "null",
+      "ssh_host":"169.254.212.39",
+      "ssh_username": "weeds",
+      "ssh_password" : "greydog"
+    }
+  ],
+  "provisioners" : [
+    {
+      "type": "shell",
+      "skip_clean": "True",
+      "execute_command": "chmod +x {{ .Path }}; {{ .Vars }} bash -lx {{ .Path }}",
+      "script": "install-python.sh"
+    }
+  ]
+}

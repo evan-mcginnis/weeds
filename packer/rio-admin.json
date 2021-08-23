@@ -1,0 +1,30 @@
+{
+  "builders" : [
+    {
+      "type": "null",
+      "ssh_host":"169.254.212.39",
+      "ssh_username": "admin",
+      "ssh_password" : "greydog"
+    }
+  ],
+  "provisioners" : [
+    {
+      "type": "shell",
+      "inline": ["opkg install ntp ntp-tickadj ntp-utils"]
+    },
+    {
+      "type": "shell",
+      "inline": ["opkg install ntp ntp-tickadj ntp-utils"]
+    },
+    {
+      "type": "shell",
+      "script": "create-users.sh"
+    },
+    {
+      "type": "shell",
+      "skip_clean": "True",
+      "execute_command": "chmod +x {{ .Path }}; {{ .Vars }} bash -l {{ .Path }}",
+      "script": "install-python.sh"
+    }
+  ]
+}
