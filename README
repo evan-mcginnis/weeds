@@ -1,0 +1,12 @@
+This project is intended for automated weeding.
+There are 4 components:
+- An image aquisition device (camera or files on disk)
+- A National Instruments RIO embedded controller
+- An encoder attached to the RIO that emits pulses on wheel movements
+- An emitter for treating weeds
+- A laptop for performing image rocognition
+
+Laptop executable: weeds.py
+RIO executable: rio.py
+Camera: Basler GigE or a collection of disk images
+
