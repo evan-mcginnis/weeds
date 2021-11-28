@@ -1,0 +1,445 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%     Declarations (skip to Begin Document, line 88, for parts you fill in)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%\documentclass[10pt]{article}
+%%\documentclass[10pt]{report}
+\documentclass[letterpaper]{article}
+\usepackage{geometry}
+\usepackage{xcolor}
+\usepackage{amsmath}
+\usepackage[some]{background}
+%\usepackage{lipsum}
+%\usepackage{natbib}
+\usepackage[backend=biber]{biblatex}  
+%\usepackage{biblatex} 
+\addbibresource{paperpile.bib}
+
+% Tables
+\usepackage{float}
+\usepackage[utf8]{inputenc}
+\usepackage{tabularx}
+\usepackage{booktabs}
+\usepackage{longtable}
+
+\usepackage{diagbox} %table split headers
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{rotating}
+\usepackage{eqparbox}
+\usepackage{makecell, caption, booktabs}
+
+%
+
+\usepackage{geometry}  % Lots of layout options.  See http://en.wikibooks.org/wiki/LaTeX/Page_Layout
+\geometry{letterpaper}  % ... or a4paper or a5paper or ... 
+\usepackage{fullpage}  % somewhat standardized smaller margins (around an inch)
+\usepackage{setspace}  % control line spacing in latex documents
+\usepackage[parfill]{parskip}  % Activate to begin paragraphs with an empty line rather than an indent
+
+\usepackage{amsmath,amssymb}  % latex math
+\usepackage{empheq} % http://www.ctan.org/pkg/empheq
+\usepackage{bm,upgreek}  % allows you to write bold greek letters (upper & lower case)
+
+% for typsetting algorithm pseudocode see http://en.wikibooks.org/wiki/LaTeX/Algorithms_and_Pseudocode
+\usepackage{algorithmic,algorithm}  
+
+\usepackage{graphicx}  % inclusion of graphics; see: http://en.wikibooks.org/wiki/LaTeX/Importing_Graphics
+% allow easy inclusion of .tif, .png graphics
+\DeclareGraphicsRule{.tif}{png}{.png}{`convert #1 `dirname #1`/`basename #1 .tif`.png}
+
+% \usepackage{subfigure}  % allows subfigures in figure
+\usepackage{caption}
+\usepackage{subcaption}
+
+\usepackage{xspace}
+\newcommand{\latex}{\LaTeX\xspace}
+
+\usepackage{color}  % http://en.wikibooks.org/wiki/LaTeX/Colors
+
+\long\def\todo#1{{\color{red}{\bf TODO: #1}}}
+
+\long\def\ans#1{{\color{blue}{\em #1}}}
+\long\def\ansnem#1{{\color{blue}#1}}
+\long\def\boldred#1{{\color{red}{\bf #1}}}
+\long\def\boldred#1{\textcolor{red}{\bf #1}}
+\long\def\boldblue#1{\textcolor{blue}{\bf #1}}
+
+% Useful package for syntax highlighting of specific code (such as python) -- see below
+\usepackage{listings}  % http://en.wikibooks.org/wiki/LaTeX/Packages/Listings
+\usepackage{textcomp}
+
+% bem: insertions
+\usepackage{listings}
+
+%%% The following lines set up using the listings package
+\renewcommand{\lstlistlistingname}{Code Listings}
+\renewcommand{\lstlistingname}{Code Listing}
+
+%%% Specific for python listings
+\definecolor{gray}{gray}{0.5}
+\definecolor{green}{rgb}{0,0.5,0}
+
+\lstnewenvironment{python}[1][]{
+\lstset{
+language=python,
+basicstyle=\footnotesize,  % could also use this -- a little larger \ttfamily\small\setstretch{1},
+stringstyle=\color{red},
+showstringspaces=false,
+alsoletter={1234567890},
+otherkeywords={\ , \}, \{},
+keywordstyle=\color{blue},
+emph={access,and,break,class,continue,def,del,elif ,else,%
+except,exec,finally,for,from,global,if,import,in,i s,%
+lambda,not,or,pass,print,raise,return,try,while},
+emphstyle=\color{black}\bfseries,
+emph={[2]True, False, None, self},
+emphstyle=[2]\color{green},
+emph={[3]from, import, as},
+emphstyle=[3]\color{blue},
+upquote=true,
+morecomment=[s]{"""}{"""},
+commentstyle=\color{gray}\slshape,
+emph={[4]1, 2, 3, 4, 5, 6, 7, 8, 9, 0},
+emphstyle=[4]\color{blue},
+literate=*{:}{{\textcolor{blue}:}}{1}%
+{=}{{\textcolor{blue}=}}{1}%
+{-}{{\textcolor{blue}-}}{1}%
+{+}{{\textcolor{blue}+}}{1}%
+{*}{{\textcolor{blue}*}}{1}%
+{!}{{\textcolor{blue}!}}{1}%
+{(}{{\textcolor{blue}(}}{1}%
+{)}{{\textcolor{blue})}}{1}%
+{[}{{\textcolor{blue}[}}{1}%
+{]}{{\textcolor{blue}]}}{1}%
+{<}{{\textcolor{blue}<}}{1}%
+{>}{{\textcolor{blue}>}}{1},%
+%framexleftmargin=1mm, framextopmargin=1mm, frame=shadowbox, rulesepcolor=\color{blue},#1
+framexleftmargin=1mm, framextopmargin=1mm, frame=single,#1
+}}{}
+%%% End python code listing definitions
+
+\DeclareMathOperator{\diag}{diag}
+\DeclareMathOperator{\cov}{cov}
+
+
+%\bibliography{./paperpile.bib}
+\author{Evan McGinnis}
+\title{Monitor for XXX}
+
+
+
+\definecolor{titlepagecolor}{cmyk}{1,.60,0,.40}
+
+\DeclareFixedFont{\bigsf}{T1}{phv}{b}{n}{1.5cm}
+
+\backgroundsetup{
+scale=1,
+angle=0,
+opacity=1,
+contents={\begin{tikzpicture}[remember picture,overlay]
+ \path [fill=titlepagecolor] (-0.5\paperwidth,5) rectangle (0.5\paperwidth,10);  
+\end{tikzpicture}}
+}
+\makeatletter                       
+\def\printauthor{%                  
+    {\large \@author}}              
+\makeatother
+\author{%
+    Evan McGinnis \\
+    Graduate Student, Biosystems Engineering Dept \\
+    RNR 522
+    \texttt{evanmc@email.arizona.edu}\vspace{40pt} \\
+    }
+\begin{document}
+\begin{titlepage}
+\BgThispage
+\newgeometry{left=1cm,right=4cm}
+\vspace*{1cm}
+\noindent
+%%\vspace*{0.4\textheight}
+\textcolor{white}{\Huge\textbf{\textsf{Vegetation Monitoring along the\\ Santa Cruz River}}}
+\vspace*{2.5cm}\par
+\noindent
+\begin{minipage}{0.35\linewidth}
+    \begin{flushright}
+        \printauthor
+    \end{flushright}
+\end{minipage} \hspace{15pt}
+%
+\begin{minipage}{0.02\linewidth}
+    \rule{1pt}{175pt}
+\end{minipage} \hspace{-10pt}
+%
+\begin{minipage}{0.6\linewidth}
+\vspace{5pt}
+    \begin{abstract} 
+This paper presents a breakdown of the analysis of the images taken along the Santa Cruz River, near the intersection of Silverbell Road and Sunset Blvd in Tucson, Arizona. Explored here are various approaches to image segmentation and subsequent estimates of vegetation coverage within the study area, estimates of vegetation volume, as well as a plan for longer term monitoring of the study area using these techniques. This study was conducted as part of the RNR 522 course. All code and data is available for review in GitHub and CyVerse, and readers should refer to the section of this document describing access.
+    \end{abstract}
+\end{minipage}
+\end{titlepage}
+\restoregeometry
+%
+% I N T R O D U C T I O N
+%
+\section{Introduction}
+This results presented in this paper are just one snapshot of a longer effort to monitor the overall growth of vegetation in the study area, and to do so with a minimum of human input to the process. That it, the analysis is nearly completely automated.
+
+%
+% M E T H O D S
+%
+\section{Methods}
+This study was conducted along the Santa Cruz River near the intersection of Silverbell Road and Sunset Blvd in Tucson, Arizona. Data was acquired with a DJI Phantom 4 with a stock RGB sensor capturing 12.4 Mp images. The images were captured between 09:21 on 10 November 2021 and 10:28 on 3 November 2021.
+
+\begin{figure}[H]
+\centering
+  \includegraphics[width=.5\linewidth]{figures/flight-paths.png} 
+  \caption{Flight plan for study area}
+  \label{fig:flight} 
+\end{figure}
+
+Figure~\ref{fig:flight} shows the flight paths executed for this flight, and a few problems are immediately obvious on closer inspection. While the intent was to have the entire study area covered in a double-grid pattern, a double grid pattern was used in approximately $\frac {1} {3}$ of the study area. Unfortunately, the flight control system crashed after only completing a small area, requiring the use of a second flight control system where a double-grid pattern was not applied. Subsequent processing of the imagery acquired is the result of combining these two image sets. The sky was clear with minimal wind during the flights. A nearby fire that produced large amounts of smoke did not affect the flight area with obscuring haze.
+
+The images were initially processed with Pix4D TODO: Version Number??? to produce an initial point cloud and orthomosaic. Subsequent processing was done with software written by the author and with R (version 4.1.1) and RStudio (version 2021.09.0 Build 351). (Both Python and R sources are available in the GitHub repository referenced in the appendix)
+
+The workflow follows this sequence:
+\begin{enumerate}
+	\item Acquire Drone Images
+	\item Upload Image Sets to Cyverse (or equivalent)
+	\item Produce Point Cloud and Orthomosaic
+	\item Produce segmented image from orthomosaic
+	\item Calculate vegetation area from segmented area
+	\item Calculate vegetation volume from point cloud data
+\end{enumerate}
+
+%
+% I M A G E  S E G M E N T A T I O N
+%
+\section{Image Segmentation}
+The portions of the images that did not contain pixels with vegetation present were discarded. These images were segmented using various visible light indices \cite{Hamuda2016-dw}. As this process is not the primary subject of this paper, it will be given only superficial mention here.  Various approaches to image segmentation are  summarized in Table \ref{fig:indices}. These indices were coded
+
+%
+% T A B L E  O F  S E G M E N T A T I O N  F O R M U L A E
+%
+% A bit more space on the table rows, so everything does not look so cramped
+{\renewcommand{\arraystretch}{2}%
+\begin{table}[H]
+%\begin{longtable}{ccc}
+    \caption{Visible light indices (\cite{Hamuda2016-dw})}
+    \label{fig:indices}
+    \begin{tabular}{  l  p{4cm}  p{5cm} }
+        \toprule
+\textbf{Index}      
+& \textbf{Formula}   
+& \textbf{Comment} \\\midrule
+Triangular Greenness
+& \begin{minipage}[t]{0.3\textwidth}
+	$R_{green} - \alpha R_{red} - \beta R_{blue}\\ \alpha = \frac {2(\lambda_{blue} - \lambda_{green})} {(\lambda_{blue} - \lambda_{red})}\\ 
+    	\beta = \frac {2(\lambda_{green} - \lambda_{red})} {(\lambda_{blue} - \lambda_{red})} $
+   \end{minipage}     
+& Corrects for camera calibration using the peak sensitivity \\\hline
+Normalized Difference     
+& $128 * \left( \left( \frac {(G - R)} {(G + R)} \right) + 1 \right) $                    
+& The NDI index produces a near-binary image.  \\\hline
+Excess Green      
+& \begin{minipage}[t]{0.3\textwidth}
+	$R = \frac {R} {R_{max}}\\ G = \frac {G} {G_{max}}\\ B = \frac {B} {B_{max}}$ 
+   \end{minipage}
+& ExG provided a clear contrast between plants and soil \\\hline
+Excess Red      
+& $1.3 R - G$ 
+& inspired by the fact that there are 4\% blue, and 32\% green, compared with 64\% red cones in the retina of the human eye \\\hline
+Color Index of Vegetation Extraction      
+& $0.441 R - 0.811 G + 0.385 B + 18.78745$
+& This method was proposed to separate green plants from soil background in order to evaluate the crop growing status. \\\hline
+Excess Green - Excess Red   
+& $ExG - ExR$ 
+& ExG used to extract the plant region and ExR used to eliminate the background noise (soil and residue) where green–red material (stems, branches, or petioles) may exist \\\hline
+Normalized Green-Red Difference    
+& $\frac {(G - R)} {(G + R)}$ 
+& The method of NGRDI was used to overcome the differences in exposure settings selected by the digital camera when acquiring aerial photography of the field. \\\hline
+Vegetative Index      
+& $\frac {G} {R^aB^{(1-a)}}, a = 0.667$ 
+& VEG has a significant advantage because it is robust to lighting change.\\\hline
+Com1   
+& $ExG + CIVE + ExGR + VEG$ 
+& TODO \\\hline
+Modified Excess Green      
+& $1.262G - 0.884R = 0.311B$ 
+& TODO \\\hline
+Combined Indices 2      
+& $0.36ExG + 0.47CIVE + 0.17VEG$ 
+& Uses weighting factors to emphasize strengths of various approaches\\\hline    
+
+        \bottomrule
+    \end{tabular}
+\end{table}
+%\end{longtable}
+These indices are used to create a mask that is then applied to the original source image to permit vegetation to show while masking details that are not relevant (ground pixels, stones, and other items that may appear in field conditions) The intent here is to remove all pixels that are not relavent to the task of distinguishing between ground and ground features and vegetation.
+\begin{figure}[H]
+\centering
+\begin{subfigure}[]{.30\textwidth}
+  \centering
+  % TIFF format is something latex can't handle, so this is manually converted to JPG with photoshop.
+  \includegraphics[width=1\linewidth]{figures/final_transparent_mosaic_group1.jpg} 
+  \caption{Field view of study area}
+  \label{fig:sub1}
+\end{subfigure}
+\begin{subfigure}[]{.30\textwidth}
+  \centering
+  \includegraphics[width=1\linewidth]{figures/index.jpg} 
+  \caption{CIVE index}
+  \label{fig:sub2}
+\end{subfigure}
+\begin{subfigure}{.30\textwidth}
+  \centering
+  \includegraphics[width=1\linewidth]{figures/final_transparent-mosiac_group1-cive.jpg}
+  \caption{After segmentation using CIVE}
+  \label{fig:sub2}
+\end{subfigure}
+\caption{Image Processing with Vegetation Index CIVE}
+\label{fig:segmentation}
+\end{figure}
+The segmented image has discarded ground pixels while retaining most of the pixels that will be used, but a close examination reveals that pixels of ground areas where vegetation is present experience some color bleed from adjacent pixels that are vegetated. With any segmentation process, however, it is important to select the {\it threshold} such that results can be reproduced. A threshold is used in conjunction with an index such that only those pixels greater than a certain value in the mask will be applied. A common approach is to use Otsu's method \cite{Otsu1979-io} , as manual methods are typically hit-or-miss, however this paper will use manually computed thresholds.
+\begin{figure}[H]
+  \centering
+  \begin{subfigure}{.32\textwidth}
+  	\centering
+  	\includegraphics[width=1\linewidth]{figures/exgexr.jpg}
+  	\caption{After segmentation using ExGExR}
+  	\label{fig:exgexr-overview}
+  \end{subfigure}
+  \begin{subfigure}{.32\textwidth}
+  	\centering
+  	\includegraphics[width=1\linewidth]{figures/detail-of-river.jpg}
+  	\caption{Detail of this area}
+  	\label{fig:exgexr-detail}
+  \end{subfigure}
+  \caption{Use of Excessive Green - Excessive Red Index}
+  \label{fig:exgexr}
+\end{figure}
+
+Figure~\ref{fig:exgexr-overview} shows more water than seen in Figure~\ref{fig:sub2}, illustrating the importance of careful threshold selection as well as selection of a segmentation technique.  Figure~\ref{fig:index-plot-3d} shows a subset of the study area and illustrates how thresholds are applied to a generated index. This shows a subset of the study area to frame the concept of a threshold. In this plot we can see two distinct groups: vegetation, noted by green, and items other than vegetation, noted by brown. A good starting point for estimating the threshold in this instance is using a value of 120.
+
+\begin{figure}[H]
+\centering
+    \begin{subfigure}{.40\textwidth}
+  	\centering
+  	\includegraphics[width=1\linewidth]{figures/3d-plot-ndi.jpg}
+  	\caption{Index plot for threshold estimation}
+  	\label{fig:exgexr-3d-oblique}
+  \end{subfigure}
+  \begin{subfigure}{.40\textwidth}
+  	\centering
+  	\includegraphics[width=1\linewidth]{figures/3d-plot-rotated-ndi.jpg}
+  	\caption{Overhead view of plot}
+  	\label{fig:exgexr-overhead}
+  \end{subfigure} 
+  \caption{Scatterplots of NDI Index}
+  \label{fig:index-plot-3d}
+\end{figure}
+
+Starting with the threshold of 120 and observing the effects of various values does not have the effect desired in this instance, as the river is still shown.  A transect through a region across the river reveals that the river reflects wavelengths in the band we have chosen as the threshold, but absorbs wavelengths below that threshold.  (See the area from location 1000 to about 1200)
+
+\begin{figure}[H]
+\centering
+  	\includegraphics[width=1\linewidth]{figures/transect-plot.png}
+  	\label{fig:exgexr}
+  \caption{Transect across river using Normalized Difference}
+    \label{fig:transect-plot} 
+\end{figure}
+
+The river is a bit confounding here, but now that the radiometric response is known, it can be eliminated, resulting in Figure XXX.  This process is repeated for each index that reveals not only vegetation, but water as well. Not all indices suffer from this, as seen in Figure~\ref{fig:transect-plot-exg}, showing a transect across the river at the same location.  The transect shows that the river cannot be seen in the image.
+
+\begin{figure}[H]
+\centering
+  \includegraphics[width=1\linewidth]{figures/transect-plot-exg.png}
+  \caption{Transect across river using Excess Green index}
+  \label{fig:transect-plot-exg} 
+\end{figure}
+
+Figure~\ref{fig:barcount} shows the results of using various indices to determine vegetated pixels in the orthomosaic of the study area.  While it is tempting to asess these results by choosing the one with the most vegetated pixels, the emphasis here will be on choosing the most accurate results.
+
+\begin{figure}[H]
+\centering
+  	\includegraphics[width=1\linewidth]{figures/bar-counts.png}
+  	 \caption{Vegetated pixels for various algorithms}
+  	\label{fig:barcount}
+\end{figure}
+
+\section{Volumetric Estimations}
+TODO
+
+%
+% R E S U L T S  & D I S C U S S I O N
+%
+\section{Discussion of Results}
+
+
+% A bit more space on the table rows, so everything does not look so cramped
+{\renewcommand{\arraystretch}{2}%
+\begin{table}[H]
+%\begin{longtable}{ccc}
+    \caption{Calculations of Vegetation Area Using Various Segmentation Approaches}
+    \label{fig:calculations}
+    \begin{tabular}{  l  p{4cm}  p{5cm} }
+        \toprule
+\textbf{Index}      
+& \textbf{Area}   
+& \textbf{Comment} \\\midrule
+Triangular Greenness
+&  
+& \\\hline
+Normalized Difference     
+&                   
+&   \\\hline
+Excess Green      
+& 
+& \\\hline
+Excess Red      
+& 
+&  \\\hline
+Color Index of Vegetation Extraction      
+& 
+& . \\\hline
+Excess Green - Excess Red   
+& 
+&  \\\hline
+Normalized Green-Red Difference    
+& 
+& \\\hline
+Vegetative Index      
+& 
+& \\\hline
+Com1   
+&  
+&  \\\hline
+Modified Excess Green      
+& 
+& \\\hline
+Combined Indices 2      
+&  
+& \\\hline    
+
+        \bottomrule
+    \end{tabular}
+\end{table}
+%
+% C O N C L U S I O N S
+%
+\section{Conclusions}
+
+%
+% R E F E R E N C E S
+%
+\section{References}
+\printbibliography[heading=none]
+
+% 
+% A P P E N D I X
+%
+\section{Data and Field Notes}
+
+
+\end{document}
+
