@@ -15,6 +15,7 @@ class Performance:
         This will also insert the headers for the data.
         :return: Boolean
         """
+        diagnostics = "Performance initialized"
         try:
             file = open(self._performanceFile, "w")
             # clear out any data that is there
@@ -23,9 +24,9 @@ class Performance:
             file.write("{},{}\n".format(constants.PERF_TITLE_ACTIVITY, constants.PERF_TITLE_MILLISECONDS))
             file.close()
         except PermissionError:
-            print("Unable to open: {}\n".format(self._performanceFile))
-            return False
-        return True
+            diagnostics = "Unable to open: {}\n".format(self._performanceFile)
+            return False, diagnostics
+        return True, diagnostics
 
     def start(self) -> int:
         """

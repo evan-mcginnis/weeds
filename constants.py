@@ -3,34 +3,50 @@
 #
 # Various constants
 
-#
-SPRAYER_NAME = "SPRAYER"
+# This is just the text that will be placed on the visible treatment plan
+SPRAYER_NAME = ""
 
 # Names for the attributes
-NAME_AREA = "area"
-NAME_TYPE = "type"
-NAME_LOCATION = "location"
-NAME_CENTER = "center"
-NAME_CONTOUR = "contour"
-NAME_SHAPE_INDEX = "shape_index"
-NAME_RATIO = "lw_ratio"
-NAME_IMAGE = "image"
-NAME_REASON = "reason"
-NAME_SIZE_RATIO = "size_ratio"
-NAME_BLUE = "blue"
-NAME_DISTANCE = "distance"
-NAME_DISTANCE_NORMALIZED = "normalized_distance"
-NAME_NAME = "name"
-NAME_NUMBER = "number"
-NAME_HEIGHT = "height"
-NAME_NEIGHBOR_COUNT = "neighbors"
-NAME_HUE = "hue"
-NAME_HUE_MEAN = "hue_mean"
-NAME_SATURATION = "saturation_mean"
-NAME_I_YIQ = "in_phase"
-NAME_BLUE_DIFFERENCE = "cb_mean"
+# Some of these are a bit redundant and are there for backwards compatibility
 
-
+NAME_AREA                   = "area"
+NAME_TYPE                   = "type"
+NAME_LOCATION               = "location"
+NAME_CENTER                 = "center"
+NAME_CONTOUR                = "contour"
+NAME_SHAPE_INDEX            = "shape_index"
+NAME_RATIO                  = "lw_ratio"
+NAME_IMAGE                  = "image"
+NAME_REASON                 = "reason"
+NAME_SIZE_RATIO             = "size_ratio"
+NAME_BLUE                   = "blue"
+NAME_DISTANCE               = "distance"
+NAME_DISTANCE_NORMALIZED    = "normalized_distance"
+NAME_NAME                   = "name"
+NAME_NUMBER                 = "number"
+NAME_HEIGHT                 = "height"
+NAME_NEIGHBOR_COUNT         = "neighbors"
+NAME_HUE                    = "hue"
+NAME_HUE_MEAN               = "hue_mean"
+NAME_HUE_STDDEV             = "hue_stddev"
+NAME_SATURATION             = "saturation_mean"
+NAME_SATURATION_STDEV       = "saturation_stddev"
+NAME_I_YIQ                  = "in_phase"
+NAME_I_MEAN                 = "in_phase_mean"
+NAME_I_STDDEV               = "in_phase_stddev"
+NAME_Q_MEAN                 = "quadrature_mean"
+NAME_Q_STDDEV               = "quadrature_stddev"
+NAME_BLUE_DIFFERENCE        = "cb_mean"
+NAME_BLUE_DIFFERENCE_MEAN   = "cb_mean"
+NAME_BLUE_DIFFERENCE_STDEV  = "cb_stddev"
+NAME_RED_DIFFERENCE_MEAN    = "cr_mean"
+NAME_RED_DIFFERENCE_STDEV   = "cr_stddev"
+NAME_COMPACTNESS            = "compactness"
+NAME_ELONGATION             = "elongation"
+NAME_ECCENTRICITY           = "eccentricity"
+NAME_ROUNDNESS              = "roundness"
+NAME_CONVEXITY              = "convexity"
+NAME_SOLIDITY               = "solidity"
 
 # Temporary
 NAME_CROP_SCORE = "score"
@@ -62,29 +78,31 @@ TYPES = ["Desired", "Undesired", "Untreated", "Ignored", "Unknown"]
 
 # Items contained in performance csv for analysis
 
-PERF_ANGLES = "angles"
-PERF_ACQUIRE = "acquire"
-PERF_CLASSIFY = "classify"
-PERF_CONTOURS = "contours"
-PERF_INDEX = "index"
-PERF_LW_RATIO = "LWRatio"
-PERF_OVERLAP = "overlap"
+PERF_ANGLES     = "angles"
+PERF_ACQUIRE    = "acquire"
+PERF_CLASSIFY   = "classify"
+PERF_CONTOURS   = "contours"
+PERF_INDEX      = "index"
+PERF_LW_RATIO   = "LWRatio"
+PERF_OVERLAP    = "overlap"
 PERF_REGRESSION = "regression"
-PERF_SHAPES = "shapes"
-PERF_TREATMENT = "treatment"
-PERF_COLORS = "colors"
-PERF_HSI = "hsi"
-PERF_HSV = "hsv"
-PERF_YIQ = "yiq"
-PERF_YCC = "ycc"
-PERF_MEAN = "mean"
-PERF_STDDEV = "stddev"
+PERF_SHAPES     = "shapes"
+PERF_TREATMENT  = "treatment"
+PERF_COLORS     = "colors"
+PERF_HSI        = "hsi"
+PERF_HSV        = "hsv"
+PERF_YIQ        = "yiq"
+PERF_YCC        = "ycc"
+PERF_MEAN       = "mean"
+PERF_STDDEV     = "stddev"
+PERF_COMPACTNESS= "compactness"
 
 PERF_TITLE_ACTIVITY = "activity"
 PERF_TITLE_MILLISECONDS = "milliseconds"
 
 COLOR_TREATMENT_GRID = (0,255,0)
 COLOR_TREATMENT_WEED = (0,0,255)
+SIZE_TREATMENT_LINE = 4
 
 # Properties
 PROPERTY_PIXELS_PER_MM = "PIXELS-PER-MM"

@@ -72,7 +72,7 @@ class Treatment:
         (maxRows, maxColumns, depth) = self._image.shape
         # The vertical lines aren't needed anymore
         for i in range(0,maxRows, self._gridSize):
-            cv.line(self._image,(0,i), (maxColumns,i),constants.COLOR_TREATMENT_GRID, 1, cv.LINE_AA)
+            cv.line(self._image,(0,i), (maxColumns,i),constants.COLOR_TREATMENT_GRID, constants.SIZE_TREATMENT_LINE, cv.LINE_AA)
         sprayerLane = 0
         for j in range(0,maxColumns,self._gridSize):
             laneText = constants.SPRAYER_NAME + " " + str(sprayerLane)

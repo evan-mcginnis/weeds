@@ -4,6 +4,8 @@
 
 import argparse
 import sys
+from typing import Callable
+
 import numpy as np
 import cv2 as cv
 import matplotlib.pyplot as plt
@@ -17,10 +19,12 @@ from VegetationIndex import VegetationIndex
 from ImageManipulation import ImageManipulation
 from Logger import Logger
 from Classifier import Classifier, LogisticRegressionClassifier, KNNClassifier, DecisionTree, RandomForest, GradientBoosting, SVM
-from Odometer import VirtualOdometer
+from Odometer import Odometer, VirtualOdometer
 from Performance import Performance
 from Reporting import Reporting
 from Treatment import Treatment
+#from Selection import Selection
+
 import constants
 
 # Used in command line processing so we can accept thresholds that are tuples
@@ -113,12 +117,19 @@ def startupCamera():
 # O D O M E T E R
 #
 
-def startupOdometer(imageProcessor):
+def startupOdometer(imageProcessor: Callable) -> Odometer:
+    """
+    Start up the odometry subsystem and run diagnostics
+    :param imageProcessor: The image processor executed at each interval
+    :return:
+    """
+    # For now, we have only a virtual odometer
     odometer = VirtualOdometer(arguments.speed, arguments.image, imageProcessor)
     if not odometer.connect():
-        print("Unable to connect to odometer")
+        print("Unable to connect to odometer.")
         sys.exit(1)
 
+    # Run diagnostics on the odometer before we begin.
     diagnosticResult, diagnosticText = odometer.diagnostics()
 
     if not diagnosticResult:
@@ -128,8 +139,15 @@ def startupOdometer(imageProcessor):
     return odometer
 
 def startupPerformance() -> Performance:
+    """
+    Start up the performance subsystem.
+    :return:
+    """
     performance = Performance(arguments.performance)
-    performance.initialize()
+    (performanceOK, performanceDiagnostics) = performance.initialize()
+    if not performanceOK:
+        print(performanceDiagnostics)
+        sys.exit(1)
     return performance
 
 #
@@ -176,9 +194,14 @@ def plot3D(index, title):
     cv.waitKey()
 
 
-# Keep track of everything seen in processing
+# Keep track of attributes in processing
 
-reporting = Reporting()
+reporting = Reporting(arguments.results)
+
+(reportingOK, reportingReason) = reporting.initialize()
+if not reportingOK:
+    print(reportingReason)
+    sys.exit(1)
 
 # Used in stitching
 previousImage = None
@@ -364,6 +387,20 @@ def processImage() -> bool:
         manipulated.computeLengthWidthRatios()
         performance.stopAndRecord(constants.PERF_LW_RATIO)
 
+        # New image analysis based on readings here:
+        # http://www.cyto.purdue.edu/cdroms/micro2/content/education/wirth10.pdf
+
+        performance.start()
+        manipulated.computeCompactness()
+        performance.stopAndRecord(constants.PERF_COMPACTNESS)
+
+        manipulated.computeElogation()
+        manipulated.computeEccentricity()
+        manipulated.computeRoundness()
+        manipulated.computeConvexity()
+        manipulated.computeSolidity()
+        # End image analysis
+
         # Classify items by where they are in image
         # This only marks items that can't be fully seen (at edges) of image
         classifier.classifyByPosition(size=manipulated.image.shape)
@@ -508,7 +545,7 @@ performance.cleanup()
 # Not quite right here to get the list of all blobs from the reporting module
 #classifier.train(reporting.blobs)
 
-result, reason = reporting.writeSummary(arguments.results)
+result, reason = reporting.writeSummary()
 
 if not result:
     print(reason)

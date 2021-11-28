@@ -1,0 +1,26 @@
+{
+  "builders" : [
+    {
+      "type": "null",
+      "ssh_host":"169.254.212.40",
+      "ssh_username": "admin",
+      "ssh_password" : "nvidia-greydog",
+      "ssh_pty" : "true"
+    }
+  ],
+  "provisioners" : [
+    {
+      "type": "file",
+      "source": "./install-sw.sh",
+      "destination": "~/install-sw.sh"
+    },
+    {
+      "type": "shell",
+      "remote_folder": "~",
+      "inline": [
+        "echo nvidia-greydog | sudo -S bash ~/install-sw.sh",
+        "rm ~/install-sw.sh"
+      ]
+    }
+  ]
+}

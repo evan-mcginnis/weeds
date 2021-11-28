@@ -4,11 +4,12 @@
 
 
 library(caTools)
+library(logistf)
 
 setwd("c:/University of Arizona/weeds")
 
 # Read in the LR Data
-myData = read.csv("lr.csv", header = TRUE)
+myData = read.csv("training-doubled.csv", header = TRUE)
 
 
 # 
@@ -30,9 +31,11 @@ train <- subset(myData, split == "TRUE")
 test <- subset(myData, split == "FALSE")
 myData$type <- as.factor(myData$type)
 
-weedModel <- glm(type ~ ratio + shape + size, data = train, family='binomial', maxit=100 )
+weedModel <- glm(type ~ ratio + shape + distance, data = train, family='binomial', maxit=100 )
+weedModel2 <- logistf::logistf(formula = type ~ ratio + shape + distance, data = train)
 #weedModel <- glm(type ~ ., data = train, family='binomial' )
 summary(weedModel)
+summary(weedModel2)
 
 res <- predict(weedModel, test, type="response")
 res

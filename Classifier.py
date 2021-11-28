@@ -16,6 +16,8 @@ from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble import GradientBoostingClassifier
 
+from abc import ABC, abstractmethod
+
 import os.path
 
 class Classifier:
@@ -23,6 +25,7 @@ class Classifier:
     def __init__(self):
 
         self._df = pd.DataFrame()
+        self._rawData = pd.DataFrame()
 
         self._xTrain = []
         self._yTrain = pd.Series
@@ -94,6 +97,10 @@ class Classifier:
     @blobs.setter
     def blobs(self, blobSet: {}):
         self._blobs = blobSet
+
+    @property
+    def rawData(self) -> pd.DataFrame:
+        return self._rawData
 
     def classifyWithinCropRow(self):
         return
@@ -188,6 +195,10 @@ class Classifier:
                                         constants.NAME_HUE,
                                         constants.NAME_I_YIQ,
                                         constants.NAME_TYPE])
+
+        # Keep a copy of this -- we will use this elsewhere
+        self._rawData = self._df
+
         # Extract the type -- there should be only two, desired and undesired
         y = self._df.type
         self._y = y
@@ -243,6 +254,24 @@ class Classifier:
                                                                 constants.NAME_I_YIQ)) # I std deviation
 
     def visualize(self):
+        return
+
+class SuppportVectorMachineClassifier(Classifier):
+    def __init__(self):
+        super().__init__()
+
+    def createModel(self, score:bool):
+        """
+        Create the model for SVM
+        :param score: A boolean indicating if scores should be printed.
+        :return:
+        """
+        return
+
+    def classify(self):
+        """
+        Classify the blobs in the image
+        """
         return
 
 
@@ -459,3 +488,5 @@ class SVM(Classifier):
     def classify(self):
         raise NotImplementedError
         return
+
+

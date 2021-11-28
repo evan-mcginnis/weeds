@@ -2,11 +2,13 @@
 # C A M E R A F I L E
 #
 import pathlib
+import logging
 import numpy as np
 #import Camera
 import numpy as np
 import os
 import cv2 as cv
+import pypylon
 from abc import ABC, abstractmethod
 
 class Camera(ABC):
@@ -18,6 +20,14 @@ class Camera(ABC):
     def connect(self) -> bool:
         raise NotImplementedError()
         return True
+
+    @abstractmethod
+    def initialize(self):
+        return
+
+    @abstractmethod
+    def start(self):
+        return
 
     @abstractmethod
     def disconnect(self):
@@ -47,11 +57,12 @@ class Camera(ABC):
 
 class CameraFile(Camera):
     def __init__(self, options: str):
-     self._connected = False
-     self.directory = options
-     self._currentImage = 0
-     super().__init__(options)
-     return
+        self._connected = False
+        self.directory = options
+        self._currentImage = 0
+        super().__init__(options)
+        self.log = logging.getLogger(__name__)
+        return
 
     def connect(self) -> bool:
         """
@@ -71,6 +82,12 @@ class CameraFile(Camera):
 
     def diagnostics(self):
         return True, "Camera diagnostics passed"
+
+    def initialize(self):
+        return
+
+    def start(self):
+        return
 
     def capture(self) -> np.ndarray:
         """
@@ -123,6 +140,12 @@ class CameraPhysical(Camera):
     def disconnect(self):
         self._cam.release()
 
+    def initialize(self):
+        return
+
+    def start(self):
+        return
+
     def diagnostics(self) -> (bool, str):
         """
         Execute diagnostics on the camera.
@@ -143,6 +166,108 @@ class CameraPhysical(Camera):
             raise IOError("There was an error encountered communicating with the camera")
         #cv.imwrite("camera.jpg", frame)
         return frame
+
+    def getResolution(self) -> ():
+        w = self._cam.get(cv.CAP_PROP_FRAME_WIDTH)
+        h = self._cam.get(cv.CAP_PROP_FRAME_HEIGHT)
+        return (w, h)
+
+    # This should be part of the calibration procedure
+    def getMMPerPixel(self) -> float:
+        return 0.0
+
+#
+# The Basler camera is accessed through the pylon API
+# Perhaps this can be through openCV, but this will do for now
+#
+
+class CameraBasler(Camera):
+    def __init__(self, options: str):
+     self._connected = False
+     self._currentImage = 0
+     self._camera = None
+     self.log = logging.getLogger(__name__)
+     super().__init__(options)
+
+     # Initialize the converter for images
+     # The images stream of in YUV color space.  An optimization here might be to make
+     # both formats available, as YUV is something we will use later
+
+     self._converter = pylon.ImageFormatConverter()
+
+     # converting to opencv bgr format
+     self._converter.OutputPixelFormat = pylon.PixelType_BGR8packed
+     self._converter.OutputBitAlignment = pylon.OutputBitAlignment_MsbAligned
+
+     return
+
+    def connect(self):
+        """
+        Connects to the camera and sets it to to highest resolution for capture.
+        :return:
+        True if connection was successful
+        """
+        self._camera = pylon.InstantCamera(pylon.TlFactory.GetInstance().CreateFirstDevice())
+        self.log.debug("Using device ", self._camera.GetDeviceInfo().GetModelName())
+        self._connected = True
+
+        return True
+
+    def initialize(self):
+        """
+        Set the camera parameters to reflect what we want them to be.
+        :return:
+        """
+
+        if not self._connected:
+            raise IOError("Camera is not connected.")
+        return
+
+    def start(self):
+
+        if not self._connected:
+            raise IOError("Camera is not connected.")
+
+        # Grabbing Continuously (video) with minimal delay
+        self._camera.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
+
+        return
+
+    def disconnect(self):
+        """
+        Disconnected from the current camera and stop grabbing images
+        """
+        if self._connected:
+            self._camera.StopGrabbing()
+
+    def diagnostics(self) -> (bool, str):
+        """
+        Execute diagnostics on the camera.
+        :return:
+        Boolean result of the diagnostics and a string of the details
+        """
+        return True, "Camera diagnostics not provided"
+
+    def capture(self) -> np.ndarray:
+        """
+        Capture a single image from the camera.
+        Requires calling the connect() method before this call.
+        :return:
+        The image as a numpy array
+        """
+
+        if not self._connected:
+            raise IOError("Camera is not connected")
+
+        grabResult = self._camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
+        if grabResult.GrabSucceeded():
+            self.log.debug("Image grab succeeded.")
+        else:
+            raise IOError("There was an error encountered communicating with the camera")
+        image = self._converter.Convert(grabResult)
+        img = image.GetArray()
+        #cv.imwrite("camera.jpg", img)
+        return img
 
     def getResolution(self) -> ():
         w = self._cam.get(cv.CAP_PROP_FRAME_WIDTH)

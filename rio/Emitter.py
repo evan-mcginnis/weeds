@@ -201,3 +201,60 @@ class PhysicalEmitter(Emitter):
 
 
         return diagnosticResult, diagnosticText
+
+def checkLineNames(line: str) -> (str, int):
+    """
+    Check that the line designation is valid
+    :param line: The line in NI syntax (Mod4/port0/line3)
+    """
+
+    lines = []
+    elements = line.split("/")
+    if len(elements)== 3:
+        #print("Module: {}".format(elements[0]))
+        #print("Port: {}".format(elements[1]))
+        #print("Line: {}".format(elements[2]))
+
+        # Not that flexible, but it the line designation is more than just "line", it must be a range
+        if len(elements[2]) > len(NI_LINE):
+            # What we expect here is that only the line can be extended with the lineN:M syntax
+            # Remove the line and match the range as low:high.
+            # I realize that NI accepts reverse order high:low, but I'm too lazy to support that
+            range = elements[2].replace('line','')
+            lineDescriptors = range.split(":")
+            #print("Range: {}".format(lineDescriptors))
+            numLines = int(lineDescriptors[1]) - int(lineDescriptors[0]) + 1
+            #print("Total lines: {}".format(numLines))
+
+        evaluationText = "Line designation OK"
+    else:
+        evaluationText = "Expected the line in the form ModN/portN/lineN or ModN/portN/lineN:M"
+
+    return (evaluationText, numLines)
+
+
+#
+# The emitter class as a utility for turning on and off various emitters
+#
+if __name__ == "__main__":
+    import argparse
+    import sys
+    parser = argparse.ArgumentParser("RIO Emitter Utility")
+
+    group = parser.add_mutually_exclusive_group()
+
+    group.add_argument('-on', '--on', action="store_true", required=False, default=False, help="Turn the emitters on")
+    group.add_argument('-off', '--off', action="store_true", required=False, default=False, help="Turn the emitters off")
+    parser.add_argument('-e', '--emitter', action="store", required=True, help="Emitter in NI syntax, i.e., Mod4/port0/line3 or Mod4/port0/line0:5")
+    arguments = parser.parse_args()
+
+    # Check that the format of the lines is what we expect
+    evalutionText, lines = checkLineNames(arguments.emitter)
+
+    if lines == 0:
+        print(evalutionText)
+        sys.exit(-1)
+
+    sys.exit(0)
+
+

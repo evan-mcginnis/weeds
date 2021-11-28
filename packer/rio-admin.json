@@ -14,15 +14,14 @@
     },
     {
       "type": "shell",
-      "inline": ["opkg install ntp ntp-tickadj ntp-utils"]
-    },
-    {
-      "type": "shell",
       "script": "create-users.sh"
     },
     {
       "type": "shell",
-      "skip_clean": "True",
+      "script": "config-hosts.sh"
+    },
+    {
+      "type": "shell",
       "execute_command": "chmod +x {{ .Path }}; {{ .Vars }} bash -l {{ .Path }}",
       "script": "install-python.sh"
     }

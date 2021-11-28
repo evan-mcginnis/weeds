@@ -7,6 +7,7 @@ from typing import Callable
 import logging
 from time import sleep
 from datetime import datetime
+import nidaqmx as ni
 
 class Odometer(ABC):
     def __init__(self, options: str):
@@ -78,5 +79,3 @@ class VirtualOdometer(Odometer):
             self._log.debug("Sleep for {:.2f} seconds".format(self._timeToTravel1CM))
             sleep(self._timeToTravel1CM)
             self._start = datetime.now()
-
-

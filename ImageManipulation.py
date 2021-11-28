@@ -595,6 +595,109 @@ class ImageManipulation:
 
         return
 
+    def computeCompactness(self):
+        """
+        The compactness of an object is given by 4 * pi * area / perimeter^2
+        Adds the compactness to the blobAttributes as NAME_COMPACTNESS
+
+        See: http://www.cyto.purdue.edu/cdroms/micro2/content/education/wirth10.pdf
+        """
+        for blobName, blobAttributes in self._blobs.items():
+            # The permimeter of the contour
+            # https://docs.opencv.org/4.x/dd/d49/tutorial_py_contour_features.html
+            perimeter = cv.arcLength(blobAttributes[constants.NAME_CONTOUR], True)
+            compactness = (4 * math.pi * blobAttributes[constants.NAME_AREA]) / perimeter**2
+            blobAttributes[constants.NAME_COMPACTNESS] = compactness
+
+    def computeElogation(self):
+        """
+        The elongation of an object is given by width/length of the bounding box.
+        Adds the elongation to the blobAttributes as NAME_ELONGATION
+
+        See: http://www.cyto.purdue.edu/cdroms/micro2/content/education/wirth10.pdf
+        """
+        for blobName, blobAttributes in self._blobs.items():
+            # The bounding rectangle of the blob
+            (x, y, w, h) = blobAttributes[constants.NAME_LOCATION]
+            elongation = w / h
+            blobAttributes[constants.NAME_ELONGATION] = elongation
+
+    @staticmethod
+    def _findMajorMinorAxis(contour) -> (float, float):
+        """
+        Find the major and minor axis of the contour
+        :param contour: The contour of the blob
+
+        See: http://www.cyto.purdue.edu/cdroms/micro2/content/education/wirth10.pdf
+        :return: (MajorAxis, MinorAxis)
+        """
+        (x, y), (majorAxis, minorAxis), angle = cv.fitEllipse(contour)
+        return (majorAxis, minorAxis)
+
+    def computeEccentricity(self):
+        """
+        The eccentricity of an object is the ratio of the length of the minor axis to the length of the major
+        axis. Adds the eccentricity to the blobAttributes as NAME_ECCENTRICITY
+
+        See: http://www.cyto.purdue.edu/cdroms/micro2/content/education/wirth10.pdf
+        """
+        for blobName, blobAttributes in self._blobs.items():
+            # The major and minor axes
+            (majorAxis, minorAxis) = ImageManipulation._findMajorMinorAxis(blobAttributes[constants.NAME_CONTOUR])
+            eccentricity = minorAxis / majorAxis
+            blobAttributes[constants.NAME_ECCENTRICITY] = eccentricity
+
+    def computeRoundness(self):
+        """
+        The roundness of an object is the ratio of the area of an object to the area of a circle with the same
+        convex perimeter. Adds the roundness to the blobAttributes as NAME_ROUNDNESS
+
+        See: http://www.cyto.purdue.edu/cdroms/micro2/content/education/wirth10.pdf
+        """
+        for blobName, blobAttributes in self._blobs.items():
+            area = blobAttributes[constants.NAME_AREA]
+            # The convex hull and its perimeter
+            hull = cv.convexHull(blobAttributes[constants.NAME_CONTOUR])
+            perimeter = cv.arcLength(hull, True)
+            roundness = (4 * math.pi * blobAttributes[constants.NAME_AREA]) / perimeter**2
+            blobAttributes[constants.NAME_ROUNDNESS] = roundness
+
+    def computeConvexity(self):
+        """
+        The convexity of an object is the relative amount an object differs from a convex object
+        Adds the convexity to the blobAttributes as NAME_CONVEXITY
+
+        See: http://www.cyto.purdue.edu/cdroms/micro2/content/education/wirth10.pdf
+        """
+        for blobName, blobAttributes in self._blobs.items():
+            # TODO: Already computed.  Consider doing this just once instead.
+            perimeter = cv.arcLength(blobAttributes[constants.NAME_CONTOUR], True)
+            # The convex hull and its perimeter
+            hull = cv.convexHull(blobAttributes[constants.NAME_CONTOUR])
+            hullPerimeter = cv.arcLength(hull, True)
+            convexity = hullPerimeter / perimeter
+            blobAttributes[constants.NAME_CONVEXITY] = convexity
+
+    def computeSolidity(self):
+        """
+        The solidity of an object os the ratio of the contour area to the convex hull area.
+        Adds the solidity to the blobAttributes as NAME_SOLIDITY
+
+        See: http://www.cyto.purdue.edu/cdroms/micro2/content/education/wirth10.pdf
+        See: https://docs.opencv.org/4.x/d1/d32/tutorial_py_contour_properties.html
+        """
+        for blobName, blobAttributes in self._blobs.items():
+            # Already computed, but we could also get this from opencv with this call:
+            # area = cv.contourArea(blobAttributes[NAME_CONTOUR])
+            area = blobAttributes[constants.NAME_AREA]
+            # The convex hull and its area
+            hull = cv.convexHull(blobAttributes[constants.NAME_CONTOUR])
+            hullArea = cv.contourArea(hull)
+            solidity = area / hullArea
+            blobAttributes[constants.NAME_SOLIDITY] = solidity
+
+
+
     def identifyCloseVegetation(self):
         return
 
@@ -1018,6 +1121,19 @@ class ImageManipulation:
                 hueMean = manipulation(image)
                 self.log.debug(attribute + ": " + str(hueMean))
                 blobAttributes[attribute] = hueMean
+
+    def normalize(self) -> bool:
+        """
+        Normalize all features in the range of 0..1.
+        :return: Result of normalization as boolean
+        """
+        result = False
+        for blobName, blobAttributes in self._blobs.items():
+            # For everything that isn't ignored, extract out the slice
+            if blobAttributes[constants.NAME_TYPE] != constants.TYPE_IGNORED:
+                # Placeholder for now
+                pass
+        return result
 
     def _compactness(self, contour) -> float:
         return 1

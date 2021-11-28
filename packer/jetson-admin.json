@@ -1,0 +1,30 @@
+{
+  "builders" : [
+    {
+      "type": "null",
+      "ssh_host":"169.254.212.40",
+      "ssh_username": "admin",
+      "ssh_password" : "nvidia-greydog",
+      "ssh_pty" : "true"
+    }
+  ],
+  "provisioners" : [
+    {
+      "type": "file",
+      "source": "./create-users.sh",
+      "destination": "~/create-users.sh"
+    },
+    {
+      "type": "shell",
+      "remote_folder": "~",
+      "inline": [
+        "echo nvidia-greydog | sudo -S bash ~/create-users.sh",
+        "rm ~/create-users.sh"
+      ]
+    },
+    {
+      "type": "shell",
+      "script": "config-hosts.sh"
+    }
+  ]
+}

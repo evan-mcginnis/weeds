@@ -8,18 +8,29 @@ import logging
 import numpy as np
 
 class Reporting:
-    def __init__(self):
+    def __init__(self, filename: str):
         """
         A reporting instance.
 
         """
         self._blobs = {}
         self.log = logging.getLogger(__name__)
+        self._filename = filename
         return
 
     @property
     def blobs(self):
         return self._blobs
+
+    def initialize(self) -> (bool, str):
+        try:
+            file = open(self._filename, "w")
+            file.truncate(0)
+            file.close()
+        except PermissionError as p:
+            self.log.error("Permission denied for file: " + self._filename)
+            return False, "Unable to write file " + self._filename
+        return True, "OK"
 
     def addBlobs(self, sequence: int,blobs: {}):
         """
@@ -32,19 +43,19 @@ class Reporting:
             newName = "image-" + str(sequence) + "-" + blobName
             self._blobs[newName] = blobAttributes
 
-    def writeSummary(self, filename: str)-> bool:
+    def writeSummary(self)-> bool:
         """
         Write the data to the file specified.  We will use this data later for training.
         :param filename:  The fully qualified name of the file.
         """
         try:
-            file = open(filename, "w")
+            file = open(self._filename, "w")
         except PermissionError as p:
-            self.log.error("Permission denied for file: " + filename)
-            return False, "Unable to write file " + filename
+            self.log.error("Permission denied for file: " + self._filename)
+            return False, "Unable to write file " + self._filename
 
         blobNumber = 1
-        file.write("{},{},{},{},{},{},{},{},{},{},{}\n".format(constants.NAME_NAME,
+        file.write("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n".format(constants.NAME_NAME,
                                                          constants.NAME_NUMBER,
                                                          constants.NAME_RATIO,
                                                          constants.NAME_SHAPE_INDEX,
@@ -54,6 +65,12 @@ class Reporting:
                                                          constants.NAME_SATURATION,
                                                          constants.NAME_I_YIQ,
                                                          constants.NAME_BLUE_DIFFERENCE,
+                                                         # The new items
+                                                         constants.NAME_COMPACTNESS,
+                                                         constants.NAME_ELONGATION,
+                                                         constants.NAME_ECCENTRICITY,
+                                                         constants.NAME_ROUNDNESS,
+                                                         constants.NAME_SOLIDITY,
                                                          constants.NAME_TYPE))
         for blobName, blobAttributes in self._blobs.items():
             # Only take desired vegetation in full view
@@ -62,7 +79,7 @@ class Reporting:
 
                 try:
                     self.log.debug("Writing out training data for : " + blobName)
-                    file.write("%s,%d,%f,%f,%f,%f,%f,%f,%f,%f,%d\n" %
+                    file.write("%s,%d,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%d\n" %
                                (blobName,
                                 blobNumber,
                                 blobAttributes[constants.NAME_RATIO],
@@ -74,6 +91,11 @@ class Reporting:
                                 blobAttributes[constants.NAME_SATURATION],
                                 blobAttributes[constants.NAME_I_YIQ],
                                 blobAttributes[constants.NAME_BLUE_DIFFERENCE],
+                                blobAttributes[constants.NAME_COMPACTNESS],
+                                blobAttributes[constants.NAME_ELONGATION],
+                                blobAttributes[constants.NAME_ECCENTRICITY],
+                                blobAttributes[constants.NAME_ROUNDNESS],
+                                blobAttributes[constants.NAME_SOLIDITY],
                                 blobAttributes[constants.NAME_TYPE]))
                 except ValueError:
                     self.log.error("Error in writing feature data.")
