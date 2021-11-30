@@ -134,6 +134,18 @@ class VegetationIndex:
         maskedRGB = cv.merge((self.blueBandMasked, self.greenBandMasked, self.redBandMasked))
         return maskedRGB
 
+    @property
+    def redMasked(self):
+        return self.redBandMasked
+
+    @property
+    def blueMasked(self):
+        return self.blueBandMasked
+
+    @property
+    def greenMasked(self):
+        return self.greenBandMasked
+
     def ReplaceNonZeroPixels(self, image: np.ndarray, value : float) -> np.ndarray:
         cartooned = np.where(image > 0, value, image)
         return cartooned
@@ -153,7 +165,7 @@ class VegetationIndex:
         data = Image.fromarray((self.GetMaskedImage() * 255).astype(np.uint8))
         data.save(name)
 
-    def SetImage(self, image):
+    def SetImage(self, image: np.ndarray):
         normalized = np.zeros_like(image)
         finalImage = cv.normalize(image,  normalized, 0, 255, cv.NORM_MINMAX)
         self.img = finalImage
@@ -162,6 +174,17 @@ class VegetationIndex:
         self.redBand = self.imgNP[:, :, self.CV_RED]
         self.greenBand = self.imgNP[:, :, self.CV_GREEN]
         self.blueBand = self.imgNP[:, :, self.CV_BLUE]
+
+    def SetImageBands(self, red: np.ndarray, green: np.ndarray, blue: np.ndarray):
+        """
+        Set the image by individual bands
+        :param red:
+        :param green:
+        :param blue:
+        """
+        self.redBand = red
+        self.greenBand = green
+        self.blueBand = blue
 
     def Load(self, location: str):
         # TODO: Make this work for URLs
@@ -236,6 +259,57 @@ class VegetationIndex:
 
 
         return TGI
+
+    def makeMask(self, index: np.ndarray, negate: bool, direction: int, threshold: () = None) -> np.ndarray:
+        """
+        Create a mask based on the index
+        :param index:
+        The vegetation index
+        :param threshold:
+        The threshold value to use. If not specified, Otsu's Binarization is used.
+        :return:
+        The mask as a numpy array with RGB channels
+        """
+        mask = None
+
+        # If a threshold is not supplied, use Otsu
+        if threshold == None:
+            # Convert to a grayscale#
+            greyScale = index.astype(np.uint8)
+            #ret, thresholdedImage = cv.threshold(greyScale,0,255,cv.THRESH_BINARY+cv.THRESH_OTSU)
+            ret, thresholdedImage = cv.threshold(greyScale,0,255,cv.THRESH_BINARY+cv.THRESH_OTSU)
+            threshold = ret
+            threshold1 = ret
+            threshold2 = -9999
+        else:
+            # Thresholds are (up, down)
+            threshold1 = threshold[0]
+            threshold2 = threshold[1]
+
+        # If the direction is 1, interpret the two thresholds as up, down
+        # To make this go back to the original implementation, set the second threshold to -9999
+
+        if direction > 0:
+            thresholdedIndex = index > threshold1
+            if threshold2 != -9999:
+                thresholdIndex2 = index < threshold2
+                finalMask = np.logical_or(thresholdedIndex, thresholdIndex2)
+            else:
+                finalMask = thresholdedIndex
+            negated = finalMask
+        else:
+            thresholdedIndex = index < threshold1
+            #negated = np.logical_not(thresholdedIndex)
+            negated = thresholdedIndex
+            finalMask = negated
+
+        if negate:
+            finalMask = np.logical_not(thresholdedIndex)
+            #negated = finalMask
+
+        self.mask = negated
+
+        return mask
 
     def MaskFromIndex(self, index: np.ndarray, negate: bool, direction: int, threshold: () = None) -> np.ndarray:
         """
@@ -318,6 +392,25 @@ class VegetationIndex:
         self.blueBandMasked = self.blueBand * self.mask  # DataBLUE * negated
 
         return
+
+    def applyLargeMask(self) -> bool:
+        """
+        Applies the mask for really large images where numpy would complain.
+        Warning: this is very slow for large matrices.
+        :return: True if mask application succeed, False otherwise
+        """
+        result = False
+
+        pairs = zip(self.redBand, self.mask)
+        self.redBandMasked = [reading * mask for reading,mask in pairs]
+        pairs = zip(self.blueBand, self.mask)
+        self.blueBandMasked = [reading * mask for reading,mask in pairs]
+        pairs = zip(self.greenBand, self.mask)
+        self.greenBandMasked = [reading * mask for reading,mask in pairs]
+        result = True
+
+        return result
+
 
     def GetMask(self):
         return np.dstack([self.redBandMasked, self.greenBandMasked, self.blueBandMasked])
