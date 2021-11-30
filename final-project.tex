@@ -183,13 +183,23 @@ This paper presents a breakdown of the analysis of the images taken along the Sa
 % I N T R O D U C T I O N
 %
 \section{Introduction}
-This results presented in this paper are just one snapshot of a longer effort to monitor the overall growth of vegetation in the study area, and to do so with a minimum of human input to the process. That it, the analysis is nearly completely automated.
+This results presented in this paper are just one snapshot of a longer effort to monitor the overall growth of vegetation in the study area, and to do so with a minimum of human input to the process. That it, the analysis is nearly completely automated and can be repeated over subsequent seasons.
 
 %
 % M E T H O D S
 %
 \section{Methods}
-This study was conducted along the Santa Cruz River near the intersection of Silverbell Road and Sunset Blvd in Tucson, Arizona. Data was acquired with a DJI Phantom 4 with a stock RGB sensor capturing 12.4 Mp images. The images were captured between 09:21 on 10 November 2021 and 10:28 on 3 November 2021.
+This study was conducted along the Santa Cruz River near the intersection of Silverbell Road and Sunset Blvd in Tucson, Arizona. Data was acquired with a DJI Phantom 4 with a stock RGB sensor capturing 12.4 Mp images. The images were captured between 09:21 on 10 November 2021 and 10:28 on 3 November 2021. Additional flight and capture details:
+\begin{itemize}
+\item Lens 8.8mm focal length
+\item Exposure Mode: Program AE
+\item ISO: 100
+\item Location: 32.308939, -111.049764
+\item AGL: 100 meters
+\item Camera: DJI FC6310S
+\item Ground Sampling Distance: 2.56 cm\footnote{This is a weighted sample average for reasons that will be discussed in subsequent paragraphs}
+\end{itemize}
+
 
 \begin{figure}[H]
 \centering
@@ -198,9 +208,9 @@ This study was conducted along the Santa Cruz River near the intersection of Sil
   \label{fig:flight} 
 \end{figure}
 
-Figure~\ref{fig:flight} shows the flight paths executed for this flight, and a few problems are immediately obvious on closer inspection. While the intent was to have the entire study area covered in a double-grid pattern, a double grid pattern was used in approximately $\frac {1} {3}$ of the study area. Unfortunately, the flight control system crashed after only completing a small area, requiring the use of a second flight control system where a double-grid pattern was not applied. Subsequent processing of the imagery acquired is the result of combining these two image sets. The sky was clear with minimal wind during the flights. A nearby fire that produced large amounts of smoke did not affect the flight area with obscuring haze.
+Figure~\ref{fig:flight} shows the flight paths executed for this flight, and a few problems are immediately obvious on closer inspection. While the intent was to have the entire study area covered in a double-grid pattern, a double grid pattern was used in approximately $\frac {1} {3}$ of the study area. Unfortunately, the flight control system crashed after only completing a small area, requiring the use of a second flight control system where a double-grid pattern was not applied. Subsequent processing of the imagery acquired is the result of combining these two image sets, with $\frac {1} {3}$ of the flight at 100 meters giving a ground sampling distance of 2.74 cm and $\frac {2} {3}$ of the flight at 90 meters, giving a ground sampling distance of 2.47 cm. The sky was clear with minimal wind during the flights. A nearby fire that produced large amounts of smoke did not affect the flight area with obscuring haze.
 
-The images were initially processed with Pix4D TODO: Version Number??? to produce an initial point cloud and orthomosaic. Subsequent processing was done with software written by the author and with R (version 4.1.1) and RStudio (version 2021.09.0 Build 351). (Both Python and R sources are available in the GitHub repository referenced in the appendix)
+The images were initially processed with Pix4D TODO: Version Number??? to produce an initial point cloud and orthomosaic. Subsequent processing was done with software written by the author and with verification with R (version 4.1.1) and RStudio (version 2021.09.0 Build 351). (Both Python and R sources are available in the GitHub repository referenced in the appendix)
 
 The workflow follows this sequence:
 \begin{enumerate}
@@ -275,7 +285,7 @@ Combined Indices 2
     \end{tabular}
 \end{table}
 %\end{longtable}
-These indices are used to create a mask that is then applied to the original source image to permit vegetation to show while masking details that are not relevant (ground pixels, stones, and other items that may appear in field conditions) The intent here is to remove all pixels that are not relavent to the task of distinguishing between ground and ground features and vegetation.
+These indices are used to create a mask that is then applied to the original source image to permit vegetation to show while masking details that are not relevant (ground pixels, stones, and other items that may appear in field conditions) The intent here is to remove all pixels that are not relavent to the task of distinguishing between ground and ground features and vegetation.  That is, in Figure~\ref{fig:sub2}, the black areas indicate non-vegetated pixels (ground, rock, etc., anything other than vegetation) and pixels showing green are vegetation.
 \begin{figure}[H]
 \centering
 \begin{subfigure}[]{.30\textwidth}
@@ -300,7 +310,7 @@ These indices are used to create a mask that is then applied to the original sou
 \caption{Image Processing with Vegetation Index CIVE}
 \label{fig:segmentation}
 \end{figure}
-The segmented image has discarded ground pixels while retaining most of the pixels that will be used, but a close examination reveals that pixels of ground areas where vegetation is present experience some color bleed from adjacent pixels that are vegetated. With any segmentation process, however, it is important to select the {\it threshold} such that results can be reproduced. A threshold is used in conjunction with an index such that only those pixels greater than a certain value in the mask will be applied. A common approach is to use Otsu's method \cite{Otsu1979-io} , as manual methods are typically hit-or-miss, however this paper will use manually computed thresholds.
+The segmented image has discarded ground pixels while retaining most of the pixels that will be used, but a close examination reveals that pixels of ground areas where vegetation is present experience some color bleed from adjacent pixels that are vegetated. With any segmentation process, however, it is important to select the {\it threshold} such that results can be reproduced. A threshold is used in conjunction with an index such that only those pixels greater than a certain value in the mask will be applied. A common approach is to use Otsu's method \cite{Otsu1979-io} , as manual methods are typically hit-or-miss, however this paper will use manually computed thresholds for reasons that will be discussed in a subsequent section.
 \begin{figure}[H]
   \centering
   \begin{subfigure}{.32\textwidth}
@@ -349,7 +359,7 @@ Starting with the threshold of 120 and observing the effects of various values d
     \label{fig:transect-plot} 
 \end{figure}
 
-The river is a bit confounding here, but now that the radiometric response is known, it can be eliminated, resulting in Figure XXX.  This process is repeated for each index that reveals not only vegetation, but water as well. Not all indices suffer from this, as seen in Figure~\ref{fig:transect-plot-exg}, showing a transect across the river at the same location.  The transect shows that the river cannot be seen in the image.
+The river is a bit confounding here, but now that the radiometric response is known, it can be eliminated by exploiting a characteristic seen in Figure\~ref{fig:transect-plot}: band separation in the area of the river.  Note how the red, greed, and blue bands have much greater separation over the river than the areas over trees.  This process is repeated for each index that reveals not only vegetation, but water as well. Not all indices suffer from this, as seen in Figure~\ref{fig:transect-plot-exg}, showing a transect across the river at the same location.  The transect shows that the river cannot be seen in the image.
 
 \begin{figure}[H]
 \centering
@@ -358,18 +368,51 @@ The river is a bit confounding here, but now that the radiometric response is kn
   \label{fig:transect-plot-exg} 
 \end{figure}
 
-Figure~\ref{fig:barcount} shows the results of using various indices to determine vegetated pixels in the orthomosaic of the study area.  While it is tempting to asess these results by choosing the one with the most vegetated pixels, the emphasis here will be on choosing the most accurate results.
+Figure~\ref{fig:barcount} shows the results of using various indices to determine vegetated area in the orthomosaic of the study area.  While it is tempting to asess these results by choosing the one with the most vegetated area, the emphasis here will be on choosing the most accurate results. Unfortunately, this is where careful comparisons must be made between the image with the index applied and the original to assess if vegetation has been wrongfully excluded, or as discussed above wrongfully included (such as we see with the river).
 
 \begin{figure}[H]
 \centering
-  	\includegraphics[width=1\linewidth]{figures/bar-counts.png}
-  	 \caption{Vegetated pixels for various algorithms}
+  	\includegraphics[width=1\linewidth]{figures/bar-counts.jpg}
+  	 \caption{Areas calculated for various algorithms}
   	\label{fig:barcount}
 \end{figure}
 
-\section{Volumetric Estimations}
-TODO
 
+\subsection{Implementation Notes}
+Most of implementation of these index algorithms are provided by the author, with these supporting Python libraries:
+\begin{itemize}
+\item{{\it OpenCV}, an image processing subsystem}
+\item{{\it numpy}, a numerical processing package}
+\end{itemize}
+
+
+%
+% P O I N T  C L O U D S
+%
+\section{Segmentation of Point Clouds}
+Vegetation indices can also be applied to point clouds with a few items of note:
+\begin{itemize}
+\item{The values for the RGB points may be substatially different than those seen in the orthomosaic.}
+\item{Automatic selection of the threshold is a bit more complicated, as the technique mentioned (Otsu) involved a grey-scale image, something not present here}
+\item{Point clouds involve many more points than an orthomosaic for the same study area, and processing time will be substatially longer}
+\end{itemize}
+Figure~\ref{fig:point-cloud-mexg} shows the effect of applying the {\it Modified Excess Green} index to a point cloud of the study area.
+
+\begin{figure}[H]
+\centering
+  	\includegraphics[width=1\linewidth]{figures/point-cloud-mexg.jpg}
+  	 \caption{Modified Excess Green Index applied to Point Cloud}
+  	\label{fig:point-cloud-mexg}
+\end{figure}
+
+\subsection{Implementation Notes}
+This implementation builds on the algorithms realized in the section detailing 2D work, and uses some supporting libraries:
+\begin{itemize}
+\item{{\it laspy}, an subsystem for manipulating point clouds in the {\it .las} format}
+\item{{\it numpy}, a numerical processing package}
+\end{itemize}
+
+It is worth mentioning here that processing the study area point cloud could not be done completely with the numpy numeric functions used in the 2D processing. In this case, numpy required 995 GB for processing, requiring creation of some new routines. A point cloud in the {\it .las} format is nothing more complicated than a long list of all points in the cloud
 %
 % R E S U L T S  & D I S C U S S I O N
 %
@@ -392,38 +435,99 @@ Triangular Greenness
 & \\\hline
 Normalized Difference     
 &                   
-&   \\\hline
+&   Picks up too much of the bright areas. (includes river)\\\hline
 Excess Green      
 & 
 & \\\hline
 Excess Red      
 & 
-&  \\\hline
+&  Tends to pick up too much redness in ground. (includes river)\\\hline
 Color Index of Vegetation Extraction      
 & 
-& . \\\hline
+& Does not include river\\\hline
 Excess Green - Excess Red   
 & 
-&  \\\hline
+& Includes river \\\hline
 Normalized Green-Red Difference    
 & 
-& \\\hline
+& Includes River\\\hline
 Vegetative Index      
 & 
-& \\\hline
-Com1   
-&  
-&  \\\hline
+& Does not include river\\\hline
 Modified Excess Green      
 & 
-& \\\hline
+& Does not include river\\\hline
+Combined Indices 1  
+&  
+& Does not pick up all the vegetation (does not include river)\\\hline    
 Combined Indices 2      
 &  
-& \\\hline    
+& Picks up even light colored vegetation, even unhealthy (does not include river)\\\hline    
 
         \bottomrule
     \end{tabular}
 \end{table}
+
+\begin{figure}[H]
+\centering
+\begin{subfigure}{.32\textwidth}
+	\centering
+	\includegraphics[width=1\linewidth]{figures/processed-with-com2.jpg}
+	\caption{COM2}
+\end{subfigure}
+\begin{subfigure}{.32\textwidth}
+	\centering
+	\includegraphics[width=1\linewidth]{figures/processed-with-exg.jpg}
+	\caption{Excess Green}
+\end{subfigure}
+\begin{subfigure}{.32\textwidth}
+	\centering
+	\includegraphics[width=1\linewidth]{figures/processed-with-cive.jpg}
+	\caption{CIVE}
+\end{subfigure}
+\begin{subfigure}{.32\textwidth}
+	\centering
+	\includegraphics[width=1\linewidth]{figures/processed-with-com1.jpg}
+	\caption{COM1}
+\end{subfigure}
+\begin{subfigure}{.32\textwidth}
+	\centering
+	\includegraphics[width=1\linewidth]{figures/processed-with-exgexr.jpg}
+	\caption{ExgExr}
+\end{subfigure}
+\begin{subfigure}{.32\textwidth}
+	\centering
+	\includegraphics[width=1\linewidth]{figures/processed-with-exr.jpg}
+	\caption{Excess Red}
+\end{subfigure}
+\begin{subfigure}{.32\textwidth}
+	\centering
+	\includegraphics[width=1\linewidth]{figures/processed-with-mexg.jpg}
+	\caption{Modified Excess Green}
+\end{subfigure}
+\begin{subfigure}{.32\textwidth}
+	\centering
+	\includegraphics[width=1\linewidth]{figures/processed-with-ndi.jpg}
+	\caption{NDI}
+\end{subfigure}
+\begin{subfigure}{.32\textwidth}
+	\centering
+	\includegraphics[width=1\linewidth]{figures/processed-with-ngrdi.jpg}
+	\caption{NGRDI}
+\end{subfigure}
+\begin{subfigure}{.32\textwidth}
+	\centering
+	\includegraphics[width=1\linewidth]{figures/processed-with-tgi.jpg}
+	\caption{TGI}
+\end{subfigure}
+\begin{subfigure}{.32\textwidth}
+	\centering
+	\includegraphics[width=1\linewidth]{figures/processed-with-veg.jpg}
+	\caption{VEG}
+\end{subfigure}
+\caption{Results of processing the study area with various indices}
+\end{figure}
+
 %
 % C O N C L U S I O N S
 %
@@ -438,7 +542,11 @@ Combined Indices 2
 % 
 % A P P E N D I X
 %
-\section{Data and Field Notes}
+\section{Access to Data and Code}
+All code written for this project is available from this Github repository:\\
+\url{https://github.com/evan-mcginnis/weeds/tree/rnr522}
+
+
 
 
 \end{document}
