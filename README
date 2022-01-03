@@ -1,12 +1,61 @@
-This project is intended for automated weeding.
-There are 4 components:
-- An image aquisition device (camera or files on disk)
-- A National Instruments RIO embedded controller
-- An encoder attached to the RIO that emits pulses on wheel movements
-- An emitter for treating weeds
-- A laptop for performing image rocognition
+521 Parameter Selection
 
-Laptop executable: weeds.py
-RIO executable: rio.py
-Camera: Basler GigE or a collection of disk images
+Python requirements are given in requirements.txt, but really just come down to a few things
+numpy
+opencv
+scikit-learn
 
+All interactions are with make. If you are running this on ubuntu, you probably already have this
+There are two makefiles, Makefile and info521.mk, with the latter just for feature selection
+
+Selecting the parameters
+------------------------
+Parameter Selection is accomplished with these subclasses of Select: Univariate, FeatureImportance, PrincipleComponentAnalysis, and Recursive
+make -f info521.mk univariate
+make -f info521.mk importance
+make -f info521.mk pca
+make -f info521.mk recursive
+
+For this, you don't need opencv, just scikit-learn.
+
+
+Training and processing images
+==============================
+To run the training and produce output, you will need to have opencv installed, otherwise you will run into errors.
+
+Run the train/test with these commands. Each of these will take images from the input2 directory and put both segmented
+and annotated results in the output directory.
+
+Logistic regression
+-------------------
+make weeds PARAMETERS=reduced-parameters.csv TRAINING=training-521.csv ML=lr
+
+A typical run would look like this. Where all those 1s and 0s are the predicted classes
+
+C:\University of Arizona\machine-learning\final_project_optionb-evan-mcginnis>make weeds PARAMETERS=reduced-parameters.csv TRAINING=training-521.csv ML=lr
+python weeds.py -i input2 -o output -a ndi -t "(130,0)" -df training-521.csv -l -sc -v -lg info-logging.yaml -se reduced-parameters.csv
+Logistic regression prediction
+[1 1 0 0 1 1 1 1 1 1 1 1 1 1 1 1 0 1 1 1 1 1 1 1 1 0 1 1 1 1 1 0 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 0 1 1 1 1 1 1 1 0 1 1 1 1 1 1 1 1 1
+ 1 0 1 1 1 1 1 1 1 1 1 1 1 1 0 1 1 1 1 1 1 0 1 0 0 0 0 1 1 1 0 1 1 1 1 1 1
+ 0 0 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 0 1 1 1 1 1 0 1 1 1]
+Training Score: 0.979
+Testing Score: 0.9787234042553191
+Processing image 0
+... This is repeated for all the 30 images
+
+KNN
+---
+make weeds PARAMETERS=reduced-parameters.csv TRAINING=training-521.csv ML=knn
+
+Decision Tree
+-------------
+make weeds PARAMETERS=reduced-parameters.csv TRAINING=training-521.csv ML=decision
+
+Boosted Gradient
+----------------
+make weeds PARAMETERS=reduced-parameters.csv TRAINING=training-521.csv ML=gradient
+
+Random Forest
+-------------
+make weeds PARAMETERS=reduced-parameters.csv TRAINING=training-521.csv ML=forest

@@ -230,6 +230,22 @@ def Image_getRGB(bandR,bandG,bandB, fdiv, maxV=0):
     
     return datares
 
+def Image_getBGR(bandR,bandG,bandB, fdiv, maxV=0):
+    nrows,ncols=bandR.shape
+
+    if(maxV<=0):
+       MaxV=bandR.max()/fdiv
+       if MaxV>0.4:
+         MaxV=0.4
+    else:
+      MaxV=maxV/fdiv
+
+    datares=np.zeros((nrows,ncols,3))
+    datares[:,:,0]= band_normalize(bandB, fdiv,MaxV)
+    datares[:,:,1]= band_normalize(bandG, fdiv,MaxV)
+    datares[:,:,2]= band_normalize(bandR, fdiv,MaxV)
+
+    return datares
 
 def band_masking(data,datamask,masklistvalues, FILL_VALUE=-13000):
     #get size of input band
