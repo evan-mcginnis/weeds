@@ -67,6 +67,7 @@ parser.add_argument("-P", "--performance", action="store", type=str, default="pe
 parser.add_argument("-r", "--results", action="store", default="results.csv", help="Name of results file")
 parser.add_argument("-s", "--stitch", action="store_true", help="Stitch adjacent images together")
 parser.add_argument("-sc", "--score", action="store_true", help="Score the prediction method")
+parser.add_argument("-se", "--selection", action="store", default="all-parameters.csv", help="Parameter selection file")
 parser.add_argument("-sp", "--spray", action="store_true", help="Generate spray treatment grid")
 parser.add_argument("-spe", "--speed", action="store", default=1, type=int, help="Speed in meters per second")
 parser.add_argument("-t", "--threshold", action="store", type=tuple_type, default="(0,0)", help="Threshold tuple (x,y)")
@@ -221,6 +222,7 @@ sequence = 0
 if arguments.logistic:
     try:
         classifier = LogisticRegressionClassifier()
+        classifier.loadSelections(arguments.selection)
         classifier.load(arguments.data, stratify=False)
         classifier.createModel(arguments.score)
         #classifier.scatterPlotDataset()
@@ -229,20 +231,28 @@ if arguments.logistic:
         sys.exit(1)
 elif arguments.knn:
    classifier = KNNClassifier()
+   # Load selected parameters
+   classifier.loadSelections(arguments.selection)
    classifier.load(arguments.data, stratify=False)
    classifier.createModel(arguments.score)
 elif arguments.tree:
    classifier = DecisionTree()
+   # Load selected parameters
+   classifier.loadSelections(arguments.selection)
    classifier.load(arguments.data, stratify=False)
    classifier.createModel(arguments.score)
    classifier.visualize()
 elif arguments.forest:
    classifier = RandomForest()
+   # Load selected parameters
+   classifier.loadSelections(arguments.selection)
    classifier.load(arguments.data, stratify=True)
    classifier.createModel(arguments.score)
    classifier.visualize()
 elif arguments.gradient:
    classifier = GradientBoosting()
+   # Load selected parameters
+   classifier.loadSelections(arguments.selection)
    classifier.load(arguments.data, stratify=False)
    classifier.createModel(arguments.score)
    classifier.visualize()
@@ -268,7 +278,12 @@ if constants.NAME_ALL in arguments.decorations:
                       constants.NAME_DISTANCE_NORMALIZED,
                       constants.NAME_NAME,
                       constants.NAME_HUE,
-                      constants.NAME_TYPE]
+                      constants.NAME_TYPE,
+                      constants.NAME_SOLIDITY,
+                      constants.NAME_ROUNDNESS,
+                      constants.NAME_CONVEXITY,
+                      constants.NAME_ECCENTRICITY,
+                      constants.NAME_I_YIQ]
 elif constants.NAME_NONE in arguments.decorations:
     featuresToShow = []
 else:

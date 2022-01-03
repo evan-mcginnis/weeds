@@ -1,6 +1,7 @@
 #
 # C L A S S I F I E R
 #
+import csv
 import random
 
 import constants
@@ -33,6 +34,7 @@ class Classifier:
         self._yTest = []
 
         self._blobsInView = pd.DataFrame()
+        self._selections = []
 
         self.log = logging.getLogger(__name__)
         # # The ANN for the classifier
@@ -173,28 +175,46 @@ class Classifier:
             i = i + 1
         return
 
+    def loadSelections(self, filename: str):
+        """
+        Read in the selections from a CSV file with only one line.
+        :param filename:
+        :return:
+        """
+        if not os.path.isfile(filename):
+            raise FileNotFoundError
+
+        self.log.info("Load parameter selections")
+        # The selection file is just a single line of CSV
+        with open(filename) as f:
+            reader = csv.reader(f)
+            row = next(reader)
+        self._selections = row
+
+        return True
+
     def load(self, filename: str, stratify : bool):
                # Confirm the file exists
         if not os.path.isfile(filename):
             raise FileNotFoundError
 
         self.log.info("Load training file")
-        # Load from the csv file and get the columns we care about
+
+        # This reads the hard-coded selectioni (this works)
         # self._df = pd.read_csv(filename,
-        #                        usecols=["ratio",
-        #                                 "shape",
-        #                                 "distance",
+        #                        usecols=[constants.NAME_RATIO,
+        #                                 constants.NAME_SHAPE_INDEX,
+        #                                 constants.NAME_DISTANCE,
         #                                 constants.NAME_DISTANCE_NORMALIZED,
-        #                                 #"hue_mean",
-        #                                 "type"])
-        self._df = pd.read_csv(filename,
-                               usecols=[constants.NAME_RATIO,
-                                        constants.NAME_SHAPE_INDEX,
-                                        constants.NAME_DISTANCE,
-                                        constants.NAME_DISTANCE_NORMALIZED,
-                                        constants.NAME_HUE,
-                                        constants.NAME_I_YIQ,
-                                        constants.NAME_TYPE])
+        #                                 constants.NAME_HUE,
+        #                                 constants.NAME_I_YIQ,
+        #                                 constants.NAME_TYPE])
+
+        # Get the type as well as everything in the selection
+        s = list(self._selections)
+        s.append(constants.NAME_TYPE)
+        self.log.debug("Using columns: {}".format(s))
+        self._df = pd.read_csv(filename, usecols=s)
 
         # Keep a copy of this -- we will use this elsewhere
         self._rawData = self._df
@@ -220,6 +240,12 @@ class Classifier:
     def _prepareData(self ):
 
         features = []
+        _features = []
+        Xfeatures = []
+        # This is the list of features we have chosen to use
+        selectedFeatureNames = tuple(self._selections)
+
+
         # Build up the list of features we will use.
         # Reading some performance comparisons, this is the fastest way to create a dataframe
         for blobName, blobAttributes in self._blobs.items():
@@ -237,7 +263,15 @@ class Classifier:
         #         self._blobsInView = pd.DataFrame(features,
         #                                          columns=( 'ratio', 'shape', 'distance', 'normalized_distance', 'height'))
         #     else:
-            features.append([blobAttributes[constants.NAME_RATIO],
+            # Build up a list of features in the same order as the names
+            _features = []
+            for feature in self._selections:
+                _features.append(blobAttributes[feature])
+
+            # Put these in a format so we can initialize the dataframe
+            features.append(_features)
+            # This is the original, hard-coded version
+            Xfeatures.append([blobAttributes[constants.NAME_RATIO],
                              blobAttributes[constants.NAME_SHAPE_INDEX],
                              blobAttributes[constants.NAME_DISTANCE],
                              blobAttributes[constants.NAME_DISTANCE_NORMALIZED],
@@ -246,12 +280,14 @@ class Classifier:
 
             # Construct the dataframe we will use
             #self._blobsInView = pd.DataFrame(features, columns=('ratio', 'shape', 'distance','normalized_distance', 'hue'))
-            self._blobsInView = pd.DataFrame(features, columns=(constants.NAME_RATIO,
+            self._blobsInView = pd.DataFrame(Xfeatures, columns=(constants.NAME_RATIO,
                                                                 constants.NAME_SHAPE_INDEX, #'shape',
                                                                 constants.NAME_DISTANCE, # 'distance',
                                                                 constants.NAME_DISTANCE_NORMALIZED, # 'normalized_distance',
                                                                 constants.NAME_HUE, # 'hue'
                                                                 constants.NAME_I_YIQ)) # I std deviation
+            # Create a dataframe from the with the column names we want and the feature values
+            self._blobsInView = pd.DataFrame(features, columns=selectedFeatureNames)
 
     def visualize(self):
         return

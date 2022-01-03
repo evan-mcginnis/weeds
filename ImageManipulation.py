@@ -1014,6 +1014,12 @@ class ImageManipulation:
                 distanceText = "Normalized Distance: " + "{:.4f}".format(rectAttributes[constants.NAME_DISTANCE_NORMALIZED])
                 nameText = "Name: {}".format(rectName)
                 hueText = "Hue: {:.4f}".format(rectAttributes[constants.NAME_HUE])
+                yiqText = "In Phase: {:.4f}".format(rectAttributes[constants.NAME_I_YIQ])
+                elongationText = "Elongation: {:.4f}".format(rectAttributes[constants.NAME_ELONGATION])
+                eccentricityText = "Eccentricity: {:.4f}".format(rectAttributes[constants.NAME_ECCENTRICITY])
+                roundnessText = "Roundness: {:.4f}".format(rectAttributes[constants.NAME_ROUNDNESS])
+                convexityText = "Convexity: {:.4f}".format(rectAttributes[constants.NAME_CONVEXITY])
+                solidityText = "Solidity: {:.4f}".format(rectAttributes[constants.NAME_SOLIDITY])
                 if constants.NAME_LOCATION in decorations:
                     cv.putText(self._image, location, (cX - 25, cY - 25),cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
                 if constants.NAME_AREA in decorations:
@@ -1033,6 +1039,18 @@ class ImageManipulation:
                     cv.line(self._image,(cX, cY), (cX, self._cropY), (255,255,255), 3)
                 if constants.NAME_HUE in decorations:
                     cv.putText(self._image, hueText,(cX - 25, cY- 225), cv.FONT_HERSHEY_SIMPLEX, 0.75, (255,255,255), 2)
+                if constants.NAME_I_YIQ in decorations:
+                    cv.putText(self._image, yiqText, (cX - 25, cY - 250), cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+                if constants.NAME_ELONGATION in decorations:
+                    cv.putText(self._image, elongationText, (cX - 25, cY - 275), cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+                if constants.NAME_ECCENTRICITY in decorations:
+                    cv.putText(self._image, eccentricityText, (cX - 25, cY - 300), cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+                if constants.NAME_ROUNDNESS in decorations:
+                    cv.putText(self._image, roundnessText, (cX - 25, cY - 325), cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+                if constants.NAME_CONVEXITY in decorations:
+                    cv.putText(self._image, convexityText, (cX - 25, cY - 350), cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+                if constants.NAME_SOLIDITY in decorations:
+                    cv.putText(self._image, solidityText, (cX - 25, cY - 375), cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
 
 
         #cv.imwrite("opencv-centers.jpg", self._image)
