@@ -1,0 +1,285 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%     Declarations (skip to Begin Document, line 88, for parts you fill in)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%\documentclass[10pt]{article}
+%%\documentclass[10pt]{report}
+\documentclass[letterpaper]{article}
+\usepackage{geometry}
+%\usepackage{xcolor}
+\usepackage[table]{xcolor}
+\usepackage{amsmath}
+\usepackage[some]{background}
+%\usepackage{lipsum}
+%\usepackage{natbib}
+\usepackage[backend=biber, bibstyle=numeric, citestyle=numeric]{biblatex}  
+%\usepackage{biblatex} 
+\addbibresource{paperpile.bib}
+\usepackage{datetime}
+
+%\usepackage{hyperref}
+
+% Tables
+\usepackage{float}
+\usepackage[utf8]{inputenc}
+\usepackage{tabularx}
+\usepackage{booktabs}
+\usepackage{longtable}
+
+\usepackage{diagbox} %table split headers
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{rotating}
+\usepackage{eqparbox}
+\usepackage{makecell, caption, booktabs}
+
+% Listings
+\usepackage{listings}
+
+\usepackage{geometry}  % Lots of layout options.  See http://en.wikibooks.org/wiki/LaTeX/Page_Layout
+\geometry{letterpaper}  % ... or a4paper or a5paper or ... 
+\usepackage{fullpage}  % somewhat standardized smaller margins (around an inch)
+\usepackage{setspace}  % control line spacing in latex documents
+\usepackage[parfill]{parskip}  % Activate to begin paragraphs with an empty line rather than an indent
+
+\usepackage{amsmath,amssymb}  % latex math
+\usepackage{empheq} % http://www.ctan.org/pkg/empheq
+\usepackage{bm,upgreek}  % allows you to write bold greek letters (upper & lower case)
+
+% for typsetting algorithm pseudocode see http://en.wikibooks.org/wiki/LaTeX/Algorithms_and_Pseudocode
+\usepackage{algorithmic,algorithm}  
+
+\usepackage{graphicx}  % inclusion of graphics; see: http://en.wikibooks.org/wiki/LaTeX/Importing_Graphics
+% allow easy inclusion of .tif, .png graphics
+\DeclareGraphicsRule{.tif}{png}{.png}{`convert #1 `dirname #1`/`basename #1 .tif`.png}
+
+% \usepackage{subfigure}  % allows subfigures in figure
+\usepackage{caption}
+\usepackage{subcaption}
+
+\usepackage{xspace}
+\newcommand{\latex}{\LaTeX\xspace}
+
+\usepackage{color}  % http://en.wikibooks.org/wiki/LaTeX/Colors
+
+\long\def\todo#1{{\color{red}{\bf TODO: #1}}}
+
+\long\def\ans#1{{\color{blue}{\em #1}}}
+\long\def\ansnem#1{{\color{blue}#1}}
+\long\def\boldred#1{{\color{red}{\bf #1}}}
+\long\def\boldred#1{\textcolor{red}{\bf #1}}
+\long\def\boldblue#1{\textcolor{blue}{\bf #1}}
+
+% Useful package for syntax highlighting of specific code (such as python) -- see below
+\usepackage{listings}  % http://en.wikibooks.org/wiki/LaTeX/Packages/Listings
+\usepackage{textcomp}
+
+
+%%% The following lines set up using the listings package
+\renewcommand{\lstlistlistingname}{Code Listings}
+\renewcommand{\lstlistingname}{Code Listing}
+
+%%% Specific for python listings
+\definecolor{gray}{gray}{0.5}
+\definecolor{green}{rgb}{0,0.5,0}
+
+\lstnewenvironment{python}[1][]{
+\lstset{
+language=python,
+basicstyle=\footnotesize,  % could also use this -- a little larger \ttfamily\small\setstretch{1},
+stringstyle=\color{red},
+showstringspaces=false,
+alsoletter={1234567890},
+otherkeywords={\ , \}, \{},
+keywordstyle=\color{blue},
+emph={access,and,break,class,continue,def,del,elif ,else,%
+except,exec,finally,for,from,global,if,import,in,i s,%
+lambda,not,or,pass,print,raise,return,try,while},
+emphstyle=\color{black}\bfseries,
+emph={[2]True, False, None, self},
+emphstyle=[2]\color{green},
+emph={[3]from, import, as},
+emphstyle=[3]\color{blue},
+upquote=true,
+morecomment=[s]{"""}{"""},
+commentstyle=\color{gray}\slshape,
+emph={[4]1, 2, 3, 4, 5, 6, 7, 8, 9, 0},
+emphstyle=[4]\color{blue},
+literate=*{:}{{\textcolor{blue}:}}{1}%
+{=}{{\textcolor{blue}=}}{1}%
+{-}{{\textcolor{blue}-}}{1}%
+{+}{{\textcolor{blue}+}}{1}%
+{*}{{\textcolor{blue}*}}{1}%
+{!}{{\textcolor{blue}!}}{1}%
+{(}{{\textcolor{blue}(}}{1}%
+{)}{{\textcolor{blue})}}{1}%
+{[}{{\textcolor{blue}[}}{1}%
+{]}{{\textcolor{blue}]}}{1}%
+{<}{{\textcolor{blue}<}}{1}%
+{>}{{\textcolor{blue}>}}{1},%
+%framexleftmargin=1mm, framextopmargin=1mm, frame=shadowbox, rulesepcolor=\color{blue},#1
+framexleftmargin=1mm, framextopmargin=1mm, frame=single,#1
+}}{}
+%%% End python code listing definitions
+
+\DeclareMathOperator{\diag}{diag}
+\DeclareMathOperator{\cov}{cov}
+
+
+%\bibliography{./paperpile.bib}
+\author{Evan McGinnis}
+\title{Automated Weeding}
+
+
+
+\definecolor{titlepagecolor}{cmyk}{1,.60,0,.40}
+
+\DeclareFixedFont{\bigsf}{T1}{phv}{b}{n}{1.5cm}
+
+\backgroundsetup{
+scale=1,
+angle=0,
+opacity=1,
+contents={\begin{tikzpicture}[remember picture,overlay]
+ \path [fill=titlepagecolor] (-0.5\paperwidth,5) rectangle (0.5\paperwidth,10);  
+\end{tikzpicture}}
+}
+\makeatletter                       
+\def\printauthor{%                  
+    {\large \@author}}              
+\makeatother
+\author{%
+    Evan McGinnis \\
+    PhD Student \\
+    Student ID\#  23633780\\
+    Biosystems Analytics \\
+    \today \\
+    \texttt{evanmc@email.arizona.edu}\vspace{40pt} \\
+    }
+
+\begin{document}
+\begin{titlepage}
+\BgThispage
+\newgeometry{left=1cm,right=4cm}
+\vspace*{1cm}
+\noindent
+%%\vspace*{0.4\textheight}
+\textcolor{white}{\Huge\textbf{\textsf{Automated Weeding\\ in Lettuce Crop}}}
+\vspace*{2.5cm}\par
+\noindent
+\begin{minipage}{0.35\linewidth}
+    \begin{flushright}
+        \printauthor
+    \end{flushright}
+\end{minipage} \hspace{15pt}
+%
+\begin{minipage}{0.02\linewidth}
+    \rule{1pt}{175pt}
+\end{minipage} \hspace{-10pt}
+%
+\begin{minipage}{0.6\linewidth}
+\vspace{5pt}
+    \begin{abstract} 
+This paper presents a study of a automated weeding system for lettuce cultivars.  The system consists of two major subsystems, image processing and treatment. Of these two subsystems, only the image processing system is the subject of this study.
+    \end{abstract}
+\end{minipage}
+\end{titlepage}
+\restoregeometry
+%
+% F R O N T  M A T T E R
+%
+\tableofcontents
+\listoffigures
+\newpage
+
+%
+% B E G I N   T E M P L A T E   F R O M   W O R D
+%
+\section{Overview}
+
+\subsection{Background}
+
+\subsection{Methods}
+
+\subsection{Results}
+
+\subsection{Discussion and Conclusion}
+
+
+%Do not use abbreviations or insert tables, figures or references into your abstract. You abstract generally should not exceed about 300 words. 
+ 
+ \newpage
+ 
+\section{Problem Statement}
+\subsection{Overview}
+
+\subsection{Research Question/Hypothesis}
+
+
+ \newpage
+ 
+\section{Objective and Aims}
+\subsection{Overall Objective}
+
+\subsection{Specific Aims}
+
+ \newpage
+\section{Background and Significance}
+
+This is your literature review. Use Headings 2 and 3 to provide sub headings in your review
+
+\newpage
+ 
+\section{Research Design and Methods}
+\subsection{Overview}
+Use headings 2 and 3 as appropriate, and use these headings if appropriate.
+
+\subsection{Population and Study Sample}
+
+\subsection{Sample Size and Selection of Sample}
+
+\subsection{Sources of Data}
+
+\subsection{Collection of Data}
+
+\subsection{Exposure Assessment}
+
+\subsection{Data Management}
+
+\subsection{Data Analysis Strategies}
+
+\subsection{Timeframes}
+
+
+ \newpage
+\section{Weaknesses of Study}
+ 
+ \newpage
+\section{Public Health Significance}
+ 
+ \newpage
+\section{Budget}
+ 
+%REFERENCES
+%Use the Vancouver Style of referencing. This is found at this website:
+%http://www.ncbi.nlm.nih.gov/books/bv.fcgi?rid=citmed.TOC&depth=2 or a less detailed website:
+%http://www.nlm.nih.gov/bsd/uniform_requirements.html
+%
+%References should be numbered consecutively in the order in which they are first mentioned in the text. Identify references in text, tables, and legends by Arabic numerals in parentheses. The titles of journals should be abbreviated according to the style used in Index Medicus. Consult the list of Journals Indexed for MEDLINE, published annually as a separate publication by the National Library of Medicine. The list can also be obtained through the Library's web site..
+
+
+
+ 
+
+
+% 
+% E N D  T E M P L A T E  F R O M  W O R D
+%
+
+\newpage
+\section{References}
+\printbibliography[heading=none]
+
+%\cite{Wirth2004-li}
+\end{document}
+
