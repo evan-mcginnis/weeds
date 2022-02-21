@@ -48,6 +48,35 @@ NAME_ROUNDNESS              = "roundness"
 NAME_CONVEXITY              = "convexity"
 NAME_SOLIDITY               = "solidity"
 
+#
+# X M P P  R O O M S  A N D  J I D S
+#
+CONFERENCE_DNS              = "conference.weeds.local"
+ROOM_ODOMETRY               = "odometry" + "@" + CONFERENCE_DNS
+ROOM_TREATMENT              = "treatment" + "@" + CONFERENCE_DNS
+
+
+# TODO: There are two Jetsons in the system. We need a scheme for jetson-1@weeds.local and jetson-2.weeds.local
+
+JID_ODOMETRY                = "rio@weeds.local"
+JID_RIO                     = "rio@weeds.local"
+JID_JETSON                  = "jetson@weeds.local"
+JID_JETSON_1                = "jetson1@weeds.local"
+JID_JETSON_2                = "jetson2@weeds.local"
+JID_CONSOLE                 = "console@weeds.local"
+
+# TODO: Poor practice, pick this up later
+DEFAULT_PASSWORD            = "weeds"
+
+NICK_ODOMETRY               = "rio"
+NICK_TREATMENT              = "treatment"
+NICK_JETSON                 = "jetson"
+NICK_JETSON_1               = "jetson1"
+NICK_JETSON_2               = "jetson2"
+NICK_CONSOLE                = "console"
+MSG_TYPE_NORMAL             = "normal"
+
+
 # Temporary
 NAME_CROP_SCORE = "score"
 
