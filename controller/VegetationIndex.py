@@ -1,4 +1,5 @@
 from PIL import Image
+
 import cv2 as cv
 import matplotlib.pyplot as plt
 import numpy as np
@@ -687,87 +688,89 @@ if __name__ == "__main__":
             axes.scatter(x, y, vegIndex, c=vegIndex, cmap='BrBG', s=0.25)
             plt.show()
 
-        print(indexName + ":" + str(indexData["vegetativePixels"]))
+        #print(indexName + ":" + str(indexData["vegetativePixels"]))
         # Evaluate how much information was discarded from image
         #utility.ShowStats(image)
 
-    # Side by side plots of everything
-    fig, ax = plt.subplots(nrows=3, ncols=4, figsize=(8,6))
-    xpos = 0
-    ypos = 0
-    for indexName, indexData in indices.items():
-        im = ax[xpos, ypos].imshow(indexData["masked"])
-        ax[xpos, ypos].set_title(indexData["short"])
-        if ypos == 3:
-            ypos = 0
-            xpos = xpos + 1
-        else:
-            ypos = ypos + 1
-    # As we have an open spot
-    ax[xpos, ypos].imshow(utility.GetImage())
-    ax[xpos, ypos].set_title("None")
-    plt.show()
-
-    fig = plt.figure(figsize=(5,5))
-    plt.style.use('ggplot')
-
-    xs = np.arange(len(indices))
-    pixelCounts = []
-    labels = []
-    pixelCount = utility.GetImageStats(utility.GetImage())
-    indexName = "None"
-    pixelCounts.append(pixelCount)
-    labels.append(indexName)
-    for indexName, indexData in indices.items():
-        pixelCount = indexData["vegetativePixels"]
-        pixelCounts.append(pixelCount)
-        indexName = indexData["short"]
-        labels.append(indexName)
-
-    xpos = [i for i, _ in enumerate(labels)]
-    plt.barh(labels, pixelCounts)
-    plt.ylabel("Algorithms")
-    plt.xlabel("Vegetated Pixels")
-    plt.title("Color Index Algorithms Pixel Counts")
-    plt.show()
-
-    times = []
-    labels = []
-
-    for indexName, indexData in indices.items():
-        timeTaken = indexData["time"]
-        times.append(timeTaken)
-        indexName = indexData["short"]
-        labels.append(indexName)
-
-    plt.barh(labels, times)
-    plt.ylabel("Algorithms")
-    plt.xlabel("Time Taken in microseconds")
-    plt.title("Color Index Algorithms Compute Times")
-    plt.show()
-
-
-    # E D G E  D E T E C T I O N
-    # Rather than wrestle with this, just write out the image for now.
-    image = utility.ReplaceNonZeroPixels(utility.GetMaskedImage(), 0.575)
-    utility.ShowImage("Cartooned", image)
-
-    utility.SaveImage(image, "cartooned.jpg")
-    #utility.SaveMaskedImage("mask-applied.jpg")
-    #img_float32 = np.float32(utility.GetMaskedImage())
-    img = cv.imread("cartooned.jpg")
-    gray = cv.cvtColor(img, cv.COLOR_RGB2GRAY)
-    edges = cv.Canny(gray, 20, 30)
-    plt.subplot(121),plt.imshow(utility.GetMaskedImage(),cmap = 'gray')
-    plt.title('Original Image'), plt.xticks([]), plt.yticks([])
-    plt.subplot(122),plt.imshow(edges,cmap = 'gray')
-    plt.title('Edge Image'), plt.xticks([]), plt.yticks([])
-    plt.show()
-
-    #Converting to RGB
-    img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
-    gray = cv.medianBlur(gray, 5)
-    edges = cv.adaptiveThreshold(gray, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 9, 9)
-    utility.ShowImage("Edges", edges)
-    pixelCount = utility.GetImageStats(edges)
-    print("Pixel Count for edges:", pixelCount)
+    # Commment this out for now.
+    #
+    # # Side by side plots of everything
+    # fig, ax = plt.subplots(nrows=3, ncols=4, figsize=(8,6))
+    # xpos = 0
+    # ypos = 0
+    # for indexName, indexData in indices.items():
+    #     im = ax[xpos, ypos].imshow(indexData["masked"])
+    #     ax[xpos, ypos].set_title(indexData["short"])
+    #     if ypos == 3:
+    #         ypos = 0
+    #         xpos = xpos + 1
+    #     else:
+    #         ypos = ypos + 1
+    # # As we have an open spot
+    # ax[xpos, ypos].imshow(utility.GetImage())
+    # ax[xpos, ypos].set_title("None")
+    # plt.show()
+    #
+    # fig = plt.figure(figsize=(5,5))
+    # plt.style.use('ggplot')
+    #
+    # xs = np.arange(len(indices))
+    # pixelCounts = []
+    # labels = []
+    # pixelCount = utility.GetImageStats(utility.GetImage())
+    # indexName = "None"
+    # pixelCounts.append(pixelCount)
+    # labels.append(indexName)
+    # for indexName, indexData in indices.items():
+    #     pixelCount = indexData["vegetativePixels"]
+    #     pixelCounts.append(pixelCount)
+    #     indexName = indexData["short"]
+    #     labels.append(indexName)
+    #
+    # xpos = [i for i, _ in enumerate(labels)]
+    # plt.barh(labels, pixelCounts)
+    # plt.ylabel("Algorithms")
+    # plt.xlabel("Vegetated Pixels")
+    # plt.title("Color Index Algorithms Pixel Counts")
+    # plt.show()
+    #
+    # times = []
+    # labels = []
+    #
+    # for indexName, indexData in indices.items():
+    #     timeTaken = indexData["time"]
+    #     times.append(timeTaken)
+    #     indexName = indexData["short"]
+    #     labels.append(indexName)
+    #
+    # plt.barh(labels, times)
+    # plt.ylabel("Algorithms")
+    # plt.xlabel("Time Taken in microseconds")
+    # plt.title("Color Index Algorithms Compute Times")
+    # plt.show()
+    #
+    #
+    # # E D G E  D E T E C T I O N
+    # # Rather than wrestle with this, just write out the image for now.
+    # image = utility.ReplaceNonZeroPixels(utility.GetMaskedImage(), 0.575)
+    # utility.ShowImage("Cartooned", image)
+    #
+    # utility.SaveImage(image, "cartooned.jpg")
+    # #utility.SaveMaskedImage("mask-applied.jpg")
+    # #img_float32 = np.float32(utility.GetMaskedImage())
+    # img = cv.imread("cartooned.jpg")
+    # gray = cv.cvtColor(img, cv.COLOR_RGB2GRAY)
+    # edges = cv.Canny(gray, 20, 30)
+    # plt.subplot(121),plt.imshow(utility.GetMaskedImage(),cmap = 'gray')
+    # plt.title('Original Image'), plt.xticks([]), plt.yticks([])
+    # plt.subplot(122),plt.imshow(edges,cmap = 'gray')
+    # plt.title('Edge Image'), plt.xticks([]), plt.yticks([])
+    # plt.show()
+    #
+    # #Converting to RGB
+    # img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
+    # gray = cv.medianBlur(gray, 5)
+    # edges = cv.adaptiveThreshold(gray, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 9, 9)
+    # utility.ShowImage("Edges", edges)
+    # pixelCount = utility.GetImageStats(edges)
+    # print("Pixel Count for edges:", pixelCount)
