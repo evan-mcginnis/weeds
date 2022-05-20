@@ -1,0 +1,22 @@
+;
+; BIND data file for local loopback interface
+;
+$TTL	604800
+@	IN	SOA	weeds.local. root.weeds.local. (
+			     31		; Serial
+			 604800		; Refresh
+			  86400		; Retry
+			2419200		; Expire
+			 604800 )	; Negative Cache TTL
+;
+@	IN	NS	ns.weeds.local.
+@	IN	A       169.254.212.40 
+@	IN	AAAA	::1
+ns      IN      A       169.254.212.40
+rio     IN      A       169.254.212.39
+vmware  IN      A      	169.254.212.31 
+jetson  IN      A       169.254.212.40
+;conference IN      A    169.254.212.31 
+_xmpp-client._tcp.weeds.local.  3600 IN  SRV 0 5 5222 jetson.weeds.local.
+_xmpp-server._tcp.weeds.local.  3600 IN  SRV 0 5 5269 jetson.weeds.local.
+_xmpp-server._tcp.conference.weeds.local. 3600 IN  SRV 0 5 5269 jetson.weeds.local.

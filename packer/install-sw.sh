@@ -15,6 +15,23 @@ if [ $? -gt 0 ]; then
   echo "pillow install failed"
   exit 1
 fi
+
+#
+# Not really used, but pip3 install of requirements file fails if
+# this is not done
+#
+
+echo
+echo ---------------
+echo P R O T O B U F 
+echo ---------------
+
+yes | pip3 install --upgrade protobuf
+if [ $? -gt 0 ]; then
+  echo "protobuf install failed"
+  exit 1
+fi
+
 ##1. Dependencies
 #
 echo
@@ -88,3 +105,11 @@ sudo pip3 install pypylon
 #sudo ln - s / usr / include / freetype2 / freetype / /usr/include / freetype
 #sudo apt - get install libfontconfig1 - dev
 #sudo - H pip3 install scikit - image
+
+#
+# N U M P Y  C U D A
+#
+sudo pip3 install pycuda
+
+
+

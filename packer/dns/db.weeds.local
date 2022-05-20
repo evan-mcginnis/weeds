@@ -1,0 +1,17 @@
+;
+; BIND data file for local loopback interface
+;
+$TTL	604800
+@	IN	SOA	weeds.com. root.weeds.com. (
+			     42		; Serial
+			 604800		; Refresh
+			  86400		; Retry
+			2419200		; Expire
+			 604800 )	; Negative Cache TTL
+;
+@	IN	NS	ns.weeds.com.
+@	IN	A	169.254.212.40	
+@	IN	AAAA	::1
+ns	IN	A	169.254.212.40
+rio	IN	A	169.254.212.39
+

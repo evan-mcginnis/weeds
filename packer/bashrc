@@ -1,0 +1,7 @@
+# P Y T H O N
+if [ -z "$PYTHONPATH" ]; then
+        export PYTHONPATH=~/lib
+else
+        export PYTHONPATH=$PYTHONPATH:~/lib
+fi
+

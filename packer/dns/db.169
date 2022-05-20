@@ -1,0 +1,16 @@
+;
+; BIND reverse data file for 169.254.212.XXX network 
+;
+$TTL	604800
+@	IN	SOA	ns.weeds.com. root.weeds.com. (
+			      6		; Serial
+			 604800		; Refresh
+			  86400		; Retry
+			2419200		; Expire
+			 604800 )	; Negative Cache TTL
+;
+@	IN	NS	ns.
+40	IN	PTR	ns.weeds.com.
+39      IN      PTR     rio.weeds.com.
+;40      IN      PTR     jetson.weeds.com.
+31      IN      PTR     vmware.weeds.com.
