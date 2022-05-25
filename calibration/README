@@ -1,0 +1,16 @@
+These utilities will produce the calibration using an image set
+
+calibration-images
+------------------
+This directory contains images of a checkerboard
+
+camera-calibrate.py
+-------------------
+This script will generate a pickle-format calibration file.
+Use it like so:
+python camera-calibrate.py -i calibration-images -u calibration-images/calibration-01.jpg -c basler1920-computar5mm
+
+-i specify the name of the directory containing the calibration images
+-u which image to undistort
+-c the name of the calibration file to produce
+
