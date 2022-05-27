@@ -51,26 +51,26 @@ NAME_SOLIDITY               = "solidity"
 #
 # X M P P  R O O M S  A N D  J I D S
 #
-CONFERENCE_DNS              = "conference.weeds.local"
+CONFERENCE_DNS              = "conference.weeds.com"
 ROOM_ODOMETRY               = "odometry" + "@" + CONFERENCE_DNS
 ROOM_TREATMENT              = "treatment" + "@" + CONFERENCE_DNS
 
 
-# TODO: There are two Jetsons in the system. We need a scheme for jetson-1@weeds.local and jetson-2.weeds.local
+# TODO: There are two Jetsons in the system. We need a scheme for controller-1@weeds.local and controller-2.weeds.local
 
-JID_ODOMETRY                = "rio@weeds.local"
-JID_RIO                     = "rio@weeds.local"
-JID_JETSON                  = "jetson@weeds.local"
-JID_JETSON_1                = "jetson1@weeds.local"
-JID_JETSON_2                = "jetson2@weeds.local"
-JID_CONSOLE                 = "console@weeds.local"
+JID_ODOMETRY                = "rio@weeds.com"
+JID_RIO                     = "rio@weeds.com"
+JID_JETSON                  = "controller@weeds.com"
+JID_JETSON_1                = "jetson1@weeds.com"
+JID_JETSON_2                = "jetson2@weeds.com"
+JID_CONSOLE                 = "console@weeds.com"
 
 # TODO: Poor practice, pick this up later
 DEFAULT_PASSWORD            = "weeds"
 
 NICK_ODOMETRY               = "rio"
 NICK_TREATMENT              = "treatment"
-NICK_JETSON                 = "jetson"
+NICK_JETSON                 = "controller"
 NICK_JETSON_1               = "jetson1"
 NICK_JETSON_2               = "jetson2"
 NICK_CONSOLE                = "console"
@@ -95,7 +95,9 @@ REASON_KNN = 4
 REASON_DECISION_TREE = 5
 REASON_RANDOM_FOREST = 6
 REASON_GRADIENT = 7
-REASONS = ["Unknown", "At Edge", "Size", "Logistic", "KNN", "Decision Tree", "Random Forest", "Gradient"]
+REASON_SVM = 8
+REASON_TOO_CLOSE = 9
+REASONS = ["Unknown", "At Edge", "Size", "Logistic", "KNN", "Decision Tree", "Random Forest", "Gradient", "SVM", "Too Close"]
 
 # TYPES of vegetation
 TYPE_DESIRED = 0
@@ -115,7 +117,7 @@ PERF_INDEX      = "index"
 PERF_LW_RATIO   = "LWRatio"
 PERF_OVERLAP    = "overlap"
 PERF_REGRESSION = "regression"
-PERF_SHAPES     = "shapes"
+PERF_SHAPES_IDX = "shapes_idx"
 PERF_TREATMENT  = "treatment"
 PERF_COLORS     = "colors"
 PERF_HSI        = "hsi"
@@ -125,13 +127,22 @@ PERF_YCC        = "ycc"
 PERF_MEAN       = "mean"
 PERF_STDDEV     = "stddev"
 PERF_COMPACTNESS= "compactness"
+PERF_SHAPES     = "shapes"
+PERF_UNDISTORT  = "undistort"
 
 PERF_TITLE_ACTIVITY = "activity"
 PERF_TITLE_MILLISECONDS = "milliseconds"
 
 COLOR_TREATMENT_GRID = (0,255,0)
 COLOR_TREATMENT_WEED = (0,0,255)
+COLOR_TREATMENT_SPRAYER_ON = (0,0,255)
+COLOR_TREATMENT_SPRAYER_OFF = (0,0,255)
 SIZE_TREATMENT_LINE = 4
+SIZE_CONTOUR_LINE = 5
 
 # Properties
+PROPERTY_FILENAME = "options.ini"
 PROPERTY_PIXELS_PER_MM = "PIXELS-PER-MM"
+PROPERTY_SECTION_CAMERA = "CAMERA"
+PROPERTY_CAMERA_IP = "IP" #"169.254.212.41"
+
