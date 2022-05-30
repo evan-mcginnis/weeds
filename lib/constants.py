@@ -84,6 +84,20 @@ NAME_CROP_SCORE = "score"
 NAME_ALL = "all"
 NAME_NONE = "none"
 
+#
+# I M A G E S
+#
+# Image acquisition strategy
+STRATEGY_ASYNC = 0
+STRATEGY_SYNC = 1
+
+IMAGE_QUEUE_LEN = 500
+# Probably way too long 5000 ms for camera to acquire image
+TIMEOUT_CAMERA = 5000
+
+KEYWORD_DIRECTORY = "directory"
+KEYWORD_IP = "ip"
+
 names = [NAME_AREA, NAME_TYPE, NAME_LOCATION, NAME_CENTER, NAME_CONTOUR, NAME_SHAPE_INDEX, NAME_RATIO, NAME_IMAGE, NAME_REASON, NAME_HUE_MEAN, NAME_SATURATION]
 
 # REASONS why things were scored the way they were
