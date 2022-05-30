@@ -3,6 +3,7 @@
 #
 
 import configparser
+import os.path
 
 # The configuration file is an INI style file
 class OptionsFile:
@@ -17,9 +18,13 @@ class OptionsFile:
         :param filename: The INI file
         :return: True on success, False otherwise
         """
-        self._config.read(self._filename)
+        if not os.path.isfile(self._filename):
+            rc = False
+        else:
+            self._config.read(self._filename)
+            rc = True
 
-        return True
+        return rc
 
     def option(self, section: str, name: str) -> str:
         """
