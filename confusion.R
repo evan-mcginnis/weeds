@@ -88,7 +88,7 @@ correctClassifications <- vector()
 typesMiss <- vector()
 typesCorrect <- vector()
 techniques <- vector()
-summaries <- vector()
+summaries <- list()
 
 for (i in 1:nrow(results)){
   list[technique, misclassificationsOfCrop, correctClassificationsOfWeed, summaryOfResults] <- processResults(results[i,1], results[i,2])
