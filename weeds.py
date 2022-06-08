@@ -18,8 +18,9 @@ from CameraFile import CameraFile, CameraPhysical
 from VegetationIndex import VegetationIndex
 from ImageManipulation import ImageManipulation
 from Logger import Logger
-from Classifier import Classifier, LogisticRegressionClassifier, KNNClassifier, DecisionTree, RandomForest, GradientBoosting, SVM
+from Classifier import Classifier, LogisticRegressionClassifier, KNNClassifier, DecisionTree, RandomForest, GradientBoosting, SuppportVectorMachineClassifier
 from Odometer import Odometer, VirtualOdometer
+from OptionsFile import OptionsFile
 from Performance import Performance
 from Reporting import Reporting
 from Treatment import Treatment
@@ -50,6 +51,7 @@ parser.add_argument("-df", "--data", action="store", help="Name of the data in C
 parser.add_argument("-hg", "--histograms", action="store_true", default=False, help="Show histograms")
 parser.add_argument("-he", "--height", action="store_true", default=False, help="Consider height in scoring")
 group = parser.add_mutually_exclusive_group()
+parser.add_argument('-ini', '--ini', action="store", required=False, default=constants.PROPERTY_FILENAME, help="Options INI")
 group.add_argument("-k", "--knn", action="store_true", default=False, help="Predict using KNN. Requires data file to be specified")
 group.add_argument("-l", "--logistic", action="store_true", default=False, help="Predict using logistic regression. Requires data file to be specified")
 group.add_argument("-dt", "--tree", action="store_true", default=False, help="Predict using decision tree. Requires data file to be specified")
@@ -97,10 +99,10 @@ if (arguments.logistic or arguments.knn or arguments.tree or arguments.forest) a
 def startupCamera():
     if arguments.input is not None:
         # Get the images from a directory
-        camera = CameraFile(arguments.input)
+        camera = CameraFile(directory=arguments.input)
     else:
         # Get the images from an actual camera
-        camera = CameraPhysical("")
+        camera = CameraPhysical()
     if not camera.connect():
         print("Unable to connect to camera.")
         sys.exit(1)
@@ -194,6 +196,10 @@ def plot3D(index, title):
     plt.show()
     cv.waitKey()
 
+def readINI() -> OptionsFile:
+    options = OptionsFile(arguments.ini)
+    options.load()
+    return options
 
 # Keep track of attributes in processing
 
@@ -257,7 +263,9 @@ elif arguments.gradient:
    classifier.createModel(arguments.score)
    classifier.visualize()
 elif arguments.support:
-    classifier = SVM()
+    classifier = SuppportVectorMachineClassifier()
+    # Load selected parameters
+    classifier.loadSelections(arguments.selection)
     classifier.load(arguments.data, stratify=False)
     classifier.createModel(arguments.score)
     classifier.visualize()
@@ -314,7 +322,7 @@ def processImage() -> bool:
         #ImageManipulation.show("Source",image)
         veg.SetImage(rawImage)
 
-        manipulated = ImageManipulation(rawImage, imageNumber)
+        manipulated = ImageManipulation(rawImage, imageNumber, logger)
         manipulated.mmPerPixel = mmPerPixel
         #ImageManipulation.show("Greyscale", manipulated.toGreyscale())
 
@@ -359,7 +367,7 @@ def processImage() -> bool:
             #logger.logImage("mask", veg.imageMask)
         #ImageManipulation.show("Masked", image)
 
-        manipulated = ImageManipulation(finalImage, imageNumber)
+        manipulated = ImageManipulation(finalImage, imageNumber, logger)
         manipulated.mmPerPixel = mmPerPixel
 
         # TODO: Conversion to HSV should be done automatically
@@ -396,7 +404,7 @@ def processImage() -> bool:
 
         performance.start()
         manipulated.computeShapeIndices()
-        performance.stopAndRecord(constants.PERF_SHAPES)
+        performance.stopAndRecord(constants.PERF_SHAPES_IDX)
 
         performance.start()
         manipulated.computeLengthWidthRatios()
@@ -407,13 +415,12 @@ def processImage() -> bool:
 
         performance.start()
         manipulated.computeCompactness()
-        performance.stopAndRecord(constants.PERF_COMPACTNESS)
-
         manipulated.computeElogation()
         manipulated.computeEccentricity()
         manipulated.computeRoundness()
         manipulated.computeConvexity()
         manipulated.computeSolidity()
+        performance.stopAndRecord(constants.PERF_SHAPES)
         # End image analysis
 
         # Classify items by where they are in image
@@ -549,6 +556,7 @@ odometer = startupOdometer(processImage)
 logger = startupLogger(arguments.output)
 log = logging.getLogger(__name__)
 performance = startupPerformance()
+options = readINI()
 
 mmPerPixel = camera.getMMPerPixel()
 
