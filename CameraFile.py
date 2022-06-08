@@ -19,8 +19,8 @@ from Performance import Performance
 
 class Camera(ABC):
 
-    def __init__(self, options: str):
-        self.options = options
+    def __init__(self, **kwargs):
+        return
 
     @abstractmethod
     def connect(self) -> bool:
@@ -62,11 +62,11 @@ class Camera(ABC):
 
 
 class CameraFile(Camera):
-    def __init__(self, options: str):
+    def __init__(self, **kwargs):
         self._connected = False
-        self.directory = options
+        self.directory =  kwargs[constants.KEYWORD_DIRECTORY]
         self._currentImage = 0
-        super().__init__(options)
+        super().__init__(**kwargs)
         self.log = logging.getLogger(__name__)
         return
 
@@ -119,11 +119,11 @@ class CameraFile(Camera):
         return 0.5
 
 class CameraPhysical(Camera):
-    def __init__(self, options: str):
+    def __init__(self, **kwargs):
      self._connected = False
      self._currentImage = 0
      self._cam = cv.VideoCapture(0)
-     super().__init__(options)
+     super().__init__(**kwargs)
      return
 
     def connect(self):
@@ -205,7 +205,11 @@ from pypylon import pylon
 from pypylon import genicam
 
 class CameraBasler(Camera):
-    def __init__(self, options: str):
+    def __init__(self, **kwargs):
+        """
+        Tha basler camera object.
+        :param kwargs: ip=<ip-address of camera>
+        """
         self._connected = False
         self._currentImage = 0
         self._camera = None
@@ -215,7 +219,10 @@ class CameraBasler(Camera):
         self._images = deque(maxlen=constants.IMAGE_QUEUE_LEN)
         self._camera = pylon.InstantCamera()
 
-        super().__init__(options)
+        # Assume a GigE camera for now
+        self._ip = kwargs[constants.KEYWORD_IP]
+
+        super().__init__(**kwargs)
 
         # Initialize the converter for images
         # The images stream of in YUV color space.  An optimization here might be to make
@@ -229,7 +236,7 @@ class CameraBasler(Camera):
 
         return
 
-    def connect(self, cameraIP: str) -> bool:
+    def connect(self) -> bool:
         """
         Connects to the camera with the specified IP address.
         """
@@ -238,8 +245,8 @@ class CameraBasler(Camera):
         self._connected = False
 
         for dev_info in tl_factory.EnumerateDevices():
-            self.log.debug("Looking for {}. Current device is {}".format(cameraIP, dev_info.GetIpAddress()))
-            if dev_info.GetIpAddress() == cameraIP:
+            self.log.debug("Looking for {}. Current device is {}".format(self._ip, dev_info.GetIpAddress()))
+            if dev_info.GetIpAddress() == self._ip:
                 self._camera = pylon.InstantCamera(tl_factory.CreateDevice(dev_info))
                 self._camera.MaxNumBuffer = 15
 
@@ -299,17 +306,7 @@ class CameraBasler(Camera):
         if self._strategy == constants.STRATEGY_ASYNC:
             self._capturing = True
             while self._capturing:
-                grabResult = self._camera.RetrieveResult(constants.TIMEOUT_CAMERA, pylon.TimeoutHandling_ThrowException)
-                if grabResult.GrabSucceeded():
-                    self.log.debug("Image grab succeeded.")
-                else:
-                    raise IOError("There was an error encountered communicating with the camera")
-
-                image = self._converter.Convert(grabResult)
-                img = image.GetArray()
-
-                timestamped = ProcessedImage(img, grabResult.TimeStamp)
-
+                timestamped = self._grab()
                 # Add the image to the queue
                 self._images.append(timestamped)
             self._camera.StopGrabbing()
@@ -332,8 +329,8 @@ class CameraBasler(Camera):
         # collection loop will stop
         if self._connected:
             self._capturing = False
-        if self._strategy == constants.STRATEGY_ASYNC:
-            self._camera.StopGrabbing()
+        # if self._strategy == constants.STRATEGY_ASYNC:
+        #     self._camera.StopGrabbing()
 
         return
 
@@ -372,14 +369,8 @@ class CameraBasler(Camera):
         # If there are no images in the queue, just wait for one.
         if len(self._images) == 0:
             self.log.debug("Image queue is empty.   Waiting for grab")
-            grabResult = self._camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
-            if grabResult.GrabSucceeded():
-                self.log.debug("Image grab succeeded at timestamp " + str(grabResult.TimeStamp))
-            else:
-                raise IOError("There was an error encountered communicating with the camera")
+            img = self._grab()
 
-            image = self._converter.Convert(grabResult)
-            img = image.GetArray()
         else:
             self.log.debug("Serving image from queue")
             processed = self._images.popleft()
@@ -398,8 +389,24 @@ class CameraBasler(Camera):
         return 0.0
 
     @property
-    def camera(self)-> str:
+    def camera(self) -> pylon.InstantCamera:
         return self._camera
+
+    def _grab(self) -> ProcessedImage:
+        """
+        Grab the image from the camera
+        :return: ProcessedImage
+        """
+        grabResult = self._camera.RetrieveResult(constants.TIMEOUT_CAMERA, pylon.TimeoutHandling_ThrowException)
+        if grabResult.GrabSucceeded():
+            self.log.debug("Image grab succeeded at timestamp " + str(grabResult.TimeStamp))
+        else:
+            raise IOError("There was an error encountered communicating with the camera")
+
+        image = self._converter.Convert(grabResult)
+        img = image.GetArray()
+        timestamped = ProcessedImage(img, grabResult.TimeStamp)
+        return timestamped
 
     def save(self, filename: str) -> bool:
         """
@@ -412,6 +419,7 @@ class CameraBasler(Camera):
 
     def load(self, filename: str) -> bool:
         pylon.FeaturePersistence.Load(filename,self._camera.GetNodeMap(),True)
+        return True
 #
 # The PhysicalCamera class as a utility
 #
@@ -426,7 +434,7 @@ if __name__ == "__main__":
     def takeImages(camera: CameraBasler):
 
         # Connect to the camera and take an image
-        if camera.connect(options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_CAMERA_IP)):
+        if camera.connect():
             try:
                 camera.initialize()
                 camera.start()
@@ -457,9 +465,12 @@ if __name__ == "__main__":
 
     # Parse the options file
     options = OptionsFile(arguments.options)
-    options.load()
+    if not options.load():
+        print("Erron encountered with option load for: {}".format(arguments.options))
+        sys.exit(1)
 
-    camera = CameraBasler("")
+    cameraIP = options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_CAMERA_IP)
+    camera = CameraBasler(ip = cameraIP)
 
     # Start the thread that will begin acquiring images
     acquire = threading.Thread(target=takeImages, args=(camera,))
@@ -475,7 +486,9 @@ if __name__ == "__main__":
     timenow = time.time()
     logging.debug("Image needed from {}".format(timenow))
     try:
+        performance.start()
         img = camera.capture()
+        performance.stopAndRecord(constants.PERF_ACQUIRE)
         cv.imwrite("sample.jpg", img)
     except IOError as io:
         camera.log.error("Failed to capture image: {0}".format(io))
