@@ -2,9 +2,11 @@
 # C A M E R A  C A L I B R A T I O N
 #
 #
+# Modifications from the original provided by:
 # Author: Addison Sears-Collins
 # https://automaticaddison.com
 # Description: Perform camera calibration using a chessboard.
+import pickle
 
 import cv2  # Import the OpenCV library to enable computer vision
 import numpy as np  # Import the NumPy scientific computing library
@@ -17,7 +19,8 @@ import constants
 parser = argparse.ArgumentParser("Calibrate camera from image sets")
 
 parser.add_argument('-i', '--input', action="store", required=True, help="Input directory")
-parser.add_argument('-o', '--output', action="store", required=True, help="Output directory")
+#parser.add_argument('-o', '--output', action="store", required=True, help="Output directory")
+parser.add_argument('-c', '--calibration', action="store", required=False, default="camera-calibration.p", help="Calibration File")
 parser.add_argument('-x', '--xsquares', action="store", default=10, required=False, help="Number of X squares")
 parser.add_argument('-y', '--ysquares', action="store", default=6, required=False, help="Number of Y squares")
 parser.add_argument('-s', '--square', action="store", default=25, required=False, help="Side of square in mm")
@@ -27,7 +30,7 @@ parser.add_argument('-p', '--performance', action="store", required=False, defau
 arguments = parser.parse_args()
 
 # Path to the image that you want to undistort
-distorted_img_filename = arguments.undistort #'distorted/chessboard_input12.jpg'
+distorted_img_filename = arguments.undistort
 
 # Chessboard dimensions
 number_of_squares_X = arguments.xsquares  # Number of chessboard squares along the x-axis
@@ -151,6 +154,15 @@ def main():
 
     # Close all windows
     cv2.destroyAllWindows()
+
+    # Save the camera calibration results.
+    calib_result_pickle = {}
+    calib_result_pickle["mtx"] = mtx
+    calib_result_pickle["optimal_camera_matrix"] = optimal_camera_matrix
+    calib_result_pickle["dist"] = dist
+    calib_result_pickle["rvecs"] = rvecs
+    calib_result_pickle["tvecs"] = tvecs
+    pickle.dump(calib_result_pickle, open(arguments.calibration, "wb"))
 
 
 main()
