@@ -16,6 +16,7 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.svm import LinearSVC
 
 from abc import ABC, abstractmethod
 
@@ -302,12 +303,54 @@ class SuppportVectorMachineClassifier(Classifier):
         :param score: A boolean indicating if scores should be printed.
         :return:
         """
+
+        # Confirm the file exists
+        # if not os.path.isfile(filename):
+        #     raise FileNotFoundError
+
+        # # Load from the csv file and get the columns we care about
+        # self._df = pd.read_csv(filename, usecols=["ratio", "shape", "distance", "type"])
+        # # Extract the type -- there should be only two, desired and undesired
+        # y = self._df.type
+        # # Drop the type column
+        # self._df.drop("type", axis='columns', inplace=True)
+        # # Split up the data
+        # X_train, X_test, y_train, y_test = train_test_split(self._df,y,train_size=0.4)
+
+        self._model = LinearSVC()
+        self._model.fit(self._xTrain, self._yTrain)
+
+        # Debug
+        if score:
+            print("Support Vector Machine prediction")
+            print(self._model.predict(self._xTest))
+            print("Training Score: {:.3f}".format(self._model.score(self._xTrain, self._yTrain)))
+            print("Testing Score: %s" % self._model.score(self._xTest, self._yTest))
+
         return
 
     def classify(self):
         """
         Classify the blobs in the image
         """
+        # TODO: Raise an exception
+        if self._model is None:
+            return
+
+        self.log.info("Classify by support vector machine")
+        self._prepareData()
+
+        # Make the predictions using the model trained
+        predictions = self._model.predict(self._blobsInView)
+
+        # Put the predictions into the blobs and mark the reason as SVM
+        i = 0
+        for blobName, blobAttributes in self._blobs.items():
+            if blobAttributes[constants.NAME_REASON] != constants.REASON_AT_EDGE:
+                blobAttributes[constants.NAME_TYPE] = predictions[i]
+                blobAttributes[constants.NAME_REASON] = constants.REASON_SVM
+            i = i + 1
+        return
         return
 
 
