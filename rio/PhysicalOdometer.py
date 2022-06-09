@@ -4,7 +4,12 @@
 # A physical odometer assumes a quadature encoder wheel and reads values from that wheel using
 # a National Instruments RIO and a 9411 card
 #
+import threading
+
 import nidaqmx.constants
+
+# Needs YAML on RIO platform
+#import yaml
 
 from Odometer import Odometer
 from abc import ABC, abstractmethod
@@ -12,6 +17,8 @@ from typing import Callable
 import logging
 from time import sleep
 from datetime import datetime, time
+#from collections import deque
+import queue
 
 import NIUtilities
 import nidaqmx as ni
@@ -22,10 +29,18 @@ from nidaqmx._task_modules.channel_collection import ChannelCollection
 from nidaqmx.stream_readers import CounterReader
 from nidaqmx.constants import AngleUnits
 from nidaqmx.constants import EncoderType
+from nidaqmx.constants import LineGrouping
 from nidaqmx._task_modules.timing import Timing
+import nidaqmx.errors
 
-# The number of pins to read
-MAX_ODOMETER_LINES = 4
+
+# Debounce time in seconds. Lower values don't seem to compensate for the noisy line
+# This seems like a balancing act, as the encoder will generate 1000 clicks per rotation and if we assume
+# 4kph top speed, that 1111.11 mm per second, or 1.2 rotations of the wheel per second.
+ODOMETER_DEBOUNCE = 0.0003
+
+# The number of samples to collect
+MAX_ODOMETER_SAMPLES = 1
 
 # Size of the wheel in mm
 WHEEL_SIZE = 923
@@ -45,16 +60,14 @@ KEY_FROM = "from"
 KEY_TO = "to"
 KEY_DIRECTION = "direction"
 
+# Transitions indicating forward or backward travel
 transitions = [
-    {"from": [True, True],  "to": [True, False],  "direction": DIRECTION_BACKWARD}, #
-    {"from": [True, True],  "to": [False, True],  "direction": DIRECTION_BACKWARD}, #
-    {"from": [True, True],  "to": [True,False],   "direction": DIRECTION_BACKWARD},
-    {"from": [True, False], "to": [True, True],   "direction": DIRECTION_BACKWARD},
-    {"from": [False, False],"to": [False,True],   "direction": DIRECTION_BACKWARD},
-    {"from": [False, True], "to": [True, True],   "direction": DIRECTION_BACKWARD},
+    {"from": [False, False], "to": [True, False], "direction": DIRECTION_BACKWARD},
+    #{"from": [True, True], "to": [True, False], "direction": DIRECTION_BACKWARD},
+    #{"from": [True, False], "to": [True, True], "direction": DIRECTION_BACKWARD},
+    #{"from": [False, False], "to": [True, False], "direction": DIRECTION_BACKWARD},
+    #{"from": [False, True], "to": [False, False], "direction": DIRECTION_BACKWARD},
 ]
-
-
 
 # Clicks of the encoder per revolution
 # See https://cdn.automationdirect.com/static/specs/encoderhd.pdf
@@ -74,6 +87,7 @@ class PhysicalOdometer(Odometer):
         :param processor: The image processing routine to callback at each processing step
         """
         # The card on the RIO where the encoder connects
+        super().__init__("")
         self._module = module
         self._start = 0
         self._elapsed_milliseconds = 0
@@ -84,9 +98,40 @@ class PhysicalOdometer(Odometer):
         self._encode_clicks = encoder_clicks
         # The distance travelled per click
         self._distance_per_click = wheel_size / encoder_clicks
+        self._totalClicks = 0
+        self._changeQueue = queue.Queue(maxsize=5000)
 
+        self.log = logging.getLogger(__name__)
 
-    def _direction(self, previous: [], current: []) -> int:
+        # The reading task
+        self._task = None
+
+        # Rotational items for the a,b,z lines
+        self._aCurrent = False
+        self._aPrevious = False
+        self._bCurrent = False
+        self._bPrevious = False
+        self._zCurrent = False
+        self._zPrevious = False
+        self._aArmed = False
+
+    @property
+    def changeQueue(self):
+        """
+        The queue of readings for the line transitions of the input pins
+        :return:
+        """
+        return self._changeQueue
+
+    @property
+    def encoderClicksPerRevolution(self) -> int:
+        """
+        The number of clicks per revolution
+        :return:
+        """
+        return self._encode_clicks
+
+    def direction(self, previous: [], current: []) -> int:
         """
         The direction of travel given the current and previous readings
         :param previous: The previous observation
@@ -103,7 +148,7 @@ class PhysicalOdometer(Odometer):
             else:
                 i = i + 1
 
-        print("{} -> {} = {}".format(previous, current, direction))
+        #print("{} -> {} = {}".format(previous, current, direction))
 
         return direction
 
@@ -140,25 +185,91 @@ class PhysicalOdometer(Odometer):
     def registerCallback(self,callback):
         self._callback = callback
 
-    # This doesn't do quite what I want, as it returns movement even when the wheel is motionless.
-    # And the only thing reported is 0 and -0.360 == sort of correct in that 360 / 1000 is 0.360, but to alternate
-    # between 0 and -0.360 is something I can't explain
-    def _start(self):
+    def startUsingCounters(self):
+        global running
         total = 0.0
-        with ni.Task() as task:
-            channelA = task.ci_channels.add_ci_ang_encoder_chan(counter = 'Mod3/ctr0', decoding_type = EncoderType.X_1, zidx_val=0, zidx_enable=True, units=AngleUnits.DEGREES, pulses_per_rev=1000, initial_angle=0.0)
-            #task.timing.cfg_samp_clk_timing(rate=10.0, sample_mode=AcquisitionType.FINITE,samps_per_chan=100)
-            task.timing.samp_timing_type = nidaqmx.constants.SampleTimingType.ON_DEMAND
-            channelA.ci_count_edges_count_dir_dig_fltr_min_pulse_width = 0.001
-            channelA.ci_count_edges_count_reset_dig_fltr_enable = True
-            task.start()
-            previous = 0.0
-            while True:
-                ang=task.read()
-                if ang != 0:
-                    total += ang
-                    print("Total movement{:.3f}".format(total))
-                previous=ang
+        self.log.debug("Begin rotation detection using counters")
+        task = ni.Task(new_task_name="readCtr0")
+        # Can't seem to make this work, and perhaps this is not what we need, as direction matters
+        #channelA = task.ci_channels.add_ci_ang_encoder_chan(counter = 'Mod3/ctr0', decoding_type = EncoderType.X_1, zidx_enable=True, units=AngleUnits.DEGREES, pulses_per_rev=4000, initial_angle=0.0)
+        #channelA = task.ci_channels.add_ci_ang_encoder_chan(counter = 'Mod3/ctr0', decoding_type = EncoderType.X_1, zidx_phase=nidaqmx.constants.EncoderZIndexPhase.AHIGH_BHIGH, zidx_val=0, zidx_enable=True, units=AngleUnits.DEGREES, pulses_per_rev=1000, initial_angle=0.0)
+        #task.timing.cfg_samp_clk_timing(rate=10000, sample_mode=AcquisitionType.CONTINUOUS,samps_per_chan=100)
+        #task.timing.samp_timing_type = nidaqmx.constants.SampleTimingType.ON_DEMAND
+
+        # This segment works as inted
+        channelA = task.ci_channels.add_ci_count_edges_chan(counter='Mod3/ctr0')
+        channelA.ci_count_edges_dig_fltr_min_pulse_width = 0.0003
+        channelA.ci_count_edges_dig_fltr_enable = True
+
+        #task.timing.samp_clk_dig_sync_enable = True
+        task.timing.samp_clk_overrun_behavior = nidaqmx.constants.OverflowBehavior.TOP_TASK_AND_ERROR
+        #channelA.ci_encoder_decoding_type = nidaqmx.constants.EncoderType.X_1
+        #channelA.ci_count_edges_active_edge = nidaqmx.constants.Edge.RISING
+        task.start()
+        previous = [0.0]
+        running = True
+        while running:
+            try:
+                count=task.read(number_of_samples_per_channel=nidaqmx.constants.READ_ALL_AVAILABLE)
+                print("Current register is {}".format(channelA.ci_count))
+            except nidaqmx.errors.DaqError:
+                self.log.error("Read error encountered")
+                continue
+
+            if count[0] != previous[0]:
+                if count[0] != previous[0] + 1:
+                    print("Increased count by more than one")
+                #total += (count[0] - previous[0])
+                total = count[0]
+                print("Total movement {:.3f} Total clicks {}".format(total, count[0]))
+                if total % self._encode_clicks == 0:
+                    self.log.debug("Wheel revolution complete")
+            previous=count
+        print("Cleanup")
+        task.stop()
+
+    def startUsingRotation(self):
+        global running
+        total = 0.0
+        self.log.debug("Begin rotation detection using counters")
+        task = ni.Task(new_task_name="readCtr0")
+        #channelA = task.ci_channels.add_ci_ang_encoder_chan(counter = 'Mod3/ctr0', decoding_type = EncoderType.X_1, zidx_enable=True, units=AngleUnits.DEGREES, pulses_per_rev=1000, initial_angle=0.0)
+        channelA = task.ci_channels.add_ci_ang_encoder_chan(counter = 'Mod3/ctr0', decoding_type = EncoderType.X_1, zidx_enable=True, zidx_val=100, zidx_phase=nidaqmx.constants.EncoderZIndexPhase.AHIGH_BHIGH, units=AngleUnits.DEGREES, pulses_per_rev=1000, initial_angle=0.0)
+
+
+        channelA.ci_encoder_a_input_dig_fltr_min_pulse_width = 0.0008
+        channelA.ci_encoder_a_input_dig_fltr_enable = True
+        channelA.ci_encoder_a_input_term = 'PFI0'
+        channelA.ci_encoder_b_input_dig_fltr_min_pulse_width = 0.0008
+        channelA.ci_encoder_b_input_dig_fltr_enable = True
+        channelA.ci_encoder_b_input_term = 'PFI2'
+        channelA.ci_encoder_z_input_dig_fltr_min_pulse_width = 0.0008
+        channelA.ci_encoder_z_input_dig_fltr_enable = True
+        channelA.ci_encoder_z_input_term = 'PFI1'
+
+        #task.timing.samp_clk_overrun_behavior = nidaqmx.constants.OverflowBehavior.TOP_TASK_AND_ERROR
+
+        task.start()
+        previous = 0.0
+        running = True
+        while running:
+            try:
+                ang =task.read(number_of_samples_per_channel = nidaqmx.constants.READ_ALL_AVAILABLE)
+                #print("Current register is {}".format(channelA.ci_count))
+            except nidaqmx.errors.DaqError:
+                self.log.error("Read error encountered")
+                continue
+
+            if ang[0] != 0:
+                #total += ang
+                try:
+                    self._changeQueue.put(ang, block=False)
+                except queue.Full:
+                    print("Queue is full. Reading is lost.")
+                #print("Total movement {:.3f} Angle change {}".format(total, ang))
+
+        print("Cleanup")
+        task.stop()
 
     def _isPositive(self, samples: list) -> bool:
         """
@@ -182,7 +293,82 @@ class PhysicalOdometer(Odometer):
 
         return trueCount >= falseCount
 
-    def start(self):
+
+    def startEdgeCount(self):
+
+        taskA = ni.Task(new_task_name="readA")
+        taskB = ni.Task(new_task_name="readB")
+
+        channelA = taskA.di_channels.add_di_chan("Mod3/port0/line0",line_grouping=LineGrouping.CHAN_PER_LINE)
+        channelB = taskB.di_channels.add_di_chan("Mod3/port0/line2",line_grouping=LineGrouping.CHAN_PER_LINE)
+        taskA.timing.cfg_change_detection_timing(rising_edge_chan="Mod3/port0/line0",
+                                                falling_edge_chan="Mod3/port0/line0",
+                                                sample_mode=AcquisitionType.CONTINUOUS,
+                                                samps_per_chan=MAX_ODOMETER_SAMPLES)
+        taskA.timing.samp_timing_type = nidaqmx.constants.SampleTimingType.CHANGE_DETECTION
+
+        taskB.timing.cfg_change_detection_timing(rising_edge_chan="Mod3/port0/line2",
+                                                falling_edge_chan="Mod3/port0/line2",
+                                                sample_mode=AcquisitionType.CONTINUOUS,
+                                                samps_per_chan=MAX_ODOMETER_SAMPLES)
+        taskB.timing.samp_timing_type = nidaqmx.constants.SampleTimingType.CHANGE_DETECTION
+
+        # Debounce the signal
+        channelA.di_dig_fltr_min_pulse_width = ODOMETER_DEBOUNCE
+        channelB.di_dig_fltr_min_pulse_width = ODOMETER_DEBOUNCE
+        #channelZ.di_dig_fltr_min_pulse_width = ODOMETER_DEBOUNCE
+
+        channelA.di_dig_fltr_enable = True
+        channelB.di_dig_fltr_enable = True
+        #channelZ.di_dig_fltr_enable = True
+
+        taskA.timing.change_detect_di_rising_edge_physical_chans = channelA
+        taskB.timing.change_detect_di_rising_edge_physical_chans = channelB
+        taskA.timing.change_detect_di_falling_edge_physical_chans = channelA
+        taskB.timing.change_detect_di_falling_edge_physical_chans = channelB
+
+        taskA.timing.samp_timing_type = nidaqmx.constants.SampleTimingType.CHANGE_DETECTION
+        taskB.timing.samp_timing_type = nidaqmx.constants.SampleTimingType.CHANGE_DETECTION
+
+        taskA.register_signal_event(nidaqmx.constants.Signal.CHANGE_DETECTION_EVENT, self._changeDetected)
+        taskB.register_signal_event(nidaqmx.constants.Signal.CHANGE_DETECTION_EVENT, self._changeDetected)
+
+
+        aOK = False
+        bOK = False
+
+        try:
+            print("Task A uses:{}".format(taskA.channel_names))
+            taskA.start()
+            aOK = True
+        except nidaqmx.errors.DaqError as daq:
+            print("Failure in starting task A. Cleanup")
+            taskA.close()
+        try:
+            print("Task B uses:{}".format(taskB.channel_names))
+            taskB.start()
+            bOK = True
+        except nidaqmx.errors.DaqError as daq:
+            print("Failure in starting task B. {}".format(daq))
+            taskA.close()
+
+
+        if aOK and bOK:
+            # This is only needed for debugging on the bench
+            print("Begin wheel rotation.")
+
+            # The running flag will be set to false by the user input thread, but in production, that will never happen
+            running = True
+            while running:
+                sleep(5)
+
+            print("Cleaning up")
+            taskA.close()
+            taskB.close()
+        else:
+            print("Tasks not started.")
+
+    def _start_poll(self):
         """
         Start the odometer. This method will not return.
         """
@@ -191,27 +377,30 @@ class PhysicalOdometer(Odometer):
         task = ni.Task()
 
         # These are the three pins on the encoder for a,b, and z
-        channelA = task.di_channels.add_di_chan("Mod3/port0/line0")
-        channelB = task.di_channels.add_di_chan("Mod3/port0/line1")
-        channelZ = task.di_channels.add_di_chan("Mod3/port0/line2")
+        channelA = task.di_channels.add_di_chan("Mod3/port0/line0",line_grouping=LineGrouping.CHAN_PER_LINE)
+        channelB = task.di_channels.add_di_chan("Mod3/port0/line1",line_grouping=LineGrouping.CHAN_PER_LINE)
+        #channelZ = task.di_channels.add_di_chan("Mod3/port0/line2")
 
 
         # Detect the rising edge
         #task.timing.cfg_change_detection_timing(rising_edge_chan="Mod3/port0/line0,Mod3/Port0/line1", sample_mode=AcquisitionType.CONTINUOUS,samps_per_chan=10)
-        task.timing.cfg_change_detection_timing(rising_edge_chan="Mod3/port0/line0,Mod3/Port0/line1", falling_edge_chan="Mod3/port0/line0,Mod3/Port0/line1", sample_mode=AcquisitionType.CONTINUOUS)
+        task.timing.cfg_change_detection_timing(rising_edge_chan="Mod3/port0/line0,Mod3/Port0/line1",
+                                                falling_edge_chan="Mod3/port0/line0,Mod3/Port0/line1",
+                                                sample_mode=AcquisitionType.CONTINUOUS,
+                                                samps_per_chan=MAX_ODOMETER_SAMPLES)
         task.timing.samp_timing_type = nidaqmx.constants.SampleTimingType.CHANGE_DETECTION
         #task.timing.delay_from_samp_clk_delay = 0.001
-        #task.timing.delay_from_samp_clk_delay_units = nidaqmx.constants.DigitalWidthUnits(SAMPLE_CLOCK_PERIODS)
+        #task.timing.delay_from_samp_clk_delay_units = nidaqmx.constants.DigitalWidthUnits.SECONDS
         #task.timing.cfg_dig_edge_start_trig(trigger_source="Mod3/port0/line0", trigger_edge=Edge.RISING)
 
-        # Debounce the signal for 0.01 second
-        channelA.di_dig_fltr_min_pulse_width = 0.0005
-        channelB.di_dig_fltr_min_pulse_width = 0.0005
-        channelZ.di_dig_fltr_min_pulse_width = 0.0005
+        # Debounce the signal
+        channelA.di_dig_fltr_min_pulse_width = ODOMETER_DEBOUNCE
+        channelB.di_dig_fltr_min_pulse_width = ODOMETER_DEBOUNCE
+        #channelZ.di_dig_fltr_min_pulse_width = ODOMETER_DEBOUNCE
 
         channelA.di_dig_fltr_enable = True
         channelB.di_dig_fltr_enable = True
-        channelZ.di_dig_fltr_enable = True
+        #channelZ.di_dig_fltr_enable = True
 
         channels = task.di_channels
         print(channels.channel_names)
@@ -232,29 +421,42 @@ class PhysicalOdometer(Odometer):
 
         while True:
             i = i + 1
+            # This tends to read only one
             value = task.read(number_of_samples_per_channel=nidaqmx.constants.READ_ALL_AVAILABLE)
-            #value = task.read(number_of_samples_per_channel=1)
+            # This will wait until all samples are available
+            # try:
+            #     value = task.read(number_of_samples_per_channel=MAX_ODOMETER_SAMPLES)
+            # except nidaqmx.errors.DaqError as daq:
+            #     print("Wheel is stationary")
+            #     continue
+
             #value = task.read()
             # Determine if the samples are mostly true or false
             if(len(value[0]) > 0):
                 aCurrent = self._isPositive(value[0])
                 bCurrent = self._isPositive(value[1])
-                zCurrent = self._isPositive(value[2])
+                #zCurrent = self._isPositive(value[2])
 
                 current = [aCurrent, bCurrent]
                 previous = [aPrevious, bPrevious]
-                direction = self._direction(previous, current)
+                #direction = self._direction(previous, current)
                 #print("Direction {}".format(direction))
 
-                if aArmed:
-                    # This transition was down to up
-                    if aCurrent and not aPrevious:
-                        totalClicks += 1
-                        # print("aCurrent {} bCurrent {} (previous {},{})".format(aCurrent, bCurrent, aPrevious, bPrevious))
-                        #print("Total distance: {:.2f} mm Total Clicks {:d} aCurrent {} bCurrent {}   ".format(
-                        #    totalClicks * self._distance_per_click, totalClicks, aCurrent, bCurrent), end="\n")
-                else:
-                    aArmed = True
+                # Temporary
+                totalClicks += 1
+                print("Total distance: {:.2f} mm Total Clicks {:d} aCurrent {} bCurrent {}   "
+                      .format(totalClicks * self._distance_per_click, totalClicks, aCurrent, bCurrent), end="\n")
+
+                # This section will determine if the transition counts as a click
+                # if aArmed:
+                #     # This transition was down to up
+                #     if aCurrent and not aPrevious:
+                #         totalClicks += 1
+                #         # print("aCurrent {} bCurrent {} (previous {},{})".format(aCurrent, bCurrent, aPrevious, bPrevious))
+                #         print("Total distance: {:.2f} mm Total Clicks {:d} aCurrent {} bCurrent {}   ".format(
+                #             totalClicks * self._distance_per_click, totalClicks, aCurrent, bCurrent), end="\n")
+                # else:
+                #     aArmed = True
 
                 # z isn't behaving as i expected.  I thought this would generate only a single pulse on every rotation
                 # if zCurrent != zPrevious:
@@ -263,37 +465,225 @@ class PhysicalOdometer(Odometer):
 
                 aPrevious = aCurrent
                 bPrevious = bCurrent
-                zPrevious = zCurrent
+                #zPrevious = zCurrent
 
             #else:
             #    print("No samples read")
             #print("{} -> {}".format(value[0],aCurrent))
 
+    def _changeDetected(self, taskHandle, signalType, callbackData):
+        """
+        Called by the NI system when a change is detected on one or more lines
+        :param taskHandle: Integer task handle.  Ignored.
+        :param signalType: Signal Type. Ignored.
+        :param callbackData: Opaque Data. Ignored.
+        :return: 0
+        """
+
+        self._totalClicks += 1
+        # For debugging, just print out the number of clicks
+        #print(self._totalClicks, end='\r')
+        #return 0
+        # Get the current readings of the pins
+        value = self._task.read(number_of_samples_per_channel=1)
+        # Put the readings into the queue
+        try:
+            self._changeQueue.put(value, block=False)
+        except queue.Full:
+            print("Queue is full. Reading is lost.")
+
+        # This is just for debug.  Comment this out for production
+        # if self._totalClicks % (self._encode_clicks*2) == 0:
+        #     print("Rotation complete {}".format(self._totalClicks))
+        return 0
+
+
+
+    def startUsingChangeDetection(self):
+        """
+        Start the odometer. This method will not return.
+        """
+        self._start = datetime.now()
+
+        global running
+        task = ni.Task(new_task_name="ReadA")
+        self._task = task
+
+        # These are the three pins on the encoder for a,b, and z
+        #channelA = task.di_channels.add_di_chan("Mod3/port0/line0")
+        #channelB = task.di_channels.add_di_chan("Mod3/port0/line1")
+        # Orginal
+        channelA = task.di_channels.add_di_chan("Mod3/port0/line0",line_grouping=LineGrouping.CHAN_FOR_ALL_LINES)
+        channelB = task.di_channels.add_di_chan("Mod3/port0/line2",line_grouping=LineGrouping.CHAN_FOR_ALL_LINES)
+        #channelZ = task.di_channels.add_di_chan("Mod3/port0/line2")
+
+
+        # Works: Rising/Falling on A only, specify only A in detection_timing statement
+        # Works: Rising/Falling on A & B, specify only A in detection_timing statement
+        # Doesn't work: Rising/Falling on A& B, specify both A & B for rising_edge_chan
+        # Doesn't work: Rising/Falling on A& B, specify both A & B in detection_timing statement
+        task.timing.change_detect_di_rising_edge_physical_chans = channelA
+        task.timing.change_detect_di_rising_edge_physical_chans = channelB
+        task.timing.change_detect_di_falling_edge_physical_chans = channelA
+        task.timing.change_detect_di_falling_edge_physical_chans = channelB
+        task.timing.cfg_change_detection_timing(rising_edge_chan="Mod3/port0/line0",
+                                                falling_edge_chan="Mod3/port0/line0",
+                                                sample_mode=AcquisitionType.CONTINUOUS)
+        # task.timing.cfg_change_detection_timing(rising_edge_chan="Mod3/port0/line1",
+        #                                         falling_edge_chan="Mod3/port0/line1",
+        #                                         sample_mode=AcquisitionType.CONTINUOUS)
+        task.timing.samp_timing_type = nidaqmx.constants.SampleTimingType.CHANGE_DETECTION
+
+        # These are not applicable
+        #channelA.di_dig_fltr_timebase_rate = 100
+        #channelA.di_dig_sync_enable = True
+
+        #channelA.di_dig_sync_enable = True
+        #channelA.di_dig_fltr_timebase_src = "Mod3/port0/line0"
+        #channelA.di_dig_fltr_timebase_rate = 100
+
+        # Debounce the signal
+        channelA.di_dig_fltr_min_pulse_width = ODOMETER_DEBOUNCE
+        channelB.di_dig_fltr_min_pulse_width = ODOMETER_DEBOUNCE
+        #channelZ.di_dig_fltr_min_pulse_width = ODOMETER_DEBOUNCE
+
+        channelA.di_dig_fltr_enable = True
+        channelB.di_dig_fltr_enable = True
+        #channelZ.di_dig_fltr_enable = True
+
+        #channels = task.di_channels
+        #print(channels.channel_names)
+        # A note of service time requirements:
+        # Register the signal service routine.  The processing callback should be very fast
+        # As the wheel will continue to rotate, another pulse could come in, so the time must be
+        # the width between the falling edge of A/B and the rising edge of A/B
+        # This is 1/4 of the time per pulse. At 1000 pulses per rotation, this will be 0.0002 seconds service,
+        # to support a speed pf 4 kph, or 1.2 rotations per second of a 923 mm circumference wheel
+        task.register_signal_event(nidaqmx.constants.Signal.CHANGE_DETECTION_EVENT, self._changeDetected)
+
+
+        # If a task is not properly stopped, it still holds on to the resources
+        # This is a crude attempt at detecting this and cleaning up.
+        aOK = False
+
+        try:
+            task.start()
+            aOK = True
+        except nidaqmx.errors.DaqError as daq:
+            print("Failure in starting task A. Cleanup")
+            task.close()
+
+        if aOK:
+            # This is only needed for debugging on the bench
+            print("Begin wheel rotation.")
+
+            # The running flag will be set to false by the user input thread, but in production, that will never happen
+            running = True
+            while running:
+                sleep(5)
+
+            print("Cleaning up")
+            task.close()
+        else:
+            print("Tasks not started.")
 
 #
-# The Odometer class as a utility
+# The Odometer class as a utility.
 #
 if __name__ == "__main__":
     import argparse
     import sys
+    import os
+    from logging.config import fileConfig
 
-    def callback():
-        return
+
+    running = False
+    def userIO():
+        global running
+        input("Return to stop")
+        running = False
+
+
+    def serviceQueue(odometer : PhysicalOdometer):
+        """
+        Service the queue of readings from line. This routine will not return.
+        :param odometer: The odometer object with the queue
+        """
+        changeQueue = odometer.changeQueue
+        aPrevious = False
+        bPrevious = False
+        servicing = True
+
+        # Loop until graceful exit.
+        i = 0
+        while servicing:
+            angle = changeQueue.get(block=True)
+            print("Reading {} Angle {}".format(i,angle))
+            i += 1
+            # Determine if the wheel has undergone one rotation
+            if i % odometer.encoderClicksPerRevolution == 0:
+                print("--- One revolution complete ---")
+
+
+            # This is just leftover and will be revisited once we have a correctly working encoder
+
+            # # Wait for the first item in the queue
+            # readingsFromLines = changeQueue.get(block=True)
+            # aCurrent = readingsFromLines[0][0]
+            # bCurrent = readingsFromLines[1][0]
+            # # zCurrent = self._isPositive(value[2])
+            #
+            # current = [aCurrent, bCurrent]
+            # previous = [aPrevious, bPrevious]
+            # print("{} -> {}".format(previous, current))
+            # aPrevious = aCurrent
+            # bPrevious = bCurrent
+            # direction = odometer.direction(previous, current)
+            # print("Direction {}".format(direction))
+
 
     parser = argparse.ArgumentParser("RIO Odometer Utility")
 
     parser.add_argument('-c', '--card', action="store", required=True, help="Card on the RIO")
     parser.add_argument('-w', '--wheel', action="store", default=WHEEL_SIZE, required=False, help="Wheel circumference in mm")
     parser.add_argument('-e', '--encoder', action="store", default=ENCODER_CLICKS_PER_REVOLUTION, required=False, help="Number of clicks per revolution")
+    parser.add_argument("-lg", "--logging", action="store", default="info-logging.ini", help="Logging configuration file")
+
     arguments = parser.parse_args()
+    # Confirm the YAML file exists
+    if not os.path.isfile(arguments.logging):
+        print("Unable to access logging configuration file {}".format(arguments.logging))
+        sys.exit(1)
+
+    def callback():
+        return
+
+    #fileConfig(arguments.logging)
+
+    # Needs YAML on rio platform
+    # with open(arguments.logging, "rt") as f:
+    #     config = yaml.safe_load(f.read())
+    #     logging.config.dictConfig(config)
 
     # Check that the format of the lines is what we expect
     #evalutionText, lines = checkLineNames(arguments.emitter)
 
     odometer = PhysicalOdometer(arguments.card, arguments.wheel, arguments.encoder, 0, callback)
 
+    # Start a thread to service the readings queue
+    service = threading.Thread(target = serviceQueue, args=(odometer,))
+    service.start()
+
+    # Start a thread to handle user IO. This is not required in normal operation
+    io = threading.Thread(target=userIO)
+    io.start()
+
+    # Connect the odometer and start.
     odometer.connect()
-    odometer.start()
+    # The start routines never return - this is executed in the main thread
+    odometer.startUsingChangeDetection()
+    #odometer.startUsingRotation()
+    #odometer.startEdgeCount()
 
     sys.exit(0)
 
