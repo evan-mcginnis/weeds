@@ -6,6 +6,8 @@
 # This is just the text that will be placed on the visible treatment plan
 SPRAYER_NAME = ""
 
+MSG_NOT_CONNECTED = "Not connected"
+
 # Names for the attributes
 # Some of these are a bit redundant and are there for backwards compatibility
 
@@ -65,7 +67,7 @@ JID_JETSON_1                = "jetson1@weeds.com"
 JID_JETSON_2                = "jetson2@weeds.com"
 JID_CONSOLE                 = "console@weeds.com"
 
-# TODO: Poor practice, pick this up later
+
 DEFAULT_PASSWORD            = "weeds"
 
 NICK_ODOMETRY               = "rio"
@@ -75,7 +77,10 @@ NICK_JETSON_1               = "jetson1"
 NICK_JETSON_2               = "jetson2"
 NICK_CONSOLE                = "console"
 MSG_TYPE_NORMAL             = "normal"
+MSG_TYPE_GROUPCHAT          = "groupchat"
 
+# The timeout period for the processing
+PROCESS_TIMEOUT             = 10.0
 
 # Temporary
 NAME_CROP_SCORE = "score"
