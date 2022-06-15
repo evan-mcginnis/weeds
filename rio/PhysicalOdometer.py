@@ -80,7 +80,8 @@ class PhysicalOdometer(Odometer):
     # is the MAXIMUM speed we can tolerate, where the virtual odometer accepts the speed at which the
     # odometer moves.  OK, that could be considered "always moves at the maximum", I suppose.
     #
-    def __init__(self, module: str, wheel_size: int, encoder_clicks: int, speed: int, processor: Callable):
+    def __init__(self, lineA: str, lineB: str, wheel_size: int, encoder_clicks: int, speed: int, processor: Callable):
+    #def __init__(self, module: str, wheel_size: int, encoder_clicks: int, speed: int, processor: Callable):
         """
         A physical odometer
         :param speed: Maximum speed of movement in meters per second
@@ -88,7 +89,12 @@ class PhysicalOdometer(Odometer):
         """
         # The card on the RIO where the encoder connects
         super().__init__("")
-        self._module = module
+
+        # LineA and lineB should be in the format ModX/portY/lineZ
+        breakdownA = NIUtilities.breakdown(lineA)
+        breakdownB = NIUtilities.breakdown(lineB)
+        self._module = breakdownA[0]
+
         self._start = 0
         self._elapsed_milliseconds = 0
         self._elapsed = 0
@@ -228,52 +234,54 @@ class PhysicalOdometer(Odometer):
         print("Cleanup")
         task.stop()
 
-    def startUsingRotation(self):
+    def startUsingAngularEncoder(self):
         global running
         total = 0.0
-        self.log.debug("Begin rotation detection using counters")
+        self.log.debug("Begin rotation detection using Angular Encoding")
         task = ni.Task(new_task_name="readCtr0")
         #channelA = task.ci_channels.add_ci_ang_encoder_chan(counter = 'Mod3/ctr0', decoding_type = EncoderType.X_1, zidx_enable=True, units=AngleUnits.DEGREES, pulses_per_rev=1000, initial_angle=0.0)
-        channelA = task.ci_channels.add_ci_ang_encoder_chan(counter = 'Mod3/ctr0', decoding_type = EncoderType.X_1, zidx_enable=True, zidx_val=100, zidx_phase=nidaqmx.constants.EncoderZIndexPhase.AHIGH_BHIGH, units=AngleUnits.DEGREES, pulses_per_rev=1000, initial_angle=0.0)
+        channelA = task.ci_channels.add_ci_ang_encoder_chan(counter = 'Mod3/ctr0', decoding_type = EncoderType.X_1, zidx_enable=True, zidx_val=0, units=AngleUnits.DEGREES, pulses_per_rev=self.encoderClicksPerRevolution, initial_angle=0.0)
 
 
-        channelA.ci_encoder_a_input_dig_fltr_min_pulse_width = 0.0008
+        channelA.ci_encoder_a_input_dig_fltr_min_pulse_width = 0.001
         channelA.ci_encoder_a_input_dig_fltr_enable = True
         channelA.ci_encoder_a_input_term = 'PFI0'
-        channelA.ci_encoder_b_input_dig_fltr_min_pulse_width = 0.0008
+        channelA.ci_encoder_b_input_dig_fltr_min_pulse_width = 0.001
         channelA.ci_encoder_b_input_dig_fltr_enable = True
-        channelA.ci_encoder_b_input_term = 'PFI2'
-        channelA.ci_encoder_z_input_dig_fltr_min_pulse_width = 0.0008
+        channelA.ci_encoder_b_input_term = 'PFI1'
+        channelA.ci_encoder_z_input_dig_fltr_min_pulse_width = 0.001
         channelA.ci_encoder_z_input_dig_fltr_enable = True
-        channelA.ci_encoder_z_input_term = 'PFI1'
+        channelA.ci_encoder_z_input_term = 'PFI2'
 
         #task.timing.samp_clk_overrun_behavior = nidaqmx.constants.OverflowBehavior.TOP_TASK_AND_ERROR
 
         task.start()
         previous = 0.0
         running = True
+
+        # This loop will run until things are gracefully shut down by another thread
+        # setting running to False.
         while running:
             try:
-                ang =task.read(number_of_samples_per_channel = nidaqmx.constants.READ_ALL_AVAILABLE)
+                ang =task.read(number_of_samples_per_channel = 1) #nidaqmx.constants.READ_ALL_AVAILABLE)
                 #print("Current register is {}".format(channelA.ci_count))
             except nidaqmx.errors.DaqError:
                 self.log.error("Read error encountered")
                 continue
 
-            if ang[0] != 0:
-                #total += ang
+            # If the current reading has changed from the previous reading, the wheel has moved
+            if ang[0] != 0 and ang[0] != previous:
                 try:
                     self._changeQueue.put(ang, block=False)
                 except queue.Full:
-                    print("Queue is full. Reading is lost.")
-                #print("Total movement {:.3f} Angle change {}".format(total, ang))
+                    self.log.error("Distance queue is full. Reading is lost.")
+                previous = ang[0]
 
-        print("Cleanup")
         task.stop()
 
     def _isPositive(self, samples: list) -> bool:
         """
-        Determines if the samples are predominantly False or True.
+        Not used: Determines if the samples are predominantly False or True.
         :param samples: List of booleans
         :return: bool
         """
@@ -295,7 +303,10 @@ class PhysicalOdometer(Odometer):
 
 
     def startEdgeCount(self):
+        """
+        Not used: Use an edge count strategy to determine wheel movement
 
+        """
         taskA = ni.Task(new_task_name="readA")
         taskB = ni.Task(new_task_name="readB")
 
@@ -370,7 +381,7 @@ class PhysicalOdometer(Odometer):
 
     def _start_poll(self):
         """
-        Start the odometer. This method will not return.
+        Not used: Start the odometer. This method will not return.
         """
         self._start = datetime.now()
 
@@ -501,7 +512,7 @@ class PhysicalOdometer(Odometer):
 
     def startUsingChangeDetection(self):
         """
-        Start the odometer. This method will not return.
+        Not used: Use a change detection strategy to determine wheel movement
         """
         self._start = datetime.now()
 
@@ -594,7 +605,13 @@ if __name__ == "__main__":
     import argparse
     import sys
     import os
+
     from logging.config import fileConfig
+    # There is a bit of a snag here, as the YAML parsers are not installed, and I don't have wifi working yet
+    # to get them.  I'll treat this as a future item.
+
+    import constants
+    from OptionsFile import OptionsFile
 
 
     running = False
@@ -644,16 +661,68 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser("RIO Odometer Utility")
 
-    parser.add_argument('-c', '--card', action="store", required=True, help="Card on the RIO")
-    parser.add_argument('-w', '--wheel', action="store", default=WHEEL_SIZE, required=False, help="Wheel circumference in mm")
-    parser.add_argument('-e', '--encoder', action="store", default=ENCODER_CLICKS_PER_REVOLUTION, required=False, help="Number of clicks per revolution")
+    parser.add_argument('-c', '--card', action="store", required=False, help="Card on the RIO")
+    parser.add_argument('-a', '--odometer_line_a', action="store", default="", required=False, help="Line A")
+    parser.add_argument('-b', '--odometer_line_b', action="store", default="", required=False, help="Line B")
+    parser.add_argument('-w', '--wheel', action="store", default=0, type=int, required=False, help="Wheel circumference in mm")
+    parser.add_argument('-e', '--encoder', action="store", default=0, type=int, required=False, help="Number of clicks per revolution")
     parser.add_argument("-lg", "--logging", action="store", default="info-logging.ini", help="Logging configuration file")
+    parser.add_argument('-ini', '--ini', action="store", required=False, default=constants.PROPERTY_FILENAME,
+                        help="Options INI")
 
     arguments = parser.parse_args()
+
     # Confirm the YAML file exists
     if not os.path.isfile(arguments.logging):
         print("Unable to access logging configuration file {}".format(arguments.logging))
         sys.exit(1)
+
+    lineA = arguments.odometer_line_a
+    lineB = arguments.odometer_line_b
+    pulsesPerRotation = arguments.wheel
+    wheelSize = arguments.encoder
+
+    # Load up the options file.
+    options = OptionsFile(arguments.ini)
+    if not options.load():
+        print("Failed to load options from {}.".format(arguments.ini))
+        sys.exit(1)
+    else:
+        # print("Line A: {}".format(options.option(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_LINE_A)))
+        # print("Line B: {}".format(options.option(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_LINE_B)))
+        # print("PULSES: {}".format(options.option(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_PPR)))
+        # print("SIZE: {}".format(options.option(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_WHEEL_CIRCUMFERENCE)))
+
+        if len(lineA) == 0:
+            try:
+                lineA = options.option(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_LINE_A)
+            except KeyError:
+                print("Line A must be specified on command line option or in the INI file.")
+        if len(lineB) == 0:
+            try:
+                lineB = options.option(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_LINE_B)
+            except KeyError:
+                print("Line B must be specified on command line option or in the INI file.")
+
+        if pulsesPerRotation == 0:
+            try:
+                pulsesPerRotation = int(options.option(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_PPR))
+            except KeyError:
+                print("Pulses Per Rotation must be specified as command line option or in the INI file.")
+        if wheelSize == 0:
+            try:
+                wheelSize = int(options.option(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_WHEEL_CIRCUMFERENCE))
+            except KeyError:
+                print("Wheel Size must be specified as command line option or in the INI file.")
+
+    if lineA is None or len(lineA) == 0:
+        sys.exit(1)
+    if lineB is None or len(lineB) == 0:
+        sys.exit(1)
+    if wheelSize == 0 or pulsesPerRotation == 0:
+        sys.exit(1)
+
+    print("Using lineA: {} lineB: {} Wheel Size: {} Pulses Per Rotation: {}".format(lineA, lineB, wheelSize, pulsesPerRotation))
 
     def callback():
         return
@@ -668,7 +737,8 @@ if __name__ == "__main__":
     # Check that the format of the lines is what we expect
     #evalutionText, lines = checkLineNames(arguments.emitter)
 
-    odometer = PhysicalOdometer(arguments.card, arguments.wheel, arguments.encoder, 0, callback)
+    odometer = PhysicalOdometer(lineA, lineB, wheelSize, pulsesPerRotation, 0, callback)
+
 
     # Start a thread to service the readings queue
     service = threading.Thread(target = serviceQueue, args=(odometer,))
@@ -681,8 +751,8 @@ if __name__ == "__main__":
     # Connect the odometer and start.
     odometer.connect()
     # The start routines never return - this is executed in the main thread
-    odometer.startUsingChangeDetection()
-    #odometer.startUsingRotation()
+    #odometer.startUsingChangeDetection()
+    odometer.startUsingAngularEncoder()
     #odometer.startEdgeCount()
 
     sys.exit(0)
