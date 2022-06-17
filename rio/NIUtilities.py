@@ -13,3 +13,6 @@ NI_SEPARATOR = "/"
 def channelName(module: str, port: int, line: int) -> str:
     return module + NI_SEPARATOR + NI_PORT + str(port) + NI_SEPARATOR + NI_LINE + str(line)
 
+def breakdown(line: str) -> []:
+    return line.split(NI_SEPARATOR)
+
