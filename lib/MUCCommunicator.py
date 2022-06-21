@@ -41,12 +41,31 @@ class MUCCommunicator():
         self._muc = muc
         self._client = None
         self._callback = None
+        self._connection = None
+        self._connected = False
+
+    def diagnostics(self) -> ():
+        """
+        Perform diagnostics on the MUC connection and room
+        :return:
+        """
+        diagnosticResult = False
+        diagnosticText = constants.MSG_NO_PROBLEM_FOUND
+
+        if not self._connection.isConnected():
+            diagnosticResult = False
+            diagnosticText = constants.MSG_NOT_CONNECTED
+        else:
+            diagnosticResult = True
+            diagnosticText = constants.MSG_NO_PROBLEM_FOUND
+
+        return (diagnosticResult, diagnosticText)
 
     # The default callback is useful if the process is only interested in publishing
     # and does not concern itself with what room occupants have to say
 
     def messageCB(self,conn,msg: xmpp.protocol.Message):
-        print(msg.getType())
+        #print(msg.getType())
         if msg.getType() == "groupchat":
                 #print(str(msg.getFrom()) +": "+  str(msg.getBody()))
                 body = msg.getBody()
@@ -54,7 +73,7 @@ class MUCCommunicator():
                 if body is not None:
                     print("From: {} Message [{}]".format(msg.getFrom(), msg.getBody()))
                 else:
-                    print("Keepalive")
+                    print("Keepalive message from chatroom")
                 #self.sendMessage("Response")
         if msg.getType() == "chat":
                 print("private: " + str(msg.getFrom()) +  ":" +str(msg.getBody()))
@@ -85,7 +104,7 @@ class MUCCommunicator():
         while self._StepOn(conn):
             pass
 
-    def connect(self):
+    def connect(self, process: bool):
         """
         Connect to the xmpp server and join the MUC. This routine will not return.
         :return:
@@ -109,18 +128,24 @@ class MUCCommunicator():
             self._connection.RegisterHandler('message', self.messageCB)
 
 
-        self._connection.send(xmpp.Presence(to="{}/{}".format(self._muc,"/jetson")))
-        #self.sendMessage("Hello from jetson")
+        self._connection.send(xmpp.Presence(to="{}/{}".format(self._muc,self._nickname)))
+        self._connected = True
 
-        self.GoOn(self._connection)
+        # I hate delays, but this allows the connection to settle.
+        # If this logic sends a message right away, it tends to hit a not connected exception
+        time.sleep(5)
 
-        print("Connected")
+        if process:
+            self.sendMessage("{} beginning to process messages".format(self._nickname))
+            self.GoOn(self._connection)
+            # This won't be executed until the processing loop has a keyboard interrupt
+            self.sendMessage("{} stopping message processing".format(self._nickname))
         return
 
     def disconnect(self):
         raise NotImplementedError
 
-    def sendMessage(self, msg: str):
+    def sendMessage(self, msg: str) -> int:
         """
         Sends a message to the already connected XMPP server/MUC.
         Raises ConnectionError if not connected to server
@@ -128,13 +153,14 @@ class MUCCommunicator():
         :return:
         """
 
+        id = 0
         # Send the message if we are still connected
-        if self._connection.isConnected():
+        if self._connected and self._connection.isConnected():
             stranza = "<message to='{0}' type='groupchat'><body>{1}</body></message>".format(self._muc, msg)
-            self._connection.send(stranza)
+            id = self._connection.send(stranza)
         else:
             raise ConnectionError(constants.MSG_NOT_CONNECTED)
-        return
+        return id
 
 if __name__ == '__main__':
     import threading
@@ -156,7 +182,7 @@ if __name__ == '__main__':
                         action="store_const", dest="loglevel",
                         const=logging.DEBUG, default=logging.INFO)
 
-    parser.add_argument('-d', '--dns', action="store", required=True, help="DNS server address")
+    parser.add_argument('-d', '--dns', action="store", required=False, help="DNS server address")
 
     # JID and password options.
     parser.add_argument("-j", "--jid", dest="jid",
@@ -194,7 +220,8 @@ if __name__ == '__main__':
 
     def processMessages():
         # Connect to the XMPP server and start processing XMPP stanzas.
-        odometry.connect()
+        # The only boolean parameter here indicates that this should process messages, not connect and return
+        odometry.connect(False)
 
     def generate():
         while True:
