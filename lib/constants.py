@@ -7,6 +7,10 @@
 SPRAYER_NAME = ""
 
 MSG_NOT_CONNECTED = "Not connected"
+MSG_LINES_NOT_SPECIFIED = "The A and B lines for the odometer must be on the command line or in the INI file"
+MSG_ODOMETER_CONNECTION = "Could not connect to odometer"
+
+MSG_NO_PROBLEM_FOUND = "No problem found"
 
 # Names for the attributes
 # Some of these are a bit redundant and are there for backwards compatibility
@@ -68,7 +72,8 @@ JID_JETSON_2                = "jetson2@weeds.com"
 JID_CONSOLE                 = "console@weeds.com"
 
 
-DEFAULT_PASSWORD            = "weeds"
+DEFAULT_PASSWORD            = "greydog"
+#DEFAULT_PASSWORD           = "weeds"
 
 NICK_ODOMETRY               = "rio"
 NICK_TREATMENT              = "treatment"
@@ -88,6 +93,11 @@ NAME_CROP_SCORE = "score"
 # A shortcut used for the command line
 NAME_ALL = "all"
 NAME_NONE = "none"
+
+#
+# R I O
+#
+RIO_TASK_NAME = "readEncoder"
 
 #
 # I M A G E S
@@ -164,4 +174,23 @@ PROPERTY_FILENAME = "options.ini"
 PROPERTY_PIXELS_PER_MM = "PIXELS-PER-MM"
 PROPERTY_SECTION_CAMERA = "CAMERA"
 PROPERTY_CAMERA_IP = "IP" #"169.254.212.41"
+
+PROPERTY_SECTION_ODOMETER = "ODOMETER"
+PROPERTY_LINE_A = "LINE-A"
+PROPERTY_LINE_B = "LINE-B"
+PROPERTY_LINE_Z = "LINE-Z"
+PROPERTY_PFI_A = "PFI-A"
+PROPERTY_PFI_B = "PFI-B"
+PROPERTY_PFI_Z = "PFI-Z"
+PROPERTY_PPR = "PULSES"
+PROPERTY_WHEEL_CIRCUMFERENCE = "WHEEL-SIZE"
+PROPERTY_ENCODER_TYPE = "TYPE"
+PROPERTY_DEBOUNCE = "DEBOUNCE"
+
+
+#
+# XML
+#
+XML_ROOT = "root"
+XML_DISTANCE = "distance"
 
