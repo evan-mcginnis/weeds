@@ -12,7 +12,21 @@ from mpl_toolkits import mplot3d
 
 from ImageManipulation import ImageManipulation
 
+#
+# If the CUDA libraries cannot be imported, disable GPU support
+# Nano vs PC, usually
+#
+try:
+    import pycuda.autoinit
+    from pycuda.compiler import SourceModule
 
+    import pycuda.gpuarray as gpuarray
+    import pycuda.driver as cuda
+    import pycuda.autoinit
+    # TODO: Make this a command line optiopn
+    GPU_ENABLED = False
+except ImportError:
+    GPU_ENABLED = False
 
 
 class VegetationIndex:
@@ -21,6 +35,9 @@ class VegetationIndex:
     """
     def __init__(self):
         self.initialized = False
+        # Control if the GPU is used or not
+        self._gpuSupported = GPU_ENABLED
+
         self.images = []
         self.redBand = np.empty([0,0], dtype=np.uint8)
         self.greenBand = np.empty([0,0], dtype=np.uint8)
@@ -33,6 +50,7 @@ class VegetationIndex:
         self.mask = np.empty([0,0])
 
         self.HSV_COLOR_THRESHOLD = 20
+
 
         # Band positions for openCV (BGR)
         self.CV_BLUE = 0
@@ -96,6 +114,9 @@ class VegetationIndex:
                              self.ALG_TGI     : {"description": "TGI", "create": self.TGI, "threshold": thresholds["TGI"]},
                              self.ALG_RGD     : {"description": "Red Green Dots", "create": self.redGreenDots, "threshold": 0}}
 
+    @property
+    def gpuSupported(self) -> bool:
+        return self._gpuSupported
 
     def Index(self, name: str)-> np.ndarray:
         """
@@ -159,10 +180,28 @@ class VegetationIndex:
         finalImage = cv.normalize(image,  normalized, 0, 255, cv.NORM_MINMAX)
         self.img = finalImage
 
+        self.imgNP: np.ndarray
         self.imgNP = np.array(self.img).astype(dtype=np.int16)
-        self.redBand = self.imgNP[:, :, self.CV_RED]
-        self.greenBand = self.imgNP[:, :, self.CV_GREEN]
-        self.blueBand = self.imgNP[:, :, self.CV_BLUE]
+
+        # If we want to compute the index on the GPU, copy the bands to it
+        # The computation routines do not require changes if they are called the same thing.
+        if self.gpuSupported:
+            print("Using GPU")
+            self.gpuRedBand = cuda.mem_alloc(self.imgNP[:,:,self.CV_RED].nbytes)
+            cuda.memcpy_htod(self.gpuRedBand, self.imgNP[:,:,self.CV_RED])
+            self.gpuGreenBand = cuda.mem_alloc(self.imgNP[:,:,self.CV_GREEN].nbytes)
+            cuda.memcpy_htod(self.gpuGreenBand, self.imgNP[:,:,self.CV_GREEN])
+            self.gpuBlueBand = cuda.mem_alloc(self.imgNP[:,:,self.CV_BLUE].nbytes)
+            cuda.memcpy_htod(self.gpuBlueBand, self.imgNP[:,:,self.CV_BLUE])
+
+            # Shortcut way
+            self.redBand = gpuarray.to_gpu(self.imgNP[:, :, self.CV_RED])
+            self.greenBand = gpuarray.to_gpu(self.imgNP[:, :, self.CV_GREEN])
+            self.blueBand = gpuarray.to_gpu(self.imgNP[:, :, self.CV_BLUE])
+        else:
+            self.redBand = self.imgNP[:, :, self.CV_RED]
+            self.greenBand = self.imgNP[:, :, self.CV_GREEN]
+            self.blueBand = self.imgNP[:, :, self.CV_BLUE]
 
     def Load(self, location: str):
         # TODO: Make this work for URLs
@@ -174,10 +213,38 @@ class VegetationIndex:
 
         self.img = cv.imread(location,cv.IMREAD_COLOR)
 
+        # Original
+        # self.imgNP = np.array(self.img).astype(dtype=np.int16)
+        # self.redBand = self.imgNP[:, :, self.CV_RED]
+        # self.greenBand = self.imgNP[:, :, self.CV_GREEN]
+        # self.blueBand = self.imgNP[:, :, self.CV_BLUE]
+
+        # If we want to compute the index on the GPU, copy the bands to it
+        # The computation routines do not require changes if they are called the same thing.
+        self.imgNP = np.ndarray
         self.imgNP = np.array(self.img).astype(dtype=np.int16)
-        self.redBand = self.imgNP[:, :, self.CV_RED]
-        self.greenBand = self.imgNP[:, :, self.CV_GREEN]
-        self.blueBand = self.imgNP[:, :, self.CV_BLUE]
+        if self.gpuSupported:
+            print("Using GPU")
+            # Allocate the memory on the GPU
+            self.gpuRedBand = cuda.mem_alloc(self.imgNP[:,:,self.CV_RED].nbytes)
+            # Copy the numpy array to its counterpart on the GPU.
+            # This needs to be a contiguous array to work properly
+            cuda.memcpy_htod(self.gpuRedBand, np.ascontiguousarray(self.imgNP[:,:,self.CV_RED]))
+            # Repeat this for the other two bands
+            self.gpuGreenBand = cuda.mem_alloc(self.imgNP[:,:,self.CV_GREEN].nbytes)
+            cuda.memcpy_htod(self.gpuGreenBand, np.ascontiguousarray(self.imgNP[:,:,self.CV_GREEN]))
+            self.gpuBlueBand = cuda.mem_alloc(self.imgNP[:,:,self.CV_BLUE].nbytes)
+            cuda.memcpy_htod(self.gpuBlueBand, np.ascontiguousarray(self.imgNP[:,:,self.CV_BLUE]))
+
+            # Shortcut way
+            # self.redBand = gpuarray.to_gpu(self.imgNP[:, :, self.CV_RED])
+            # self.greenBand = gpuarray.to_gpu(self.imgNP[:, :, self.CV_GREEN])
+            # self.blueBand = gpuarray.to_gpu(self.imgNP[:, :, self.CV_BLUE])
+            print("Transferred to GPU")
+        else:
+            self.redBand = self.imgNP[:, :, self.CV_RED]
+            self.greenBand = self.imgNP[:, :, self.CV_GREEN]
+            self.blueBand = self.imgNP[:, :, self.CV_BLUE]
 
         self.images.append(self.img)
 
@@ -372,7 +439,21 @@ class VegetationIndex:
         :return:
         The index as a numpy array
         """
-        cive = 0.441*self.redBand - 0.811*self.greenBand + 0.385*self.blueBand + 18.78745
+        if self.gpuSupported:
+            print("Computing CIVE with GPU")
+            module = SourceModule("""
+                __global__ void cive(float *index, float *red, float *green, float *blue){
+                    int idx = blockIdx.x * blockDim.x * threadIdx.x;
+                    index[idx] = red[idx]*0.441 - 0.881*green[idx] + 0.385*blue[idx] + 18.78745;
+                }
+            """)
+            gpuIndex = cuda.mem_alloc(self.imgNP[:,:,self.CV_RED].nbytes)
+            function = module.get_function("cive")
+            function(gpuIndex, self.gpuRedBand, self.gpuGreenBand, self.gpuBlueBand, block=self.greenBand.shape, grid=(1,1,1))
+            cive = np.empty_like(self.greenBand)
+            cuda.memcpy_dtoh(cive, gpuIndex)
+        else:
+            cive = 0.441*self.redBand - 0.811*self.greenBand + 0.385*self.blueBand + 18.78745
 
         return cive
 
@@ -620,8 +701,8 @@ if __name__ == "__main__":
 
     # Debug the implementations:
     indices = {
-        "Normalized Difference": {"short": "NDI", "create": utility.NDI, "negate": True, "threshold": threholds["NDI"],
-                                  "direction": 1},
+        "Color Index of Vegetation Extraction": {"short": "CIVE", "create": utility.CIVE, "negate": True,
+                                             "threshold": threholds["CIVE"], "direction": 1},
     }
 
 
@@ -664,7 +745,9 @@ if __name__ == "__main__":
         # Determing threshold from image
         #utility.MaskFromIndex(vegIndex)
         utility.applyMask()
-        image = utility.GetMaskedImage()
+        # This is the slow call
+        #image = veg.GetMaskedImage()
+        image = utility.GetImage()
 
         indexData["masked"] = image
 
