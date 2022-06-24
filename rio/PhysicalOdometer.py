@@ -14,12 +14,14 @@ import nidaqmx.constants
 # Needs YAML on RIO platform
 #import yaml
 
+import constants
 from Odometer import Odometer
 from abc import ABC, abstractmethod
 from typing import Callable
 import logging
 from time import sleep
-from datetime import datetime, time
+from datetime import datetime
+import time
 #from collections import deque
 import queue
 
@@ -158,6 +160,7 @@ class PhysicalOdometer(Odometer):
         """
         diagnosticResult = False
         diagnosticText = "Diagnostics not implemented"
+        self.log.debug("Odometer diaganostics")
         # TODO: Complete diagnostics
         # Check to see if the 9411 has incoming power
 
@@ -169,31 +172,31 @@ class PhysicalOdometer(Odometer):
         self._callback = callback
 
 
-    def startUsingAngularEncoder(self):
+    def start(self):
         """
         Treat the encoder as an angular encoder, putting new readings on the change queue
         """
         global running
         total = 0.0
         self.log.debug("Begin rotation detection using Angular Encoding")
-        task = ni.Task(new_task_name="readCtr0")
+        task = ni.Task(new_task_name=constants.RIO_TASK_NAME)
         #channelA = task.ci_channels.add_ci_ang_encoder_chan(counter = 'Mod3/ctr0', decoding_type = EncoderType.X_1, zidx_enable=True, units=AngleUnits.DEGREES, pulses_per_rev=1000, initial_angle=0.0)
 
         # Add the channel as an angular encoder without Z index support, as we really don't care about the number of rotations
         channelA = task.ci_channels.add_ci_ang_encoder_chan(counter = 'Mod3/ctr0', decoding_type = EncoderType.X_1, zidx_enable=False, zidx_val=0, units=AngleUnits.DEGREES, pulses_per_rev=self.encoderClicksPerRevolution, initial_angle=0.0)
 
 
-        channelA.ci_encoder_a_input_dig_fltr_min_pulse_width = 0.001
+        channelA.ci_encoder_a_input_dig_fltr_min_pulse_width = 0.0001
         channelA.ci_encoder_a_input_dig_fltr_enable = True
         channelA.ci_encoder_a_input_term = 'PFI0'
-        channelA.ci_encoder_b_input_dig_fltr_min_pulse_width = 0.001
+        channelA.ci_encoder_b_input_dig_fltr_min_pulse_width = 0.0001
         channelA.ci_encoder_b_input_dig_fltr_enable = True
         channelA.ci_encoder_b_input_term = 'PFI1'
-        channelA.ci_encoder_z_input_dig_fltr_min_pulse_width = 0.001
+        channelA.ci_encoder_z_input_dig_fltr_min_pulse_width = 0.0001
         channelA.ci_encoder_z_input_dig_fltr_enable = True
         channelA.ci_encoder_z_input_term = 'PFI2'
 
-        #task.timing.samp_clk_overrun_behavior = nidaqmx.constants.OverflowBehavior.TOP_TASK_AND_ERROR
+        task.timing.samp_clk_overrun_behavior = nidaqmx.constants.OverflowBehavior.TOP_TASK_AND_ERROR
 
         task.start()
         previous = 0.0
@@ -324,6 +327,8 @@ if __name__ == "__main__":
         input("Return to stop")
         running = False
 
+    def nanoseconds() -> int:
+        return time.time_ns()
 
     def serviceQueue(odometer : PhysicalOdometer):
         """
@@ -338,6 +343,7 @@ if __name__ == "__main__":
         totalDistanceTraveled = 0.0
         servicing = True
 
+        starttime = nanoseconds()
         # Loop until graceful exit.
         i = 0
         while servicing:
@@ -345,7 +351,14 @@ if __name__ == "__main__":
             distanceTraveled = (angle - previous) * odometer.distancePerDegree
             totalDistanceTraveled += distanceTraveled
             previous = angle
-            print("{:.4f} mm Total: {:.4f}".format(distanceTraveled, totalDistanceTraveled))
+
+            # This is not really correct, as it computes elapsed time as it is fetched from the queue, not when
+            # the observation was made.  Good enough for now.
+            stoptime = nanoseconds()
+            elapsed = stoptime - starttime
+            starttime = nanoseconds()
+
+            print("{:.4f} mm Total: {:.4f} Speed {}".format(distanceTraveled, totalDistanceTraveled, elapsed))
             i += 1
             # Determine if the wheel has undergone one rotation
             if i % odometer.encoderClicksPerRevolution == 0:
@@ -390,12 +403,12 @@ if __name__ == "__main__":
 
         if len(lineA) == 0:
             try:
-                lineA = options.option(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_LINE_A)
+                lineA = options.option(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_PFI_A)
             except KeyError:
                 print("Line A must be specified on command line option or in the INI file.")
         if len(lineB) == 0:
             try:
-                lineB = options.option(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_LINE_B)
+                lineB = options.option(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_PFI_B)
             except KeyError:
                 print("Line B must be specified on command line option or in the INI file.")
 
@@ -447,7 +460,7 @@ if __name__ == "__main__":
     odometer.connect()
     # The start routines never return - this is executed in the main thread
     #odometer.startUsingChangeDetection()
-    odometer.startUsingAngularEncoder()
+    odometer.start()
     #odometer.startEdgeCount()
 
     sys.exit(0)

@@ -12,6 +12,8 @@ import numpy as np
 import os
 import cv2 as cv
 from abc import ABC, abstractmethod
+
+import pypylon.pylon
 import yaml
 
 import constants
@@ -284,6 +286,22 @@ class CameraBasler(Camera):
         if not self._connected:
             raise IOError("Camera is not connected.")
 
+        # TODO: Setup network parameters
+        # Inter-packet gap should be 5000
+        # This mess is an attempt to do this
+        # info = pylon.DeviceInfo(self._camera.GetDeviceInfo())
+        # # tlc = pylon.GigETransportLayer()
+        # tlc = self._camera.GetTLNodeMap()
+        # #
+        # properties = info.GetPropertyNames()
+        #
+        # # This lets me know the option is there:
+        # if info.GetPropertyAvailable("IpConfigOptions"):
+        #     ipOptions = info.GetIpConfigOptions()
+        # tl = pylon.TransportLayer(self._camera.TransportLayer)
+        # tlInfo = tl.GetTlInfo()
+
+        self.log.debug("Camera initialized")
         return
 
     def start(self):
@@ -304,6 +322,7 @@ class CameraBasler(Camera):
         self.log.debug("Started grabbing images")
         # Fetch the images from the camera and store the results in a buffer
         if self._strategy == constants.STRATEGY_ASYNC:
+            self.log.debug("Asynchronous capture")
             self._capturing = True
             while self._capturing:
                 timestamped = self._grab()
@@ -397,11 +416,14 @@ class CameraBasler(Camera):
         Grab the image from the camera
         :return: ProcessedImage
         """
-        grabResult = self._camera.RetrieveResult(constants.TIMEOUT_CAMERA, pylon.TimeoutHandling_ThrowException)
-        if grabResult.GrabSucceeded():
+
+        grabResult = pypylon.pylon.GrabResult(self._camera.RetrieveResult(constants.TIMEOUT_CAMERA, pylon.TimeoutHandling_ThrowException))
+        # If the camera is close while we are capturing, this may be null.
+        # TODO: More elegant way of doing this
+        if grabResult and grabResult.GrabSucceeded():
             self.log.debug("Image grab succeeded at timestamp " + str(grabResult.TimeStamp))
         else:
-            raise IOError("There was an error encountered communicating with the camera")
+            raise IOError("Failed to grab image. Pylon error code: {}".format(grabResult.GetErrorCode()))
 
         image = self._converter.Convert(grabResult)
         img = image.GetArray()
@@ -439,7 +461,7 @@ if __name__ == "__main__":
                 camera.initialize()
                 camera.start()
             except IOError as io:
-                camera.log.error("Failed to open the camera")
+                camera.log.error(io)
             rc = 0
         else:
             rc = -1
@@ -466,7 +488,7 @@ if __name__ == "__main__":
     # Parse the options file
     options = OptionsFile(arguments.options)
     if not options.load():
-        print("Erron encountered with option load for: {}".format(arguments.options))
+        print("Error encountered with option load for: {}".format(arguments.options))
         sys.exit(1)
 
     cameraIP = options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_CAMERA_IP)
@@ -489,14 +511,14 @@ if __name__ == "__main__":
         performance.start()
         img = camera.capture()
         performance.stopAndRecord(constants.PERF_ACQUIRE)
-        cv.imwrite("sample.jpg", img)
+        cv.imwrite(arguments.single, img)
     except IOError as io:
         camera.log.error("Failed to capture image: {0}".format(io))
     rc = 0
 
     # Stop the camera, and this should stop the thread as well
 
-    camera.stop()
+    camera.disconnect()
 
     sys.exit(rc)
 

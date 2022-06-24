@@ -20,7 +20,17 @@ fi
 
 source ~weeds/.bashrc
 
+# install required libraries
 pip install numpy
 pip install nidaqmx
+
+# Just a placeholder for now -- the xmpp library is in the python-packages
+# directory.  This line will not work as written
+uncompress xmpppy-0.7.1.tar.gz
+tar xf xmppy-0.7.1.tar
+
+python -m pip install ./xmpppy-0.7.1
+
+
 exit $? 
 

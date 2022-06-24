@@ -13,12 +13,15 @@ ifeq ($(OS),Darwin)
 	PYTHON = python3
 endif
 
-# This file should exist on a jetson.
+# This file should exist on a controller.
 # If we don't have that bit before the python command, you get a coredump when you import
 
-ifeq (,$(wildcard /sys/module/tegra_fuse/parameters/tegra_chip_id))
-	PYTHON = OPENBLAS_CORETYPE=ARMv8 python3
-endif
+# This doesn't detect if the platform is a jetson.
+# If the nvidia toolkit is installed on a windows system, you see
+# this file
+#ifeq (,$(wildcard /sys/module/tegra_fuse/parameters/tegra_chip_id))
+#	PYTHON = OPENBLAS_CORETYPE=ARMv8 python3
+#endif
 
 PYLINT=pylint
 
@@ -41,6 +44,10 @@ ML?=lr
 INDEX?=ndi
 # Parameter Selection
 PARAMETERS?=all-parameters.csv
+# Thresholds
+THRESHOLDS?="(130,0)"
+# Contours
+CONTOURS?=-c
 
 # Clean this up a bit, reducing the ML algorithm to one parameter
 ALGFLAG=-k
@@ -60,15 +67,18 @@ endif
 ifeq ($(ML), decision)
 	ALGFLAG = -dt
 endif
+ifeq ($(ML), svm)
+	ALGFLAG = -svm
+endif
 
 # Indicate that the system should produce treatment plans as an image
 TREATMENT?=-sp
 
 weeds:
-	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a $(INDEX) -t "(130,0)" -df $(TRAINING) $(ALGFLAG) -sc -v -lg $(LOG) -se $(PARAMETERS)
+	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a $(INDEX) -t $(THRESHOLDS) -df $(TRAINING) $(ALGFLAG) -sc -v -lg $(LOG) -se $(PARAMETERS) -d $(DECORATIONS) $(CONTOURS)
 
 treatment:
-	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a $(INDEX) -t "(130,0)" -df $(TRAINING) $(ALGFLAG) -sc -v -lg $(LOG) $(TREATMENT) -d location
+	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a $(INDEX) -t $(THRESHOLDS) -df $(TRAINING) $(ALGFLAG) -sc -v -lg $(LOG) -se $(PARAMETERS) $(TREATMENT) -d location
 
 # Clean up various files
 clean:
@@ -77,8 +87,102 @@ clean:
 lint:
 	$(PYLINT) weeds.py
 
+# This should be run only on an ubuntu distribution
+OPENSSL = openssl
+GENRSA = genrsa
+SERVERKEY = server.key
+PASS = weeds
+CSR = server.csr
+CERT = server.crt
+
+# Certificate authority stuff
+SSLHOME = /etc/ssl
+CA = CA
+CAHOME = $(SSLHOME)/$(CA)
+CAKEYS = $(CAHOME)/private
+CACERTS = $(CAHOME)
+NEWCERTS = newcerts
+NEWCERTSHOME = $(SSLHOME)/$(CA)/$(NEWCERTS)
+CASERIAL = $(CAHOME)/serial
+CAINDEX = $(CAHOME)/index.txt
+CAROOTCERT = cacert.pem
+CAROOTKEY = cakey.pem
+
+# Tested with this in openssl.cnf
+#[ CA_default ]
+#
+#dir             = ./CA                  # Where everything is kept
+#certs           = $dir/certs            # Where the issued certs are kept
+#crl_dir         = $dir/crl              # Where the issued crl are kept
+#database        = $dir/index.txt        # database index file.
+##unique_subject = no                    # Set to 'no' to allow creation of
+#                                        # several certs with same subject.
+#new_certs_dir   = $dir/newcerts         # default place for new certs.
+#
+#certificate     = $dir/cacert.pem       # The CA certificate
+#serial          = $dir/serial           # The current serial number
+#crlnumber       = $dir/crlnumber        # the current crl number
+#                                        # must be commented out to leave a V1 CRL
+#crl             = $dir/crl.pem          # The current CRL
+#private_key     = $dir/private/cakey.pem# The private key
+
+
+
+$(CAHOME):
+	mkdir $(CAHOME)
+
+$(NEWCERTSHOME):
+	mkdir $(NEWCERTSHOME)
+
+$(CAKEYS):
+	mkdir $(CAKEYS)
+
+#$(CACERTS):
+#	mkdir $(CACERTS)
+
+$(CASERIAL): $(CAHOME)
+	sh -c "echo '01' > /etc/ssl/CA/serial"
+
+$(CAINDEX): $(CAHOME)
+	touch $(CAINDEX)
+
+$(CAKEYS)/$(CAROOTKEY):
+	$(OPENSSL) req -new -x509 -extensions v3_ca -keyout $(CAROOTKEY) -out $(CAROOTCERT) -days 3650 -subj "/C=US/ST=Arizona/L=Tucson/O=University of Arizona/CN=FoobarCA"
+	mv $(CAROOTKEY) $(CAKEYS)
+	mv $(CAROOTCERT) $(CACERTS)
+
+CA: $(CAHOME) $(NEWCERTSHOME) $(CASERIAL) $(CAINDEX) $(CACERTS) $(CAKEYS) $(CAKEYS)/$(CAROOTKEY)
+	echo "Certificate authority is " $(CAHOME)
+
+# Certificate items
+
+$(SERVERKEY):
+	$(OPENSSL) genrsa -des3 -out $(SERVERKEY) -passout pass:$(PASS) 2048
+	$(OPENSSL) rsa -check -in $(SERVERKEY) -passin pass:$(PASS)
+
+$(SERVERKEY).insecure: $(SERVERKEY)
+	$(OPENSSL) rsa -in $(SERVERKEY) -out $(SERVERKEY).insecure
+	mv $(SERVERKEY) $(SERVERKEY).secure
+	mv $(SERVERKEY).insecure $(SERVERKEY)
+
+$(CSR):
+	$(OPENSSL) req -new -key $(SERVERKEY) -out $(CSR)
+
+$(CERT): $(CSR)
+	$(OPENSSL) x509 -req -days 365 -in $(CSR) -signkey $(SERVERKEY) -out $(CERT)
+
+certs: $(SERVERKEY) $(SERVERKEY).insecure $(CSR) $(CERT)
+	echo "Certificates complete. "
+
+signed:
+	cd $(SSLHOME); $(OPENSSL) ca -in $(CSR) -config $(SSLHOME)/openssl.cnf
+	echo "Install this with 1) copy crt to /usr/local/share/ca-cerficates 2) update-ca-certificates"
+
 hsv:
 	$(PYTHON) view-hsv.py -i $(OUTPUT)/original-11.jpg
+
+test-capture:
+	$(PYTHON) CameraFile.py -s sample.jpg -o options.ini -a -l debug-logging.yaml
 
 # L A T E X
 thesis:

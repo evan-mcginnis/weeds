@@ -17,6 +17,8 @@ getent passwd $username > /dev/null
 if [ $? -gt 0 ] ; then
   pass=$(perl -e 'print crypt($password, "password")' $password)
   useradd -m -p "$pass" -s "$shell" "$username"
+  # Todo -- this probably does not work.  Needs testing
+  echo "PYTHONPATH=~/lib" >> ~$username/.bashrc
 else
   echo "User exists. No action taken"
 fi

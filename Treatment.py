@@ -149,22 +149,52 @@ class Treatment:
                                " " + str(self._gridToUpperLeftCoordinates((gridRow, gridColumn))))
                 #self._treatmentGrid[gridRow][gridColumn] = center
                 #self._treatmentGrid[gridRow][gridColumn] = center
-                cv.rectangle(self._image,
-                             (gridColumn * self._gridSize, self._maxRows - (gridRow * self._gridSize)),
-                             ((gridColumn * self._gridSize) + self._gridSize, (self._maxRows - (gridRow * self._gridSize)) + self._gridSize),
-                             constants.COLOR_TREATMENT_WEED,
-                            4)
+                # This is the retangle around the classified item
+                # cv.rectangle(self._image,
+                #              (gridColumn * self._gridSize, self._maxRows - (gridRow * self._gridSize)),
+                #              ((gridColumn * self._gridSize) + self._gridSize, (self._maxRows - (gridRow * self._gridSize)) + self._gridSize),
+                #              constants.COLOR_TREATMENT_WEED,
+                #             4)
                 # Find all the cells within the bounding box of the undesirable vegetation
                 for i in range(x,x+w, self._gridSize):
+                    sprayerIsOn = False
                     for j in range(y, y+h, self._gridSize):
                         (gridRow, gridColumn) = self._gridNumber((i, j))
                         #print("Mark to be treated: " + str(gridNumber))
                         if self._hasVegetationInGrid((gridRow, gridColumn)):
-                            cv.rectangle(self._image,
-                                         (gridColumn * self._gridSize, self._maxRows - (gridRow * self._gridSize)),
-                                         ((gridColumn * self._gridSize) + self._gridSize, (self._maxRows - (gridRow * self._gridSize)) + self._gridSize),
-                                         constants.COLOR_TREATMENT_WEED,
-                                        4)
+                            # Determine if the sprayer is already on.   If the previous cell is a weed, the sprayer is on.
+                            sprayerIsOn = (gridColumn > 1 and self._treatmentGrid[gridRow][gridColumn - 1] == constants.TYPE_UNDESIRED)
+
+# Begin sprayer on approach
+                            if not sprayerIsOn:
+                                cv.line(self._image,
+                                        ((gridColumn * self._gridSize), (self._maxRows - (gridRow  * self._gridSize))),
+                                        ((gridColumn * self._gridSize), (self._maxRows - ((gridRow - 1) * self._gridSize))),
+                                        constants.COLOR_TREATMENT_SPRAYER_ON,
+                                        constants.SIZE_TREATMENT_LINE,
+                                        cv.LINE_AA)
+                                cv.line(self._image,
+                                        (((gridColumn + 1) * (self._gridSize)), (self._maxRows - (gridRow  * self._gridSize))),
+                                        (((gridColumn + 1) * (self._gridSize)), (self._maxRows - ((gridRow - 1) * self._gridSize))),
+                                        constants.COLOR_TREATMENT_SPRAYER_OFF,
+                                        constants.SIZE_TREATMENT_LINE,
+                                        cv.LINE_AA)
+                        elif sprayerIsOn:
+                            # Turn off the sprayer
+                            cv.line(self._image,
+                                    ((gridColumn * self._gridSize), (self._maxRows - (gridRow * self._gridSize))),
+                                    ((gridColumn * self._gridSize), (self._maxRows - ((gridRow - 1) * self._gridSize))),
+                                    constants.COLOR_TREATMENT_GRID,
+                                    constants.SIZE_TREATMENT_LINE,
+                                    cv.LINE_AA)
+                            sprayerIsOn = False
+# End sprayer on approach
+                            # Bounding box
+                            # cv.rectangle(self._image,
+                            #              (gridColumn * self._gridSize, self._maxRows - (gridRow * self._gridSize)),
+                            #              ((gridColumn * self._gridSize) + self._gridSize, (self._maxRows - (gridRow * self._gridSize)) + self._gridSize),
+                            #              constants.COLOR_TREATMENT_WEED,
+                            #             4)
                             self._treatmentGrid[gridRow][gridColumn] = constants.TYPE_UNDESIRED
 
         return self._treatmentGrid

@@ -32,6 +32,10 @@ class Odometer(ABC):
     def registerCallback(self,callback):
         raise NotImplementedError()
 
+    @abstractmethod
+    def start(self):
+        raise NotImplementedError()
+
 
 class VirtualOdometer(Odometer):
     def __init__(self, speed: int, processor: Callable):

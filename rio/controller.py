@@ -112,14 +112,23 @@ def process(msg):
     print("Process {}".format(messageNumber))
     messageNumber += 1
 
-def startupCommunications():
+def startupCommunications(options: OptionsFile):
 
-    odometryRoom = MUCCommunicator(constants.JID_RIO,
-                                   constants.NICK_ODOMETRY,
-                                   constants.DEFAULT_PASSWORD,
-                                   constants.ROOM_ODOMETRY,
+    # The room that will get the announcements about forward or backward progress
+    odometryRoom = MUCCommunicator(options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_JID_RIO),
+                                   options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_ODOMETRY),
+                                   options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_DEFAULT_PASSWORD),
+                                   options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_ODOMETRY),
                                    process)
-    return odometryRoom
+
+    # The room that will get status reports about this process
+    systemRoom = MUCCommunicator(options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_JID_RIO),
+                                 options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_ODOMETRY),
+                                 options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_DEFAULT_PASSWORD),
+                                 options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_SYSTEM),
+                                 process)
+
+    return (odometryRoom, systemRoom)
 
 #
 # O D O M E T R Y
@@ -200,13 +209,14 @@ def reportProgress():
 def nanoseconds() -> int:
     return time.time_ns()
 
-def serviceQueue(odometer : PhysicalOdometer, odometryRoom: MUCCommunicator):
+def serviceQueue(odometer : PhysicalOdometer, odometryRoom: MUCCommunicator, announcements: int):
     """
     Service the queue of readings from line. This routine will not return.
     This will send a message to the odometry room indicating forward movement
     Backwards movement is handled by this logic, but no indication of that is sent to the room
     :param odometer: The odometer object with the queue
     :param odometryRoom: The MUC room
+    :param announcements: Send announcements when this distance is covered (mm)
     """
     changeQueue = odometer.changeQueue
 
@@ -236,29 +246,25 @@ def serviceQueue(odometer : PhysicalOdometer, odometryRoom: MUCCommunicator):
 
         log.debug("{:.4f} mm Total: {:.4f} Elapsed time {} ns".format(distanceTraveled, totalDistanceTraveled, elapsed))
 
-        # Send out a message every cm
-        # TODO: Make this precision configurable
+        # Send out a message every time the system traverses the distance specified
+
         distanceTraveledSinceLastMessage += distanceTraveled
-        if distanceTraveledSinceLastMessage >= 1.0:
+        if distanceTraveledSinceLastMessage >= announcements:
             message = OdometryMessage()
-            message.distance = 1
+            message.distance = announcements
             messageText = message.formMessage()
             log.debug("Sending: {}".format(messageText))
             odometryRoom.sendMessage(messageText)
-            #odometryRoom.sendMessage("+1cm")
             distanceTraveledSinceLastMessage = 0.0
-        if distanceTraveledSinceLastMessage <= -1.0:
+        if distanceTraveledSinceLastMessage <= -announcements:
             message = OdometryMessage()
-            message.distance = -1
+            message.distance = -announcements
             messageText = message.formMessage()
             log.debug("Sending: {}".format(messageText))
             odometryRoom.sendMessage(messageText)
             distanceTraveledSinceLastMessage = 0.0
 
         i += 1
-        # Determine if the wheel has undergone one rotation
-        # if i % odometer.encoderClicksPerRevolution == 0:
-        #     print("--- One revolution complete ---")
 
 
 #log.setLevel(logging.INFO)
@@ -280,13 +286,19 @@ system, emitter = startupSystem()
 odometer = startupOdometer(emitter.applyTreatment)
 
 # Startup communication to the MUC
-odometryRoom = startupCommunications()
+(odometryRoom, systemRoom) = startupCommunications(options)
 
 generator = threading.Thread(target=processMessages(odometryRoom))
 generator.start()
 
 # Start a thread to service the readings queue
-service = threading.Thread(target=serviceQueue, args=(odometer,odometryRoom,))
+try:
+    announcementInterval = int(options.option(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_ANNOUNCEMENTS))
+except KeyError as key:
+    log.error("INI file must contain [{}] {}".format(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_ANNOUNCEMENTS))
+    sys.exit(1)
+
+service = threading.Thread(target=serviceQueue, args=(odometer,odometryRoom,announcementInterval))
 service.start()
 
 

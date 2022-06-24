@@ -111,5 +111,10 @@ sudo pip3 install pypylon
 #
 sudo pip3 install pycuda
 
+#
+# S L I X M P P
+#
+sudo pip3 install slixmpp
+sudo pip3 install xmpppy
 
 
