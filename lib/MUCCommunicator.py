@@ -40,9 +40,18 @@ class MUCCommunicator():
         self._password = jidPassword
         self._muc = muc
         self._client = None
-        self._callback = None
+        self._callback = processor
         self._connection = None
         self._connected = False
+        self._log = logging.getLogger(__name__)
+
+    @property
+    def callback(self):
+        return self._callback
+
+    @callback.setter
+    def callback(self, callback: Callable):
+        self._callback = callback
 
     def diagnostics(self) -> ():
         """
@@ -71,12 +80,12 @@ class MUCCommunicator():
                 body = msg.getBody()
                 # Check if this is a real message and not just an empty keep-alive message
                 if body is not None:
-                    print("From: {} Message [{}]".format(msg.getFrom(), msg.getBody()))
+                    self.log.debug("From: {} Message [{}]".format(msg.getFrom(), msg.getBody()))
                 else:
-                    print("Keepalive message from chatroom")
+                    self.log.debug("Keepalive message from chatroom")
                 #self.sendMessage("Response")
         if msg.getType() == "chat":
-                print("private: " + str(msg.getFrom()) +  ":" +str(msg.getBody()))
+                self.log.error("Unexpected private message: " + str(msg.getFrom()) +  ":" +str(msg.getBody()))
 
     # This looks a bit awkward, but is here just so a keyboard ctrl-c will interrupt things
 
@@ -91,11 +100,15 @@ class MUCCommunicator():
             conn.Process(constants.PROCESS_TIMEOUT)
 
             # Check to see if the client is still connected to server
-            if conn.isConnected():
-                print("Still connected")
-            else:
-                print("--- Disconnected ---")
+            if not conn.isConnected():
+                self.log.info("Disconnected from chatroom")
                 return 0
+
+            # if conn.isConnected():
+            #     print("Still connected")
+            # else:
+            #     print("--- Disconnected ---")
+            #     return 0
         except KeyboardInterrupt:
                 return 0
         return 1
@@ -115,7 +128,8 @@ class MUCCommunicator():
         # Preparare the connection (xxx@conference.weeds.com -> weeds.com
         self._connection = xmpp.Client(self._client.getDomain(), debug=[])
 
-        self._connection.connect()
+        # TODO: This is wrong -- the code should lookup the host based on the SRV record to get both the hostname and port number
+        self._connection.connect(server=('jetson.weeds.com', 5222))
 
         self._connection.auth(self._client.getNode(),self._password)
 
@@ -127,7 +141,7 @@ class MUCCommunicator():
         else:
             self._connection.RegisterHandler('message', self.messageCB)
 
-
+        self._log.debug("Sending presence {}/{}".format(self._muc, self._nickname))
         self._connection.send(xmpp.Presence(to="{}/{}".format(self._muc,self._nickname)))
         self._connected = True
 
@@ -136,10 +150,10 @@ class MUCCommunicator():
         time.sleep(5)
 
         if process:
-            self.sendMessage("{} beginning to process messages".format(self._nickname))
+            #self.sendMessage("{} beginning to process messages".format(self._nickname))
             self.GoOn(self._connection)
             # This won't be executed until the processing loop has a keyboard interrupt
-            self.sendMessage("{} stopping message processing".format(self._nickname))
+            #self.sendMessage("{} stopping message processing".format(self._nickname))
         return
 
     def disconnect(self):
@@ -157,6 +171,7 @@ class MUCCommunicator():
         # Send the message if we are still connected
         if self._connected and self._connection.isConnected():
             stranza = "<message to='{0}' type='groupchat'><body>{1}</body></message>".format(self._muc, msg)
+            #print("Sending {}".format(stranza))
             id = self._connection.send(stranza)
         else:
             raise ConnectionError(constants.MSG_NOT_CONNECTED)

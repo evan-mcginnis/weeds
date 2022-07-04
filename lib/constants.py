@@ -6,6 +6,10 @@
 # This is just the text that will be placed on the visible treatment plan
 SPRAYER_NAME = ""
 
+THREAD_NAME_ODOMETRY = "odometry"
+THREAD_NAME_SYSTEM = "system"
+THREAD_NAME_ACQUIRE = "acquire"
+
 MSG_NOT_CONNECTED = "Not connected"
 MSG_LINES_NOT_SPECIFIED = "The A and B lines for the odometer must be on the command line or in the INI file"
 MSG_ODOMETER_CONNECTION = "Could not connect to odometer"
@@ -60,6 +64,7 @@ NAME_SOLIDITY               = "solidity"
 CONFERENCE_DNS              = "conference.weeds.com"
 ROOM_ODOMETRY               = "odometry" + "@" + CONFERENCE_DNS
 ROOM_TREATMENT              = "treatment" + "@" + CONFERENCE_DNS
+ROOM_SYSTEM                 = "system" + "@" + CONFERENCE_DNS
 
 
 # TODO: There are two Jetsons in the system. We need a scheme for controller-1@weeds.local and controller-2.weeds.local
@@ -217,9 +222,14 @@ PROPERTY_NICK_CONSOLE                = "NICK_CONSOLE"
 PROPERTY_MSG_TYPE_NORMAL             = "MSG_TYPE_NORMAL"
 PROPERTY_MSG_TYPE_GROUPCHAT          = "MSG_TYPE_GROUPCHAT"
 
+XMPP_PORT                            = 5222
+
 #
-# XML
+# J S O N  A N D  M E S S A G E S
 #
-XML_ROOT = "root"
-XML_DISTANCE = "distance"
+JSON_DATA     = "data"
+JSON_DISTANCE = "distance"
+JSON_TIME     = "timestamp"
+MSG_RAW       = "raw"
+
 
