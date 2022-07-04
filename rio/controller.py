@@ -252,13 +252,16 @@ def serviceQueue(odometer : PhysicalOdometer, odometryRoom: MUCCommunicator, ann
         if distanceTraveledSinceLastMessage >= announcements:
             message = OdometryMessage()
             message.distance = announcements
+            # Timestamp is the nanoseconds in the epoch
+            message.timestamp = time.time_ns()
             messageText = message.formMessage()
-            log.debug("Sending: {}".format(messageText))
+            log.debug("Sending: {}".format(message.formMessage()))
             odometryRoom.sendMessage(messageText)
             distanceTraveledSinceLastMessage = 0.0
         if distanceTraveledSinceLastMessage <= -announcements:
             message = OdometryMessage()
             message.distance = -announcements
+            message.timestamp = time.time_ns()
             messageText = message.formMessage()
             log.debug("Sending: {}".format(messageText))
             odometryRoom.sendMessage(messageText)
