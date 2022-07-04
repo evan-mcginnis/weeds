@@ -4,6 +4,8 @@
 
 import argparse
 import sys
+import threading
+import time
 from typing import Callable
 
 import numpy as np
@@ -14,16 +16,23 @@ import logging.config
 import yaml
 import os
 
-from CameraFile import CameraFile, CameraPhysical
+import xmpp
+#from xmpp import protocol
+
+from CameraFile import CameraFile, CameraBasler
 from VegetationIndex import VegetationIndex
 from ImageManipulation import ImageManipulation
 from Logger import Logger
 from Classifier import Classifier, LogisticRegressionClassifier, KNNClassifier, DecisionTree, RandomForest, GradientBoosting, SuppportVectorMachineClassifier
-from Odometer import Odometer, VirtualOdometer
+# The odometer is on the RIO
+#from Odometer import Odometer, VirtualOdometer
 from OptionsFile import OptionsFile
 from Performance import Performance
 from Reporting import Reporting
 from Treatment import Treatment
+from MUCCommunicator import MUCCommunicator
+from Messages import OdometryMessage
+
 #from Selection import Selection
 
 import constants
@@ -40,8 +49,6 @@ veg = VegetationIndex()
 
 parser = argparse.ArgumentParser("Weed recognition system")
 
-parser.add_argument('-i', '--input', action="store", required=True, help="Images directory")
-parser.add_argument('-o', '--output', action="store", required=True, help="Output directory for processed images")
 parser.add_argument("-a", '--algorithm', action="store", help="Vegetation Index algorithm",
                     choices=veg.GetSupportedAlgorithms(),
                     default="ngrdi")
@@ -50,6 +57,8 @@ parser.add_argument("-d", "--decorations", action="store", type=str, default="al
 parser.add_argument("-df", "--data", action="store", help="Name of the data in CSV for use in logistic regression or KNN")
 parser.add_argument("-hg", "--histograms", action="store_true", default=False, help="Show histograms")
 parser.add_argument("-he", "--height", action="store_true", default=False, help="Consider height in scoring")
+parser.add_argument('-i', '--input', action="store", required=False, help="Images directory")
+parser.add_argument("-gr", "--grab", action="store_true", default=False, help="Just grab images. No processing")
 group = parser.add_mutually_exclusive_group()
 parser.add_argument('-ini', '--ini', action="store", required=False, default=constants.PROPERTY_FILENAME, help="Options INI")
 group.add_argument("-k", "--knn", action="store_true", default=False, help="Predict using KNN. Requires data file to be specified")
@@ -64,6 +73,7 @@ parser.add_argument("-m", "--mask", action="store_true", default=False, help="Ma
 parser.add_argument("-ma", "--minarea", action="store", default=500, type=int, help="Minimum area of a blob")
 parser.add_argument("-mr", "--minratio", action="store", default=5, type=int, help="Minimum size ratio for classifier")
 parser.add_argument("-n", "--nonegate", action="store_true", default=False, help="Negate image mask")
+parser.add_argument('-o', '--output', action="store", required=True, help="Output directory for processed images")
 parser.add_argument("-p", '--plot', action="store_true", help="Show 3D plot of index", default=False)
 parser.add_argument("-P", "--performance", action="store", type=str, default="performance.csv", help="Name of performance file")
 parser.add_argument("-r", "--results", action="store", default="results.csv", help="Name of results file")
@@ -78,6 +88,8 @@ parser.add_argument("-x", "--xtract", action="store_true", default=False, help="
 
 
 arguments = parser.parse_args()
+
+
 
 # The list of decorations on the output.
 # index
@@ -96,18 +108,19 @@ if (arguments.logistic or arguments.knn or arguments.tree or arguments.forest) a
 # C A M E R A
 #
 
-def startupCamera():
+def startupCamera(options: OptionsFile):
     if arguments.input is not None:
         # Get the images from a directory
         camera = CameraFile(directory=arguments.input)
     else:
         # Get the images from an actual camera
-        camera = CameraPhysical()
+        cameraIP = options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_CAMERA_IP)
+        camera = CameraBasler(ip=cameraIP)
     if not camera.connect():
         print("Unable to connect to camera.")
         sys.exit(1)
 
-    (w, h) = camera.getResolution()
+    #(w, h) = camera.getResolution()
 
     # Test the camera
     diagnosticResult, diagnosticText = camera.diagnostics()
@@ -120,26 +133,26 @@ def startupCamera():
 # O D O M E T E R
 #
 
-def startupOdometer(imageProcessor: Callable) -> Odometer:
-    """
-    Start up the odometry subsystem and run diagnostics
-    :param imageProcessor: The image processor executed at each interval
-    :return:
-    """
-    # For now, we have only a virtual odometer
-    odometer = VirtualOdometer(arguments.speed, arguments.image, imageProcessor)
-    if not odometer.connect():
-        print("Unable to connect to odometer.")
-        sys.exit(1)
-
-    # Run diagnostics on the odometer before we begin.
-    diagnosticResult, diagnosticText = odometer.diagnostics()
-
-    if not diagnosticResult:
-        print(diagnosticText)
-        sys.exit(1)
-
-    return odometer
+# def startupOdometer(imageProcessor: Callable) -> Odometer:
+#     """
+#     Start up the odometry subsystem and run diagnostics
+#     :param imageProcessor: The image processor executed at each interval
+#     :return:
+#     """
+#     # For now, we have only a virtual odometer
+#     odometer = VirtualOdometer(arguments.speed, arguments.image, imageProcessor)
+#     if not odometer.connect():
+#         print("Unable to connect to odometer.")
+#         sys.exit(1)
+#
+#     # Run diagnostics on the odometer before we begin.
+#     diagnosticResult, diagnosticText = odometer.diagnostics()
+#
+#     if not diagnosticResult:
+#         print(diagnosticText)
+#         sys.exit(1)
+#
+#     return odometer
 
 def startupPerformance() -> Performance:
     """
@@ -153,6 +166,43 @@ def startupPerformance() -> Performance:
         sys.exit(1)
     return performance
 
+#
+# X M P P   C O M M U N I C A T I O N S
+#
+# def process(conn,msg):# xmpp.protocol.Message):
+#     log.debug("Callback for distance")
+#     return
+
+def startupCommunications(options: OptionsFile, callbackOdometer: Callable, callbackSystem: Callable) -> ():
+    """
+
+    :param options:
+    :param callbackOdometer:
+    :param callbackSystem:
+    :return:
+    """
+    # print("Joining room with options {},{},{},{}".format(options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_JID_JETSON),
+    #     options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_JETSON),
+    #     options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_DEFAULT_PASSWORD),
+    #     options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_ODOMETRY)))
+
+    # The room that will get the announcements about forward or backward progress
+    odometryRoom = MUCCommunicator(options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_JID_JETSON),
+                                   options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_JETSON),
+                                   options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_DEFAULT_PASSWORD),
+                                   options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_ODOMETRY),
+                                   callbackOdometer)
+
+    # The room that will get status reports about this process
+    systemRoom = MUCCommunicator(options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_JID_JETSON),
+                                 options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_JETSON),
+                                 options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_DEFAULT_PASSWORD),
+                                 options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_SYSTEM),
+                                 callbackSystem)
+
+    #print("XMPP communications started")
+
+    return (odometryRoom, systemRoom)
 #
 # L O G G E R
 #
@@ -171,17 +221,22 @@ def startupLogger(outputDirectory: str) -> Logger:
         print("Unable to access logging configuration file {}".format(arguments.logging))
         sys.exit(1)
 
+
     # Initialize logging
-    with open(arguments.logging, "rt") as f:
-        config = yaml.safe_load(f.read())
-        logging.config.dictConfig(config)
-        #logger = logging.getLogger(__name__)
+    logging.config.fileConfig(arguments.logging)
+    log = logging.getLogger("jetson")
+
+    # This is a leftover from when we used yaml
+    # with open(arguments.logging, "rt") as f:
+    #     config = yaml.safe_load(f.read())
+    #     logging.config.dictConfig(config)
+    #     #logger = logging.getLogger(__name__)
 
     logger = Logger()
     if not logger.connect(outputDirectory):
         print("Unable to connect to logging. ./output does not exist.")
         sys.exit(1)
-    return logger
+    return (logger, log)
 
 def plot3D(index, title):
     yLen,xLen = index.shape
@@ -305,6 +360,20 @@ if arguments.contours:
 
 imageNumber = 0
 
+def storeImage() -> bool:
+    if arguments.verbose:
+        print("Processing image " + str(imageNumber))
+    log.info("Processing image " + str(imageNumber))
+    performance.start()
+    rawImage = camera.capture()
+    performance.stopAndRecord(constants.PERF_ACQUIRE)
+
+    # ImageManipulation.show("Source",image)
+    veg.SetImage(rawImage)
+
+    manipulated = ImageManipulation(rawImage, imageNumber, logger)
+    logger.logImage("original", manipulated.image)
+
 def processImage() -> bool:
     global imageNumber
     global sequence
@@ -323,6 +392,8 @@ def processImage() -> bool:
         veg.SetImage(rawImage)
 
         manipulated = ImageManipulation(rawImage, imageNumber, logger)
+        logger.logImage("original", manipulated.image)
+
         manipulated.mmPerPixel = mmPerPixel
         #ImageManipulation.show("Greyscale", manipulated.toGreyscale())
 
@@ -548,20 +619,138 @@ def processImage() -> bool:
     return True
 
 #
-# Start up various subsystems
+# Set up the processor for the image.
+#
+# This could be simplified a bit by having only one processing routine
+# and figuring out the intent there
+
+if arguments.grab:
+    # If all we want is just to take pictures
+    processor = storeImage
+else:
+    # This is the normal run state, where items in images are classified
+    processor = processImage
+
+totalMovement = 0
+keepAliveMessages = 0
+#
+# The callback for messages received in the system room.
+# When the total distance is the width of the image, grab an image and process it.
+#
+def messageSystemCB(conn,msg: xmpp.protocol.Message):
+    # Make sure this is a message sent to the room, not directly to us
+    if msg.getType() == "groupchat":
+            body = msg.getBody()
+            # Check if this is a real message and not just an empty keep-alive message
+            if body is not None:
+                log.debug("system message from {}: [{}]".format(msg.getFrom(), msg.getBody()))
+    elif msg.getType() == "chat":
+            print("private: " + str(msg.getFrom()) +  ":" +str(msg.getBody()))
+    else:
+        log.error("Unknown message type {}".format(msg.getType()))
+
+#
+# The callback for messages received in the odometry room.
+# When the total distance is the width of the image, grab an image and process it.
 #
 
-camera = startupCamera()
-odometer = startupOdometer(processImage)
-logger = startupLogger(arguments.output)
-log = logging.getLogger(__name__)
-performance = startupPerformance()
+def messageOdometryCB(conn, msg: xmpp.protocol.Message):
+    global totalMovement
+    global keepAliveMessages
+    # Make sure this is a message sent to the room, not directly to us
+    if msg.getType() == "groupchat":
+            body = msg.getBody()
+            # Check if this is a real message and not just an empty keep-alive message
+            if body is not None:
+                log.debug("Distance message from {}: [{}]".format(msg.getFrom(), msg.getBody()))
+                odometryMessage = OdometryMessage(raw=body)
+                totalMovement += odometryMessage.distance
+                log.debug("Total movement is {}".format(totalMovement))
+
+                # If the movement is equal to the image size, process the image
+                # Clearly, this is wrong -- just a placeholder for now.
+                if totalMovement % 100 == 0:
+                    processor()
+            else:
+                # There's not much to do here for keepalive messages
+                keepAliveMessages += 1
+                #print("weeds: keepalive message from chatroom")
+    elif msg.getType() == "chat":
+            print("private: " + str(msg.getFrom()) +  ":" +str(msg.getBody()))
+    else:
+        log.error("Unknown message type {}".format(msg.getType()))
+
+#
+# This method will never return.  Connect and start processing messages
+#
+def processMessages(communicator: MUCCommunicator):
+    """
+    Process messages for the chatroom -- note that this routine will never return.
+    :param communicator: The chatroom communicator
+    """
+    log.info("Connecting to chatroom")
+    communicator.connect(True)
+
+#
+# Take the images -- this method will not return, only add new images to the queue
+#
+
+def takeImages(camera: CameraBasler):
+    """
+    Take images with the camera
+    :param camera: the camera to use
+    """
+    # Connect to the camera and take an image
+    if camera.connect():
+        try:
+            camera.initialize()
+            camera.start()
+        except IOError as io:
+            camera.log.error(io)
+        rc = 0
+    else:
+        rc = -1
+#
+# Start up various subsystems
+#
 options = readINI()
 
+(logger, log) = startupLogger(arguments.output)
+#log = logging.getLogger(__name__)
+
+camera = startupCamera(options)
+log.debug("Camera started")
+
+(roomOdometry, roomSystem) = startupCommunications(options, messageOdometryCB, messageSystemCB)
+log.debug("Communications started")
+#odometer = startupOdometer(processImage)
+
+performance = startupPerformance()
+log.debug("Performance started")
 mmPerPixel = camera.getMMPerPixel()
 
-# The odometer drives everything
-odometer.start()
+# Start the worker threads, putting them in a list
+threads = list()
+log.debug("Starting odometry receiver")
+generator = threading.Thread(name=constants.THREAD_NAME_ODOMETRY, target=processMessages, args=(roomOdometry,))
+threads.append(generator)
+generator.start()
+
+log.debug("Starting system receiver")
+sys = threading.Thread(name=constants.THREAD_NAME_SYSTEM, target=processMessages, args=(roomSystem,))
+threads.append(sys)
+sys.start()
+
+# Start the thread that will begin acquiring images
+log.debug("Start image acquisition")
+acquire = threading.Thread(name=constants.THREAD_NAME_ACQUIRE,target=takeImages, args=(camera,))
+threads.append(acquire)
+acquire.start()
+
+# Wait for the workers to finish
+for index, thread in enumerate(threads):
+    thread.join()
+
 
 performance.cleanup()
 
