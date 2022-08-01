@@ -12,6 +12,7 @@
 #
 
 import argparse
+import os
 import threading
 import time
 import sys
@@ -20,13 +21,14 @@ from OptionsFile import OptionsFile
 import logging
 import logging.config
 import nidaqmx as ni
+import xmpp
 
 import constants
 from Odometer import Odometer, VirtualOdometer
 from PhysicalOdometer import PhysicalOdometer
 from Emitter import Emitter, PhysicalEmitter, VirtualEmitter
 from MUCCommunicator import MUCCommunicator
-from Messages import MUCMessage, OdometryMessage
+from Messages import MUCMessage, OdometryMessage, SystemMessage
 
 
 
@@ -56,6 +58,52 @@ if not options.load():
 
 logging.config.fileConfig(arguments.log)
 log = logging.getLogger("rio")
+
+def startSession(options: OptionsFile, sessionName: str):
+    """
+    Prepare for a new session. The current working directory is set after the session name
+    :param sessionName:
+    """
+    global log
+
+    path = options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_ROOT) + "/output/" + sessionName
+    try:
+        os.mkdir(path)
+        os.chdir(path)
+    except OSError as e:
+        log.critical("Unable to prepare and set directory to {}".format(path))
+        log.critical("Raw: {}".format(e))
+
+    # Stop the previous logging session
+    #log.disabled = True
+
+    # path = options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_ROOT) + "/rio/" + arguments.log
+    # log.debug("Reconfiguring logging with: {}".format(path))
+    #
+    # log.disabled = False
+    log.debug("Session started")
+
+def endSession(options: OptionsFile):
+    global log
+    path = options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_ROOT) + "/output"
+
+    # Change back to the general output directory not associated with any session
+    try:
+        os.chdir(path)
+    except OSError as e:
+        log.critical("Unable to prepare and set directory to {}".format(path))
+        log.critical("Raw: {}".format(e))
+
+    # Stop the previous logging session
+    #logging.shutdown()
+
+    # log.disabled = True
+    # path = options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_ROOT) + "/rio/" + arguments.log
+    # log.debug("Reconfiguring logging with: {}".format(path))
+    #
+    # log.disabled = False
+    log.debug("Session ended")
+
 
 #
 # N I  D I A G N O S T I C S
@@ -105,30 +153,68 @@ def startupSystem():
     return system, emitter
 
 #
-# M U C
+# P R O C E S S
 #
-def process(msg):
-    global messageNumber
-    print("Process {}".format(messageNumber))
-    messageNumber += 1
+# For the odometer, there isn't much to do, as it just reports movement.
+# For the treatement, there are a few things: listen for identifications, and for begin/end cycles
+#
+def process(conn, msg: xmpp.protocol.Message):
+    log.debug("Process message from {}".format(msg.getFrom()))
 
-def startupCommunications(options: OptionsFile):
+    # Messages from the system room will be in the form: system@conference.weeds.com/console
 
+    console = options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_SYSTEM) \
+              +  "/" \
+              + options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_CONSOLE)
+
+    if msg.getFrom() == console:
+        if msg.getBody() is not None:
+            systemMsg = SystemMessage(raw=msg.getBody())
+            log.debug("Action is {}".format(systemMsg.action))
+
+            # S T A R T
+            # For a start session, we need to at start logging with the name of the session
+            if systemMsg.action == constants.Action.START.name:
+                sessionName = systemMsg.name
+                log.debug("Start session")
+                startSession(options, systemMsg.name)
+            # This is just an alive message, so respond
+            if systemMsg.action == constants.Action.PING.name:
+                log.debug("PING")
+            if systemMsg.action == constants.Action.STOP.name:
+                log.debug("Stopping odometry")
+                endSession(options)
+
+
+def startupCommunications(options: OptionsFile) -> ():
+    """
+    Start communications with three MUCs: odometry, system, and treatment
+    :param options: The options that contain an XMPP section with room names and nicknames
+    :return: odometry, system rooms
+    """
     # The room that will get the announcements about forward or backward progress
     odometryRoom = MUCCommunicator(options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_JID_RIO),
                                    options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_ODOMETRY),
                                    options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_DEFAULT_PASSWORD),
                                    options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_ODOMETRY),
-                                   process)
+                                   process,
+                                   None) # Don't care about presence
 
     # The room that will get status reports about this process
     systemRoom = MUCCommunicator(options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_JID_RIO),
                                  options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_ODOMETRY),
                                  options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_DEFAULT_PASSWORD),
                                  options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_SYSTEM),
-                                 process)
+                                 process,
+                                 None) # Don't care about presence
 
-    return (odometryRoom, systemRoom)
+    treatmentRoom = MUCCommunicator(options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_JID_RIO),
+                                    options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_ODOMETRY),
+                                    options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_DEFAULT_PASSWORD),
+                                    options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_TREATMENT),
+                                    process,
+                                    None) # Don't care about presence
+    return (odometryRoom, systemRoom, treatmentRoom)
 
 #
 # O D O M E T R Y
@@ -227,8 +313,12 @@ def serviceQueue(odometer : PhysicalOdometer, odometryRoom: MUCCommunicator, ann
     distanceTraveledSinceLastMessage = 0.0
     servicing = True
 
-    if odometryRoom.diagnostics():
-        odometryRoom.sendMessage("Connection OK")
+    while not odometryRoom.connected:
+        log.debug("Waiting for odometry room connection")
+        time.sleep(5)
+
+    # if odometryRoom.diagnostics():
+    #     odometryRoom.sendMessage("Connection OK")
 
 
     log.debug("Waiting for angle changes to appear on queue")
@@ -241,10 +331,12 @@ def serviceQueue(odometer : PhysicalOdometer, odometryRoom: MUCCommunicator, ann
         totalDistanceTraveled += distanceTraveled
         previous = angle
         stoptime = nanoseconds()
-        elapsed = stoptime - starttime
+        elapsedSeconds = (stoptime - starttime) / 1000000000
         starttime = nanoseconds()
 
-        log.debug("{:.4f} mm Total: {:.4f} Elapsed time {} ns".format(distanceTraveled, totalDistanceTraveled, elapsed))
+        # Speed in kph
+        speed = (distanceTraveled / 1000000) / (elapsedSeconds / 3600)
+        log.debug("{:.4f} mm Total: {:.4f} elapsed {:.4f} Speed {:.4f}kph".format(distanceTraveled, totalDistanceTraveled, elapsedSeconds, speed))
 
         # Send out a message every time the system traverses the distance specified
 
@@ -252,19 +344,31 @@ def serviceQueue(odometer : PhysicalOdometer, odometryRoom: MUCCommunicator, ann
         if distanceTraveledSinceLastMessage >= announcements:
             message = OdometryMessage()
             message.distance = announcements
+            message.speed = speed
+            message.totalDistance = totalDistanceTraveled
             # Timestamp is the nanoseconds in the epoch
-            message.timestamp = time.time_ns()
+            message.timestamp = time.time() * 1000
+            #message.timestamp = time.time_ns()
             messageText = message.formMessage()
-            log.debug("Sending: {}".format(message.formMessage()))
-            odometryRoom.sendMessage(messageText)
+            #log.debug("Sending: {}".format(message.formMessage()))
+
+            try:
+                odometryRoom.sendMessage(messageText)
+            except Exception as e:
+                log.fatal("---- Error in sending message ----")
+                log.fatal("Raw {}".format(e))
             distanceTraveledSinceLastMessage = 0.0
         if distanceTraveledSinceLastMessage <= -announcements:
             message = OdometryMessage()
             message.distance = -announcements
-            message.timestamp = time.time_ns()
+            message.timestamp = time.time() * 1000
+            #message.timestamp = time.time_ns()
             messageText = message.formMessage()
-            log.debug("Sending: {}".format(messageText))
-            odometryRoom.sendMessage(messageText)
+            #log.debug("Sending: {}".format(messageText))
+            try:
+                odometryRoom.sendMessage(messageText)
+            except Exception as e:
+                log.fatal("---- Error in sending message -----")
             distanceTraveledSinceLastMessage = 0.0
 
         i += 1
@@ -274,6 +378,10 @@ def serviceQueue(odometer : PhysicalOdometer, odometryRoom: MUCCommunicator, ann
 def processMessages(odometry: MUCCommunicator):
     # Connect to the XMPP server and just return
     odometry.connect(False)
+
+def processMessagesSync(odometry: MUCCommunicator):
+    # Connect to the XMPP server and just return
+    odometry.connect(True)
 
 # Start the system and run diagnostics
 log.debug("Starting system")
@@ -289,10 +397,19 @@ system, emitter = startupSystem()
 odometer = startupOdometer(emitter.applyTreatment)
 
 # Startup communication to the MUC
-(odometryRoom, systemRoom) = startupCommunications(options)
+(odometryRoom, systemRoom, treatmentRoom) = startupCommunications(options)
+threads = list()
 
-generator = threading.Thread(target=processMessages(odometryRoom))
-generator.start()
+# log.debug("Start generator thread")
+# generator = threading.Thread(name=constants.THREAD_NAME_ODOMETRY,target=processMessagesSync, args=(odometryRoom,))
+# threads.append(generator)
+# generator.start()
+odometryRoom.connect(False)
+
+log.debug("Start system thread")
+sysThread = threading.Thread(name=constants.THREAD_NAME_SYSTEM,target=processMessagesSync,args=(systemRoom,))
+threads.append(sysThread)
+sysThread.start()
 
 # Start a thread to service the readings queue
 try:
@@ -301,9 +418,17 @@ except KeyError as key:
     log.error("INI file must contain [{}] {}".format(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_ANNOUNCEMENTS))
     sys.exit(1)
 
-service = threading.Thread(target=serviceQueue, args=(odometer,odometryRoom,announcementInterval))
+log.debug("Start service thread")
+service = threading.Thread(name=constants.THREAD_NAME_SERVICE,target=serviceQueue, args=(odometer,odometryRoom,announcementInterval))
+service.daemon = True
+threads.append(service)
 service.start()
 
+log.debug("Starting treatment thread")
+treat = threading.Thread(name=constants.THREAD_NAME_TREATMENT, target=processMessagesSync, args=(treatmentRoom,))
+treat.daemon = True
+threads.append(treat)
+treat.start()
 
 
 log.debug("Connect and start odometer")
@@ -312,7 +437,10 @@ odometer.connect()
 # The start routines never return - this is executed in the main thread
 odometer.start()
 
+sysThread.join()
+log.debug("System thread is finished.")
 service.join()
-generator.join()
+log.debug("Service thread is finished.")
+# generator.join()
 
 sys.exit(0)
