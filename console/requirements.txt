@@ -1,0 +1,5 @@
+constants==0.6.0
+dnspython==2.2.1
+Messages==0.8.0
+PyQt5==5.15.7
+xmpppy==0.7.1
