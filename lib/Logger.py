@@ -12,6 +12,11 @@ class Logger:
         return
 
     def connect(self, directoryName: str):
+        try:
+            os.makedirs(directoryName, exist_ok=True)
+        except Exception as e:
+            print("Cannot create directory: {}".format(directoryName))
+
         if os.path.isdir(directoryName):
             self.rootDirectory = directoryName
             return True

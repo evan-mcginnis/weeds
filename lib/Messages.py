@@ -24,9 +24,12 @@ class MUCMessage(ABC):
         # This is the case where a message is pulled out of the chatroom
         # _data contains a dictionary
         elif constants.MSG_RAW in kwargs:
-            self._data = json.loads(kwargs.get(constants.MSG_RAW))
+            try:
+                self._data = json.loads(kwargs.get(constants.MSG_RAW))
+            except TypeError as e:
+                print("Unable to load: {}".format(kwargs.get(constants.MSG_RAW)))
 
-        # If the init parameters contained the distance, set it here.
+        # If the init parameters contained the time, set it here.
         if constants.JSON_TIME in self._data:
             self._timestamp = self._data[constants.JSON_TIME]
 
@@ -46,7 +49,7 @@ class MUCMessage(ABC):
         return self._data
 
     @data.setter
-    def body(self, document: str):
+    def data(self, document: str):
         self._body = document
 
     @abstractmethod
@@ -57,6 +60,46 @@ class MUCMessage(ABC):
         """
         #self._root = ET.fromstring(self._body)
         return self._root is not None
+
+    def formMessage(self) -> str:
+        """
+        Create an JSON Message
+        :return: String of the message
+        """
+        self._json = json.dumps(self._data)
+        return self._json
+
+class SystemMessage(MUCMessage):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        if constants.JSON_NAME in self._data:
+            self._name = self._data[constants.JSON_NAME]
+        if constants.JSON_ACTION in self._data:
+            self._action = self._data[constants.JSON_ACTION]
+
+    @property
+    def name(self):
+        return self._name
+
+    # The name of this run
+    @name.setter
+    def name(self, target: str):
+        self._data[constants.JSON_NAME] = target
+        self._name = target
+
+    @property
+    def action(self):
+        return self._action
+
+    # START, STOP, DIAGNOSE
+    @action.setter
+    def action(self, _action: constants.Action):
+        self._action = _action
+        self._data[constants.JSON_ACTION] = _action.name
+
+    def parse(self) -> bool:
+        return super().parse()
 
 class OdometryMessage(MUCMessage):
     def __init__(self, **kwargs):
@@ -72,6 +115,25 @@ class OdometryMessage(MUCMessage):
         else:
             self._distance = 0
 
+        if constants.JSON_TOTAL_DISTANCE in self._data:
+            self._totalDistance = self._data[constants.JSON_TOTAL_DISTANCE]
+        else:
+            self._totalDistance = 0.0
+
+        if constants.JSON_SPEED in self._data:
+            self._speed = self._data[constants.JSON_SPEED]
+        else:
+            self._speed = 0.0
+
+    @property
+    def speed(self) -> float:
+        return self._speed
+
+    @speed.setter
+    def speed(self, speed: int):
+        self._speed = speed
+        self._data[constants.JSON_SPEED] = speed
+
     @property
     def distance(self):
         return self._distance
@@ -80,6 +142,15 @@ class OdometryMessage(MUCMessage):
     def distance(self, distanceTravelled: int):
         self._distance = distanceTravelled
         self._data[constants.JSON_DISTANCE] = distanceTravelled
+
+    @property
+    def totalDistance(self) -> float:
+        return self._totalDistance
+
+    @totalDistance.setter
+    def totalDistance(self, distanceTravelled: float):
+        self._totalDistance = distanceTravelled
+        self._data[constants.JSON_TOTAL_DISTANCE] = distanceTravelled
 
     @property
     def root(self):
@@ -109,6 +180,65 @@ class OdometryMessage(MUCMessage):
         #
         # self._asString = ET.tostring(self._root, encoding='us-ascii', method='xml')
         # return self._asString.decode()
+        self._json = json.dumps(self._data)
+        return self._json
+
+    def parse(self) -> bool:
+        super().parse()
+
+class TreatmentMessage(MUCMessage):
+    def __init__(self, **kwargs):
+        """
+        A message to the odometry room
+        :param body: Message body.
+        """
+        super().__init__(**kwargs)
+        self._name = ""
+
+        if constants.JSON_PLAN in self._data:
+            self._plan = self._data[constants.JSON_PLAN]
+
+    @property
+    def plan(self):
+        return self._plan
+
+    @plan.setter
+    def plan(self, _plan: constants.Treatment):
+        self._plan = _plan
+        self._data[constants.JSON_PLAN] = _plan.name
+        print("Plan is {}".format(_plan.name))
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @name.setter
+    def name(self, _name: str):
+        self._name = _name
+        self._data[constants.JSON_NAME] = _name
+
+    @property
+    def root(self):
+        return self._root
+
+    @property
+    def body(self):
+        return self._body
+
+    @body.setter
+    def body(self, document: str):
+        self._body = document
+
+    @property
+    def message(self) -> str:
+        return self._asString
+
+    def formMessage(self) -> str:
+        """
+        Create an JSON Message
+        :return: String of the message
+        """
+
         self._json = json.dumps(self._data)
         return self._json
 

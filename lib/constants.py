@@ -1,14 +1,22 @@
 #
 # C O N S T A N T S
 #
-# Various constants
+from enum import Enum
+
+# UI
+UI_STATUS_OK = "OK"
+UI_STATUS_NOT_OK = "Not OK"
+UI_OPERATION_IMAGING = "Imaging only"
+UI_OPERATION_WEEDING = "Weeding"
 
 # This is just the text that will be placed on the visible treatment plan
 SPRAYER_NAME = ""
 
 THREAD_NAME_ODOMETRY = "odometry"
 THREAD_NAME_SYSTEM = "system"
+THREAD_NAME_TREATMENT = "treatment"
 THREAD_NAME_ACQUIRE = "acquire"
+THREAD_NAME_SERVICE = "service"
 
 MSG_NOT_CONNECTED = "Not connected"
 MSG_LINES_NOT_SPECIFIED = "The A and B lines for the odometer must be on the command line or in the INI file"
@@ -82,15 +90,15 @@ DEFAULT_PASSWORD            = "greydog"
 
 NICK_ODOMETRY               = "rio"
 NICK_TREATMENT              = "treatment"
-NICK_JETSON                 = "controller"
-NICK_JETSON_1               = "jetson1"
-NICK_JETSON_2               = "jetson2"
+NICK_JETSON                 = "jetson"
+NICK_JETSON_1               = "left"
+NICK_JETSON_2               = "right"
 NICK_CONSOLE                = "console"
 MSG_TYPE_NORMAL             = "normal"
 MSG_TYPE_GROUPCHAT          = "groupchat"
 
 # The timeout period for the processing
-PROCESS_TIMEOUT             = 10.0
+PROCESS_TIMEOUT             = 10000.0
 
 # Temporary
 NAME_CROP_SCORE = "score"
@@ -111,7 +119,8 @@ RIO_TASK_NAME = "readEncoder"
 STRATEGY_ASYNC = 0
 STRATEGY_SYNC = 1
 
-IMAGE_QUEUE_LEN = 500
+# The number of images to keep
+IMAGE_QUEUE_LEN = 50
 # Probably way too long 5000 ms for camera to acquire image
 TIMEOUT_CAMERA = 5000
 
@@ -175,6 +184,7 @@ SIZE_TREATMENT_LINE = 4
 SIZE_CONTOUR_LINE = 5
 
 # Properties
+PROPERTY_LOGGING_FILENAME = "logging.ini"
 PROPERTY_FILENAME = "options.ini"
 PROPERTY_PIXELS_PER_MM = "PIXELS-PER-MM"
 PROPERTY_SECTION_CAMERA = "CAMERA"
@@ -193,15 +203,27 @@ PROPERTY_WHEEL_CIRCUMFERENCE = "WHEEL-SIZE"
 PROPERTY_ENCODER_TYPE = "TYPE"
 PROPERTY_DEBOUNCE = "DEBOUNCE"
 PROPERTY_ANNOUNCEMENTS = "ANNOUNCEMENTS"
+
+# S3 INI
+PROPERTY_SECTION_FILES = "FILES"
+PROPERTY_SECTION_KEYS = "KEYS"
+PROPERTY_IMAGES = "IMAGES"
+PROPERTY_WEEDS_LOG = "WEEDS-LOG"
+PROPERTY_KEY_IMAGES = "images.tar"
+PROPERTY_KEY_WEEDS_LOG = "weeds-log"
 #
 # X M P P  R O O M S  A N D  J I D S
 #
 PROPERTY_SECTION_XMPP                = "XMPP"
+PROPERTY_SECTION_GENERAL             = "GENERAL"
+PROPERTY_ROOT                        = "ROOT"
+PROPERTY_PREFIX                      = "PREFIX"
 PROPERTY_DOMAIN_DNS                  = "DOMAIN"
 PROPERTY_CONFERENCE_DNS              = "CONFERENCE_DNS"
 PROPERTY_ROOM_ODOMETRY               = "ROOM_ODOMETRY"
 PROPERTY_ROOM_TREATMENT              = "ROOM_TREATMENT"
 PROPERTY_ROOM_SYSTEM                 = "ROOM_SYSTEM"
+PROPERTY_SERVER                      = "SERVER"
 
 PROPERTY_JID_ODOMETRY                = "JID_ODOMETRY"
 PROPERTY_JID_RIO                     = "JID_RIO"
@@ -209,6 +231,8 @@ PROPERTY_JID_JETSON                  = "JID_JETSON"
 PROPERTY_JID_JETSON_1                = "JID_JETSON1"
 PROPERTY_JID_JETSON_2                = "JID_JETSON2"
 PROPERTY_JID_CONSOLE                 = "JID_CONSOLE"
+PROPERTY_JID_CLOUD                   = "JID_CLOUD"
+PROPERTY_JID_CONTROL                 = "JID_CONTROL"
 
 
 PROPERTY_DEFAULT_PASSWORD            = "DEFAULT_PASSWORD"
@@ -216,9 +240,11 @@ PROPERTY_DEFAULT_PASSWORD            = "DEFAULT_PASSWORD"
 PROPERTY_NICK_ODOMETRY               = "NICK_ODOMETRY"
 PROPERTY_NICK_TREATMENT              = "NICK_TREATMENT"
 PROPERTY_NICK_JETSON                 = "NICK_JETSON"
-PROPERTY_NICK_JETSON_1               = "NICK_JETSON1"
-PROPERTY_NICK_JETSON_2               = "NICK_JETSON2"
+PROPERTY_NICK_JETSON_1               = "NICK_JETSON_1"
+PROPERTY_NICK_JETSON_2               = "NICK_JETSON_2"
 PROPERTY_NICK_CONSOLE                = "NICK_CONSOLE"
+PROPERTY_NICK_CLOUD                  = "NICK_CLOUD"
+PROPERTY_NICK_CONTROL                = "NICK_CONTROL"
 PROPERTY_MSG_TYPE_NORMAL             = "MSG_TYPE_NORMAL"
 PROPERTY_MSG_TYPE_GROUPCHAT          = "MSG_TYPE_GROUPCHAT"
 
@@ -227,9 +253,31 @@ XMPP_PORT                            = 5222
 #
 # J S O N  A N D  M E S S A G E S
 #
-JSON_DATA     = "data"
-JSON_DISTANCE = "distance"
-JSON_TIME     = "timestamp"
-MSG_RAW       = "raw"
+JSON_ACTION         = "action"
+JSON_DATA           = "data"
+JSON_DIAG_MSG       = "diagnostic"
+JSON_DISTANCE       = "distance"
+JSON_IMAGE_NO       = "image_no"
+JSON_SPEED          = "speed"
+JSON_TIME           = "timestamp"
+JSON_TOTAL_DISTANCE = "total_distance"
+JSON_NAME           = "name"
+JSON_PLAN           = "plan"
+JSON_DIAG_RSLT      = "result"
 
+MSG_RAW             = "raw"
+
+ACTION_START   = "START"
+ACTION_STOP    = "STOP"
+
+class Treatment(Enum):
+    RAW_IMAGE = 0
+    PLAN = 1
+
+class Action(Enum):
+    START = 0
+    STOP = 1
+    DIAG = 2
+    PING = 3
+    ACK = 4
 

@@ -16,6 +16,7 @@ import logging
 from getpass import getpass
 from argparse import ArgumentParser
 #import dns.resolver
+import threading
 
 import constants
 
@@ -26,7 +27,7 @@ import constants
 # Example of how to use this is in the main routine below
 #
 class MUCCommunicator():
-    def __init__(self, jid: str, nickname: str, jidPassword: str, muc: str, processor: Callable):
+    def __init__(self, server: str, jid: str, nickname: str, jidPassword: str, muc: str, processor: Callable, presence: Callable):
         """
         The MUC communication class.
         :param jid: The JID used i.e., rio@weeds.com
@@ -39,11 +40,46 @@ class MUCCommunicator():
         self._nickname = nickname
         self._password = jidPassword
         self._muc = muc
+        self._server = server
         self._client = None
         self._callback = processor
+        self._callbackPresence = presence
         self._connection = None
         self._connected = False
-        self._log = logging.getLogger(__name__)
+        #self._log = logging.getLogger(__name__)
+        self._log = logging.getLogger(threading.current_thread().getName())
+        self._occupants = list()
+
+    def refresh(self):
+        return
+        # if self._connected:
+        #     try:
+        #         self._occupants = xmpp.features.discoverItems(self._connection, self._muc)
+        #         for occupant in self._occupants:
+        #             print("Occupant {}:".format(occupant.get("jid")))
+        #     except Exception as e:
+        #         self._log.error("Encountered XMPP error in refresh")
+        #         self._log.error("Raw: {}".format(e))
+
+    def occupantExited(self, occupant: str) -> bool:
+        found = False
+        for i in range(len(self._occupants)):
+            if self._occupants[i]['name'] == occupant:
+                del self._occupants[i]
+                found = True
+                break
+        return found
+
+    def occupantEntered(self, occupant: str, jid: str) -> bool:
+        inserted = True
+        occupantRecord = {'name': occupant, 'jid': jid}
+        self._occupants.append(occupantRecord)
+
+        return inserted
+
+    @property
+    def occupants(self):
+        return self._occupants
 
     @property
     def callback(self):
@@ -52,6 +88,14 @@ class MUCCommunicator():
     @callback.setter
     def callback(self, callback: Callable):
         self._callback = callback
+
+    @property
+    def connected(self) -> bool:
+        return self._connected
+
+    @property
+    def connection(self):
+        return(self._connection)
 
     def diagnostics(self) -> ():
         """
@@ -80,12 +124,15 @@ class MUCCommunicator():
                 body = msg.getBody()
                 # Check if this is a real message and not just an empty keep-alive message
                 if body is not None:
-                    self.log.debug("From: {} Message [{}]".format(msg.getFrom(), msg.getBody()))
+                    self._log.debug("From: {} Message [{}]".format(msg.getFrom(), msg.getBody()))
                 else:
-                    self.log.debug("Keepalive message from chatroom")
+                    self._log.debug("Keepalive message from chatroom")
                 #self.sendMessage("Response")
         if msg.getType() == "chat":
-                self.log.error("Unexpected private message: " + str(msg.getFrom()) +  ":" +str(msg.getBody()))
+                self._log.error("Unexpected private message: " + str(msg.getFrom()) +  ":" +str(msg.getBody()))
+
+    def _presenceCB(self, conn, presence):
+        self._log.debug("Presence: {}".format(presence.getFrom().getStripped()))
 
     # This looks a bit awkward, but is here just so a keyboard ctrl-c will interrupt things
 
@@ -97,11 +144,17 @@ class MUCCommunicator():
         """
         try:
             # Process the messages, timing out every so often to run some diagnostics
-            conn.Process(constants.PROCESS_TIMEOUT)
+            self._log.debug("Processing messages")
+            try:
+                conn.Process(constants.PROCESS_TIMEOUT)
+            except Exception as e:
+                self._log.error("Exception in message processing")
+                self._log.error("Raw:{}".format(e))
 
             # Check to see if the client is still connected to server
             if not conn.isConnected():
-                self.log.info("Disconnected from chatroom")
+                self._log.error("Disconnected from chatroom. Reconnecting")
+                conn.reconnectAndReauth()
                 return 0
 
             # if conn.isConnected():
@@ -117,7 +170,7 @@ class MUCCommunicator():
         while self._StepOn(conn):
             pass
 
-    def connect(self, process: bool):
+    def connect(self, process: bool, occupants = False):
         """
         Connect to the xmpp server and join the MUC. This routine will not return.
         :return:
@@ -129,7 +182,8 @@ class MUCCommunicator():
         self._connection = xmpp.Client(self._client.getDomain(), debug=[])
 
         # TODO: This is wrong -- the code should lookup the host based on the SRV record to get both the hostname and port number
-        self._connection.connect(server=('jetson.weeds.com', 5222))
+        #self._connection.connect(server=('jetson-right.weeds.com', 5222))
+        self._connection.connect(server=(self._server, 5222))
 
         self._connection.auth(self._client.getNode(),self._password)
 
@@ -143,11 +197,28 @@ class MUCCommunicator():
 
         self._log.debug("Sending presence {}/{}".format(self._muc, self._nickname))
         self._connection.send(xmpp.Presence(to="{}/{}".format(self._muc,self._nickname)))
+
+        if occupants:
+            # This line is troublesome on the jetson
+            self._occupants = xmpp.features.discoverItems(self._connection, self._muc)
+
+        # for i in xmpp.features.discoverItems(self._connection, self._muc):
+        #     (ids, features) = xmpp.features.discoverInfo(self._connection, i.get("jid"))
+        #     print("Occupant {}:".format(i.get("jid")))
+        #     # if NS_MUC in features:
+        #     #     print("Occupant {}:".format(i.get("jid")))
+
+        # If this logic sends a message right away, it tends to hit a not connected exception
+        if self._callbackPresence is not None:
+            self._connection.RegisterHandler('presence', self._callbackPresence)
+
+        # else:
+        #     self._connection.RegisterHandler('presence', self._presenceCB)
+
         self._connected = True
 
         # I hate delays, but this allows the connection to settle.
-        # If this logic sends a message right away, it tends to hit a not connected exception
-        time.sleep(5)
+        time.sleep(4)
 
         if process:
             #self.sendMessage("{} beginning to process messages".format(self._nickname))
@@ -172,8 +243,12 @@ class MUCCommunicator():
         if self._connected and self._connection.isConnected():
             stranza = "<message to='{0}' type='groupchat'><body>{1}</body></message>".format(self._muc, msg)
             #print("Sending {}".format(stranza))
-            id = self._connection.send(stranza)
+            try:
+                id = self._connection.send(stranza)
+            except ConnectionResetError as reset:
+                self._log.fatal("---- Connection reset error encountered ----")
         else:
+            self._connection.reconnectAndReauth()
             raise ConnectionError(constants.MSG_NOT_CONNECTED)
         return id
 
