@@ -120,8 +120,12 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         """
         window.setSpeed(0)
         # This will split up a JID of the form <room-name>@<conference-name>.<domain>.<domain>/<nickname>
-        for roomOccupants in [self._systemRoom.occupants, self._odometryRoom.occupants, self._treatmentRoom.occupants]:
-            for occupant in roomOccupants:
+        log.debug("System room has {} occupants".format(len(self._systemRoom.occupants)))
+        log.debug("Odometry room has {} occupants".format(len(self._odometryRoom.occupants)))
+        log.debug("Treatment room has {} occupants".format(len(self._treatmentRoom.occupants)))
+        allOccupants = self._systemRoom.occupants + self._odometryRoom.occupants + self._treatmentRoom.occupants
+        for occupant in allOccupants:
+            #for occupant in roomOccupants:
                 # The room name will be in the form name@<roomname>.conference.<domain>/<nickname>
                 room = occupant.get("jid")
                 #components = regularExpression.split(room)
@@ -131,10 +135,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 log.debug("Initial state for occupant: {}".format(occupant.get("name")))
                 self.setStatus(occupant.get("name"), fullRoomName, Presence.JOINED)
 
-        # self.status_camera_left.setText(constants.UI_STATUS_OK)
-        # self.status_camera_left.setStyleSheet("color: white; background-color: green")
-        # self.status_camera_right.setText(constants.UI_STATUS_OK)
-        # self.status_camera_right.setStyleSheet("color: white; background-color: green")
+        self.status_camera_left.setText(constants.UI_STATUS_OK)
+        self.status_camera_left.setStyleSheet("color: white; background-color: green")
+        self.status_camera_right.setText(constants.UI_STATUS_OK)
+        self.status_camera_right.setStyleSheet("color: white; background-color: green")
 
         self.tractor_progress.setStyleSheet("color: white; background-color: green")
         self.tractor_progress.setValue(0)
@@ -358,7 +362,7 @@ arguments = parser.parse_args()
 
 # Force resolutions to come from a server that has the entries we want
 print("DNS: {}".format(arguments.dns))
-my_resolver = dns.resolver.Resolver()
+my_resolver = dns.resolver.Resolver(configure=False)
 my_resolver.nameservers = [arguments.dns]
 
 answer = my_resolver.resolve('jetson.weeds.com')
