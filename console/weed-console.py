@@ -296,6 +296,8 @@ def presenceCB(conn, presence: xmpp.protocol.Message):
 def startupCommunications(options: OptionsFile):
     # The room that will get the announcements about forward or backward progress
     odometryRoom = MUCCommunicator(options.option(constants.PROPERTY_SECTION_XMPP,
+                                                  constants.PROPERTY_SERVER),
+                                   options.option(constants.PROPERTY_SECTION_XMPP,
                                                   constants.PROPERTY_JID_CONSOLE),
                                    options.option(constants.PROPERTY_SECTION_XMPP,
                                                   constants.PROPERTY_NICK_CONSOLE),
@@ -308,6 +310,8 @@ def startupCommunications(options: OptionsFile):
 
     # The room that will get status reports about this process
     systemRoom = MUCCommunicator(options.option(constants.PROPERTY_SECTION_XMPP,
+                                                constants.PROPERTY_SERVER),
+                                 options.option(constants.PROPERTY_SECTION_XMPP,
                                                 constants.PROPERTY_JID_CONSOLE),
                                  options.option(constants.PROPERTY_SECTION_XMPP,
                                                 constants.PROPERTY_NICK_CONSOLE),
@@ -319,16 +323,18 @@ def startupCommunications(options: OptionsFile):
                                  presenceCB)
 
     # The room that will receiver reports about images and treatment plans
-    treatmentRoom = MUCCommunicator(options.option(constants.PROPERTY_SECTION_XMPP,
-                                                   constants.PROPERTY_JID_CONSOLE),
-                                    options.option(constants.PROPERTY_SECTION_XMPP,
-                                                   constants.PROPERTY_NICK_CONSOLE),
-                                    options.option(constants.PROPERTY_SECTION_XMPP,
-                                                   constants.PROPERTY_DEFAULT_PASSWORD),
-                                    options.option(constants.PROPERTY_SECTION_XMPP,
-                                                   constants.PROPERTY_ROOM_TREATMENT),
-                                    process,
-                                    presenceCB)
+    treatmentRoom = MUCCommunicator( options.option(constants.PROPERTY_SECTION_XMPP,
+                                                    constants.PROPERTY_SERVER),
+                                     options.option(constants.PROPERTY_SECTION_XMPP,
+                                                    constants.PROPERTY_JID_CONSOLE),
+                                     options.option(constants.PROPERTY_SECTION_XMPP,
+                                                    constants.PROPERTY_NICK_CONSOLE),
+                                     options.option(constants.PROPERTY_SECTION_XMPP,
+                                                    constants.PROPERTY_DEFAULT_PASSWORD),
+                                     options.option(constants.PROPERTY_SECTION_XMPP,
+                                                    constants.PROPERTY_ROOM_TREATMENT),
+                                     process,
+                                     presenceCB)
 
     return (odometryRoom, systemRoom, treatmentRoom)
 
@@ -351,9 +357,9 @@ parser.add_argument('-d', '--dns', action="store", required=False, help="DNS ser
 arguments = parser.parse_args()
 
 # Force resolutions to come from a server that has the entries we want
+print("DNS: {}".format(arguments.dns))
 my_resolver = dns.resolver.Resolver()
 my_resolver.nameservers = [arguments.dns]
-print("DNS: {}".format(arguments.dns))
 
 answer = my_resolver.resolve('jetson.weeds.com')
 
