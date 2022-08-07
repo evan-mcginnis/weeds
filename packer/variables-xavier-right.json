@@ -1,0 +1,13 @@
+{
+	"host": "169.254.213.40",
+	"sudo_password": "nvidia-greydog",
+	"user_password": "nvidia-greydog",
+	"camera_address": "169.254.213.41",
+	"location": "yuma",
+	"name": "jetson-right",
+	"nickname": "jetson-right",
+	"server": "xavier-right.weeds.com"
+}
+
+
+

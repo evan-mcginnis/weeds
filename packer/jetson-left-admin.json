@@ -1,0 +1,37 @@
+{
+  "builders" : [
+    {
+      "type": "null",
+      "ssh_host":     "{{user `host`}}",
+      "ssh_username": "weeds",
+      "ssh_password" : "{{user `sudo_password`}}",
+      "ssh_pty" : "true"
+    }
+  ],
+  "provisioners" : [
+    {
+      "type": "file",
+      "source": "./create-users.sh",
+      "destination": "~/create-users.sh"
+    },
+    {
+      "type": "file",
+      "source": "./ntp.conf",
+      "destination": "~/ntp.conf"
+    },
+    {
+      "type": "file",
+      "source": "./config-os.sh",
+      "destination": "~/config-os.sh"
+    },
+    {
+      "type": "shell",
+      "remote_folder": "~",
+      "inline": [
+        "echo nvidia-greydog | sudo -S bash ~/create-users.sh",
+        "echo nvidia-greydog | sudo -S bash ~/config-os.sh",
+        "echo rm ~/create-users.sh"
+      ]
+    }
+  ]
+}

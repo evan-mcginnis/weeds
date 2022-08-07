@@ -2,9 +2,9 @@
   "builders" : [
     {
       "type": "null",
-      "ssh_host":"169.254.212.40",
-      "ssh_username": "admin",
-      "ssh_password" : "nvidia-greydog",
+      "ssh_host":     "{{user `host`}}",
+      "ssh_username": "weeds",
+      "ssh_password" : "{{user `user_password`}}",
       "ssh_pty" : "true"
     }
   ],
@@ -15,10 +15,20 @@
       "destination": "~/install-sw.sh"
     },
     {
+      "type": "file",
+      "source": "./jetson-requirements.txt",
+      "destination": "~/jetson-requirements.txt"
+    },
+    {
+      "type": "file",
+      "source": "./pylon_6.2.0.21487_aarch64_setup.tar.gz",
+      "destination": "~/pylon_6.2.0.21487_aarch64_setup.tar.gz"
+    },
+    {
       "type": "shell",
       "remote_folder": "~",
       "inline": [
-        "echo nvidia-greydog | sudo -S bash ~/install-sw.sh",
+        "echo {{user `sudo_password`}} | sudo -S bash ~/install-sw.sh",
         "rm ~/install-sw.sh"
       ]
     }

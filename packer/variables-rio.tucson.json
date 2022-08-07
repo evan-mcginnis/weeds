@@ -1,0 +1,12 @@
+{
+  "host": "169.254.212.39",
+  "sudo_password": "nvidia-greydog",
+  "user_password": "nvidia-greydog",
+  "admin-password": "nvidia-greydog",
+  "admin-user": "admin",
+  "weeds-password": "nvidia-greydog",
+  "weeds-user": "weeds",
+  "location": "tucson",
+  "pulses": "5000",
+  "server": "jetson-right.weeds.com"
+}

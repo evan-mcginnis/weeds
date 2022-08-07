@@ -1,0 +1,64 @@
+{
+  "builders" : [
+    {
+      "type": "null",
+      "ssh_host":     "{{user `host`}}",
+      "ssh_username": "weeds",
+      "ssh_password" : "{{user `sudo_password`}}",
+      "ssh_pty" : "true"
+    }
+  ],
+  "provisioners" : [
+    {
+      "type": "file",
+      "source": "./create-users.sh",
+      "destination": "~/create-users.sh"
+    },
+    {
+      "type": "file",
+      "source": "./{{ user `location` }}.dhcpd.conf",
+      "destination": "~/dhcpd.conf"
+    },
+    {
+      "type": "file",
+      "source": "./{{ user `location` }}.ejabberd.yml",
+      "destination": "~/ejabberd.yml"
+    },
+    {
+      "type": "file",
+      "source": "./isc-dhcp-server",
+      "destination": "~/isc-dhcp-server"
+    },
+    {
+      "type": "file",
+      "source": "./ntp.conf",
+      "destination": "~/ntp.conf"
+    },
+    {
+      "type": "file",
+      "source": "./config-os.sh",
+      "destination": "~/config-os.sh"
+    },
+    {
+      "type": "file",
+      "source": "./install-ejabberd.sh",
+      "destination": "~/install-ejabberd.sh"
+    },
+    {
+      "type": "file",
+      "source": "./config-ejabberd.sh",
+      "destination": "~/config-ejabberd.sh"
+    },
+    {
+      "type": "shell",
+      "remote_folder": "~",
+      "inline": [
+        "echo nvidia-greydog | sudo -S bash ~/create-users.sh",
+        "echo nvidia-greydog | sudo -S bash ~/config-os.sh",
+        "echo nvidia-greydog | sudo -S bash ~/install-ejabberd.sh",
+        "echo nvidia-greydog | sudo -S bash ~/config-ejabberd.sh",
+        "echo rm ~/create-users.sh"
+      ]
+    }
+  ]
+}
