@@ -1,0 +1,8 @@
+#!/bin/sh
+
+WEEDSHOME=/home/weeds/jetson
+export PYTHONPATH=/home/weeds/lib
+python3 $WEEDSHOME/weeds.py -o $WEEDSHOME/../output
+
+exit $?
+

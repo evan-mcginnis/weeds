@@ -1,0 +1,12 @@
+[Unit]
+Description="Weed Image processing"
+
+[Service]
+Type=simple
+User=weeds
+WorkingDirectory=/home/weeds
+ExecStart=/home/weeds/jetson/weeds-service
+
+[Install]
+WantedBy=multi-user.target
+
