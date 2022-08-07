@@ -193,7 +193,8 @@ def startupCommunications(options: OptionsFile) -> ():
     :return: odometry, system rooms
     """
     # The room that will get the announcements about forward or backward progress
-    odometryRoom = MUCCommunicator(options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_JID_RIO),
+    odometryRoom = MUCCommunicator(options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_SERVER),
+                                   options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_JID_RIO),
                                    options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_ODOMETRY),
                                    options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_DEFAULT_PASSWORD),
                                    options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_ODOMETRY),
@@ -201,19 +202,22 @@ def startupCommunications(options: OptionsFile) -> ():
                                    None) # Don't care about presence
 
     # The room that will get status reports about this process
-    systemRoom = MUCCommunicator(options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_JID_RIO),
+    systemRoom = MUCCommunicator(options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_SERVER),
+                                 options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_JID_RIO),
                                  options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_ODOMETRY),
                                  options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_DEFAULT_PASSWORD),
                                  options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_SYSTEM),
                                  process,
                                  None) # Don't care about presence
 
-    treatmentRoom = MUCCommunicator(options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_JID_RIO),
-                                    options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_ODOMETRY),
-                                    options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_DEFAULT_PASSWORD),
-                                    options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_TREATMENT),
-                                    process,
-                                    None) # Don't care about presence
+    treatmentRoom = MUCCommunicator( options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_SERVER),
+                                     options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_JID_RIO),
+                                     options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_ODOMETRY),
+                                     options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_DEFAULT_PASSWORD),
+                                     options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_TREATMENT),
+                                     process,
+                                     None) # Don't care about presence
+
     return (odometryRoom, systemRoom, treatmentRoom)
 
 #
