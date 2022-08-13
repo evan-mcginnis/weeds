@@ -42,8 +42,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.button_stop.clicked.connect(self.stopWeeding)
 
         # Set the initial button states
-        self.button_start.setEnabled(True)
-        self.button_start_imaging.setEnabled(True)
+        self.button_start.setEnabled(False)
+        self.button_start_imaging.setEnabled(False)
         self.button_stop.setEnabled(False)
 
         self.reset_kph.setEnabled(False)
@@ -95,6 +95,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
              "name": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_JETSON_2),
              "status": self.system_status_right},
 
+            {"room": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_SYSTEM),
+             "name": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_CLOUD),
+             "status": self.system_status_aws},
+
             {"room": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_TREATMENT),
              "name": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_ODOMETRY),
              "status": self.treatment_status_rio},
@@ -142,6 +146,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         self.tractor_progress.setStyleSheet("color: white; background-color: green")
         self.tractor_progress.setValue(0)
+
+        #self.initializing.setStyleSheet("color: white; background-color: green")
+        self.initializing.setValue(0)
 
     @property
     def odometryRoom(self) -> MUCCommunicator:
@@ -350,6 +357,17 @@ def processMessagesSync(room: MUCCommunicator):
     # Connect to the XMPP server and just return
     room.connect(True, True)
 
+def housekeeping(room: MUCCommunicator):
+    while not systemRoom.connected:
+        log.debug("Waiting for system room connection.")
+        sleep(5)
+    window.initializing.setValue(100)
+    window.button_start.setEnabled(True)
+    window.button_start_imaging.setEnabled(True)
+    window.reset_kph.setEnabled(True)
+    window.reset_distance.setEnabled(True)
+    window.reset_images_taken.setEnabled(True)
+
 threads = list()
 
 parser = argparse.ArgumentParser("Weeding Console")
@@ -378,6 +396,21 @@ log = logging.getLogger("console")
 
 (odometryRoom, systemRoom, treatmentRoom) = startupCommunications(options)
 
+app = QtWidgets.QApplication(sys.argv)
+
+window = MainWindow()
+window.setWindowTitle("University of Arizona")
+window.odometryRoom = odometryRoom
+window.systemRoom = systemRoom
+window.treatmentRoom = treatmentRoom
+window.setupRooms(odometryRoom, systemRoom, treatmentRoom)
+
+log.debug("Start housekeeping thread")
+houseThread = threading.Thread(name=constants.THREAD_NAME_SYSTEM,target=housekeeping,args=(systemRoom,))
+houseThread.daemon = True
+threads.append(houseThread)
+houseThread.start()
+
 log.debug("Start system thread")
 sysThread = threading.Thread(name=constants.THREAD_NAME_SYSTEM,target=processMessagesSync,args=(systemRoom,))
 sysThread.daemon = True
@@ -396,18 +429,8 @@ sysThread.daemon = True
 threads.append(sysThread)
 sysThread.start()
 
-app = QtWidgets.QApplication(sys.argv)
 
-window = MainWindow()
-window.setWindowTitle("University of Arizona")
-window.odometryRoom = odometryRoom
-window.systemRoom = systemRoom
-window.treatmentRoom = treatmentRoom
-window.setupRooms(odometryRoom, systemRoom, treatmentRoom)
 
-while not systemRoom.connected:
-    log.debug("Waiting for room connection.")
-    sleep(5)
 
 
 #window.setStatus()

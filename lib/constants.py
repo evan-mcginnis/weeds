@@ -9,6 +9,11 @@ UI_STATUS_NOT_OK = "Not OK"
 UI_OPERATION_IMAGING = "Imaging only"
 UI_OPERATION_WEEDING = "Weeding"
 
+# File names
+PREFIX_CAMERA_CONFIGURATION = "camera-configuration-"
+EXTENSION_CAMERA_SETTINGS = ".pfs"
+EXTENSION_IMAGE = ".jpg"
+
 # This is just the text that will be placed on the visible treatment plan
 SPRAYER_NAME = ""
 
@@ -17,6 +22,7 @@ THREAD_NAME_SYSTEM = "system"
 THREAD_NAME_TREATMENT = "treatment"
 THREAD_NAME_ACQUIRE = "acquire"
 THREAD_NAME_SERVICE = "service"
+THREAD_NAME_HOUSEKEEPING = "housekeeping"
 
 MSG_NOT_CONNECTED = "Not connected"
 MSG_LINES_NOT_SPECIFIED = "The A and B lines for the odometer must be on the command line or in the INI file"
@@ -189,6 +195,8 @@ PROPERTY_FILENAME = "options.ini"
 PROPERTY_PIXELS_PER_MM = "PIXELS-PER-MM"
 PROPERTY_SECTION_CAMERA = "CAMERA"
 PROPERTY_CAMERA_IP = "IP" #"169.254.212.41"
+
+PROPERTY_OUTPUT = "OUTPUT"
 
 # O D O M E T E R
 PROPERTY_SECTION_ODOMETER = "ODOMETER"
