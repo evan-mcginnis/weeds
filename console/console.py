@@ -28,6 +28,7 @@ class Ui_MainWindow(object):
         self.verticalLayout.setObjectName("verticalLayout")
         self.odometryBox = QtWidgets.QGroupBox(self.verticalLayoutWidget)
         self.odometryBox.setEnabled(True)
+        self.odometryBox.setMinimumSize(QtCore.QSize(50, 50))
         self.odometryBox.setFlat(False)
         self.odometryBox.setObjectName("odometryBox")
         self.odomentry_label_rio = QtWidgets.QLabel(self.odometryBox)
