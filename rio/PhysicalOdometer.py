@@ -91,8 +91,7 @@ class PhysicalOdometer(Odometer):
         self._distancePerDegree = self._wheel_size / 360
         self._totalClicks = 0
 
-        # This is where the readings go -- this size is way too big
-        self._changeQueue = queue.Queue(maxsize=5000)
+
 
         self.log = logging.getLogger(__name__)
 
@@ -110,13 +109,7 @@ class PhysicalOdometer(Odometer):
         # Not used
         self._aArmed = False
 
-    @property
-    def changeQueue(self):
-        """
-        The queue of readings for the line transitions of the input pins
-        :return:
-        """
-        return self._changeQueue
+
 
     @property
     def encoderClicksPerRevolution(self) -> int:
@@ -223,86 +216,6 @@ class PhysicalOdometer(Odometer):
 
         task.stop()
 
-
-    # Keep this around for now, as that is the only way to read the currently installed encoder
-    # that is useful for edge counting and not much else
-
-    def startEdgeCount(self):
-        """
-        Not used: Use an edge count strategy to determine wheel movement
-
-        """
-        taskA = ni.Task(new_task_name="readA")
-        taskB = ni.Task(new_task_name="readB")
-
-        channelA = taskA.di_channels.add_di_chan("Mod3/port0/line0",line_grouping=LineGrouping.CHAN_PER_LINE)
-        channelB = taskB.di_channels.add_di_chan("Mod3/port0/line2",line_grouping=LineGrouping.CHAN_PER_LINE)
-        taskA.timing.cfg_change_detection_timing(rising_edge_chan="Mod3/port0/line0",
-                                                falling_edge_chan="Mod3/port0/line0",
-                                                sample_mode=AcquisitionType.CONTINUOUS,
-                                                samps_per_chan=MAX_ODOMETER_SAMPLES)
-        taskA.timing.samp_timing_type = nidaqmx.constants.SampleTimingType.CHANGE_DETECTION
-
-        taskB.timing.cfg_change_detection_timing(rising_edge_chan="Mod3/port0/line2",
-                                                falling_edge_chan="Mod3/port0/line2",
-                                                sample_mode=AcquisitionType.CONTINUOUS,
-                                                samps_per_chan=MAX_ODOMETER_SAMPLES)
-        taskB.timing.samp_timing_type = nidaqmx.constants.SampleTimingType.CHANGE_DETECTION
-
-        # Debounce the signal
-        channelA.di_dig_fltr_min_pulse_width = ODOMETER_DEBOUNCE
-        channelB.di_dig_fltr_min_pulse_width = ODOMETER_DEBOUNCE
-        #channelZ.di_dig_fltr_min_pulse_width = ODOMETER_DEBOUNCE
-
-        channelA.di_dig_fltr_enable = True
-        channelB.di_dig_fltr_enable = True
-        #channelZ.di_dig_fltr_enable = True
-
-        taskA.timing.change_detect_di_rising_edge_physical_chans = channelA
-        taskB.timing.change_detect_di_rising_edge_physical_chans = channelB
-        taskA.timing.change_detect_di_falling_edge_physical_chans = channelA
-        taskB.timing.change_detect_di_falling_edge_physical_chans = channelB
-
-        taskA.timing.samp_timing_type = nidaqmx.constants.SampleTimingType.CHANGE_DETECTION
-        taskB.timing.samp_timing_type = nidaqmx.constants.SampleTimingType.CHANGE_DETECTION
-
-        taskA.register_signal_event(nidaqmx.constants.Signal.CHANGE_DETECTION_EVENT, self._changeDetected)
-        taskB.register_signal_event(nidaqmx.constants.Signal.CHANGE_DETECTION_EVENT, self._changeDetected)
-
-
-        aOK = False
-        bOK = False
-
-        try:
-            print("Task A uses:{}".format(taskA.channel_names))
-            taskA.start()
-            aOK = True
-        except nidaqmx.errors.DaqError as daq:
-            print("Failure in starting task A. Cleanup")
-            taskA.close()
-        try:
-            print("Task B uses:{}".format(taskB.channel_names))
-            taskB.start()
-            bOK = True
-        except nidaqmx.errors.DaqError as daq:
-            print("Failure in starting task B. {}".format(daq))
-            taskA.close()
-
-
-        if aOK and bOK:
-            # This is only needed for debugging on the bench
-            print("Begin wheel rotation.")
-
-            # The running flag will be set to false by the user input thread, but in production, that will never happen
-            running = True
-            while running:
-                sleep(5)
-
-            print("Cleaning up")
-            taskA.close()
-            taskB.close()
-        else:
-            print("Tasks not started.")
 
 
 # #

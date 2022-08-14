@@ -7,11 +7,21 @@ from typing import Callable
 import logging
 from time import sleep
 from datetime import datetime
-import nidaqmx as ni
+import queue
 
 class Odometer(ABC):
     def __init__(self, options: str):
         self.options = options
+        # This is where the readings go -- this size is way too big
+        self._changeQueue = queue.Queue(maxsize=5000)
+
+    @property
+    def changeQueue(self):
+        """
+        The queue of readings for the line transitions of the input pins
+        :return:
+        """
+        return self._changeQueue
 
     @abstractmethod
     def connect(self) -> bool:
