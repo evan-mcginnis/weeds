@@ -20,7 +20,7 @@ import xmpp
 import constants
 
 from MUCCommunicator import MUCCommunicator
-from Messages import MUCMessage, OdometryMessage, SystemMessage
+from Messages import MUCMessage, OdometryMessage, SystemMessage, TreatmentMessage
 import uuid
 
 from PyQt5 import QtWidgets
@@ -180,6 +180,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def setDistance(self, distance: float):
         self.count_distance.display(distance)
 
+    def setTreatments(self, treatments: int):
+        self.count_images.display(treatments)
+
     def setStatus(self, occupant: str, roomName: str, presence: Presence):
         """
         Sets the status for an occupant based on the list of required occupants.
@@ -265,14 +268,22 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
 
 messageNumber = 0
+treatments = 0
+
 def process(conn, msg: xmpp.protocol.Message):
     global messageNumber
+    global treatments
 
     if msg.getFrom().getStripped() == options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_ODOMETRY):
         odometryMessage = OdometryMessage(raw=msg.getBody())
         window.setSpeed(odometryMessage.speed)
         window.setDistance(odometryMessage.totalDistance)
         log.debug("Speed: {:.02f}".format(odometryMessage.speed))
+    elif msg.getFrom().getStripped() == options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_TREATMENT):
+        treatmentMessage = TreatmentMessage(raw=msg.getBody())
+        treatments += 1
+        window.setTreatments(treatments)
+        log.debug("Treatments: {:.02f}".format(treatments))
     else:
         print("skipped message {}".format(messageNumber))
 

@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1023</width>
-    <height>851</height>
+    <width>2700</width>
+    <height>1824</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -870,7 +870,7 @@
         <string/>
        </property>
        <property name="pixmap">
-        <pixmap>../output/original-194.jpg</pixmap>
+        <pixmap>../../../Users/evan/.designer/output/original-194.jpg</pixmap>
        </property>
        <property name="scaledContents">
         <bool>true</bool>
@@ -920,7 +920,7 @@
         <string/>
        </property>
        <property name="pixmap">
-        <pixmap>../output/processed-158.jpg</pixmap>
+        <pixmap>../../../Users/evan/.designer/output/processed-158.jpg</pixmap>
        </property>
        <property name="scaledContents">
         <bool>true</bool>
@@ -1046,7 +1046,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1023</width>
+     <width>2700</width>
      <height>21</height>
     </rect>
    </property>
