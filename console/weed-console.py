@@ -12,6 +12,9 @@ import sys
 from typing import Callable
 
 import dns.resolver
+from PyQt5.QtCore import Qt
+from PyQt5 import QtGui
+
 
 from OptionsFile import OptionsFile
 import logging
@@ -31,6 +34,10 @@ class Presence(Enum):
     JOINED = 0
     LEFT = 1
 
+class Status(Enum):
+    OK = 0
+    ERROR = 1
+
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def __init__(self, *args, obj=None, **kwargs):
         super(MainWindow, self).__init__(*args, **kwargs)
@@ -40,6 +47,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.button_start.clicked.connect(self.startWeeding)
         self.button_start_imaging.clicked.connect(self.startImaging)
         self.button_stop.clicked.connect(self.stopWeeding)
+
+        self.reset_kph.clicked.connect(self.resetKPH)
+        self.reset_distance.clicked.connect(self.resetDistance)
+        self.reset_images_taken.clicked.connect(self.resetImageCount)
 
         # Set the initial button states
         self.button_start.setEnabled(False)
@@ -174,6 +185,18 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def treatmentRoom(self, room: MUCCommunicator):
         self._treatmentRoom = room
 
+    def setTabColor(self, tab:QtWidgets, status:Status):
+        color = Qt.white
+
+        if status == Status.OK:
+            color = Qt.white
+        elif status == Status.ERROR:
+            color = Qt.red
+
+        p = self.tabSystem.palette()
+        p.setColor(tab.backgroundRole(), color)
+        self.tabWidget.setPalette(p)
+
     def setSpeed(self, speed: float):
         self.average_kph.display(speed)
 
@@ -230,6 +253,14 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         self.startOperation(constants.UI_OPERATION_IMAGING)
 
+    def resetKPH(self):
+        self.setSpeed(0.0)
+
+    def resetImageCount(self):
+        pass
+
+    def resetDistance(self):
+        self.setDistance(0.0)
 
     def startWeeding(self):
         # Disable the start button and enable the stop
@@ -378,6 +409,8 @@ def housekeeping(room: MUCCommunicator):
     window.reset_kph.setEnabled(True)
     window.reset_distance.setEnabled(True)
     window.reset_images_taken.setEnabled(True)
+    window.setTabColor(window.tabSystem, Status.OK)
+    window.status_current_operation.setText(constants.UI_OPERATION_NONE)
 
 threads = list()
 
