@@ -295,7 +295,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         systemMessage.action = constants.Action.STOP
         #systemMessage.name = str(uuid.uuid4())
         self._systemRoom.sendMessage(systemMessage.formMessage())
-        print("Stop Weeding")
+        log.debug("Stop Weeding")
 
 
 messageNumber = 0
@@ -309,7 +309,7 @@ def process(conn, msg: xmpp.protocol.Message):
         odometryMessage = OdometryMessage(raw=msg.getBody())
         window.setSpeed(odometryMessage.speed)
         window.setDistance(odometryMessage.totalDistance)
-        log.debug("Speed: {:.02f}".format(odometryMessage.speed))
+        #log.debug("Speed: {:.02f}".format(odometryMessage.speed))
     elif msg.getFrom().getStripped() == options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_TREATMENT):
         treatmentMessage = TreatmentMessage(raw=msg.getBody())
         treatments += 1

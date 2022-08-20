@@ -34,7 +34,7 @@
    <property name="enabled">
     <bool>true</bool>
    </property>
-   <layout class="QHBoxLayout" name="horizontalLayout_3">
+   <layout class="QVBoxLayout" name="verticalLayout_4">
     <item>
      <widget class="QTabWidget" name="tabWidget">
       <property name="sizePolicy">
@@ -579,590 +579,569 @@
        <attribute name="title">
         <string>Communications</string>
        </attribute>
-       <widget class="QGroupBox" name="groupBox">
-        <property name="geometry">
-         <rect>
-          <x>10</x>
-          <y>80</y>
-          <width>691</width>
-          <height>101</height>
-         </rect>
-        </property>
-        <property name="title">
-         <string>Diagnostics</string>
-        </property>
-        <widget class="QWidget" name="verticalLayoutWidget_4">
-         <property name="geometry">
-          <rect>
-           <x>20</x>
-           <y>20</y>
-           <width>671</width>
-           <height>113</height>
-          </rect>
-         </property>
-         <layout class="QVBoxLayout" name="verticalLayout_4">
+       <layout class="QVBoxLayout" name="verticalLayout_5">
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_8">
+          <property name="sizeConstraint">
+           <enum>QLayout::SetMaximumSize</enum>
+          </property>
           <item>
+           <widget class="QLabel" name="label_5">
+            <property name="maximumSize">
+             <size>
+              <width>16777215</width>
+              <height>50</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>Conference Rooms</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_12">
+          <item>
+           <layout class="QVBoxLayout" name="verticalLayout">
+            <item>
+             <widget class="QGroupBox" name="odometryBox">
+              <property name="enabled">
+               <bool>true</bool>
+              </property>
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="minimumSize">
+               <size>
+                <width>100</width>
+                <height>100</height>
+               </size>
+              </property>
+              <property name="toolTip">
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Odometry Room&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+              </property>
+              <property name="autoFillBackground">
+               <bool>true</bool>
+              </property>
+              <property name="title">
+               <string>Odometry</string>
+              </property>
+              <property name="flat">
+               <bool>false</bool>
+              </property>
+              <layout class="QFormLayout" name="formLayout">
+               <item row="0" column="0">
+                <widget class="QLabel" name="odomentry_label_rio">
+                 <property name="toolTip">
+                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;National Instruments Compact RIO&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                 </property>
+                 <property name="text">
+                  <string>RIO</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="0" column="1">
+                <widget class="QLabel" name="odometry_status_rio">
+                 <property name="font">
+                  <font>
+                   <family>Tahoma</family>
+                   <weight>50</weight>
+                   <bold>false</bold>
+                  </font>
+                 </property>
+                 <property name="text">
+                  <string>Unknown</string>
+                 </property>
+                 <property name="margin">
+                  <number>2</number>
+                 </property>
+                 <property name="indent">
+                  <number>2</number>
+                 </property>
+                </widget>
+               </item>
+               <item row="1" column="0">
+                <widget class="QLabel" name="adometry_label_rio">
+                 <property name="toolTip">
+                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;NVIDIA Jetson on left side facing rear of tractor&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                 </property>
+                 <property name="text">
+                  <string>Jetson Left</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="1" column="1">
+                <widget class="QLabel" name="odometry_status_left">
+                 <property name="font">
+                  <font>
+                   <weight>50</weight>
+                   <bold>false</bold>
+                  </font>
+                 </property>
+                 <property name="text">
+                  <string>Unknown</string>
+                 </property>
+                 <property name="margin">
+                  <number>2</number>
+                 </property>
+                 <property name="indent">
+                  <number>2</number>
+                 </property>
+                </widget>
+               </item>
+               <item row="2" column="0">
+                <widget class="QLabel" name="odometry_label_right">
+                 <property name="toolTip">
+                  <string extracomment="Jetson on RHS">&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;NVIDIA Jetson on right side facing rear of tractor&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                 </property>
+                 <property name="text">
+                  <string>Jetson Right</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="2" column="1">
+                <widget class="QLabel" name="odometry_status_right">
+                 <property name="font">
+                  <font>
+                   <weight>50</weight>
+                   <bold>false</bold>
+                  </font>
+                 </property>
+                 <property name="text">
+                  <string>Unknown</string>
+                 </property>
+                 <property name="margin">
+                  <number>2</number>
+                 </property>
+                 <property name="indent">
+                  <number>2</number>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <layout class="QVBoxLayout" name="verticalLayout_3">
+            <item alignment="Qt::AlignLeft|Qt::AlignTop">
+             <widget class="QGroupBox" name="treamentBox">
+              <property name="minimumSize">
+               <size>
+                <width>100</width>
+                <height>100</height>
+               </size>
+              </property>
+              <property name="font">
+               <font>
+                <weight>50</weight>
+                <bold>false</bold>
+               </font>
+              </property>
+              <property name="toolTip">
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;System Room&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+              </property>
+              <property name="autoFillBackground">
+               <bool>true</bool>
+              </property>
+              <property name="title">
+               <string>Treatment</string>
+              </property>
+              <property name="flat">
+               <bool>false</bool>
+              </property>
+              <layout class="QFormLayout" name="formLayout_2">
+               <item row="0" column="0">
+                <widget class="QLabel" name="treatment_label_rio">
+                 <property name="toolTip">
+                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;National Instruments Compact RIO&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                 </property>
+                 <property name="text">
+                  <string>RIO</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="0" column="1">
+                <widget class="QLabel" name="treatment_status_rio">
+                 <property name="font">
+                  <font>
+                   <family>Tahoma</family>
+                   <weight>50</weight>
+                   <bold>false</bold>
+                  </font>
+                 </property>
+                 <property name="text">
+                  <string>Unknown</string>
+                 </property>
+                 <property name="margin">
+                  <number>2</number>
+                 </property>
+                 <property name="indent">
+                  <number>2</number>
+                 </property>
+                </widget>
+               </item>
+               <item row="1" column="0">
+                <widget class="QLabel" name="treatment_label_left">
+                 <property name="toolTip">
+                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;NVIDIA Jetson on left side facing rear of tractor&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                 </property>
+                 <property name="text">
+                  <string>Jetson Left</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="1" column="1">
+                <widget class="QLabel" name="treatment_status_left">
+                 <property name="font">
+                  <font>
+                   <weight>50</weight>
+                   <bold>false</bold>
+                  </font>
+                 </property>
+                 <property name="text">
+                  <string>Unknown</string>
+                 </property>
+                 <property name="margin">
+                  <number>2</number>
+                 </property>
+                 <property name="indent">
+                  <number>2</number>
+                 </property>
+                </widget>
+               </item>
+               <item row="2" column="0">
+                <widget class="QLabel" name="treatment_label_right">
+                 <property name="toolTip">
+                  <string extracomment="Jetson on RHS">&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;NVIDIA Jetson on left side facing rear of tractor&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                 </property>
+                 <property name="text">
+                  <string>Jetson Right</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="2" column="1">
+                <widget class="QLabel" name="treatment_status_right">
+                 <property name="font">
+                  <font>
+                   <weight>50</weight>
+                   <bold>false</bold>
+                  </font>
+                 </property>
+                 <property name="text">
+                  <string>Unknown</string>
+                 </property>
+                 <property name="margin">
+                  <number>2</number>
+                 </property>
+                 <property name="indent">
+                  <number>2</number>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <layout class="QVBoxLayout" name="verticalLayout_2">
+            <item>
+             <widget class="QGroupBox" name="systemBox">
+              <property name="minimumSize">
+               <size>
+                <width>100</width>
+                <height>100</height>
+               </size>
+              </property>
+              <property name="toolTip">
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;System Room&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+              </property>
+              <property name="autoFillBackground">
+               <bool>true</bool>
+              </property>
+              <property name="title">
+               <string>System</string>
+              </property>
+              <property name="flat">
+               <bool>false</bool>
+              </property>
+              <layout class="QFormLayout" name="formLayout_4">
+               <item row="0" column="0">
+                <widget class="QLabel" name="system_label_rio_2">
+                 <property name="toolTip">
+                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;National Instruments Compact RIO&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                 </property>
+                 <property name="text">
+                  <string>RIO</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="0" column="1">
+                <widget class="QLabel" name="system_status_rio">
+                 <property name="font">
+                  <font>
+                   <family>Tahoma</family>
+                   <weight>50</weight>
+                   <bold>false</bold>
+                  </font>
+                 </property>
+                 <property name="text">
+                  <string>Unknown</string>
+                 </property>
+                 <property name="margin">
+                  <number>2</number>
+                 </property>
+                 <property name="indent">
+                  <number>2</number>
+                 </property>
+                </widget>
+               </item>
+               <item row="1" column="0">
+                <widget class="QLabel" name="system_label_left_2">
+                 <property name="toolTip">
+                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;NVIDIA Jetson on left side facing rear of tractor&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                 </property>
+                 <property name="text">
+                  <string>Jetson Left</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="1" column="1">
+                <widget class="QLabel" name="system_status_left">
+                 <property name="font">
+                  <font>
+                   <weight>50</weight>
+                   <bold>false</bold>
+                  </font>
+                 </property>
+                 <property name="text">
+                  <string>Unknown</string>
+                 </property>
+                 <property name="margin">
+                  <number>2</number>
+                 </property>
+                 <property name="indent">
+                  <number>2</number>
+                 </property>
+                </widget>
+               </item>
+               <item row="2" column="0">
+                <widget class="QLabel" name="system_label_right_2">
+                 <property name="toolTip">
+                  <string extracomment="Jetson on RHS">&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;NVIDIA Jetson on left side facing rear of tractor&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                 </property>
+                 <property name="text">
+                  <string>Jetson Right</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="2" column="1">
+                <widget class="QLabel" name="system_status_right">
+                 <property name="font">
+                  <font>
+                   <weight>50</weight>
+                   <bold>false</bold>
+                  </font>
+                 </property>
+                 <property name="text">
+                  <string>Unknown</string>
+                 </property>
+                 <property name="margin">
+                  <number>2</number>
+                 </property>
+                 <property name="indent">
+                  <number>2</number>
+                 </property>
+                </widget>
+               </item>
+               <item row="3" column="0">
+                <widget class="QLabel" name="system_label_aws_2">
+                 <property name="toolTip">
+                  <string extracomment="Jetson on RHS">&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;NVIDIA Jetson on left side facing rear of tractor&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                 </property>
+                 <property name="text">
+                  <string>AWS</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="3" column="1">
+                <widget class="QLabel" name="system_status_aws">
+                 <property name="font">
+                  <font>
+                   <weight>50</weight>
+                   <bold>false</bold>
+                  </font>
+                 </property>
+                 <property name="text">
+                  <string>Unknown</string>
+                 </property>
+                 <property name="margin">
+                  <number>2</number>
+                 </property>
+                 <property name="indent">
+                  <number>2</number>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+            </item>
+           </layout>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_3">
+          <item>
+           <widget class="Line" name="line_4">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_10">
+          <item>
+           <widget class="QLabel" name="label_13">
+            <property name="text">
+             <string>Diagnostics</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <spacer name="horizontalSpacer_9">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pushButton">
+            <property name="maximumSize">
+             <size>
+              <width>200</width>
+              <height>41</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>Diagnostics</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QFormLayout" name="formLayout_3">
+          <item row="0" column="0">
            <widget class="QLabel" name="label_4">
+            <property name="minimumSize">
+             <size>
+              <width>160</width>
+              <height>0</height>
+             </size>
+            </property>
             <property name="text">
              <string>RIO</string>
             </property>
            </widget>
           </item>
-          <item>
-           <widget class="QLabel" name="label_7">
+          <item row="0" column="1">
+           <widget class="QLabel" name="label_6">
             <property name="text">
-             <string>Jetson Left</string>
+             <string>No diagnostics</string>
             </property>
            </widget>
           </item>
-          <item>
-           <widget class="QLabel" name="label_8">
+          <item row="1" column="0">
+           <widget class="QLabel" name="label_7">
+            <property name="minimumSize">
+             <size>
+              <width>160</width>
+              <height>0</height>
+             </size>
+            </property>
             <property name="text">
              <string>Jetson Right</string>
             </property>
            </widget>
           </item>
+          <item row="1" column="1">
+           <widget class="QLabel" name="label_8">
+            <property name="text">
+             <string>No Diagnostics</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QLabel" name="label_9">
+            <property name="minimumSize">
+             <size>
+              <width>160</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>Jetson Left</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="0">
+           <widget class="QLabel" name="label_11">
+            <property name="minimumSize">
+             <size>
+              <width>160</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>AWS</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="1">
+           <widget class="QLabel" name="label_12">
+            <property name="text">
+             <string>No diagnostics</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="1">
+           <widget class="QLabel" name="label_10">
+            <property name="text">
+             <string>No diagnostics</string>
+            </property>
+           </widget>
+          </item>
          </layout>
-        </widget>
-       </widget>
-       <widget class="QProgressBar" name="initializing">
-        <property name="geometry">
-         <rect>
-          <x>170</x>
-          <y>240</y>
-          <width>151</width>
-          <height>23</height>
-         </rect>
-        </property>
-        <property name="toolTip">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;System Status must be at 100% before any operation is attempted&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-        </property>
-        <property name="styleSheet">
-         <string notr="true"/>
-        </property>
-        <property name="value">
-         <number>0</number>
-        </property>
-       </widget>
-       <widget class="QLabel" name="label_5">
-        <property name="geometry">
-         <rect>
-          <x>70</x>
-          <y>240</y>
-          <width>61</width>
-          <height>21</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>System</string>
-        </property>
-       </widget>
-       <widget class="QWidget" name="verticalLayoutWidget_5">
-        <property name="geometry">
-         <rect>
-          <x>730</x>
-          <y>210</y>
-          <width>211</width>
-          <height>441</height>
-         </rect>
-        </property>
-        <layout class="QVBoxLayout" name="verticalLayout_5">
-         <item>
-          <layout class="QVBoxLayout" name="verticalLayout_2">
-           <item>
-            <widget class="QGroupBox" name="systemBox">
-             <property name="minimumSize">
-              <size>
-               <width>100</width>
-               <height>100</height>
-              </size>
-             </property>
-             <property name="toolTip">
-              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;System Room&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-             </property>
-             <property name="title">
-              <string>System</string>
-             </property>
-             <property name="flat">
-              <bool>false</bool>
-             </property>
-             <widget class="QLabel" name="system_label_rio">
-              <property name="geometry">
-               <rect>
-                <x>20</x>
-                <y>30</y>
-                <width>91</width>
-                <height>21</height>
-               </rect>
-              </property>
-              <property name="toolTip">
-               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;National Instruments Compact RIO&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-              </property>
-              <property name="text">
-               <string>RIO</string>
-              </property>
-             </widget>
-             <widget class="QLabel" name="system_status_rio">
-              <property name="geometry">
-               <rect>
-                <x>120</x>
-                <y>30</y>
-                <width>81</width>
-                <height>21</height>
-               </rect>
-              </property>
-              <property name="font">
-               <font>
-                <family>Tahoma</family>
-                <weight>50</weight>
-                <bold>false</bold>
-               </font>
-              </property>
-              <property name="text">
-               <string>Unknown</string>
-              </property>
-              <property name="margin">
-               <number>2</number>
-              </property>
-              <property name="indent">
-               <number>2</number>
-              </property>
-             </widget>
-             <widget class="QLabel" name="system_label_left">
-              <property name="geometry">
-               <rect>
-                <x>20</x>
-                <y>60</y>
-                <width>91</width>
-                <height>16</height>
-               </rect>
-              </property>
-              <property name="toolTip">
-               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;NVIDIA Jetson on left side facing rear of tractor&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-              </property>
-              <property name="text">
-               <string>Jetson Left</string>
-              </property>
-             </widget>
-             <widget class="QLabel" name="system_status_left">
-              <property name="geometry">
-               <rect>
-                <x>120</x>
-                <y>60</y>
-                <width>81</width>
-                <height>21</height>
-               </rect>
-              </property>
-              <property name="font">
-               <font>
-                <weight>50</weight>
-                <bold>false</bold>
-               </font>
-              </property>
-              <property name="text">
-               <string>Unknown</string>
-              </property>
-              <property name="margin">
-               <number>2</number>
-              </property>
-              <property name="indent">
-               <number>2</number>
-              </property>
-             </widget>
-             <widget class="QLabel" name="system_label_right">
-              <property name="geometry">
-               <rect>
-                <x>20</x>
-                <y>90</y>
-                <width>91</width>
-                <height>21</height>
-               </rect>
-              </property>
-              <property name="toolTip">
-               <string extracomment="Jetson on RHS">&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;NVIDIA Jetson on left side facing rear of tractor&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-              </property>
-              <property name="text">
-               <string>Jetson Right</string>
-              </property>
-             </widget>
-             <widget class="QLabel" name="system_status_right">
-              <property name="geometry">
-               <rect>
-                <x>120</x>
-                <y>90</y>
-                <width>81</width>
-                <height>21</height>
-               </rect>
-              </property>
-              <property name="font">
-               <font>
-                <weight>50</weight>
-                <bold>false</bold>
-               </font>
-              </property>
-              <property name="text">
-               <string>Unknown</string>
-              </property>
-              <property name="margin">
-               <number>2</number>
-              </property>
-              <property name="indent">
-               <number>2</number>
-              </property>
-             </widget>
-             <widget class="QLabel" name="system_label_aws">
-              <property name="geometry">
-               <rect>
-                <x>20</x>
-                <y>120</y>
-                <width>91</width>
-                <height>21</height>
-               </rect>
-              </property>
-              <property name="toolTip">
-               <string extracomment="Jetson on RHS">&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;NVIDIA Jetson on left side facing rear of tractor&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-              </property>
-              <property name="text">
-               <string>AWS</string>
-              </property>
-             </widget>
-             <widget class="QLabel" name="system_status_aws">
-              <property name="geometry">
-               <rect>
-                <x>120</x>
-                <y>120</y>
-                <width>81</width>
-                <height>21</height>
-               </rect>
-              </property>
-              <property name="font">
-               <font>
-                <weight>50</weight>
-                <bold>false</bold>
-               </font>
-              </property>
-              <property name="text">
-               <string>Unknown</string>
-              </property>
-              <property name="margin">
-               <number>2</number>
-              </property>
-              <property name="indent">
-               <number>2</number>
-              </property>
-             </widget>
-            </widget>
-           </item>
-          </layout>
-         </item>
-         <item>
-          <layout class="QVBoxLayout" name="verticalLayout_3">
-           <item>
-            <widget class="QGroupBox" name="treamentBox">
-             <property name="minimumSize">
-              <size>
-               <width>100</width>
-               <height>100</height>
-              </size>
-             </property>
-             <property name="font">
-              <font>
-               <weight>50</weight>
-               <bold>false</bold>
-              </font>
-             </property>
-             <property name="toolTip">
-              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;System Room&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-             </property>
-             <property name="autoFillBackground">
-              <bool>false</bool>
-             </property>
-             <property name="title">
-              <string>Treatment</string>
-             </property>
-             <property name="flat">
-              <bool>false</bool>
-             </property>
-             <widget class="QLabel" name="treatment_label_rio">
-              <property name="geometry">
-               <rect>
-                <x>20</x>
-                <y>30</y>
-                <width>81</width>
-                <height>21</height>
-               </rect>
-              </property>
-              <property name="toolTip">
-               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;National Instruments Compact RIO&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-              </property>
-              <property name="text">
-               <string>RIO</string>
-              </property>
-             </widget>
-             <widget class="QLabel" name="treatment_status_rio">
-              <property name="geometry">
-               <rect>
-                <x>120</x>
-                <y>30</y>
-                <width>81</width>
-                <height>21</height>
-               </rect>
-              </property>
-              <property name="font">
-               <font>
-                <family>Tahoma</family>
-                <weight>50</weight>
-                <bold>false</bold>
-               </font>
-              </property>
-              <property name="text">
-               <string>Unknown</string>
-              </property>
-              <property name="margin">
-               <number>2</number>
-              </property>
-              <property name="indent">
-               <number>2</number>
-              </property>
-             </widget>
-             <widget class="QLabel" name="treatment_label_left">
-              <property name="geometry">
-               <rect>
-                <x>20</x>
-                <y>60</y>
-                <width>91</width>
-                <height>21</height>
-               </rect>
-              </property>
-              <property name="toolTip">
-               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;NVIDIA Jetson on left side facing rear of tractor&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-              </property>
-              <property name="text">
-               <string>Jetson Left</string>
-              </property>
-             </widget>
-             <widget class="QLabel" name="treatment_status_left">
-              <property name="geometry">
-               <rect>
-                <x>120</x>
-                <y>60</y>
-                <width>81</width>
-                <height>21</height>
-               </rect>
-              </property>
-              <property name="font">
-               <font>
-                <weight>50</weight>
-                <bold>false</bold>
-               </font>
-              </property>
-              <property name="text">
-               <string>Unknown</string>
-              </property>
-              <property name="margin">
-               <number>2</number>
-              </property>
-              <property name="indent">
-               <number>2</number>
-              </property>
-             </widget>
-             <widget class="QLabel" name="treatment_label_right">
-              <property name="geometry">
-               <rect>
-                <x>20</x>
-                <y>90</y>
-                <width>91</width>
-                <height>21</height>
-               </rect>
-              </property>
-              <property name="toolTip">
-               <string extracomment="Jetson on RHS">&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;NVIDIA Jetson on left side facing rear of tractor&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-              </property>
-              <property name="text">
-               <string>Jetson Right</string>
-              </property>
-             </widget>
-             <widget class="QLabel" name="treatment_status_right">
-              <property name="geometry">
-               <rect>
-                <x>120</x>
-                <y>90</y>
-                <width>81</width>
-                <height>21</height>
-               </rect>
-              </property>
-              <property name="font">
-               <font>
-                <weight>50</weight>
-                <bold>false</bold>
-               </font>
-              </property>
-              <property name="text">
-               <string>Unknown</string>
-              </property>
-              <property name="margin">
-               <number>2</number>
-              </property>
-              <property name="indent">
-               <number>2</number>
-              </property>
-             </widget>
-            </widget>
-           </item>
-          </layout>
-         </item>
-         <item>
-          <layout class="QVBoxLayout" name="verticalLayout">
-           <item>
-            <widget class="QGroupBox" name="odometryBox">
-             <property name="enabled">
-              <bool>true</bool>
-             </property>
-             <property name="minimumSize">
-              <size>
-               <width>100</width>
-               <height>100</height>
-              </size>
-             </property>
-             <property name="toolTip">
-              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Odometry Room&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-             </property>
-             <property name="title">
-              <string>Odometry</string>
-             </property>
-             <property name="flat">
-              <bool>false</bool>
-             </property>
-             <widget class="QLabel" name="odomentry_label_rio">
-              <property name="geometry">
-               <rect>
-                <x>20</x>
-                <y>30</y>
-                <width>91</width>
-                <height>21</height>
-               </rect>
-              </property>
-              <property name="toolTip">
-               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;National Instruments Compact RIO&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-              </property>
-              <property name="text">
-               <string>RIO</string>
-              </property>
-             </widget>
-             <widget class="QLabel" name="adometry_label_rio">
-              <property name="geometry">
-               <rect>
-                <x>20</x>
-                <y>60</y>
-                <width>91</width>
-                <height>16</height>
-               </rect>
-              </property>
-              <property name="toolTip">
-               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;NVIDIA Jetson on left side facing rear of tractor&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-              </property>
-              <property name="text">
-               <string>Jetson Left</string>
-              </property>
-             </widget>
-             <widget class="QLabel" name="odometry_label_right">
-              <property name="geometry">
-               <rect>
-                <x>20</x>
-                <y>90</y>
-                <width>91</width>
-                <height>21</height>
-               </rect>
-              </property>
-              <property name="toolTip">
-               <string extracomment="Jetson on RHS">&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;NVIDIA Jetson on right side facing rear of tractor&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-              </property>
-              <property name="text">
-               <string>Jetson Right</string>
-              </property>
-             </widget>
-             <widget class="QLabel" name="odometry_status_right">
-              <property name="geometry">
-               <rect>
-                <x>120</x>
-                <y>90</y>
-                <width>81</width>
-                <height>21</height>
-               </rect>
-              </property>
-              <property name="font">
-               <font>
-                <weight>50</weight>
-                <bold>false</bold>
-               </font>
-              </property>
-              <property name="text">
-               <string>Unknown</string>
-              </property>
-              <property name="margin">
-               <number>2</number>
-              </property>
-              <property name="indent">
-               <number>2</number>
-              </property>
-             </widget>
-             <widget class="QLabel" name="odometry_status_rio">
-              <property name="geometry">
-               <rect>
-                <x>120</x>
-                <y>30</y>
-                <width>81</width>
-                <height>21</height>
-               </rect>
-              </property>
-              <property name="font">
-               <font>
-                <family>Tahoma</family>
-                <weight>50</weight>
-                <bold>false</bold>
-               </font>
-              </property>
-              <property name="text">
-               <string>Unknown</string>
-              </property>
-              <property name="margin">
-               <number>2</number>
-              </property>
-              <property name="indent">
-               <number>2</number>
-              </property>
-             </widget>
-             <widget class="QLabel" name="odometry_status_left">
-              <property name="geometry">
-               <rect>
-                <x>120</x>
-                <y>60</y>
-                <width>81</width>
-                <height>21</height>
-               </rect>
-              </property>
-              <property name="font">
-               <font>
-                <weight>50</weight>
-                <bold>false</bold>
-               </font>
-              </property>
-              <property name="text">
-               <string>Unknown</string>
-              </property>
-              <property name="margin">
-               <number>2</number>
-              </property>
-              <property name="indent">
-               <number>2</number>
-              </property>
-             </widget>
-            </widget>
-           </item>
-          </layout>
-         </item>
-        </layout>
-       </widget>
+        </item>
+        <item>
+         <widget class="QFrame" name="frame">
+          <property name="frameShape">
+           <enum>QFrame::StyledPanel</enum>
+          </property>
+          <property name="frameShadow">
+           <enum>QFrame::Raised</enum>
+          </property>
+          <property name="lineWidth">
+           <number>3</number>
+          </property>
+         </widget>
+        </item>
+       </layout>
       </widget>
      </widget>
     </item>
