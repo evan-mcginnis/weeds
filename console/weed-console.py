@@ -13,6 +13,7 @@ from typing import Callable
 
 import dns.resolver
 from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QDialogButtonBox
 from PyQt5 import QtGui
 
 
@@ -29,6 +30,7 @@ import uuid
 from PyQt5 import QtWidgets
 
 from console import Ui_MainWindow
+from dialog_init import Ui_initProgress
 
 class Presence(Enum):
     JOINED = 0
@@ -37,6 +39,26 @@ class Presence(Enum):
 class Status(Enum):
     OK = 0
     ERROR = 1
+
+class DialogInit(QtWidgets.QDialog, Ui_initProgress):
+    def __init__(self, steps, *args, obj=None, **kwargs):
+        super(DialogInit, self).__init__(*args, **kwargs)
+        self.ui = Ui_initProgress()
+        self.setupUi(self)
+        self._percentComplete = 0
+
+        # The number of steps for the initialization
+        self._stepsTotal = steps
+        self._stepsComplete = 0
+
+    def stepComplete(self):
+        self._stepsComplete += 1
+        self._percentComplete = int((self._stepsComplete * (100 / self._stepsTotal)))
+        self.initiializationProgress.setValue(self._percentComplete)
+
+    def currentStep(self, task: str):
+        self.initializationTask.setText(task)
+
 
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def __init__(self, *args, obj=None, **kwargs):
@@ -65,6 +87,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self._systemRoom = None
         self._treatmentRoom = None
 
+        self.currentDistance = 0.0
+        self.absoluteDistance = 0.0
+
         self._requiredOccupants = list()
 
 
@@ -84,43 +109,43 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self._requiredOccupants = [
             {"room": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_ODOMETRY),
              "name": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_ODOMETRY),
-             "status": self.odometry_status_rio},
+             "status": [0,1]},
 
             {"room": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_ODOMETRY),
              "name": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_JETSON_1),
-             "status": self.odometry_status_left},
+             "status": [1,1]},
 
             {"room": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_ODOMETRY),
              "name": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_JETSON_2),
-             "status": self.odometry_status_right},
+             "status": [2,1]},
 
             {"room": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_SYSTEM),
              "name": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_ODOMETRY),
-             "status": self.system_status_rio},
+             "status": [0,2]},
 
             {"room": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_SYSTEM),
              "name": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_JETSON_1),
-             "status": self.system_status_left},
+             "status": [1,2]},
 
             {"room": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_SYSTEM),
              "name": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_JETSON_2),
-             "status": self.system_status_right},
+             "status": [2,2]},
 
             {"room": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_SYSTEM),
              "name": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_CLOUD),
-             "status": self.system_status_aws},
+             "status": [3,2]},
 
             {"room": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_TREATMENT),
              "name": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_ODOMETRY),
-             "status": self.treatment_status_rio},
+             "status": [0,0]},
 
             {"room": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_TREATMENT),
              "name": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_JETSON_1),
-             "status": self.treatment_status_left},
+             "status": [1,0]},
 
             {"room": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_TREATMENT),
              "name": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_JETSON_2),
-             "status": self.treatment_status_right}
+             "status": [2,0]}
         ]
         self._regularExpression = re.compile(r'\.|@|/')
 
@@ -134,11 +159,21 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         Initialize values on the screen
         """
         window.setSpeed(0)
+        stylesheet = "QHeaderView::section{Background-color:rgb(211,211,211); border - radius: 14px;}"
+        self.statusTable.setStyleSheet(stylesheet)
+        # Mark every occupant as missing
+        requiredOccupantCount = len(self._requiredOccupants)
+        for occupant in self._requiredOccupants:
+            x = occupant.get("status")[0]
+            y = occupant.get("status")[1]
+            self.statusTable.setItem(x, y, QtWidgets.QTableWidgetItem("NOT OK"))
+
         # This will split up a JID of the form <room-name>@<conference-name>.<domain>.<domain>/<nickname>
         log.debug("System room has {} occupants".format(len(self._systemRoom.occupants)))
         log.debug("Odometry room has {} occupants".format(len(self._odometryRoom.occupants)))
         log.debug("Treatment room has {} occupants".format(len(self._treatmentRoom.occupants)))
         allOccupants = self._systemRoom.occupants + self._odometryRoom.occupants + self._treatmentRoom.occupants
+        currentOccupantCount = len(allOccupants)
         for occupant in allOccupants:
             #for occupant in roomOccupants:
                 # The room name will be in the form name@<roomname>.conference.<domain>/<nickname>
@@ -150,16 +185,17 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 log.debug("Initial state for occupant: {}".format(occupant.get("name")))
                 self.setStatus(occupant.get("name"), fullRoomName, Presence.JOINED)
 
-        self.status_camera_left.setText(constants.UI_STATUS_OK)
+        self.status_camera_left.setText("Left Camera: " + constants.UI_STATUS_OK)
         self.status_camera_left.setStyleSheet("color: white; background-color: green")
-        self.status_camera_right.setText(constants.UI_STATUS_OK)
+        self.status_camera_right.setText("Right Camera: " + constants.UI_STATUS_OK)
         self.status_camera_right.setStyleSheet("color: white; background-color: green")
 
         self.tractor_progress.setStyleSheet("color: white; background-color: green")
         self.tractor_progress.setValue(0)
 
-        #self.initializing.setStyleSheet("color: white; background-color: green")
-        self.initializing.setValue(0)
+        # Warn if all the occupants are not present
+        if currentOccupantCount < requiredOccupantCount:
+            self.setTabColor(self.detailSystem, Status.ERROR)
 
     @property
     def odometryRoom(self) -> MUCCommunicator:
@@ -193,15 +229,18 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         elif status == Status.ERROR:
             color = Qt.red
 
-        p = self.tabSystem.palette()
+        p = tab.palette()
         p.setColor(tab.backgroundRole(), color)
-        self.tabWidget.setPalette(p)
+        #self.tabWidget.setPalette(p)
+        tab.setPalette(p)
 
     def setSpeed(self, speed: float):
         self.average_kph.display(speed)
 
     def setDistance(self, distance: float):
-        self.count_distance.display(distance)
+        self.currentDistance = distance
+        # If the user has reset the distance to 0, use the offset
+        self.count_distance.display(distance - self.absoluteDistance)
 
     def setTreatments(self, treatments: int):
         self.count_images.display(treatments)
@@ -220,12 +259,16 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             log.debug("Checking {} in room {} against {} {}".format(occupant, roomName, requiredOccupant.get("name"), requiredOccupant.get("room")))
             if requiredOccupant.get("name") == occupant and requiredOccupant.get("room") == roomName:
                 # The occupant left or joined
+                x = requiredOccupant.get("status")[0]
+                y = requiredOccupant.get("status")[1]
                 if presence == Presence.LEFT:
-                    requiredOccupant.get("status").setText(constants.UI_STATUS_NOT_OK)
-                    requiredOccupant.get("status").setStyleSheet("color: white; background-color: red")
+                    self.statusTable.setItem(x,y,QtWidgets.QTableWidgetItem("NOT OK"))
+                    #requiredOccupant.get("status").setText(constants.UI_STATUS_NOT_OK)
+                    #requiredOccupant.get("status").setStyleSheet("color: white; background-color: red")
                 else:
-                    requiredOccupant.get("status").setText(constants.UI_STATUS_OK)
-                    requiredOccupant.get("status").setStyleSheet("color: white; background-color: green")
+                    self.statusTable.setItem(x,y,QtWidgets.QTableWidgetItem("OK"))
+                    #requiredOccupant.get("status").setText(constants.UI_STATUS_OK)
+                    #requiredOccupant.get("status").setStyleSheet("color: white; background-color: green")
 
 
 
@@ -260,7 +303,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         pass
 
     def resetDistance(self):
-        self.setDistance(0.0)
+        self.absoluteDistance = self.currentDistance
 
     def startWeeding(self):
         # Disable the start button and enable the stop
@@ -286,9 +329,11 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.button_start_imaging.setEnabled(True)
         self.button_stop.setEnabled(False)
 
-        self.reset_kph.setEnabled(False)
-        self.reset_distance.setEnabled(False)
-        self.reset_images_taken.setEnabled(False)
+        # self.reset_kph.setEnabled(False)
+        # self.reset_distance.setEnabled(False)
+        # self.reset_images_taken.setEnabled(False)
+
+        self.status_current_operation.setText(constants.UI_OPERATION_NONE)
 
         systemMessage = SystemMessage()
 
@@ -400,10 +445,22 @@ def processMessagesSync(room: MUCCommunicator):
     room.connect(True, True)
 
 def housekeeping(room: MUCCommunicator):
-    while not systemRoom.connected:
-        log.debug("Waiting for system room connection.")
-        sleep(5)
-    window.initializing.setValue(100)
+    while not dialogInit.isVisible():
+        time.sleep(1)
+        log.debug("Waiting for dialog to become visible")
+
+    okButton = dialogInit.buttonBox.button(QtWidgets.QDialogButtonBox.Ok)
+    okButton.setEnabled(False)
+
+    for chatroom in [systemRoom, odometryRoom, treatmentRoom]:
+        dialogInit.currentStep("Connecting to {}".format(chatroom.muc))
+        while not chatroom.connected:
+            log.debug("Waiting for {} room connection.".format(chatroom.muc))
+        dialogInit.stepComplete()
+        # Slow things down a bit so we can read the messages.  Not really needed
+        time.sleep(1)
+
+    dialogInit.currentStep("UI Setup")
     window.button_start.setEnabled(True)
     window.button_start_imaging.setEnabled(True)
     window.reset_kph.setEnabled(True)
@@ -411,6 +468,9 @@ def housekeeping(room: MUCCommunicator):
     window.reset_images_taken.setEnabled(True)
     window.setTabColor(window.tabSystem, Status.OK)
     window.status_current_operation.setText(constants.UI_OPERATION_NONE)
+    dialogInit.stepComplete()
+    dialogInit.currentStep("Everything is good to go")
+    okButton.setEnabled(True)
 
 threads = list()
 
@@ -443,6 +503,9 @@ log = logging.getLogger("console")
 app = QtWidgets.QApplication(sys.argv)
 
 window = MainWindow()
+dialogInit = DialogInit(4)
+dialogInit.show()
+
 window.setWindowTitle("University of Arizona")
 window.odometryRoom = odometryRoom
 window.systemRoom = systemRoom
@@ -478,6 +541,8 @@ sysThread.start()
 
 
 #window.setStatus()
+dialogInit.exec()
 window.show()
 window.setInitialState()
 app.exec()
+
