@@ -25,7 +25,7 @@ import constants
 
 from MUCCommunicator import MUCCommunicator
 from Messages import MUCMessage, OdometryMessage, SystemMessage, TreatmentMessage
-import uuid
+import shortuuid
 
 from PyQt5 import QtWidgets
 
@@ -289,7 +289,11 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         systemMessage = SystemMessage()
 
         systemMessage.action = constants.Action.START
-        systemMessage.name = options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_PREFIX) + str(uuid.uuid4())
+        sessionName = shortuuid.uuid()
+        systemMessage.name = options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_PREFIX) + sessionName
+
+        # TODO: move this to time_ns
+        systemMessage.timestamp = time.time() * 1000
         self._systemRoom.sendMessage(systemMessage.formMessage())
 
     def startImaging(self):
@@ -319,7 +323,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         systemMessage = SystemMessage()
 
         systemMessage.action = constants.Action.START
-        systemMessage.name = options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_PREFIX) + str(uuid.uuid4())
+        sessionName = shortuuid.ShortUUID().random(length=22)
+        systemMessage.name = options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_PREFIX) + sessionName
+        systemMessage.timestamp = time.time() * 1000
         self._systemRoom.sendMessage(systemMessage.formMessage())
 
 
@@ -338,7 +344,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         systemMessage = SystemMessage()
 
         systemMessage.action = constants.Action.STOP
-        #systemMessage.name = str(uuid.uuid4())
+        systemMessage.timestamp = time.time() * 1000
         self._systemRoom.sendMessage(systemMessage.formMessage())
         log.debug("Stop Weeding")
 
@@ -481,6 +487,9 @@ parser.add_argument('-l', '--log', action="store", required=False, default="logg
 parser.add_argument('-d', '--dns', action="store", required=False, help="DNS server address")
 
 arguments = parser.parse_args()
+
+# Use a character set that amazon aws will accept
+shortuuid.set_alphabet('0123456789abcdefghijklmnopqrstuvwxyz')
 
 # Force resolutions to come from a server that has the entries we want
 print("DNS: {}".format(arguments.dns))
