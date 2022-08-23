@@ -99,6 +99,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         header.setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeToContents)
         header.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeToContents)
         header.setSectionResizeMode(2, QtWidgets.QHeaderView.ResizeToContents)
+        # This seems like a bug in designer
+        self.statusTable.horizontalHeader().setVisible(True)
+        self.statusTable.verticalHeader().setVisible(True)
 
     def setupRooms(self, odometryRoom: MUCCommunicator, systemRoom: MUCCommunicator, treatmentRoom: MUCCommunicator):
         """
@@ -268,10 +271,16 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 y = requiredOccupant.get("status")[1]
                 if presence == Presence.LEFT:
                     self.statusTable.setItem(x,y,QtWidgets.QTableWidgetItem("NOT OK"))
+                    item = self.statusTable.item(x,y)
+                    item.setBackground(QtGui.QColor("red"))
+                    item.setForeground(QtGui.QColor("white"))
                     #requiredOccupant.get("status").setText(constants.UI_STATUS_NOT_OK)
                     #requiredOccupant.get("status").setStyleSheet("color: white; background-color: red")
                 else:
                     self.statusTable.setItem(x,y,QtWidgets.QTableWidgetItem("OK"))
+                    item = self.statusTable.item(x,y)
+                    item.setBackground(QtGui.QColor("green"))
+                    item.setForeground(QtGui.QColor("black"))
                     #requiredOccupant.get("status").setText(constants.UI_STATUS_OK)
                     #requiredOccupant.get("status").setStyleSheet("color: white; background-color: green")
 
