@@ -93,7 +93,12 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self._requiredOccupants = list()
 
 
-
+    def setupWindow(self):
+        # Adjust the table headers.  Can't seem to set this in designer
+        header = self.statusTable.horizontalHeader()
+        header.setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(2, QtWidgets.QHeaderView.ResizeToContents)
 
     def setupRooms(self, odometryRoom: MUCCommunicator, systemRoom: MUCCommunicator, treatmentRoom: MUCCommunicator):
         """
@@ -512,6 +517,8 @@ log = logging.getLogger("console")
 app = QtWidgets.QApplication(sys.argv)
 
 window = MainWindow()
+window.setupWindow()
+
 dialogInit = DialogInit(4)
 dialogInit.show()
 
