@@ -69,7 +69,7 @@
       <property name="currentIndex">
        <number>0</number>
       </property>
-      <widget class="QWidget" name="tabSystem_2">
+      <widget class="QWidget" name="tabSystem">
        <property name="enabled">
         <bool>true</bool>
        </property>
@@ -161,7 +161,7 @@
                </spacer>
               </item>
               <item>
-               <widget class="QLabel" name="status_camera_left_5">
+               <widget class="QLabel" name="status_camera_left">
                 <property name="toolTip">
                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Status of the left camera&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                 </property>
@@ -178,7 +178,7 @@
            </layout>
           </item>
           <item>
-           <widget class="QProgressBar" name="tractor_progress_2">
+           <widget class="QProgressBar" name="tractor_progress">
             <property name="toolTip">
              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Progress of the weeding aparatus&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
             </property>
@@ -258,7 +258,7 @@
                </spacer>
               </item>
               <item>
-               <widget class="QLabel" name="status_camera_right_2">
+               <widget class="QLabel" name="status_camera_right">
                 <property name="toolTip">
                  <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Status of the right camera&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                 </property>
@@ -308,7 +308,7 @@
              </widget>
             </item>
             <item>
-             <widget class="QLCDNumber" name="average_kph_2">
+             <widget class="QLCDNumber" name="average_kph">
               <property name="minimumSize">
                <size>
                 <width>165</width>
@@ -330,7 +330,7 @@
              </widget>
             </item>
             <item>
-             <widget class="QPushButton" name="reset_kph_2">
+             <widget class="QPushButton" name="reset_kph">
               <property name="minimumSize">
                <size>
                 <width>165</width>
@@ -370,7 +370,7 @@
              </widget>
             </item>
             <item>
-             <widget class="QLCDNumber" name="count_images_2">
+             <widget class="QLCDNumber" name="count_images">
               <property name="minimumSize">
                <size>
                 <width>494</width>
@@ -389,7 +389,7 @@
              </widget>
             </item>
             <item>
-             <widget class="QPushButton" name="reset_images_taken_2">
+             <widget class="QPushButton" name="reset_images_taken">
               <property name="minimumSize">
                <size>
                 <width>0</width>
@@ -435,7 +435,7 @@
              </widget>
             </item>
             <item>
-             <widget class="QLCDNumber" name="count_distance_2">
+             <widget class="QLCDNumber" name="count_distance">
               <property name="minimumSize">
                <size>
                 <width>658</width>
@@ -463,7 +463,7 @@
              </widget>
             </item>
             <item>
-             <widget class="QPushButton" name="reset_distance_2">
+             <widget class="QPushButton" name="reset_distance">
               <property name="minimumSize">
                <size>
                 <width>0</width>
@@ -514,7 +514,7 @@
            <widget class="QWidget" name="widget_2" native="true">
             <layout class="QHBoxLayout" name="horizontalLayout_19">
              <item>
-              <widget class="QLabel" name="status_current_operation_2">
+              <widget class="QLabel" name="status_current_operation">
                <property name="font">
                 <font>
                  <pointsize>30</pointsize>
@@ -541,7 +541,7 @@
              <item>
               <layout class="QVBoxLayout" name="verticalLayout_17">
                <item>
-                <widget class="QPushButton" name="button_start_2">
+                <widget class="QPushButton" name="button_start">
                  <property name="minimumSize">
                   <size>
                    <width>190</width>
@@ -565,7 +565,7 @@
                 </widget>
                </item>
                <item>
-                <widget class="QPushButton" name="button_start_imaging_2">
+                <widget class="QPushButton" name="button_start_imaging">
                  <property name="minimumSize">
                   <size>
                    <width>190</width>
@@ -586,7 +586,7 @@
                 </widget>
                </item>
                <item>
-                <widget class="QPushButton" name="button_stop_2">
+                <widget class="QPushButton" name="button_stop">
                  <property name="minimumSize">
                   <size>
                    <width>190</width>
@@ -612,7 +612,7 @@
         </item>
        </layout>
       </widget>
-      <widget class="QWidget" name="detailSystem_2">
+      <widget class="QWidget" name="detailSystem">
        <property name="font">
         <font>
          <pointsize>20</pointsize>
@@ -646,7 +646,7 @@
          <layout class="QHBoxLayout" name="horizontalLayout_21"/>
         </item>
         <item>
-         <widget class="QTableWidget" name="statusTable_2">
+         <widget class="QTableWidget" name="statusTable">
           <property name="enabled">
            <bool>true</bool>
           </property>
@@ -957,7 +957,7 @@
         </item>
        </layout>
       </widget>
-      <widget class="QWidget" name="tabDebug_2">
+      <widget class="QWidget" name="tabDebug">
        <attribute name="title">
         <string>Debug</string>
        </attribute>
@@ -972,7 +972,7 @@
         </property>
         <layout class="QHBoxLayout" name="horizontalLayout_24">
          <item>
-          <widget class="QCheckBox" name="useConstantSpeed_2">
+          <widget class="QCheckBox" name="useConstantSpeed">
            <property name="text">
             <string>Use Constant Speed</string>
            </property>
@@ -992,10 +992,10 @@
           </spacer>
          </item>
          <item>
-          <widget class="QDoubleSpinBox" name="constantSpeed_2"/>
+          <widget class="QDoubleSpinBox" name="constantSpeed"/>
          </item>
          <item>
-          <widget class="QPushButton" name="applyConstantSpeed_2">
+          <widget class="QPushButton" name="applyConstantSpeed">
            <property name="text">
             <string>Apply</string>
            </property>
