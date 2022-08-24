@@ -28,6 +28,9 @@ from Messages import MUCMessage, OdometryMessage, SystemMessage, TreatmentMessag
 import shortuuid
 
 from PyQt5 import QtWidgets
+from PyQt5.QtGui import *
+from PyQt5.QtWidgets import *
+from PyQt5.QtCore import *
 
 from console import Ui_MainWindow
 from dialog_init import Ui_initProgress
@@ -40,8 +43,26 @@ class Status(Enum):
     OK = 0
     ERROR = 1
 
+class WorkerSignals(QObject):
+    finished = pyqtSignal(name="finished")
+    result = pyqtSignal(str, name="result")
+    progress = pyqtSignal(int)
+
+class InitManager(QObject):
+    def __init__(self):
+        self.signals = WorkerSignals()
+
+    def updateProgress(self, progress: int):
+        self.signals.progress.emit(100)
+
+    def updateCurrentStep(self, stepName: str):
+        self.signals.result.emit(stepName)
+
+
+
+
 class DialogInit(QtWidgets.QDialog, Ui_initProgress):
-    def __init__(self, steps, *args, obj=None, **kwargs):
+    def __init__(self, steps, signals, *args, obj=None, **kwargs):
         super(DialogInit, self).__init__(*args, **kwargs)
         self.ui = Ui_initProgress()
         self.setupUi(self)
@@ -50,11 +71,29 @@ class DialogInit(QtWidgets.QDialog, Ui_initProgress):
         # The number of steps for the initialization
         self._stepsTotal = steps
         self._stepsComplete = 0
+        self._signals = signals
 
-    def stepComplete(self):
+        self._signals.result.connect(self.currentStep)
+        self._signals.progress.connect(self.updateProgress)
+        self._signals.finished.connect(self.finished)
+        self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
+
+    def updateProgress(self, percentComplete: int):
+        log.debug("Update progress: {}".format(percentComplete))
         self._stepsComplete += 1
         self._percentComplete = int((self._stepsComplete * (100 / self._stepsTotal)))
         self.initiializationProgress.setValue(self._percentComplete)
+
+    def finished(self):
+        window.button_start.setEnabled(True)
+        window.button_start_imaging.setEnabled(True)
+        window.reset_kph.setEnabled(True)
+        window.reset_distance.setEnabled(True)
+        window.reset_images_taken.setEnabled(True)
+        window.setTabColor(window.tabSystem, Status.OK)
+        window.status_current_operation.setText(constants.UI_OPERATION_NONE)
+        dialogInit.currentStep("Everything is good to go")
+        self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(True)
 
     def currentStep(self, task: str):
         self.initializationTask.setText(task)
@@ -91,6 +130,12 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.absoluteDistance = 0.0
 
         self._requiredOccupants = list()
+
+        self._signals = WorkerSignals()
+
+    @property
+    def signals(self):
+        return(self._signals)
 
 
     def setupWindow(self):
@@ -362,6 +407,48 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self._systemRoom.sendMessage(systemMessage.formMessage())
         log.debug("Stop Weeding")
 
+    def runTasks(self):
+        pool = QThreadPool.globalInstance()
+        runnable = Housekeeping(self._signals, self._systemRoom, self._odometryRoom, self._treatmentRoom)
+        pool.start(runnable)
+        runnable = WorkerSystem(self._systemRoom)
+        pool.start(runnable)
+
+class Housekeeping(QRunnable):
+    def __init__(self, signals, systemRoom, odometryRoom, treatmentRoom):
+        super().__init__()
+        self._signals = signals
+
+        self._systemRoom = systemRoom
+        self._odometryRoom = odometryRoom
+        self._treatmentRoom = treatmentRoom
+
+    def run(self):
+        log.debug("Housekeeping Worker thread")
+
+        # Confirm the connectivity first
+        for chatroom in [self._systemRoom, self._odometryRoom, self._treatmentRoom]:
+            self._signals.result.emit("Connecting to {}".format(chatroom.muc))
+            while not chatroom.connected:
+                log.debug("Waiting for {} room connection.".format(chatroom.muc))
+            # Slow things down a bit so we can read the messages.  Not really needed
+            time.sleep(1)
+            self._signals.progress.emit(100)
+
+        #Signal that we are done
+        self._signals.finished.emit()
+
+
+
+class WorkerSystem(QRunnable):
+    def __init__(self, room):
+        super().__init__()
+        self._signals = WorkerSignals()
+
+        self._room = room
+
+    def run(self):
+        processMessagesSync(self._room)
 
 messageNumber = 0
 treatments = 0
@@ -465,32 +552,26 @@ def processMessagesSync(room: MUCCommunicator):
     room.connect(True, True)
 
 def housekeeping(room: MUCCommunicator):
-    while not dialogInit.isVisible():
-        time.sleep(1)
-        log.debug("Waiting for dialog to become visible")
 
-    okButton = dialogInit.buttonBox.button(QtWidgets.QDialogButtonBox.Ok)
-    okButton.setEnabled(False)
 
     for chatroom in [systemRoom, odometryRoom, treatmentRoom]:
         dialogInit.currentStep("Connecting to {}".format(chatroom.muc))
         while not chatroom.connected:
             log.debug("Waiting for {} room connection.".format(chatroom.muc))
-        dialogInit.stepComplete()
         # Slow things down a bit so we can read the messages.  Not really needed
         time.sleep(1)
 
-    dialogInit.currentStep("UI Setup")
-    window.button_start.setEnabled(True)
-    window.button_start_imaging.setEnabled(True)
-    window.reset_kph.setEnabled(True)
-    window.reset_distance.setEnabled(True)
-    window.reset_images_taken.setEnabled(True)
-    window.setTabColor(window.tabSystem, Status.OK)
-    window.status_current_operation.setText(constants.UI_OPERATION_NONE)
-    dialogInit.stepComplete()
-    dialogInit.currentStep("Everything is good to go")
-    okButton.setEnabled(True)
+    # dialogInit.currentStep("UI Setup")
+    # window.button_start.setEnabled(True)
+    # window.button_start_imaging.setEnabled(True)
+    # window.reset_kph.setEnabled(True)
+    # window.reset_distance.setEnabled(True)
+    # window.reset_images_taken.setEnabled(True)
+    # window.setTabColor(window.tabSystem, Status.OK)
+    # window.status_current_operation.setText(constants.UI_OPERATION_NONE)
+    # dialogInit.stepComplete()
+    # dialogInit.currentStep("Everything is good to go")
+    # okButton.setEnabled(True)
 
 threads = list()
 
@@ -528,7 +609,7 @@ app = QtWidgets.QApplication(sys.argv)
 window = MainWindow()
 window.setupWindow()
 
-dialogInit = DialogInit(4)
+dialogInit = DialogInit(4, window.signals)
 dialogInit.show()
 
 window.setWindowTitle("University of Arizona")
@@ -537,17 +618,22 @@ window.systemRoom = systemRoom
 window.treatmentRoom = treatmentRoom
 window.setupRooms(odometryRoom, systemRoom, treatmentRoom)
 
-log.debug("Start housekeeping thread")
-houseThread = threading.Thread(name=constants.THREAD_NAME_SYSTEM,target=housekeeping,args=(systemRoom,))
-houseThread.daemon = True
-threads.append(houseThread)
-houseThread.start()
+log.debug("Starting Qt Tasks")
+window.runTasks()
 
-log.debug("Start system thread")
-sysThread = threading.Thread(name=constants.THREAD_NAME_SYSTEM,target=processMessagesSync,args=(systemRoom,))
-sysThread.daemon = True
-threads.append(sysThread)
-sysThread.start()
+# log.debug("Start housekeeping thread")
+# houseThread = threading.Thread(name=constants.THREAD_NAME_SYSTEM,target=housekeeping,args=(systemRoom,))
+# houseThread.daemon = True
+# threads.append(houseThread)
+# houseThread.start()
+
+# Move this to pyqt5 threads
+
+# log.debug("Start system thread")
+# sysThread = threading.Thread(name=constants.THREAD_NAME_SYSTEM,target=processMessagesSync,args=(systemRoom,))
+# sysThread.daemon = True
+# threads.append(sysThread)
+# sysThread.start()
 
 log.debug("Start odometry thread")
 sysThread = threading.Thread(name=constants.THREAD_NAME_ODOMETRY,target=processMessagesSync,args=(odometryRoom,))
