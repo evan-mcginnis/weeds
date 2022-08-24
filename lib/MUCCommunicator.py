@@ -7,6 +7,7 @@ from time import sleep
 from typing import Callable
 import sys
 import asyncio
+import threading
 
 import xmpp.protocol
 from xmpp import *
@@ -49,6 +50,7 @@ class MUCCommunicator():
         #self._log = logging.getLogger(__name__)
         self._log = logging.getLogger(threading.current_thread().getName())
         self._occupants = list()
+        self._lock = threading.Lock()
 
     def refresh(self):
         return
@@ -91,11 +93,31 @@ class MUCCommunicator():
 
     @property
     def connected(self) -> bool:
-        return self._connected
+        # Read lock
+        with self._lock:
+            isConnected = self._connected
+        return isConnected
+
+    @connected.setter
+    def connected(self, connectionState: bool):
+        with self._lock:
+            self._connected = connectionState
 
     @property
-    def connection(self):
-        return(self._connection)
+    def connection(self) -> xmpp.Client:
+        return self._connection
+
+    @property
+    def muc(self):
+        # Read lock
+        with self._lock:
+            mucName = self._muc
+        return mucName
+
+    @muc.setter
+    def muc(self, mucName: str):
+        with self._lock:
+            self._muc = mucName
 
     def diagnostics(self) -> ():
         """
@@ -215,7 +237,7 @@ class MUCCommunicator():
         # else:
         #     self._connection.RegisterHandler('presence', self._presenceCB)
 
-        self._connected = True
+        self.connected = True
 
         # I hate delays, but this allows the connection to settle.
         time.sleep(4)
