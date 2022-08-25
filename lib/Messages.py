@@ -101,6 +101,36 @@ class SystemMessage(MUCMessage):
     def parse(self) -> bool:
         return super().parse()
 
+class DiagnosticMessage(SystemMessage):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        self._result = True
+        self._details = ""
+
+        if constants.JSON_DIAG_RSLT in self._data:
+            self._result = (self._data[constants.JSON_DIAG_RSLT] == constants.DIAG_PASS)
+        if constants.JSON_DIAG_DETAIL in self._data:
+            self._details = self._data[constants.JSON_DIAG_DETAIL]
+
+    @property
+    def result(self) -> bool:
+        return self._result
+
+    @result.setter
+    def result(self, results: bool):
+        self._result = results
+
+    @property
+    def details(self):
+        return self._details
+
+    @details.setter
+    def details(self, details: str):
+        self._details = details
+
+
+
 class OdometryMessage(MUCMessage):
     def __init__(self, **kwargs):
         """
@@ -124,6 +154,16 @@ class OdometryMessage(MUCMessage):
             self._speed = self._data[constants.JSON_SPEED]
         else:
             self._speed = 0.0
+
+        if constants.JSON_SOURCE in self._data:
+            self._source = self._data[constants.JSON_SOURCE]
+        else:
+            self._source = ""
+
+        if constants.JSON_ACTION in self._data:
+            self._action = self._data[constants.JSON_ACTION]
+        else:
+            self._action = ""
 
     @property
     def speed(self) -> float:
@@ -151,6 +191,24 @@ class OdometryMessage(MUCMessage):
     def totalDistance(self, distanceTravelled: float):
         self._totalDistance = distanceTravelled
         self._data[constants.JSON_TOTAL_DISTANCE] = distanceTravelled
+
+    @property
+    def source(self) -> str:
+        return self._source
+
+    @source.setter
+    def source(self, sourceOfReading: str):
+        self._source = sourceOfReading
+        self._data[constants.JSON_SOURCE] = sourceOfReading
+
+    @property
+    def action(self) -> str:
+        return self._action
+
+    @action.setter
+    def action(self, requestedAction: str):
+        self._action = requestedAction
+        self._data[constants.JSON_ACTION] = requestedAction
 
     @property
     def root(self):

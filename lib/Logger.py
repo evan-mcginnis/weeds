@@ -11,6 +11,10 @@ class Logger:
         self.sequence = 0
         return
 
+    @property
+    def directory(self) -> str:
+        return(self.rootDirectory)
+
     def connect(self, directoryName: str):
         try:
             os.makedirs(directoryName, exist_ok=True)
@@ -24,6 +28,7 @@ class Logger:
             return False
 
     def logImage(self, name: str, image):
-        cv.imwrite(self.rootDirectory + "/" + name + "-" + str(self.sequence) + ".jpg", image)
+        filename = "{}/{}-{:03d}.jpg".format(self.rootDirectory, name, self.sequence)
+        cv.imwrite(filename, image)
         self.sequence = self.sequence + 1
         return

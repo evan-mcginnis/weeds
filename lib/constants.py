@@ -9,6 +9,8 @@ UI_STATUS_NOT_OK = "Not OK"
 UI_OPERATION_IMAGING = "Imaging only"
 UI_OPERATION_WEEDING = "Weeding"
 UI_OPERATION_NONE = "No operation in progress"
+UI_CONFIRM_IMAGING_ALL_OK = "Begin Imaging?"
+UI_CONFIRM_IMAGING_WITH_ERRORS = "Not all components are operational. Do you want to begin imaging?"
 
 # File names
 PREFIX_CAMERA_CONFIGURATION = "camera-configuration-"
@@ -291,11 +293,16 @@ JSON_NAME           = "name"
 JSON_PLAN           = "plan"
 JSON_DIAG_RSLT      = "result"
 JSON_DIAG_DETAIL    = "detail"
+JSON_SOURCE         = "source"
+
+SOURCE_VIRTUAL      = "virtual"
+SOURCE_PHYSICAL     = "physical"
 
 MSG_RAW             = "raw"
 
-ACTION_START   = "START"
-ACTION_STOP    = "STOP"
+ACTION_START        = "START"
+ACTION_STOP         = "STOP"
+ACTION_CONFIGURE    = "CONFIGURE"
 
 DIAG_PASS   = "pass"
 DIAG_FAIL   = "fail"
@@ -303,6 +310,10 @@ DIAG_FAIL   = "fail"
 class Treatment(Enum):
     RAW_IMAGE = 0
     PLAN = 1
+
+class SubsystemType(Enum):
+    VIRTUAL = 0
+    PHYSICAL = 1
 
 class Action(Enum):
     START = 0
@@ -312,4 +323,5 @@ class Action(Enum):
     PING = 4
     ACK = 5
     CURRENT = 6
+    CONFIGURE = 7
 
