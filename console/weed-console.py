@@ -14,8 +14,7 @@ from typing import Callable
 import dns.resolver
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QDialogButtonBox
-from PyQt5 import QtGui
-
+from PyQt5 import QtGui, QtCore
 
 from OptionsFile import OptionsFile
 import logging
@@ -35,6 +34,9 @@ from PyQt5.QtCore import *
 from console import Ui_MainWindow
 from dialog_init import Ui_initProgress
 
+messageNumber = 0
+treatments = 0
+
 class Presence(Enum):
     JOINED = 0
     LEFT = 1
@@ -43,23 +45,109 @@ class Status(Enum):
     OK = 0
     ERROR = 1
 
-class WorkerSignals(QObject):
+class InitializationSignals(QObject):
     finished = pyqtSignal(name="finished")
     result = pyqtSignal(str, name="result")
     progress = pyqtSignal(int)
 
-class InitManager(QObject):
-    def __init__(self):
-        self.signals = WorkerSignals()
+class OdometrySignals(QObject):
+    distance = pyqtSignal(str, float, name="distance")
+    speed = pyqtSignal(str, float, name="speed")
+    virtual = pyqtSignal()
 
-    def updateProgress(self, progress: int):
-        self.signals.progress.emit(100)
+class SystemSignals(QObject):
+    dianostics = pyqtSignal(bool, name="diagnostics")
 
-    def updateCurrentStep(self, stepName: str):
-        self.signals.result.emit(stepName)
+class TreatmentSignals(QObject):
+    plan = pyqtSignal(int, name="plan")
 
 
+class Housekeeping(QRunnable):
+    def __init__(self, signals, systemRoom, odometryRoom, treatmentRoom):
+        super().__init__()
+        self._signals = signals
 
+        self._systemRoom = systemRoom
+        self._odometryRoom = odometryRoom
+        self._treatmentRoom = treatmentRoom
+
+    def run(self):
+        log.debug("Housekeeping Worker thread")
+
+        # Confirm the connectivity first
+        for chatroom in [self._systemRoom, self._odometryRoom, self._treatmentRoom]:
+            self._signals.result.emit("Connecting to {}".format(chatroom.muc))
+            while not chatroom.connected:
+                log.debug("Waiting for {} room connection.".format(chatroom.muc))
+            # Slow things down a bit so we can read the messages.  Not really needed
+            time.sleep(1)
+            self._signals.progress.emit(100)
+
+        # Signal that we are done
+        self._signals.finished.emit()
+
+
+class WorkerSystem(QRunnable):
+    def __init__(self, room):
+        super().__init__()
+        self._signals = SystemSignals()
+
+        self._room = room
+
+    @property
+    def signals(self) -> SystemSignals:
+        return self._signals
+
+    def run(self):
+        processMessagesSync(self._room)
+
+
+class WorkerOdometry(QRunnable):
+    def __init__(self, room):
+        super().__init__()
+        self._signals = OdometrySignals()
+
+        self._room = room
+
+    @property
+    def signals(self) -> OdometrySignals:
+        return self._signals
+
+    def run(self):
+        processMessagesSync(self._room)
+
+    def process(self, conn, msg: xmpp.protocol.Message):
+        if msg.getFrom().getStripped() == options.option(constants.PROPERTY_SECTION_XMPP,
+                                                         constants.PROPERTY_ROOM_ODOMETRY):
+            odometryMessage = OdometryMessage(raw=msg.getBody())
+            self._signals.distance.emit(odometryMessage.source, float(odometryMessage.speed))
+            # window.setSpeed(odometryMessage.speed)
+            self._signals.speed.emit(odometryMessage.source, float(odometryMessage.speed))
+            # window.setDistance(odometryMessage.totalDistance)
+        else:
+            log.error("Processed message that was not for odometry")
+
+
+class WorkerTreatment(QRunnable):
+    def __init__(self, room):
+        super().__init__()
+        self._signals = TreatmentSignals()
+
+        self._room = room
+
+    @property
+    def signals(self) -> TreatmentSignals:
+        return self._signals
+
+    def run(self):
+        processMessagesSync(self._room)
+
+    def process(self, conn, msg: xmpp.protocol.Message):
+        if msg.getFrom().getStripped() == options.option(constants.PROPERTY_SECTION_XMPP,
+                                                         constants.PROPERTY_ROOM_ODOMETRY):
+            odometryMessage = OdometryMessage(raw=msg.getBody())
+        else:
+            log.error("Processed message that was not for odometry")
 
 class DialogInit(QtWidgets.QDialog, Ui_initProgress):
     def __init__(self, steps, signals, *args, obj=None, **kwargs):
@@ -85,12 +173,11 @@ class DialogInit(QtWidgets.QDialog, Ui_initProgress):
         self.initiializationProgress.setValue(self._percentComplete)
 
     def finished(self):
-        window.button_start.setEnabled(True)
+        #window.button_start.setEnabled(True)
         window.button_start_imaging.setEnabled(True)
         window.reset_kph.setEnabled(True)
         window.reset_distance.setEnabled(True)
         window.reset_images_taken.setEnabled(True)
-        window.setTabColor(window.tabSystem, Status.OK)
         window.status_current_operation.setText(constants.UI_OPERATION_NONE)
         dialogInit.currentStep("Everything is good to go")
         self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(True)
@@ -102,6 +189,11 @@ class DialogInit(QtWidgets.QDialog, Ui_initProgress):
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def __init__(self, *args, obj=None, **kwargs):
         super(MainWindow, self).__init__(*args, **kwargs)
+        self._treatmentSignals = None
+        self._taskOdometry = None
+        self._taskSystem = None
+        self._taskHousekeeping = None
+        self._taskTreatment = None
         self.setupUi(self)
 
         # Wire up the buttons
@@ -112,6 +204,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.reset_kph.clicked.connect(self.resetKPH)
         self.reset_distance.clicked.connect(self.resetDistance)
         self.reset_images_taken.clicked.connect(self.resetImageCount)
+
+        self.applyConstantSpeed.clicked.connect(self.startUsingConstantSpeed)
 
         # Set the initial button states
         self.button_start.setEnabled(False)
@@ -126,17 +220,73 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self._systemRoom = None
         self._treatmentRoom = None
 
+        self._OKtoImage = False
+
         self.currentDistance = 0.0
         self.absoluteDistance = 0.0
 
         self._requiredOccupants = list()
 
-        self._signals = WorkerSignals()
+        self._intializationSignals = InitializationSignals()
+        self._odometrySignals = OdometrySignals()
+        self._systemSignals = SystemSignals()
+
 
     @property
-    def signals(self):
-        return(self._signals)
+    def OKtoImage(self):
+        return self._OKtoImage
 
+    @OKtoImage.setter
+    def OKtoImage(self, ok: bool):
+        self._OKtoImage = ok
+
+    @property
+    def taskHousekeeping(self):
+        return self._taskHousekeeping
+
+    @property
+    def taskOdometry(self) -> WorkerOdometry:
+        return self._taskOdometry
+
+    @property
+    def taskSystem(self) -> WorkerSystem:
+        return self._taskSystem
+
+    @property
+    def taskTreatment(self) -> WorkerTreatment:
+        return self._taskTreatment
+
+    @property
+    def initializationSignals(self):
+        return self._intializationSignals
+
+    @property
+    def odometrySignals(self):
+        return self._odometrySignals
+
+    @property
+    def systemSignals(self):
+        return self._systemSignals
+
+    @property
+    def treatmentSignals(self):
+        return self._treatmentSignals
+
+    def updateCurrentSpeed(self, source, speed: float):
+        log.debug("Update current {} speed to {}".format(source, speed))
+        if source == constants.SOURCE_VIRTUAL:
+            self.average_kph.setStyleSheet("color: black; background-color: yellow")
+        else:
+            self.average_kph.setStyleSheet("color: black; background-color: white")
+        self.setSpeed(speed)
+
+    def updateCurrentDistance(self, source: str, distance: float):
+        log.debug("Update current distance")
+        self.count_distance.display(distance)
+        if source == constants.SOURCE_VIRTUAL:
+            self.count_distance.setStyleSheet("color: black; background-color: yellow")
+        else:
+            self.count_distance.setStyleSheet("color: black; background-color: white")
 
     def setupWindow(self):
         # Adjust the table headers.  Can't seem to set this in designer
@@ -219,7 +369,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         for occupant in self._requiredOccupants:
             x = occupant.get("status")[0]
             y = occupant.get("status")[1]
-            self.statusTable.setItem(x, y, QtWidgets.QTableWidgetItem("NOT OK"))
+            self.statusTable.setItem(x, y, QtWidgets.QTableWidgetItem(constants.UI_STATUS_NOT_OK))
 
         # This will split up a JID of the form <room-name>@<conference-name>.<domain>.<domain>/<nickname>
         log.debug("System room has {} occupants".format(len(self._systemRoom.occupants)))
@@ -238,17 +388,38 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 log.debug("Initial state for occupant: {}".format(occupant.get("name")))
                 self.setStatus(occupant.get("name"), fullRoomName, Presence.JOINED)
 
-        self.status_camera_left.setText("Left Camera: " + constants.UI_STATUS_OK)
+        self.status_camera_left.setText(constants.UI_STATUS_OK)
         self.status_camera_left.setStyleSheet("color: white; background-color: green")
-        self.status_camera_right.setText("Right Camera: " + constants.UI_STATUS_OK)
+        self.status_camera_right.setText(constants.UI_STATUS_OK)
         self.status_camera_right.setStyleSheet("color: white; background-color: green")
 
         self.tractor_progress.setStyleSheet("color: white; background-color: green")
         self.tractor_progress.setValue(0)
 
+        self.setupTabs()
+
+    def setupTabs(self):
+        # Iterate over the table and see if any entity is not there
+        missingEntities = 0
+        for row in range(self.statusTable.rowCount()):
+            for column in range(self.statusTable.columnCount()):
+                _item = self.statusTable.item(row, column)
+                if _item:
+                    item = self.statusTable.item(row, column).text()
+                    if item == constants.UI_STATUS_NOT_OK:
+                        missingEntities += 1
+
         # Warn if all the occupants are not present
-        if currentOccupantCount < requiredOccupantCount:
-            self.setTabColor(self.detailSystem, Status.ERROR)
+        if missingEntities:
+            log.error("All occupants are not in the rooms")
+            self.tabWidget.setIconSize(QtCore.QSize(32, 32))
+            self.tabWidget.setTabIcon(1, QtGui.QIcon('exclamation.png'))
+            self.OKtoImage = False
+        else:
+            self.tabWidget.setIconSize(QtCore.QSize(32, 32))
+            self.tabWidget.setTabIcon(1, QtGui.QIcon('checkbox.png'))
+            self.OKtoImage = True
+
 
     @property
     def odometryRoom(self) -> MUCCommunicator:
@@ -315,20 +486,22 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 x = requiredOccupant.get("status")[0]
                 y = requiredOccupant.get("status")[1]
                 if presence == Presence.LEFT:
-                    self.statusTable.setItem(x,y,QtWidgets.QTableWidgetItem("NOT OK"))
+                    self.statusTable.setItem(x,y,QtWidgets.QTableWidgetItem(constants.UI_STATUS_NOT_OK))
                     item = self.statusTable.item(x,y)
                     item.setBackground(QtGui.QColor("red"))
                     item.setForeground(QtGui.QColor("white"))
                     #requiredOccupant.get("status").setText(constants.UI_STATUS_NOT_OK)
                     #requiredOccupant.get("status").setStyleSheet("color: white; background-color: red")
                 else:
-                    self.statusTable.setItem(x,y,QtWidgets.QTableWidgetItem("OK"))
+                    self.statusTable.setItem(x,y,QtWidgets.QTableWidgetItem(constants.UI_STATUS_OK))
                     item = self.statusTable.item(x,y)
                     item.setBackground(QtGui.QColor("green"))
                     item.setForeground(QtGui.QColor("black"))
                     #requiredOccupant.get("status").setText(constants.UI_STATUS_OK)
                     #requiredOccupant.get("status").setStyleSheet("color: white; background-color: green")
 
+        # Note in the tabs if someone is missing who should be there
+        self.setupTabs()
 
 
     def addImage(self):
@@ -356,17 +529,29 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self._systemRoom.sendMessage(systemMessage.formMessage())
 
     def startImaging(self):
+        if self.OKtoImage:
+            text = constants.UI_CONFIRM_IMAGING_ALL_OK
+        else:
+            text = constants.UI_CONFIRM_IMAGING_WITH_ERRORS
 
-        self.startOperation(constants.UI_OPERATION_IMAGING)
+        if self.confirmOperation(text):
+            self.startOperation(constants.UI_OPERATION_IMAGING)
+
 
     def resetKPH(self):
         self.setSpeed(0.0)
 
     def resetImageCount(self):
-        pass
+        global treatments
+        treatments = 0
+        self.setTreatments(0)
 
     def resetDistance(self):
         self.absoluteDistance = self.currentDistance
+
+    def startUsingConstantSpeed(self):
+        desiredSpeed = self.constantSpeed.value()
+        log.debug("Use constant speed {}".format(desiredSpeed))
 
     def startWeeding(self):
         # Disable the start button and enable the stop
@@ -390,7 +575,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def stopWeeding(self):
         # Enable the start button and disable the stop
-        self.button_start.setEnabled(True)
+        #self.button_start.setEnabled(True)
         self.button_start_imaging.setEnabled(True)
         self.button_stop.setEnabled(False)
 
@@ -407,65 +592,73 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self._systemRoom.sendMessage(systemMessage.formMessage())
         log.debug("Stop Weeding")
 
+    def confirmOperation(self, text):
+        qm = QMessageBox()
+        qm.setText(text)
+        qm.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+        qm.exec_()
+        if qm.standardButton(qm.clickedButton()) == QMessageBox.Yes:
+            confirmed = True
+        else:
+            confirmed = False
+
+        return confirmed
+
+    def exitHandler(self):
+        log.debug("Clean up items")
+        pool = QThreadPool.globalInstance()
+        terminated = pool.waitForDone(1000)
+        log.debug("Termination of threads: {}".format(terminated))
+
     def runTasks(self):
         pool = QThreadPool.globalInstance()
-        runnable = Housekeeping(self._signals, self._systemRoom, self._odometryRoom, self._treatmentRoom)
-        pool.start(runnable)
-        runnable = WorkerSystem(self._systemRoom)
-        pool.start(runnable)
+        self._taskHousekeeping = Housekeeping(self._intializationSignals, self._systemRoom, self._odometryRoom, self._treatmentRoom)
+        self._taskHousekeeping.setAutoDelete(True)
+        pool.start(self._taskHousekeeping)
 
-class Housekeeping(QRunnable):
-    def __init__(self, signals, systemRoom, odometryRoom, treatmentRoom):
-        super().__init__()
-        self._signals = signals
+        self._taskSystem = WorkerSystem(self._systemRoom)
+        self._taskSystem.setAutoDelete(True)
+        self._systemSignals = self._taskSystem.signals
 
-        self._systemRoom = systemRoom
-        self._odometryRoom = odometryRoom
-        self._treatmentRoom = treatmentRoom
+        self._taskOdometry = WorkerOdometry(self._odometryRoom)
+        self._taskOdometry.setAutoDelete(True)
+        self._odometrySignals = self._taskOdometry.signals
 
-    def run(self):
-        log.debug("Housekeeping Worker thread")
+        self._taskTreatment = WorkerTreatment(self._treatmentRoom)
+        self._taskTreatment.setAutoDelete(True)
+        self._treatmentSignals = self._taskTreatment.signals
 
-        # Confirm the connectivity first
-        for chatroom in [self._systemRoom, self._odometryRoom, self._treatmentRoom]:
-            self._signals.result.emit("Connecting to {}".format(chatroom.muc))
-            while not chatroom.connected:
-                log.debug("Waiting for {} room connection.".format(chatroom.muc))
-            # Slow things down a bit so we can read the messages.  Not really needed
-            time.sleep(1)
-            self._signals.progress.emit(100)
+        self._treatmentSignals.plan.connect(self.setTreatments)
+        self._odometrySignals.distance.connect(self.updateCurrentDistance)
+        self._odometrySignals.speed.connect(self.updateCurrentSpeed)
 
-        #Signal that we are done
-        self._signals.finished.emit()
+        pool.start(self._taskSystem)
+        pool.start(self._taskOdometry)
+        pool.start(self._taskTreatment)
 
 
 
-class WorkerSystem(QRunnable):
-    def __init__(self, room):
-        super().__init__()
-        self._signals = WorkerSignals()
 
-        self._room = room
-
-    def run(self):
-        processMessagesSync(self._room)
-
-messageNumber = 0
-treatments = 0
 
 def process(conn, msg: xmpp.protocol.Message):
     global messageNumber
     global treatments
 
     if msg.getFrom().getStripped() == options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_ODOMETRY):
+        log.debug("Processing Odometry message")
         odometryMessage = OdometryMessage(raw=msg.getBody())
-        window.setSpeed(odometryMessage.speed)
-        window.setDistance(odometryMessage.totalDistance)
+        signals = window.taskOdometry.signals
+        signals.distance.emit(odometryMessage.source, float(odometryMessage.totalDistance))
+        signals.speed.emit(odometryMessage.source, float(odometryMessage.speed))
+        # window.setSpeed(odometryMessage.speed)
+        # window.setDistance(odometryMessage.totalDistance)
         #log.debug("Speed: {:.02f}".format(odometryMessage.speed))
     elif msg.getFrom().getStripped() == options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_TREATMENT):
         treatmentMessage = TreatmentMessage(raw=msg.getBody())
         treatments += 1
-        window.setTreatments(treatments)
+        signals = window.taskTreatment.signals
+        signals.plan.emit(treatments)
+        #window.setTreatments(treatments)
         log.debug("Treatments: {:.02f}".format(treatments))
     else:
         print("skipped message {}".format(messageNumber))
@@ -551,28 +744,7 @@ def processMessagesSync(room: MUCCommunicator):
     # Connect to the XMPP server and just return
     room.connect(True, True)
 
-def housekeeping(room: MUCCommunicator):
-
-
-    for chatroom in [systemRoom, odometryRoom, treatmentRoom]:
-        dialogInit.currentStep("Connecting to {}".format(chatroom.muc))
-        while not chatroom.connected:
-            log.debug("Waiting for {} room connection.".format(chatroom.muc))
-        # Slow things down a bit so we can read the messages.  Not really needed
-        time.sleep(1)
-
-    # dialogInit.currentStep("UI Setup")
-    # window.button_start.setEnabled(True)
-    # window.button_start_imaging.setEnabled(True)
-    # window.reset_kph.setEnabled(True)
-    # window.reset_distance.setEnabled(True)
-    # window.reset_images_taken.setEnabled(True)
-    # window.setTabColor(window.tabSystem, Status.OK)
-    # window.status_current_operation.setText(constants.UI_OPERATION_NONE)
-    # dialogInit.stepComplete()
-    # dialogInit.currentStep("Everything is good to go")
-    # okButton.setEnabled(True)
-
+# Delete this -- this is to keep track of the python threads
 threads = list()
 
 parser = argparse.ArgumentParser("Weeding Console")
@@ -609,7 +781,7 @@ app = QtWidgets.QApplication(sys.argv)
 window = MainWindow()
 window.setupWindow()
 
-dialogInit = DialogInit(4, window.signals)
+dialogInit = DialogInit(3, window.initializationSignals)
 dialogInit.show()
 
 window.setWindowTitle("University of Arizona")
@@ -621,39 +793,12 @@ window.setupRooms(odometryRoom, systemRoom, treatmentRoom)
 log.debug("Starting Qt Tasks")
 window.runTasks()
 
-# log.debug("Start housekeeping thread")
-# houseThread = threading.Thread(name=constants.THREAD_NAME_SYSTEM,target=housekeeping,args=(systemRoom,))
-# houseThread.daemon = True
-# threads.append(houseThread)
-# houseThread.start()
-
-# Move this to pyqt5 threads
-
-# log.debug("Start system thread")
-# sysThread = threading.Thread(name=constants.THREAD_NAME_SYSTEM,target=processMessagesSync,args=(systemRoom,))
-# sysThread.daemon = True
-# threads.append(sysThread)
-# sysThread.start()
-
-log.debug("Start odometry thread")
-sysThread = threading.Thread(name=constants.THREAD_NAME_ODOMETRY,target=processMessagesSync,args=(odometryRoom,))
-sysThread.daemon = True
-threads.append(sysThread)
-sysThread.start()
-
-log.debug("Start treatment thread")
-sysThread = threading.Thread(name=constants.THREAD_NAME_TREATMENT,target=processMessagesSync,args=(treatmentRoom,))
-sysThread.daemon = True
-threads.append(sysThread)
-sysThread.start()
-
-
-
-
+app.aboutToQuit.connect(window.exitHandler)
 
 #window.setStatus()
 dialogInit.exec()
 window.show()
 window.setInitialState()
-app.exec()
+sys.exit(app.exec_())
+
 
