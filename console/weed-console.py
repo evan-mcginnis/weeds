@@ -606,8 +606,15 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def exitHandler(self):
         log.debug("Clean up items")
+        # Indicate that the MUC processing should stop
+        self.systemRoom.processing = False
+        self.odometryRoom.processing = False
+        self.treatmentRoom.processing = False
+
         pool = QThreadPool.globalInstance()
-        terminated = pool.waitForDone(1000)
+
+        # Wait for the threads to finish.
+        terminated = pool.waitForDone(5000)
         log.debug("Termination of threads: {}".format(terminated))
 
     def runTasks(self):
@@ -704,7 +711,8 @@ def startupCommunications(options: OptionsFile):
                                    options.option(constants.PROPERTY_SECTION_XMPP,
                                                   constants.PROPERTY_ROOM_ODOMETRY),
                                    process,
-                                   presenceCB)
+                                   presenceCB,
+                                   TIMEOUT=constants.PROCESS_TIMEOUT_SHORT)
 
     # The room that will get status reports about this process
     systemRoom = MUCCommunicator(options.option(constants.PROPERTY_SECTION_XMPP,
@@ -718,7 +726,8 @@ def startupCommunications(options: OptionsFile):
                                  options.option(constants.PROPERTY_SECTION_XMPP,
                                                 constants.PROPERTY_ROOM_SYSTEM),
                                  process,
-                                 presenceCB)
+                                 presenceCB,
+                                 TIMEOUT = constants.PROCESS_TIMEOUT_SHORT)
 
     # The room that will receiver reports about images and treatment plans
     treatmentRoom = MUCCommunicator( options.option(constants.PROPERTY_SECTION_XMPP,
@@ -732,7 +741,8 @@ def startupCommunications(options: OptionsFile):
                                      options.option(constants.PROPERTY_SECTION_XMPP,
                                                     constants.PROPERTY_ROOM_TREATMENT),
                                      process,
-                                     presenceCB)
+                                     presenceCB,
+                                     TIMEOUT=constants.PROCESS_TIMEOUT_SHORT)
 
     return (odometryRoom, systemRoom, treatmentRoom)
 
