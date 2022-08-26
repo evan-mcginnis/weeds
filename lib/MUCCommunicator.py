@@ -28,7 +28,7 @@ import constants
 # Example of how to use this is in the main routine below
 #
 class MUCCommunicator():
-    def __init__(self, server: str, jid: str, nickname: str, jidPassword: str, muc: str, processor: Callable, presence: Callable):
+    def __init__(self, server: str, jid: str, nickname: str, jidPassword: str, muc: str, processor: Callable, presence: Callable, **kwargs):
         """
         The MUC communication class.
         :param jid: The JID used i.e., rio@weeds.com
@@ -51,6 +51,22 @@ class MUCCommunicator():
         self._log = logging.getLogger(threading.current_thread().getName())
         self._occupants = list()
         self._lock = threading.Lock()
+
+        self._processing = False
+
+        try:
+            self._timeout = kwargs[constants.KEYWORD_TIMEOUT]
+        except KeyError as key:
+            self._timeout = constants.PROCESS_TIMEOUT_LONG
+
+    @property
+    def processing(self) -> bool:
+        return self._processing
+
+    @processing.setter
+    def processing(self, newProcessingState: bool):
+        self._log.warning("Stop processing MUC messages")
+        self._processing = newProcessingState
 
     def refresh(self):
         return
@@ -168,10 +184,13 @@ class MUCCommunicator():
             # Process the messages, timing out every so often to run some diagnostics
             self._log.debug("Processing messages")
             try:
-                conn.Process(constants.PROCESS_TIMEOUT)
+                conn.Process(self._timeout)
             except Exception as e:
                 self._log.error("Exception in message processing")
                 self._log.error("Raw:{}".format(e))
+
+            if not self.processing:
+                return 0
 
             # Check to see if the client is still connected to server
             if not conn.isConnected():
