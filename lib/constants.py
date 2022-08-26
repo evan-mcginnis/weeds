@@ -109,7 +109,7 @@ MSG_TYPE_GROUPCHAT          = "groupchat"
 # The timeout period for the processing
 PROCESS_TIMEOUT             = 10000.0
 PROCESS_TIMEOUT_LONG        = 10000.0
-PROCESS_TIMEOUT_SHORT       = 2
+PROCESS_TIMEOUT_SHORT       = 4.0
 KEYWORD_TIMEOUT             = "TIMEOUT"
 
 # Temporary

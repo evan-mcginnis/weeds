@@ -65,7 +65,8 @@ class MUCCommunicator():
 
     @processing.setter
     def processing(self, newProcessingState: bool):
-        self._log.warning("Stop processing MUC messages")
+        if not newProcessingState:
+            self._log.warning("Stop processing MUC messages")
         self._processing = newProcessingState
 
     def refresh(self):
@@ -190,6 +191,7 @@ class MUCCommunicator():
                 self._log.error("Raw:{}".format(e))
 
             if not self.processing:
+                self._log.debug("No longer processing messages")
                 return 0
 
             # Check to see if the client is still connected to server
@@ -262,6 +264,7 @@ class MUCCommunicator():
         time.sleep(4)
 
         if process:
+            self.processing = True
             #self.sendMessage("{} beginning to process messages".format(self._nickname))
             self.GoOn(self._connection)
             # This won't be executed until the processing loop has a keyboard interrupt
