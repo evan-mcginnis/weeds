@@ -67,7 +67,7 @@
        <enum>QTabWidget::Triangular</enum>
       </property>
       <property name="currentIndex">
-       <number>0</number>
+       <number>1</number>
       </property>
       <widget class="QWidget" name="tabSystem">
        <property name="enabled">
@@ -114,6 +114,9 @@
                 <width>100</width>
                 <height>100</height>
                </size>
+              </property>
+              <property name="toolTip">
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The latest image from the left camera&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
               </property>
               <property name="frameShape">
                <enum>QFrame::Box</enum>
@@ -215,6 +218,9 @@
                 <height>100</height>
                </size>
               </property>
+              <property name="toolTip">
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The latest image from the right camera&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+              </property>
               <property name="frameShape">
                <enum>QFrame::Box</enum>
               </property>
@@ -311,8 +317,8 @@
              <widget class="QLCDNumber" name="average_kph">
               <property name="minimumSize">
                <size>
-                <width>165</width>
-                <height>369</height>
+                <width>240</width>
+                <height>269</height>
                </size>
               </property>
               <property name="frameShadow">
@@ -335,6 +341,12 @@
                <size>
                 <width>165</width>
                 <height>0</height>
+               </size>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>165</width>
+                <height>16777215</height>
                </size>
               </property>
               <property name="toolTip">
@@ -374,7 +386,7 @@
               <property name="minimumSize">
                <size>
                 <width>658</width>
-                <height>369</height>
+                <height>269</height>
                </size>
               </property>
               <property name="frameShape">
@@ -448,7 +460,7 @@
               <property name="minimumSize">
                <size>
                 <width>494</width>
-                <height>369</height>
+                <height>269</height>
                </size>
               </property>
               <property name="frameShadow">
@@ -477,7 +489,7 @@
                </size>
               </property>
               <property name="toolTip">
-               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Reset the KPH to 0.&lt;/p&gt;&lt;p&gt;This has no operational effect.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Reset the number of images to 0&lt;/p&gt;&lt;p&gt;This has no operational effect.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
               </property>
               <property name="text">
                <string>Reset</string>
@@ -550,7 +562,7 @@
                  </property>
                  <property name="font">
                   <font>
-                   <pointsize>18</pointsize>
+                   <pointsize>20</pointsize>
                   </font>
                  </property>
                  <property name="toolTip">
@@ -574,7 +586,7 @@
                  </property>
                  <property name="font">
                   <font>
-                   <pointsize>19</pointsize>
+                   <pointsize>20</pointsize>
                   </font>
                  </property>
                  <property name="toolTip">
@@ -595,7 +607,7 @@
                  </property>
                  <property name="font">
                   <font>
-                   <pointsize>18</pointsize>
+                   <pointsize>20</pointsize>
                   </font>
                  </property>
                  <property name="text">

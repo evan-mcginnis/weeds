@@ -199,7 +199,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         # Wire up the buttons
         self.button_start.clicked.connect(self.startWeeding)
         self.button_start_imaging.clicked.connect(self.startImaging)
-        self.button_stop.clicked.connect(self.stopWeeding)
+        self.button_stop.clicked.connect(self.stopOperation)
 
         self.reset_kph.clicked.connect(self.resetKPH)
         self.reset_distance.clicked.connect(self.resetDistance)
@@ -396,17 +396,23 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.tractor_progress.setStyleSheet("color: white; background-color: green")
         self.tractor_progress.setValue(0)
 
-        self.setupTabs()
+        self.noteMissingEntities()
 
-    def setupTabs(self):
+    def noteMissingEntities(self):
+        """
+        Note missing entities by color coding them in the status table and putting an attention icon in the tab
+        """
         # Iterate over the table and see if any entity is not there
         missingEntities = 0
         for row in range(self.statusTable.rowCount()):
             for column in range(self.statusTable.columnCount()):
                 _item = self.statusTable.item(row, column)
                 if _item:
-                    item = self.statusTable.item(row, column).text()
-                    if item == constants.UI_STATUS_NOT_OK:
+                    text = self.statusTable.item(row, column).text()
+                    if text == constants.UI_STATUS_NOT_OK:
+                        # Highlight the missing entity
+                        _item.setBackground(QtGui.QColor("red"))
+                        _item.setForeground(QtGui.QColor("white"))
                         missingEntities += 1
 
         # Warn if all the occupants are not present
@@ -414,6 +420,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             log.error("All occupants are not in the rooms")
             self.tabWidget.setIconSize(QtCore.QSize(32, 32))
             self.tabWidget.setTabIcon(1, QtGui.QIcon('exclamation.png'))
+            # Indicate if the user is to be warned about starting the imaging process
             self.OKtoImage = False
         else:
             self.tabWidget.setIconSize(QtCore.QSize(32, 32))
@@ -444,19 +451,6 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     @treatmentRoom.setter
     def treatmentRoom(self, room: MUCCommunicator):
         self._treatmentRoom = room
-
-    def setTabColor(self, tab:QtWidgets, status:Status):
-        color = Qt.white
-
-        if status == Status.OK:
-            color = Qt.white
-        elif status == Status.ERROR:
-            color = Qt.red
-
-        p = tab.palette()
-        p.setColor(tab.backgroundRole(), color)
-        #self.tabWidget.setPalette(p)
-        tab.setPalette(p)
 
     def setSpeed(self, speed: float):
         self.average_kph.display(speed)
@@ -501,7 +495,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     #requiredOccupant.get("status").setStyleSheet("color: white; background-color: green")
 
         # Note in the tabs if someone is missing who should be there
-        self.setupTabs()
+        self.noteMissingEntities()
 
 
     def addImage(self):
@@ -536,6 +530,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         if self.confirmOperation(text):
             self.startOperation(constants.UI_OPERATION_IMAGING)
+            self.tabWidget.setIconSize(QtCore.QSize(32, 32))
+            self.tabWidget.setTabIcon(0, QtGui.QIcon('camera.png'))
 
 
     def resetKPH(self):
@@ -573,7 +569,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self._systemRoom.sendMessage(systemMessage.formMessage())
 
 
-    def stopWeeding(self):
+    def stopOperation(self):
         # Enable the start button and disable the stop
         #self.button_start.setEnabled(True)
         self.button_start_imaging.setEnabled(True)
@@ -590,11 +586,24 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         systemMessage.action = constants.Action.STOP
         systemMessage.timestamp = time.time() * 1000
         self._systemRoom.sendMessage(systemMessage.formMessage())
+
+        # Remove the icon in the tab
+        self.tabWidget.setTabIcon(0, QtGui.QIcon())
         log.debug("Stop Weeding")
 
     def confirmOperation(self, text):
+        """
+        Confirm the operation with a yes or no
+        :param text: The text displayed to the user
+        :return: True if operation is confirmed
+        """
+        font = QFont()
+        font.setFamily("Arial")
+        font.setPointSize(20)
         qm = QMessageBox()
         qm.setText(text)
+        qm.setFont(font)
+        qm.setWindowTitle("Weeding")
         qm.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
         qm.exec_()
         if qm.standardButton(qm.clickedButton()) == QMessageBox.Yes:
@@ -605,6 +614,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         return confirmed
 
     def exitHandler(self):
+        """
+        Clean up on exit by waiting for threads to finish execution.
+        """
         log.debug("Clean up items")
         # Indicate that the MUC processing should stop
         self.systemRoom.processing = False
@@ -618,6 +630,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         log.debug("Termination of threads: {}".format(terminated))
 
     def runTasks(self):
+        """
+        Startup all threads needed for application
+        """
         pool = QThreadPool.globalInstance()
         self._taskHousekeeping = Housekeeping(self._intializationSignals, self._systemRoom, self._odometryRoom, self._treatmentRoom)
         self._taskHousekeeping.setAutoDelete(True)
