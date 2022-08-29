@@ -17,9 +17,18 @@ class GPS:
     def connected(self) -> bool:
         return self._connected
 
+    def isAvailable(self) -> bool:
+        """
+        Is the GPS data available?
+        Note: this does not yet consider the number of satellites fixed.
+        :return: True if GPS is available, False otherwise
+        """
+        return self.getCurrentPosition() is not None
+
+
     def connect(self) -> bool:
         """
-        Connect to the GPS.  Required before any calls to get details such as position.
+        Connect to the GPS Daemon.  Required before any calls to get details such as position.
         :return: True on connection success, False otherwise
         """
         try:
@@ -28,9 +37,17 @@ class GPS:
         except ConnectionRefusedError as refused:
             self._log.error("Unable to connect to GPSD")
             self._connected = False
+
+        # See if we can get the current position
+        packet = gpsd.get_current()
+        if packet is None:
+            self._connected = False
+        else:
+            self._connected = True
+
         return self._connected
 
-    def getCurrentPosition(self):
+    def getCurrentPosition(self) -> (float, float):
         """
         Get the current position.  Returns (0,0) if not connected.
         :return: GpsResponse
@@ -80,11 +97,17 @@ if __name__ == '__main__':
 
     theGPS = GPS()
     if theGPS.connect():
-        start = time.time() * 1000
-        packet = theGPS.getCurrentPosition()
-        finish = time.time() * 1000
-        if packet is not None:
-            print(packet.position())
-            print("Elapsed time {} ms".format(finish - start))
+        print("GPS Connection succeeded")
     else:
-        print("Error in connecting to GPS daemon")
+        print("GPS Connection failure")
+
+    start = time.time() * 1000
+    packet = theGPS.getCurrentPosition()
+    finish = time.time() * 1000
+    if packet is not None:
+        print("Position: {}".format(packet.position()))
+        print("Error: {}".format(packet.position_precision()))
+        print("Fix: {}".format(packet.mode))
+        print("Elapsed time {} ms".format(finish - start))
+    else:
+        print("No position data")

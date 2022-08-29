@@ -4,7 +4,7 @@ Description="Weed Image processing"
 [Service]
 Type=simple
 User=weeds
-WorkingDirectory=/home/weeds
+WorkingDirectory=/home/weeds/jetson
 ExecStart=/home/weeds/jetson/weeds-service
 
 [Install]

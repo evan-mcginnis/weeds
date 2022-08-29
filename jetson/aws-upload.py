@@ -1,6 +1,7 @@
 #
 # A W S  U P L O A D
 #
+import time
 from time import sleep
 
 import boto3
@@ -14,11 +15,15 @@ import tarfile
 import sys
 import syslog
 import shutil
+
+import botocore.exceptions
+
 import constants
 import xmpp
 import logging
 import logging.config
 import threading
+import dns.resolver
 
 from OptionsFile import OptionsFile
 from MUCCommunicator import MUCCommunicator
@@ -29,19 +34,31 @@ timeStamp = now.strftime('%Y-%m-%d-%H-%M-%S-')
 
 PREFIX = 'yuma-' + timeStamp
 
-PATTERN_IMAGES = '*.jpg'
+PATTERN_IMAGES = '*' + constants.EXTENSION_IMAGE
 KEY_IMAGES = 'images'
 TAR_IMAGES = 'images.tar'
 
 s3Resource = boto3.resource('s3')
 
 def createBucketName(prefix: str) -> str:
+    """
+    Create the bucket name
+    :param prefix: Typically this will be a UUID to ensure uniqueness
+    :return: The created name as an string
+    """
     return ''.join([prefix, str(uuid.uuid4())])
 
 def createBucket(bucket_prefix, s3_connection):
+    """
+    Create an empty S3 bucket
+    :param bucket_prefix: The name of the bucket
+    :param s3_connection: An opened S3 connection
+    :return: (bucketName, AWS response)
+    """
     session = boto3.session.Session()
     current_region = session.region_name
-    bucketName = createBucketName(bucket_prefix)
+    #bucketName = createBucketName(bucket_prefix)
+    bucketName = bucket_prefix
     print("Bucket: {}".format(bucketName))
     bucketResponse = s3_connection.create_bucket(Bucket=bucketName,
                                                  CreateBucketConfiguration={ 'LocationConstraint': current_region})
@@ -55,27 +72,56 @@ def findFiles(directory: str):
     flist = glob.glob('*')
     return flist
 
-def prepare():
+def prepareImagesTAR(options: OptionsFile):
+    """
+    Adds the images to the tar file and then removes the original
+    :return:
+    """
     # Find, add, and delete the images
     images = glob.glob(PATTERN_IMAGES)
-    tar = tarfile.open(name=TAR_IMAGES,mode="w|")
+    # This is so we can call the images left and right
+    theTAR = options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_JETSON) + "-" + TAR_IMAGES
+    tar = tarfile.open(name=theTAR,mode="w|")
     for image in images:
-        tar.add(image)
+        try:
+            tar.add(image)
+        except tarfile.TarError as e:
+            log.fatal("Unable to add {} to tarfile.".format(image))
+            log.fatal("{}".format(e))
         try:
             os.remove(image)
         except OSError as e:
-            print("Could not remove image {}: {}".format(image, e.strerror))
+            log.fatal("Could not remove image {}: {}".format(image, e.strerror))
     tar.close()
     return
 
 def upload(bucket : str, options: OptionsFile):
-    # Create the target bucket that will hold data from this run
-    bucketName, bucketResponse = createBucket(bucket, s3Resource.meta.client)
-
-    first_bucket = s3Resource.Bucket(name=bucketName)
+    """
+    Upload a session's data to AWS
+    :param bucket: Name of the S3 Bucket
+    :param options: Options file
+    """
+    # Create the target bucket that will hold data from this run if it is not already there
+    s3 = boto3.resource('s3')
+    buckets = s3.buckets.all()
+    if bucket in buckets:
+        log.debug("Bucket {} already exists".format(bucket))
+        bucketName = bucket
+    else:
+        try:
+            bucketName, bucketResponse = createBucket(bucket, s3Resource.meta.client)
+            first_bucket = s3Resource.Bucket(name=bucketName)
+        except botocore.exceptions.ClientError as client:
+            log.warning("Unable to create S3 bucket: {}".format(client))
+            if client.response['Error']['Code'] == 'BucketAlreadyOwnedByYou':
+                log.warning("Bucket {} already exists".format(bucket))
+                bucketName = bucket
+            else:
+                log.warning("Ignoring this directory")
+                return
 
     # Prepare things for S3 upload
-    prepare()
+    prepareImagesTAR(options)
 
     # Find all the files in the directory
     files = glob.glob('*')
@@ -86,13 +132,10 @@ def upload(bucket : str, options: OptionsFile):
         except KeyError:
             key = file
 
-        object = s3Resource.Object(bucket_name=bucketName, key=file)
-        print("Uploading {}".format(file))
+        object = s3Resource.Object(bucket_name=bucketName, key=key)
+        log.info("Uploading {}".format(file))
         object.upload_file(Filename=file)
 
-# The callback for messages received in the system room.
-# When the total distance is the width of the image, grab an image and process it.
-#
 def callbackSystem(conn,msg: xmpp.protocol.Message):
     # Make sure this is a message sent to the room, not directly to us
     if msg.getType() == "groupchat":
@@ -133,8 +176,12 @@ parser.add_argument("-u", "--upload", action="store_true", required=False, help=
 parser.add_argument("-s", "--s3", action="store", required=False, default="s3.ini", help="S3 INI")
 parser.add_argument("-i", "--ini", action="store", required=False, default=constants.PROPERTY_FILENAME, help="INI")
 parser.add_argument("-lg", "--logging", action="store", default=constants.PROPERTY_LOGGING_FILENAME, help="Logging configuration file")
+parser.add_argument('-r', '--dns', action="store", required=False, help="DNS server address")
 
 arguments = parser.parse_args()
+
+# Initialize the UUID library to generate legal bucket names in AWS
+#shortuuid.set_alphabet('0123456789abcdefghijklmnopqrstuvwxyz')
 
 log = startupLogging()
 
@@ -151,7 +198,8 @@ else:
 # If this is a daemon, connect to the system chatroom
 if arguments.watch:
     # The room that will get status reports about this process
-    systemRoom = MUCCommunicator(options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_JID_CLOUD),
+    systemRoom = MUCCommunicator(options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_SERVER),
+                                 options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_JID_JETSON),
                                  options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_CLOUD),
                                  options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_DEFAULT_PASSWORD),
                                  options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_SYSTEM),
@@ -163,39 +211,70 @@ if arguments.watch:
     threads.append(sys)
     sys.start()
 
+my_resolver = dns.resolver.Resolver(configure=False)
+
+if arguments.dns is not None:
+    print("DNS: {}".format(arguments.dns))
+    my_resolver.nameservers = [arguments.dns]
+
+
 if arguments.watch or arguments.upload:
     watching = True
     while watching:
-        directories = options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_PREFIX) + "*"
-        #directories = glob.glob("yuma-*")
+
+        try:
+            time.sleep(30)
+            answer = my_resolver.resolve('aws.amazon.com')
+            log.debug("AWS can be resolved, so uploads will be attempted")
+        except dns.resolver.NoNameservers:
+            log.debug("Can't resolve aws.amazon.com. This is normal under field conditions")
+            time.sleep(30)
+            continue
+        except dns.exception.Timeout:
+            log.debug("Can't resolve aws.amazon.com. This is normal under field conditions")
+            # Sleep for a bit and wait for the tractor to be back in the shed
+            time.sleep(30)
+            continue
+
+        directories = glob.glob(options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_PREFIX) + "*")
         for directory in directories:
             if os.path.isdir(directory):
+                log.debug("Operating on: {}".format(directory))
                 os.chdir(directory)
             else:
                 syslog.syslog(syslog.LOG_WARNING, "File found in output directory: " + directory)
-            timeStamp = now.strftime('%Y-%m-%d-%H-%M-%S-')
-            PREFIX = 'yuma-' + timeStamp
-            upload(PREFIX, options)
 
-            syslog.syslog(syslog.LOG_INFO,"Created S3 bucket: {}".format(PREFIX))
+            # Look for the appearance of the .meta file, a signal that the run is complete
+            # If it is not there, we will pick up this directory next time,
+            # This will also allow catch-up.  Let's say 5 runs completed, and could not be uploaded because aws could not
+            # be reached.  This loop will upload all of them.
 
-            # Cleanup
-            os.chdir("..")
-            try:
-                shutil.rmtree(directory)
-            except OSError as e:
-                syslog.syslog(syslog.LOG_ERR, "Could not remove directory: {}".format(e.strerror))
+            metadataFile = "*" + options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_SUFFIX_META)
+            finished = glob.glob(metadataFile)
+            if len(finished) > 0:
+                upload(directory, options)
 
-            # If this is just a single run, exit now
-            if arguments.upload:
-                watching = False
-            # Otherwise sleep a bit and try again.
+                syslog.syslog(syslog.LOG_INFO,"Using S3 bucket: {}".format(directory))
+
+                # Cleanup
+                try:
+                    log.debug("Removing directory after upload.")
+                    os.chdir("..")
+                    shutil.rmtree(directory)
+                except OSError as e:
+                    syslog.syslog(syslog.LOG_ERR, "Could not remove directory: {}".format(e.strerror))
             else:
-                sleep(5 * 60)
+                log.debug("No metadata file ({}) found, so skipping directory".format(metadataFile))
+                os.chdir("..")
 
-# Wait for the workers to finish
-for index, thread in enumerate(threads):
-    thread.join()
+        # If this is just a single run, exit now
+        if arguments.upload:
+            watching = False
+
+if arguments.watch:
+    # Wait for the workers to finish
+    for index, thread in enumerate(threads):
+        thread.join()
 
 
 sys.exit(0)

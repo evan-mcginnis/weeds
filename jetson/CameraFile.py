@@ -1,7 +1,6 @@
 #
 # C A M E R A F I L E
 #
-import datetime
 import pathlib
 import logging
 import logging.config
@@ -16,13 +15,11 @@ from abc import ABC, abstractmethod
 
 import pypylon.pylon
 from pypylon import _genicam
-import yaml
 
 import constants
 from Performance import Performance
 
-cameras = list()
-cameraCount = 0
+
 
 #
 # B A S L E R  E V E N T  H A N D L E R S
@@ -89,9 +86,12 @@ class ImageEvents(pypylon.pylon.ImageEventHandler):
         print()
 
     def OnImageGrabbed(self, camera, grabResult):
+        """
+        Called when an image has been grabbed by the camera
+        :param camera:
+        :param grabResult:
+        """
         log.debug("OnImageGrabbed event for device: {}".format(camera.GetDeviceInfo().GetModelName()))
-
-        log.debug("Context is {}".format(camera.GetCameraContext()))
 
         # Image grabbed successfully?
         if grabResult.GrabSucceeded():
@@ -104,8 +104,8 @@ class ImageEvents(pypylon.pylon.ImageEventHandler):
             timestamped = ProcessedImage(img, round(time.time() * 1000))
 
             cameraNumber = camera.GetCameraContext()
-            log.debug("Camera context is {}".format(cameraNumber))
-            camera = cameras[cameraNumber]
+            camera = Camera.cameras[cameraNumber]
+            log.debug("Camera context is {} Queue is {}".format(cameraNumber, len(camera._images)))
             camera._images.append(timestamped)
 
             # print("SizeX: ", grabResult.GetWidth())
@@ -124,15 +124,16 @@ class SampleImageEventHandler(pypylon.pylon.ImageEventHandler):
         print()
 
 class Camera(ABC):
+    cameras = list()
+    cameraCount = 0
 
     def __init__(self, **kwargs):
-        global cameraCount
 
         # Register the camera on the global list so we can keep track of them
         # Even though there will probably be only one
-        self.cameraID = cameraCount
-        cameraCount += 1
-        cameras.append(self)
+        self.cameraID = Camera.cameraCount
+        Camera.cameraCount += 1
+        Camera.cameras.append(self)
         return
 
     @abstractmethod
@@ -356,6 +357,7 @@ class CameraBasler(Camera):
         image = CameraBasler._converter.Convert(grabResult)
         return image
 
+
     def connect(self) -> bool:
         """
         Connects to the camera with the specified IP address.
@@ -367,11 +369,13 @@ class CameraBasler(Camera):
         for dev_info in tl_factory.EnumerateDevices():
             self.log.debug("Looking for {}. Current device is {}".format(self._ip, dev_info.GetIpAddress()))
             if dev_info.GetIpAddress() == self._ip:
-                self._camera = pylon.InstantCamera(tl_factory.CreateDevice(dev_info))
+                # Original line
+                #self._camera = pylon.InstantCamera(tl_factory.CreateDevice(dev_info))
+                self._camera = pylon.InstantCamera()
+                self._camera.Attach(tl_factory.CreateDevice(dev_info))
                 #self._camera.MaxNumBuffer = 100
                 try:
-                    # The sample code does _not_ call Open(), so for debug purposes, this is commented out here.
-                    #self._camera.Open()
+                    self._camera.Open()
                     self.log.info("Using device {} at {}".format(self._camera.GetDeviceInfo().GetModelName(), dev_info.GetIpAddress()))
                     self._connected = True
                 except Exception as e:
@@ -534,15 +538,30 @@ class CameraBasler(Camera):
         # Start the grabbing using the grab loop thread, by setting the grabLoopType parameter
         # to GrabLoop_ProvidedByInstantCamera. The grab results are delivered to the image event handlers.
         # The GrabStrategy_OneByOne default grab strategy is used.
-        camera.camera.StartGrabbing(pylon.GrabStrategy_OneByOne, pylon.GrabLoop_ProvidedByInstantCamera)
+        self.log.debug("Begin grab with OneByOne Strategy")
+        try:
+            #self.camera.Open()
+            self.camera.StartGrabbing(pylon.GrabStrategy_OneByOne, pylon.GrabLoop_ProvidedByInstantCamera)
+        except _genicam.RuntimeException as e:
+            log.fatal("Failed to open the camera and start grabbing.")
+            log.fatal("{}".format(e))
 
+        # If we immediately start waiting for the trigger, we get an error
+        time.sleep(2)
         self._capturing = True
         while self._capturing:
             try:
-                if camera.camera.WaitForFrameTriggerReady(200, pylon.TimeoutHandling_ThrowException):
-                    camera.camera.ExecuteSoftwareTrigger();
+                if self.camera.WaitForFrameTriggerReady(400, pylon.TimeoutHandling_ThrowException):
+                    self.camera.ExecuteSoftwareTrigger();
             except _genicam.TimeoutException as e:
                 self.log.fatal("Timeout from camera")
+            except _genicam.RuntimeException as e:
+                if not self._capturing:
+                    self.log.warning("Errors encountered in shutdown.  This is normal")
+                else:
+                    self.log.error("Unexpected errors in capture")
+                    self.log.error("Device: {}".format(self._camera.GetDeviceInfo().GetModelName()))
+                    self.log.error("{}".format(e))
 
     def start(self):
         """
@@ -655,6 +674,11 @@ class CameraBasler(Camera):
     def camera(self) -> pylon.InstantCamera:
         return self._camera
 
+    @camera.setter
+    def camera(self, openedCamera: pylon.InstantCamera):
+        self._camera = openedCamera
+
+
     def _grabImage(self) -> ProcessedImage:
 
         try:
@@ -718,12 +742,32 @@ class CameraBasler(Camera):
         :param filename: The file to contain the settings
         :return: True on success
         """
+        #self._camera.Open()
+        self.log.info("Saving camera configuration to: {}".format(filename))
         pylon.FeaturePersistence.Save(filename, self._camera.GetNodeMap())
         return True
 
     def load(self, filename: str) -> bool:
-        pylon.FeaturePersistence.Load(filename,self._camera.GetNodeMap(),True)
-        return True
+        """
+        Load the camera configuration from a file. Usually, this is the .pfs file saved from the pylon viewer
+        :param filename: The name of the file on disk
+        :return: True on success
+        """
+        loaded = False
+
+        #self._camera.Open()
+        # If the camera configuration exists, use that, otherwise warn
+        if os.path.isfile(filename):
+            self.log.info("Using saved camera configuration: {}".format(filename))
+            try:
+                pylon.FeaturePersistence.Load(filename,self._camera.GetNodeMap(),True)
+            except _genicam.RuntimeException as geni:
+                log.error("Unable to load configuration: {}".format(geni))
+
+            loaded = True
+        else:
+            self.log.warning("Unable to find configuration file: {}.  Camera configuration unchanged".format(filename))
+        return loaded
 #
 # The PhysicalCamera class as a utility
 #
@@ -744,6 +788,15 @@ if __name__ == "__main__":
         # Connect to the camera and take an image
         log.debug("Connecting to camera")
         camera.connect()
+
+        filename = camera.camera.GetDeviceInfo().GetModelName() + ".pfs"
+        camera.camera.Open()
+        if not camera.load(filename):
+            # If we don't have a configuration, save what was used
+            filename = "default-" + filename
+            camera.save(filename)
+        camera.camera.Close()
+
         if camera.initializeCapture():
             try:
                 camera.startCapturing()
@@ -781,43 +834,18 @@ if __name__ == "__main__":
     cameraIP = options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_CAMERA_IP)
     camera = CameraBasler(ip = cameraIP)
 
-    # BEGIN WORKS
-    # camera.connect()
-    # camera.initializeCapture()
-    # Start the grabbing using the grab loop thread, by setting the grabLoopType parameter
-    # to GrabLoop_ProvidedByInstantCamera. The grab results are delivered to the image event handlers.
-    # The GrabStrategy_OneByOne default grab strategy is used.
-    #camera.camera.StartGrabbing(pylon.GrabStrategy_OneByOne, pylon.GrabLoop_ProvidedByInstantCamera)
 
-    # Wait for user input to trigger the camera or exit the program.
-    # The grabbing is stopped, the device is closed and destroyed automatically when the camera object goes out of scope.
-    # while True:
-    #     time.sleep(0.05)
-    #     key = getkey()
-    #     print(key)
-    #     if (key == 't' or key == 'T'):
-    #         # Execute the software trigger. Wait up to 100 ms for the camera to be ready for trigger.
-    #         if camera.camera.WaitForFrameTriggerReady(100, pylon.TimeoutHandling_ThrowException):
-    #             camera.camera.ExecuteSoftwareTrigger();
-    #     if (key == 'e') or (key == 'E'):
-    #         break
-
-    # for i in range(100):
-    #     #time.sleep(0.5)
-    #     if camera.camera.WaitForFrameTriggerReady(200, pylon.TimeoutHandling_ThrowException):
-    #         camera.camera.ExecuteSoftwareTrigger();
-
-    #sys.exit(1)
-    # END WORKS
 
     # Start the thread that will begin acquiring images
     acquire = threading.Thread(name=constants.THREAD_NAME_ACQUIRE, target=takeImages, args=(camera,))
     acquire.start()
 
-    acquire.join()
+    # Wait for items in the queue to appear
+    time.sleep(10)
+    #acquire.join()
 
     # This is how you save the camera features
-    camera.save("basler1920.txt")
+    #camera.save("basler1920.txt")
     # You can see all settings that way, and also reverse the process (edit the file, then call
     # pylon.FeaturePersistence.Load() to set new values). The viewer app from Basler can also load or save these files.
 
@@ -833,7 +861,8 @@ if __name__ == "__main__":
     rc = 0
 
     # Stop the camera, and this should stop the thread as well
-
+    camera.stop()
+    time.sleep(2)
     camera.disconnect()
 
     sys.exit(rc)

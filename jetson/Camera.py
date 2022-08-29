@@ -1,5 +1,8 @@
 #
-# C A M E R A
+# W A R N I N G
+#
+# DO NOT MAKE CHANGES TO THIS FILE
+#
 #
 import numpy as np
 from abc import ABC, abstractmethod

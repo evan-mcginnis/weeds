@@ -2,7 +2,9 @@
 
 WEEDSHOME=/home/weeds/jetson
 export PYTHONPATH=/home/weeds/lib
-python3 $WEEDSHOME/weeds.py -o $WEEDSHOME/../output
+export OPENBLAS_CORETYPE=ARMv8
+# This will only grab the images, no treatment
+python3 $WEEDSHOME/weeds.py -o $WEEDSHOME/../output --grab
 
 exit $?
 

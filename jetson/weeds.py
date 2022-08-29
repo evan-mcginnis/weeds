@@ -3,6 +3,7 @@
 #
 
 import argparse
+import glob
 import sys
 import threading
 import time
@@ -15,17 +16,18 @@ import logging
 import logging.config
 import yaml
 import os
+import shutil
 
 import xmpp
 #from xmpp import protocol
 
-from CameraFile import CameraFile, CameraBasler
+# This does not work
+#from CameraFile import CameraFile, CameraBasler
+
 from VegetationIndex import VegetationIndex
 from ImageManipulation import ImageManipulation
 from Logger import Logger
 from Classifier import Classifier, LogisticRegressionClassifier, KNNClassifier, DecisionTree, RandomForest, GradientBoosting, SuppportVectorMachineClassifier
-# The odometer is on the RIO
-#from Odometer import Odometer, VirtualOdometer
 from OptionsFile import OptionsFile
 from Performance import Performance
 from Reporting import Reporting
@@ -36,6 +38,798 @@ from Messages import OdometryMessage, SystemMessage, TreatmentMessage
 #from Selection import Selection
 
 import constants
+
+#
+# C A M E R A S
+#
+# TODO: Move to Camera.py file
+# This is very sloppy work, and has completely defeated me, so I give up
+# This works just fine in another file, but fails whenever it is imported,
+# so I'm giving up and copying it here
+
+import pathlib
+import logging
+import logging.config
+import time
+from collections import deque
+import signal
+
+import numpy as np
+import os
+import cv2 as cv
+from abc import ABC, abstractmethod
+
+import pypylon.pylon
+from pypylon import _genicam
+
+import constants
+from Performance import Performance
+
+
+
+#
+# B A S L E R  E V E N T  H A N D L E R S
+#
+
+# Handle various basler camera events
+
+class ConfigurationEventPrinter(pypylon.pylon.ConfigurationEventHandler):
+    def OnAttach(self, camera):
+        print("OnAttach event")
+
+    def OnAttached(self, camera):
+        print("OnAttached event for device ", camera.GetDeviceInfo().GetModelName())
+
+    def OnOpen(self, camera):
+        print("OnOpen event for device ", camera.GetDeviceInfo().GetModelName())
+
+    def OnOpened(self, camera):
+        print("OnOpened event for device ", camera.GetDeviceInfo().GetModelName())
+
+    def OnGrabStart(self, camera):
+        print("OnGrabStart event for device ", camera.GetDeviceInfo().GetModelName())
+
+    def OnGrabStarted(self, camera):
+        print("OnGrabStarted event for device ", camera.GetDeviceInfo().GetModelName())
+
+    def OnGrabStop(self, camera):
+        print("OnGrabStop event for device ", camera.GetDeviceInfo().GetModelName())
+
+    def OnGrabStopped(self, camera):
+        print("OnGrabStopped event for device ", camera.GetDeviceInfo().GetModelName())
+
+    def OnClose(self, camera):
+        print("OnClose event for device ", camera.GetDeviceInfo().GetModelName())
+
+    def OnClosed(self, camera):
+        print("OnClosed event for device ", camera.GetDeviceInfo().GetModelName())
+
+    def OnDestroy(self, camera):
+        print("OnDestroy event for device ", camera.GetDeviceInfo().GetModelName())
+
+    def OnDestroyed(self, camera):
+        print("OnDestroyed event")
+
+    def OnDetach(self, camera):
+        print("OnDetach event for device ", camera.GetDeviceInfo().GetModelName())
+
+    def OnDetached(self, camera):
+        print("OnDetached event for device ", camera.GetDeviceInfo().GetModelName())
+
+    def OnGrabError(self, camera, errorMessage):
+        print("OnGrabError event for device ", camera.GetDeviceInfo().GetModelName())
+        print("Error Message: ", errorMessage)
+
+    def OnCameraDeviceRemoved(self, camera):
+        print("OnCameraDeviceRemoved event for device ", camera.GetDeviceInfo().GetModelName())
+
+# Handle image grab notifications
+
+class ImageEvents(pypylon.pylon.ImageEventHandler):
+    def OnImagesSkipped(self, camera, countOfSkippedImages):
+        print("OnImagesSkipped event for device ", camera.GetDeviceInfo().GetModelName())
+        print(countOfSkippedImages, " images have been skipped.")
+        print()
+
+    def OnImageGrabbed(self, camera, grabResult):
+        """
+        Called when an image has been grabbed by the camera
+        :param camera:
+        :param grabResult:
+        """
+        log.debug("OnImageGrabbed event for device: {}".format(camera.GetDeviceInfo().GetModelName()))
+
+        # Image grabbed successfully?
+        if grabResult.GrabSucceeded():
+            # Convert the image grabbed to something we like
+            image = CameraBasler.convert(grabResult)
+            img = image.GetArray()
+            # The 1920 and 2500 cameras do not support PTP, so the timestamp is just the ticks since startup.
+            # We will mark the images based on when we got them -- ideally, this should be:
+            # timestamped = ProcessedImage(img, grabResult.TimeStamp)
+            timestamped = ProcessedImage(img, round(time.time() * 1000))
+
+            cameraNumber = camera.GetCameraContext()
+            camera = Camera.cameras[cameraNumber]
+            log.debug("Camera context is {} Queue is {}".format(cameraNumber, len(camera._images)))
+            camera._images.append(timestamped)
+
+            # print("SizeX: ", grabResult.GetWidth())
+            # print("SizeY: ", grabResult.GetHeight())
+            # img = grabResult.GetArray()
+            # print("Gray values of first row: ", img[0])
+            # print()
+        else:
+            log.error("Image Grab error code: {} {}".format(grabResult.GetErrorCode(), grabResult.GetErrorDescription()))
+
+# Example of an image event handler.
+class SampleImageEventHandler(pypylon.pylon.ImageEventHandler):
+    def OnImageGrabbed(self, camera, grabResult):
+        print("CSampleImageEventHandler::OnImageGrabbed called.")
+        print()
+        print()
+
+class Camera(ABC):
+    cameras = list()
+    cameraCount = 0
+
+    def __init__(self, **kwargs):
+
+        # Register the camera on the global list so we can keep track of them
+        # Even though there will probably be only one
+        self.cameraID = Camera.cameraCount
+        Camera.cameraCount += 1
+        Camera.cameras.append(self)
+
+        self._gsd = 0
+        return
+
+    @abstractmethod
+    def connect(self) -> bool:
+        raise NotImplementedError()
+        return True
+
+    @abstractmethod
+    def initialize(self):
+        return
+
+    @abstractmethod
+    def start(self):
+        return
+
+    @abstractmethod
+    def disconnect(self):
+        raise NotImplementedError()
+        return True
+
+    @abstractmethod
+    def diagnostics(self):
+        self._connected = False
+        return 0
+
+    @abstractmethod
+    def capture(self) -> np.ndarray:
+        self._connected = False
+        return
+
+    @abstractmethod
+    def getResolution(self) -> ():
+        self._connected = False
+        return (0,0)
+
+    @abstractmethod
+    def getMMPerPixel(self) -> float:
+        return
+
+    @property
+    def gsd(self) -> int:
+        """
+        The ground sampling distance as specified in the options file. As we can't determine how high off the ground
+        the camera is, this is a pre-computed value
+        :return: width of the ground capture.
+        """
+        return self._gsd
+
+    @gsd.setter
+    def gsd(self, distance: int):
+        self._gsd = distance
+
+class CameraFile(Camera):
+    def __init__(self, **kwargs):
+        self._connected = False
+        self.directory =  kwargs[constants.KEYWORD_DIRECTORY]
+        self._currentImage = 0
+        super().__init__(**kwargs)
+        self.log = logging.getLogger(__name__)
+        return
+
+    def connect(self) -> bool:
+        """
+        Connects to a directory and finds all images there. This method will not traverse subdirectories
+        :return:
+        """
+        self._connected = os.path.isdir(self.directory)
+        # Find all the files in the directory.
+        # TODO: find only the images.
+        if self._connected:
+            self._flist = [p for p in pathlib.Path(self.directory).iterdir() if p.is_file()]
+        return self._connected
+
+    def disconnect(self):
+        self._connected = False
+        return True
+
+    def diagnostics(self):
+        return True, "Camera diagnostics passed"
+
+    def initialize(self):
+        return
+
+    def start(self):
+        return
+
+    def capture(self) -> np.ndarray:
+        """
+        Each time capture() is called, the next image in the directory is returned
+        :return:
+        The image as a numpy array.  Raises EOFError when no more images exist
+        """
+        if self._currentImage < len(self._flist):
+            imageName = str(self._flist[self._currentImage])
+            image = cv.imread(imageName,cv.IMREAD_COLOR)
+            self._currentImage = self._currentImage + 1
+            return(image)
+        # Raise an EOFError  when we get through the sequence of images
+        else:
+            raise EOFError
+
+    def getResolution(self) -> ():
+        # TODO: Get the first image and return the image size
+        #return self._flist[self._currentImage].shape()
+        return (0,0)
+
+    def getMMPerPixel(self) -> float:
+        return 0.5
+
+class CameraPhysical(Camera):
+    def __init__(self, **kwargs):
+     self._connected = False
+     self._currentImage = 0
+     self._cam = cv.VideoCapture(0)
+     super().__init__(**kwargs)
+     return
+
+    def connect(self):
+        """
+        Connects to the camera and sets it to highest resolution for capture.
+        :return:
+        True if connection was successful
+        """
+        # Read calibration information here
+        HIGH_VALUE = 10000
+        WIDTH = HIGH_VALUE
+        HEIGHT = HIGH_VALUE
+
+        # A bit a hack to set the camera to the highest resolution
+        self._cam.set(cv.CAP_PROP_FRAME_WIDTH, WIDTH)
+        self._cam.set(cv.CAP_PROP_FRAME_HEIGHT, HEIGHT)
+
+        return True
+
+    def disconnect(self):
+        self._cam.release()
+
+    def initialize(self):
+        return
+
+    def start(self):
+        return
+
+    def diagnostics(self) -> (bool, str):
+        """
+        Execute diagnostics on the camera.
+        :return:
+        Boolean result of the diagnostics and a string of the details
+        """
+        return True, "Camera diagnostics not provided"
+
+    def capture(self) -> np.ndarray:
+        """
+        Capture a single image from the camera.
+        Requires calling the connect() method before this call.
+        :return:
+        The image as a numpy array
+        """
+        ret, frame = self._cam.read()
+        if not ret:
+            raise IOError("There was an error encountered communicating with the camera")
+        #cv.imwrite("camera.jpg", frame)
+        return frame
+
+    def getResolution(self) -> ():
+        w = self._cam.get(cv.CAP_PROP_FRAME_WIDTH)
+        h = self._cam.get(cv.CAP_PROP_FRAME_HEIGHT)
+        return (w, h)
+
+    # This should be part of the calibration procedure
+    def getMMPerPixel(self) -> float:
+        return 0.0
+
+#
+# The Basler camera is accessed through the pylon API
+# Perhaps this can be through openCV, but this will do for now
+#
+
+class ProcessedImage():
+    def __init__(self, image, timestamp: int):
+        self._image = image
+        self._timestamp = timestamp
+        self._indexed = False
+
+    @property
+    def image(self) -> np.ndarray:
+        return self._image
+
+    @property
+    def timestamp(self) -> int:
+        return self._timestamp
+
+from pypylon import pylon
+from pypylon import genicam
+
+class CameraBasler(Camera):
+    # Initialize the converter for images
+    # The images stream of in YUV color space.  An optimization here might be to make
+    # both formats available, as YUV is something we will use later
+
+    _converter = pylon.ImageFormatConverter()
+
+    # converting to opencv bgr format
+    _converter.OutputPixelFormat = pylon.PixelType_BGR8packed
+    _converter.OutputBitAlignment = pylon.OutputBitAlignment_MsbAligned
+
+    def __init__(self, **kwargs):
+        """
+        Tha basler camera object.
+        :param kwargs: ip=<ip-address of camera>
+        """
+        self._connected = False
+        self._currentImage = 0
+        self._camera = None
+        self.log = logging.getLogger(__name__)
+        self._strategy = constants.STRATEGY_ASYNC
+        self._capturing = False
+        self._images = deque(maxlen=constants.IMAGE_QUEUE_LEN)
+        self._camera = pylon.InstantCamera()
+
+        # Assume a GigE camera for now
+        self._ip = kwargs[constants.KEYWORD_IP]
+
+        super().__init__(**kwargs)
+
+
+
+        return
+
+    @classmethod
+    def convert(cls, grabResult):
+        image = CameraBasler._converter.Convert(grabResult)
+        return image
+
+
+    def connect(self) -> bool:
+        """
+        Connects to the camera with the specified IP address.
+        """
+        tl_factory = pylon.TlFactory.GetInstance()
+
+        self._connected = False
+
+        for dev_info in tl_factory.EnumerateDevices():
+            self.log.debug("Looking for {}. Current device is {}".format(self._ip, dev_info.GetIpAddress()))
+            if dev_info.GetIpAddress() == self._ip:
+                # Original line
+                #self._camera = pylon.InstantCamera(tl_factory.CreateDevice(dev_info))
+                self._camera = pylon.InstantCamera()
+                self._camera.Attach(tl_factory.CreateDevice(dev_info))
+                #self._camera.MaxNumBuffer = 100
+                try:
+                    self._camera.Open()
+                    self.log.info("Using device {} at {}".format(self._camera.GetDeviceInfo().GetModelName(), dev_info.GetIpAddress()))
+                    self._connected = True
+                except Exception as e:
+                    self.log.fatal("Error encountered in opening camera")
+                # This shows how to get the list of what is available as attributes.  Not particularly useful for what
+                # we need here
+                # info = pylon.DeviceInfo()
+                # info = self._camera.GetDeviceInfo()
+                # tlc = pylon.GigETransportLayer()
+                # tlc = self._camera.GetTLNodeMap()
+                #
+                # properties = info.GetPropertyNames()
+
+                #self.log.debug("Current counter {}".format())
+                break
+
+        if not self._connected:
+            self.log.error("Failed to connect to camera")
+            #raise EnvironmentError("No GigE device found")
+
+        return self._connected
+
+
+    def initializeCapture(self):
+
+        initialized = False
+        try:
+            # Register the standard configuration event handler for enabling software triggering.
+            # The software trigger configuration handler replaces the default configuration
+            # as all currently registered configuration handlers are removed by setting the registration mode to RegistrationMode_ReplaceAll.
+            self._camera.RegisterConfiguration(pylon.SoftwareTriggerConfiguration(),
+                                               pylon.RegistrationMode_ReplaceAll,
+                                               pylon.Cleanup_Delete)
+
+            # For demonstration purposes only, add a sample configuration event handler to print out information
+            # about camera use.t
+            self._camera.RegisterConfiguration(ConfigurationEventPrinter(),
+                                               pylon.RegistrationMode_Append,
+                                               pylon.Cleanup_Delete)
+
+            # The image event printer serves as sample image processing.
+            # When using the grab loop thread provided by the Instant Camera object, an image event handler processing the grab
+            # results must be created and registered.
+            self._camera.RegisterImageEventHandler(ImageEvents(),
+                                                   pylon.RegistrationMode_Append,
+                                                   pylon.Cleanup_Delete)
+
+            # For demonstration purposes only, register another image event handler.
+            # self._camera.RegisterImageEventHandler(SampleImageEventHandler(),
+            #                                        pylon.RegistrationMode_Append,
+            #                                        pylon.Cleanup_Delete)
+
+            self._camera.SetCameraContext(self.cameraID)
+            initialized = True
+
+        except genicam.GenericException as e:
+            # Error handling.
+            self.log.fatal("Unable to initialize the capture", e.GetDescription())
+            initialized = False
+
+        return initialized
+
+    def initialize(self):
+        """
+        Set the camera parameters to reflect what we want them to be.
+        :return:
+        """
+
+        if not self._connected:
+            raise IOError("Camera is not connected.")
+
+        # TODO: Setup network parameters
+        # Inter-packet gap should be 5000
+        # This mess is an attempt to do this
+        # info = pylon.DeviceInfo(self._camera.GetDeviceInfo())
+        # # tlc = pylon.GigETransportLayer()
+        # tlc = self._camera.GetTLNodeMap()
+        # #
+        # properties = info.GetPropertyNames()
+        #
+        # # This lets me know the option is there:
+        # if info.GetPropertyAvailable("IpConfigOptions"):
+        #     ipOptions = info.GetIpConfigOptions()
+        # tl = pylon.TransportLayer(self._camera.TransportLayer)
+        # tlInfo = tl.GetTlInfo()
+
+        self.log.debug("Camera initialized")
+        return
+    #
+    # def startGrabbingImages(self):
+    #
+    #
+    #     self.log.debug("Start to grab images")
+    #     self._camera.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
+    #     # Execute the software trigger, wait actively until the camera accepts the next frame trigger or until the timeout occurs.
+    #     for i in range(3):
+    #         if self._camera.WaitForFrameTriggerReady(200, pylon.TimeoutHandling_ThrowException):
+    #             self._camera.ExecuteSoftwareTrigger()
+    #
+    #     # Wait for all images.
+    #     time.sleep(0.2)
+    #
+    #     # Check whether the grab result is waiting.
+    #     if self._camera.GetGrabResultWaitObject().Wait(0):
+    #         print("A grab result waits in the output queue.")
+    #
+    #     # Only the last received image is waiting in the internal output queue
+    #     # and is now retrieved.
+    #     # The grabbing continues in the background, e.g. when using hardware trigger mode.
+    #     buffersInQueue = 0
+    #
+    #     while True:
+    #         grabResult = self._camera.RetrieveResult(0, pylon.TimeoutHandling_Return)
+    #         if not grabResult.IsValid():
+    #             break
+    #         print("Skipped ", grabResult.GetNumberOfSkippedImages(), " images.")
+    #         buffersInQueue += 1
+    #
+    #     print("Retrieved ", buffersInQueue, " grab result from output queue.")
+    #
+    #     # Stop the grabbing.
+    #     self.log.debug("Finished grabbing")
+    #     self._camera.StopGrabbing()
+    #
+    # def startCapturing(self):
+    #     """
+    #     Begin capturing images and store them in a queue for later retrieval.
+    #     """
+    #
+    #     if not self._connected:
+    #         raise IOError("Camera is not connected.")
+    #
+    #     # The scheme here is to get the images and store them for later consumption.
+    #     # The basler library does not have quite what is needed here, as we can't quite tell
+    #     # when an image is needed, as that is based on distance tranversed (let's say images every 10 cm to allow for
+    #     # overlap.
+    #
+    #     # Start grabbing images
+    #     #self._camera.GevSCPSPacketSize = 8192
+    #     self._camera.StartGrabbing(pylon.GrabStrategy_OneByOne)
+    #     self.log.debug("Started grabbing images")
+    #     # Fetch the images from the camera and store the results in a buffer
+    #     if self._strategy == constants.STRATEGY_ASYNC:
+    #         self.log.debug("Asynchronous capture")
+    #         self._capturing = True
+    #         while self._camera.IsGrabbing():
+    #             try:
+    #                 timestamped = self._grabImage()
+    #                 self._images.append(timestamped)
+    #             except IOError as e:
+    #                 self.log.error(e)
+    #             self.log.debug("Image queue size: {}".format(len(self._images)))
+    #         self._camera.StopGrabbing()
+    #
+    #     # For synchronous capture, we don't do anything but retrieve the image on demand
+    #     else:
+    #         self.log.debug("Synchronous capture")
+
+    def startCapturing(self):
+        # Start the grabbing using the grab loop thread, by setting the grabLoopType parameter
+        # to GrabLoop_ProvidedByInstantCamera. The grab results are delivered to the image event handlers.
+        # The GrabStrategy_OneByOne default grab strategy is used.
+        self.log.debug("Begin grab with OneByOne Strategy")
+        try:
+            #self.camera.Open()
+            self.camera.StartGrabbing(pylon.GrabStrategy_OneByOne, pylon.GrabLoop_ProvidedByInstantCamera)
+        except _genicam.RuntimeException as e:
+            log.fatal("Failed to open the camera and start grabbing.")
+            log.fatal("{}".format(e))
+
+        # If we immediately start waiting for the trigger, we get an error
+        time.sleep(2)
+        self._capturing = True
+        while self._capturing:
+            try:
+                if self.camera.WaitForFrameTriggerReady(400, pylon.TimeoutHandling_ThrowException):
+                    self.camera.ExecuteSoftwareTrigger();
+            except _genicam.TimeoutException as e:
+                self.log.fatal("Timeout from camera")
+            except _genicam.RuntimeException as e:
+                if not self._capturing:
+                    self.log.warning("Errors encountered in shutdown.  This is normal")
+                else:
+                    self.log.error("Unexpected errors in capture")
+                    self.log.error("Device: {}".format(self._camera.GetDeviceInfo().GetModelName()))
+                    self.log.error("{}".format(e))
+
+    def start(self):
+        """
+        Begin capturing images and store them in a queue for later retrieval.
+        """
+
+        if not self._connected:
+            raise IOError("Camera is not connected.")
+
+        # The scheme here is to get the images and store them for later consumption.
+        # The basler library does not have quite what is needed here, as we can't quite tell
+        # when an image is needed, as that is based on distance tranversed (let's say images every 10 cm to allow for
+        # overlap.
+
+        # Start grabbing images
+        self._camera.GevSCPSPacketSize = 8192
+        self._camera.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
+        self.log.debug("Started grabbing images")
+        # Fetch the images from the camera and store the results in a buffer
+        if self._strategy == constants.STRATEGY_ASYNC:
+            self.log.debug("Asynchronous capture")
+            self._capturing = True
+            while self._capturing:
+                try:
+                    timestamped = self._grab()
+                    self._images.append(timestamped)
+                except IOError as e:
+                    self.log.error(e)
+                self.log.debug("Image queue size: {}".format(len(self._images)))
+            self._camera.StopGrabbing()
+
+        # For synchronous capture, we don't do anything but retrieve the image on demand
+        else:
+            self.log.debug("Synchronous capture")
+
+
+
+    def stop(self):
+        """
+        Stop collecting from the current camera.
+        :return:
+        """
+
+        self.log.debug("Stopping image capture")
+
+        # Stop only if camera is connected.  This doesn't directly stop the collection, but clears the flag so the
+        # collection loop will stop
+        if self._connected:
+            self._capturing = False
+        # if self._strategy == constants.STRATEGY_ASYNC:
+        #     self._camera.StopGrabbing()
+
+        return
+
+    def disconnect(self):
+        """
+        Disconnected from the current camera and stop grabbing images
+        """
+
+        self.log.debug("Disconnecting from camera")
+        self.stop()
+        self._camera.Close()
+
+    def diagnostics(self) -> (bool, str):
+        """
+        Execute diagnostics on the camera.
+        :return:
+        Boolean result of the diagnostics and a string of the details
+        """
+        return True, "Camera diagnostics not provided"
+
+    def capture(self) -> np.ndarray:
+        """
+        Capture a single image from the camera.
+        Requires calling the connect() method before this call.
+
+        If the image is in the queue, it will be served from there -- otherwise the method will retrieve if
+        synchronously from the camera.
+
+        :return:
+        The image as a numpy array
+        """
+
+        if not self._connected:
+            raise IOError("Camera is not connected")
+
+        # If there are no images in the queue, just wait for one.
+        if len(self._images) == 0:
+            self.log.error("Image queue is empty.")
+            os.kill(os.getpid(), signal.SIGINT)
+            #img = self._grab()
+        else:
+            self.log.debug("Serving image from queue")
+            processed = self._images.popleft()
+            img = processed.image
+            timestamp = processed.timestamp
+            self.log.debug("Image captured at " + str(timestamp))
+        return img
+
+    def getResolution(self) -> ():
+        w = self._camera.get(cv.CAP_PROP_FRAME_WIDTH)
+        h = self._camera.get(cv.CAP_PROP_FRAME_HEIGHT)
+        return (w, h)
+
+    # This should be part of the calibration procedure
+    def getMMPerPixel(self) -> float:
+        return 0.0
+
+    @property
+    def camera(self) -> pylon.InstantCamera:
+        return self._camera
+
+    @camera.setter
+    def camera(self, openedCamera: pylon.InstantCamera):
+        self._camera = openedCamera
+
+
+    def _grabImage(self) -> ProcessedImage:
+
+        try:
+            grabResult = self._camera.RetrieveResult(200, pylon.TimeoutHandling_ThrowException)
+
+        except _genicam.RuntimeException as e:
+            self.log.fatal("Genicam runtime error encountered.")
+            self.log.fatal("{}".format(e))
+
+        if grabResult.GrabSucceeded():
+            # This is very noisy -- a bit more than we need here
+            self.log.debug("Image grab succeeded at timestamp " + str(grabResult.TimeStamp))
+        else:
+            raise IOError("Failed to grab image. Pylon error code: {}".format(grabResult.GetErrorCode()))
+
+        image = self._converter.Convert(grabResult)
+        img = image.GetArray()
+        # The 1920 and 2500 cameras do not support PTP, so the timestamp is just the ticks since startup.
+        # We will mark the images based on when we got them -- ideally, this should be:
+        # timestamped = ProcessedImage(img, grabResult.TimeStamp)
+        timestamped = ProcessedImage(img, round(time.time() * 1000))
+        return timestamped
+
+    def _grab(self) -> ProcessedImage:
+        """
+        Grab the image from the camera
+        :return: ProcessedImag
+        """
+
+
+        try:
+            self.log.debug("Grab start")
+            grabResult = pypylon.pylon.GrabResult(self._camera.RetrieveResult(constants.TIMEOUT_CAMERA, pylon.TimeoutHandling_ThrowException))
+            self.log.debug("Grab complete")
+        except _genicam.RuntimeException as e:
+            self.log.fatal("Genicam runtime error encountered.")
+            self.log.fatal("{}".format(e))
+        # If the camera is close while we are capturing, this may be null.
+        if not grabResult.IsValid():
+            self.log.error("Image is not valid")
+            raise IOError("Image is not valid")
+
+        if grabResult.GrabSucceeded():
+            # This is very noisy -- a bit more than we need here
+            #self.log.debug("Image grab succeeded at timestamp " + str(grabResult.TimeStamp))
+            pass
+        else:
+            raise IOError("Failed to grab image. Pylon error code: {}".format(grabResult.GetErrorCode()))
+
+        image = self._converter.Convert(grabResult)
+        img = image.GetArray()
+        # The 1920 and 2500 cameras do not support PTP, so the timestamp is just the ticks since startup.
+        # We will mark the images based on when we got them -- ideally, this should be:
+        #timestamped = ProcessedImage(img, grabResult.TimeStamp)
+        timestamped = ProcessedImage(img, round(time.time() * 1000))
+        return timestamped
+
+    def save(self, filename: str) -> bool:
+        """
+        Save the camera settings
+        :param filename: The file to contain the settings
+        :return: True on success
+        """
+        #self._camera.Open()
+        self.log.info("Saving camera configuration to: {}".format(filename))
+        pylon.FeaturePersistence.Save(filename, self._camera.GetNodeMap())
+        return True
+
+    def load(self, filename: str) -> bool:
+        """
+        Load the camera configuration from a file. Usually, this is the .pfs file saved from the pylon viewer
+        :param filename: The name of the file on disk
+        :return: True on success
+        """
+        loaded = False
+
+        #self._camera.Open()
+        # If the camera configuration exists, use that, otherwise warn
+        if os.path.isfile(filename):
+            self.log.info("Using saved camera configuration: {}".format(filename))
+            try:
+                pylon.FeaturePersistence.Load(filename,self._camera.GetNodeMap(),True)
+            except _genicam.RuntimeException as geni:
+                log.error("Unable to load configuration: {}".format(geni))
+
+            loaded = True
+        else:
+            self.log.warning("Unable to find configuration file: {}.  Camera configuration unchanged".format(filename))
+        return loaded
+#
+# E N D  C A M A R A S
+#
 
 # Used in command line processing so we can accept thresholds that are tuples
 def tuple_type(strings):
@@ -89,7 +883,10 @@ parser.add_argument("-x", "--xtract", action="store_true", default=False, help="
 
 arguments = parser.parse_args()
 
+# This is just the root of the output directory, typically ../output.  Later, this will be ../output/<UUID> for
+# a specific session
 
+outputDirectory = arguments.output
 
 # The list of decorations on the output.
 # index
@@ -111,48 +908,34 @@ if (arguments.logistic or arguments.knn or arguments.tree or arguments.forest) a
 def startupCamera(options: OptionsFile):
     if arguments.input is not None:
         # Get the images from a directory
-        camera = CameraFile(directory=arguments.input)
+        theCamera = CameraFile(directory=arguments.input)
     else:
         # Get the images from an actual camera
         cameraIP = options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_CAMERA_IP)
-        camera = CameraBasler(ip=cameraIP)
-    if not camera.connect():
-        print("Unable to connect to camera.")
-        sys.exit(1)
+        theCamera = CameraBasler(ip=cameraIP)
+        # Set the ground sampling distance, so we know when to take a picture
+        theCamera.gsd = int(options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_IMAGE_WIDTH))
 
-    #(w, h) = camera.getResolution()
+    # Load the camera with the settings we want, otherwise save what is there
+    # camera.connect()
+    # filename = camera.camera.GetDeviceInfo().GetModelName() + ".pfs"
+    # camera.camera.Open()
+    # if not camera.load(filename):
+    #     # If we don't have a configuration, save what was used
+    #     filename = "default-" + filename
+    #     camera.save(filename)
+    # camera.camera.Close()
 
     # Test the camera
-    diagnosticResult, diagnosticText = camera.diagnostics()
+    diagnosticResult, diagnosticText = theCamera.diagnostics()
     if not diagnosticResult:
         print(diagnosticText)
         sys.exit(1)
-    return camera
 
-#
-# O D O M E T E R
-#
 
-# def startupOdometer(imageProcessor: Callable) -> Odometer:
-#     """
-#     Start up the odometry subsystem and run diagnostics
-#     :param imageProcessor: The image processor executed at each interval
-#     :return:
-#     """
-#     # For now, we have only a virtual odometer
-#     odometer = VirtualOdometer(arguments.speed, arguments.image, imageProcessor)
-#     if not odometer.connect():
-#         print("Unable to connect to odometer.")
-#         sys.exit(1)
-#
-#     # Run diagnostics on the odometer before we begin.
-#     diagnosticResult, diagnosticText = odometer.diagnostics()
-#
-#     if not diagnosticResult:
-#         print(diagnosticText)
-#         sys.exit(1)
-#
-#     return odometer
+    return theCamera
+
+
 
 def startupPerformance() -> Performance:
     """
@@ -227,7 +1010,7 @@ def startupLogger(outputDirectory: str) -> ():
 
     # The command line argument contains the name of the YAML configuration file.
 
-    # Confirm the YAML file exists
+    # Confirm the INI exists
     if not os.path.isfile(arguments.logging):
         print("Unable to access logging configuration file {}".format(arguments.logging))
         sys.exit(1)
@@ -236,12 +1019,6 @@ def startupLogger(outputDirectory: str) -> ():
     # Initialize logging
     logging.config.fileConfig(arguments.logging)
     log = logging.getLogger("jetson")
-
-    # This is a leftover from when we used yaml
-    # with open(arguments.logging, "rt") as f:
-    #     config = yaml.safe_load(f.read())
-    #     logging.config.dictConfig(config)
-    #     #logger = logging.getLogger(__name__)
 
     logger = Logger()
     if not logger.connect(outputDirectory):
@@ -665,8 +1442,29 @@ else:
     # This is the normal run state, where items in images are classified
     processor = processImage
 
-totalMovement = 0
+def postWeedingCleanup():
+    global processing
+
+    # Copy the camera parameters used in the capture
+    cameraSettings = glob.glob("camera*pfs")
+    for file in cameraSettings:
+        shutil.copy(file, outputDirectory)
+
+    finished = os.path.join(logger.directory, options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_FILENAME_FINISHED))
+    log.debug("Writing session statistics to: {}".format(finished))
+    try:
+        with open(finished, 'w') as fp:
+            fp.write("Session complete")
+    except IOError as e:
+        log.error("Unable to write out end of run data to file: {}".format(finished))
+        log.error("{}".format(e))
+
+    processing = False
+
+
+totalMovement = 0.0
 keepAliveMessages = 0
+movementSinceLastProcessing = 0.0
 #
 # The callback for messages received in the system room.
 # When the total distance is the width of the image, grab an image and process it.
@@ -674,6 +1472,7 @@ keepAliveMessages = 0
 def messageSystemCB(conn,msg: xmpp.protocol.Message):
     global logger
     global processing
+    global outputDirectory
     # Make sure this is a message sent to the room, not directly to us
     if msg.getType() == "groupchat":
             body = msg.getBody()
@@ -689,8 +1488,9 @@ def messageSystemCB(conn,msg: xmpp.protocol.Message):
                     logger = Logger()
                     if not logger.connect(outputDirectory):
                         log.error("Unable to connect to logging. {} does not exist.".format(outputDirectory))
-                if systemMessage == constants.Action.STOP:
-                    processing = False
+                if systemMessage.action == constants.Action.STOP.name:
+                    log.debug("----- Stop weeding ------")
+                    postWeedingCleanup()
 
     elif msg.getType() == "chat":
             print("private: " + str(msg.getFrom()) +  ":" +str(msg.getBody()))
@@ -705,34 +1505,40 @@ def messageSystemCB(conn,msg: xmpp.protocol.Message):
 def messageOdometryCB(conn, msg: xmpp.protocol.Message):
     global totalMovement
     global keepAliveMessages
+    global movementSinceLastProcessing
     # Make sure this is a message sent to the room, not directly to us
     if msg.getType() == "groupchat":
-            body = msg.getBody()
-            # Check if this is a real message and not just an empty keep-alive message
-            if body is not None:
-                log.debug("Distance message from {}: [{}]".format(msg.getFrom(), msg.getBody()))
-                odometryMessage = OdometryMessage(raw=body)
-                totalMovement += odometryMessage.distance
-                # The time of the observation
-                timeRead = odometryMessage.timestamp
-                # Determine how old the observation is
-                # The version of python on the jetson does not support time_ns, so this a bit of a workaround until I
-                # get that sorted out.  Just convert the reading to milliseconds for now
-                #timeDelta = (time.time() * 1000) - (timeRead / 1000000)
-                timeDelta = (time.time() * 1000) - timeRead
-                log.debug("Total movement is {} at time {}. Time now is {} delta from now {} ms".format(totalMovement, timeRead, time.time() * 1000, timeDelta))
+        body = msg.getBody()
+        # Check if this is a real message and not just an empty keep-alive message
+        if body is not None:
+            log.debug("Distance message from {}: [{}]".format(msg.getFrom(), msg.getBody()))
+            odometryMessage = OdometryMessage(raw=body)
+            totalMovement += odometryMessage.distance
+            movementSinceLastProcessing += odometryMessage.distance
+            # The time of the observation
+            timeRead = odometryMessage.timestamp
+            # Determine how old the observation is
+            # The version of python on the jetson does not support time_ns, so this a bit of a workaround until I
+            # get that sorted out.  Just convert the reading to milliseconds for now
+            #timeDelta = (time.time() * 1000) - (timeRead / 1000000)
+            timeDelta = (time.time() * 1000) - timeRead
+            log.debug("Total movement is {} at time {}. Time now is {} delta from now {} ms".format(totalMovement, timeRead, time.time() * 1000, timeDelta))
 
-                if timeDelta > 5000:
-                    log.debug("Old message seen.  Ignored")
+            if timeDelta > 5000:
+                log.debug("Old message seen.  Ignored")
 
-                    # If the movement is equal to the image size, process the image
-                    # Clearly, this is wrong -- just a placeholder for now.
-                elif totalMovement % 100 == 0:
-                    processor()
-            else:
-                # There's not much to do here for keepalive messages
-                keepAliveMessages += 1
-                #print("weeds: keepalive message from chatroom")
+            # If the movement is equal to the size of the image, take a picture
+            # We need to allow for some overlap so the images can be stitched together.
+            # So reduce this by the overlap factor
+            elif movementSinceLastProcessing > (float(options.option(constants.PROPERTY_SECTION_CAMERA,
+                                                                     constants.PROPERTY_OVERLAP_FACTOR)) * camera.gsd):
+                log.info("Acquiring image")
+                movementSinceLastProcessing = 0
+                processor()
+        else:
+            # There's not much to do here for keepalive messages
+            keepAliveMessages += 1
+            #print("weeds: keepalive message from chatroom")
     elif msg.getType() == "chat":
             print("private: " + str(msg.getFrom()) +  ":" +str(msg.getBody()))
     else:
@@ -768,24 +1574,59 @@ def processMessages(communicator: MUCCommunicator):
 #
 # Take the images -- this method will not return, only add new images to the queue
 #
-
 def takeImages(camera: CameraBasler):
-    """
-    Take images with the camera
-    :param camera: the camera to use
-    """
+
     # Connect to the camera and take an image
-    if camera.connect():
+    log.debug("Connecting to camera")
+    camera.connect()
+
+    filename = camera.camera.GetDeviceInfo().GetModelName() + ".pfs"
+    camera.camera.Open()
+    if not camera.load(filename):
+        # If we don't have a configuration, warn about this
+        log.warning("Unable to locate camera config {}".format(filename))
+
+    # Save what was used in capture
+    filename = "camera-" + options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_CAMERA_IP) + "-" + filename
+    camera.save(filename)
+    camera.camera.Close()
+
+    if camera.initializeCapture():
         try:
-            camera.initialize()
-            #camera.start()
-            camera.startGrabbingImages()
+            camera.startCapturing()
         except IOError as io:
             camera.log.error(io)
         rc = 0
     else:
         rc = -1
-#
+
+def _takeImages(theCamera: CameraBasler):
+
+    # Connect to the camera and take an image
+    log.debug("Connecting to camera")
+    theCamera.connect()
+
+    # Load the configuration for the camera -- if we have one
+    filename = theCamera.camera.GetDeviceInfo().GetModelName() + ".pfs"
+    theCamera.camera.Open()
+    if not theCamera.load(filename):
+        # If we don't have a configuration, save what was used
+        filename = "default-" + filename
+        theCamera.save(filename)
+    theCamera.camera.Close()
+
+    if theCamera.initializeCapture():
+        try:
+            log.debug("Beginning capture")
+            theCamera.startCapturing()
+        except IOError as io:
+            theCamera.log.fatal("I/O error encountered in start of capture")
+            theCamera.log.error(io)
+        rc = 0
+    else:
+        log.error("Capture initialization failed.")
+        rc = -1
+
 # Start up various subsystems
 #
 options = readINI()
@@ -793,19 +1634,29 @@ options = readINI()
 (logger, log) = startupLogger(arguments.output)
 #log = logging.getLogger(__name__)
 
-camera = startupCamera(options)
-log.debug("Camera started")
+theCamera = startupCamera(options)
+log.debug("camera started")
+
+cameraIP = options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_CAMERA_IP)
+camera = CameraBasler(ip = cameraIP)
 
 (roomOdometry, roomSystem, roomTreatment) = startupCommunications(options, messageOdometryCB, messageSystemCB, messageTreatmentCB)
 log.debug("Communications started")
-#odometer = startupOdometer(processImage)
 
 performance = startupPerformance()
 log.debug("Performance started")
-mmPerPixel = camera.getMMPerPixel()
 
 # Start the worker threads, putting them in a list
 threads = list()
+
+
+# Start the thread that will begin acquiring images
+log.debug("Start image acquisition")
+acquire = threading.Thread(name=constants.THREAD_NAME_ACQUIRE,target=takeImages, args=(camera,))
+threads.append(acquire)
+acquire.start()
+
+
 log.debug("Starting odometry receiver")
 generator = threading.Thread(name=constants.THREAD_NAME_ODOMETRY, target=processMessages, args=(roomOdometry,))
 generator.daemon = True
@@ -824,11 +1675,6 @@ treat.daemon = True
 threads.append(treat)
 treat.start()
 
-# Start the thread that will begin acquiring images
-log.debug("Start image acquisition")
-acquire = threading.Thread(name=constants.THREAD_NAME_ACQUIRE,target=takeImages, args=(camera,))
-threads.append(acquire)
-acquire.start()
 
 # Wait for the workers to finish
 for index, thread in enumerate(threads):
