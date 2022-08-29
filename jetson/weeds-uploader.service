@@ -1,0 +1,12 @@
+[Unit]
+Description="Weeds Cloud Uploader"
+
+[Service]
+Type=simple
+User=weeds
+WorkingDirectory=/home/weeds/jetson
+ExecStart=/home/weeds/jetson/weeds-uploader-service
+
+[Install]
+WantedBy=multi-user.target
+
