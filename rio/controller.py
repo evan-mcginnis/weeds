@@ -20,8 +20,13 @@ from typing import Callable
 from OptionsFile import OptionsFile
 import logging
 import logging.config
-import nidaqmx as ni
 import xmpp
+
+try:
+    import nidaqmx as ni
+    virtualRequired = False
+except ImportError:
+    virtualRequired = True
 
 import constants
 from Odometer import Odometer, VirtualOdometer
@@ -44,7 +49,7 @@ parser.add_argument('-a', '--odometer_line_a', action="store", required=False, d
 parser.add_argument('-b', '--odometer_line_b', action="store", required=False, default="", help="Odometer line B")
 parser.add_argument('-p', '--plan', action="store_true", required=False, default=False, help="Generate treatment plan")
 parser.add_argument('-r', '--rio', action="store_true", required=False, default=False, help="Virtual RIO mode")
-parser.add_argument('-s', '--speed', action="store", required=False, default=44.704, type=float, help="Virtual odometry speed (cm/s)")
+parser.add_argument('-s', '--speed', action="store", required=False, default=4, type=float, help="Virtual odometry speed (cm/s)")
 parser.add_argument('-ini', '--ini', action="store", required=False, default=constants.PROPERTY_FILENAME, help="Options INI")
 parser.add_argument('-l', '--log', action="store", required=False, default="logging.ini", help="Logging INI")
 
@@ -59,51 +64,48 @@ if not options.load():
 logging.config.fileConfig(arguments.log)
 log = logging.getLogger("rio")
 
-def startSession(options: OptionsFile, sessionName: str):
+# Type of odometry used
+if arguments.odometer:
+    typeOfOdometry = constants.SubsystemType.VIRTUAL
+else:
+    typeOfOdometry = constants.SubsystemType.PHYSICAL
+
+def startSession(options: OptionsFile, sessionName: str) -> bool:
     """
     Prepare for a new session. The current working directory is set after the session name
     :param sessionName:
     """
     global log
+    started = False
 
-    path = options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_ROOT) + "/output/" + sessionName
+    path = options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_OUTPUT) + "/" + sessionName
+
     try:
         os.mkdir(path)
         os.chdir(path)
+        started = True
     except OSError as e:
         log.critical("Unable to prepare and set directory to {}".format(path))
         log.critical("Raw: {}".format(e))
 
-    # Stop the previous logging session
-    #log.disabled = True
-
-    # path = options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_ROOT) + "/rio/" + arguments.log
-    # log.debug("Reconfiguring logging with: {}".format(path))
-    #
-    # log.disabled = False
     log.debug("Session started")
+    return started
 
-def endSession(options: OptionsFile):
+def endSession(options: OptionsFile) -> bool:
     global log
+    stopped = False
     path = options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_ROOT) + "/output"
 
     # Change back to the general output directory not associated with any session
     try:
         os.chdir(path)
+        stopped = True
     except OSError as e:
         log.critical("Unable to prepare and set directory to {}".format(path))
         log.critical("Raw: {}".format(e))
 
-    # Stop the previous logging session
-    #logging.shutdown()
-
-    # log.disabled = True
-    # path = options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_ROOT) + "/rio/" + arguments.log
-    # log.debug("Reconfiguring logging with: {}".format(path))
-    #
-    # log.disabled = False
     log.debug("Session ended")
-
+    return stopped
 
 #
 # N I  D I A G N O S T I C S
@@ -185,6 +187,45 @@ def process(conn, msg: xmpp.protocol.Message):
                 log.debug("Stopping odometry")
                 endSession(options)
 
+def processOdometry(conn, msg: xmpp.protocol.Message):
+    global typeOfOdometry
+
+    log.debug("Process message from {}".format(msg.getFrom()))
+
+    # Messages from the system room will be in the form: system@conference.weeds.com/console
+
+    console = options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_SYSTEM) \
+              +  "/" \
+              + options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_CONSOLE)
+
+    if msg.getFrom() == console:
+        if msg.getBody() is not None:
+            odometryMsg = OdometryMessage(raw=msg.getBody())
+            log.debug("Action is {}".format(odometryMsg.action))
+
+            # C O N F I G U R E
+            if odometryMsg.action == constants.Action.CONFIGURE.name:
+                source = odometryMsg.source
+                oldTypeOfOdometry = typeOfOdometry
+                log.debug("Configure source as {}".format(source))
+                if source == constants.SubsystemType.PHYSICAL.name:
+                    typeOfOdometry = constants.SubsystemType.PHYSICAL
+                elif source == constants.SubsystemType.VIRTUAL.name:
+                    typeOfOdometry = constants.SubsystemType.VIRTUAL
+                else:
+                    log.error("Unknown odometry type. Ignored")
+
+                if oldTypeOfOdometry != typeOfOdometry:
+                    log.debug("Restart of odometry required")
+                    odometer.stop()
+
+            # # This is just an alive message, so respond
+            # if systemMsg.action == constants.Action.PING.name:
+            #     log.debug("PING")
+            # if systemMsg.action == constants.Action.STOP.name:
+            #     log.debug("Stopping odometry")
+            #     endSession(options)
+
 
 def startupCommunications(options: OptionsFile) -> ():
     """
@@ -198,7 +239,7 @@ def startupCommunications(options: OptionsFile) -> ():
                                    options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_ODOMETRY),
                                    options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_DEFAULT_PASSWORD),
                                    options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_ODOMETRY),
-                                   process,
+                                   processOdometry,
                                    None) # Don't care about presence
 
     # The room that will get status reports about this process
@@ -228,7 +269,7 @@ def startupCommunications(options: OptionsFile) -> ():
 def callback():
     return
 
-def startupOdometer(treatmentController: Callable) -> Odometer:
+def startupOdometer(typeOfOdometer: constants.SubsystemType) -> Odometer:
     """
     Start up the odometry subsystem and run diagnostics
     :param imageProcessor: The image processor executed at each interval
@@ -241,9 +282,11 @@ def startupOdometer(treatmentController: Callable) -> Odometer:
     #
     # This creates an odometer that will simulate moving forward with a given speed and will
     # call the treatment controller at set intervals
-    if arguments.odometer:
+    if typeOfOdometer == constants.SubsystemType.VIRTUAL:
         log.debug("Using virtual odometry")
-        odometer = VirtualOdometer(arguments.speed, treatmentController)
+        pulsesPerRotation = int(options.option(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_PPR))
+        wheelSize = int(options.option(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_WHEEL_CIRCUMFERENCE))
+        odometer = VirtualOdometer(WHEEL_SIZE=wheelSize, PULSES=pulsesPerRotation, SPEED=arguments.speed)
     else:
         # Get the A & B lines -- either from the INI file or on the command line
         if len(arguments.odometer_line_a) == 0:
@@ -272,7 +315,12 @@ def startupOdometer(treatmentController: Callable) -> Odometer:
             log.error(constants.MSG_LINES_NOT_SPECIFIED)
             sys.exit(1)
 
-        odometer = PhysicalOdometer(lineA, lineB, wheelSize, pulsesPerRotation, 0, callback)
+        #odometer = PhysicalOdometer(lineA, lineB, wheelSize, pulsesPerRotation, 0, callback)
+        odometer = PhysicalOdometer(LINE_A = lineA,
+                                    LINE_B = lineB,
+                                    WHEEL_SIZE = wheelSize,
+                                    PULSES = pulsesPerRotation,
+                                    SPEED = 0)
 
     if not odometer.connect():
         print("Unable to connect to odometer.")
@@ -339,7 +387,7 @@ def serviceQueue(odometer : PhysicalOdometer, odometryRoom: MUCCommunicator, ann
         starttime = nanoseconds()
 
         # Speed in kph
-        speed = (distanceTraveled / 1000000) / (elapsedSeconds / 3600)
+        speed = (distanceTraveled / 100000) / (elapsedSeconds / 3600)
         log.debug("{:.4f} mm Total: {:.4f} elapsed {:.4f} Speed {:.4f}kph".format(distanceTraveled, totalDistanceTraveled, elapsedSeconds, speed))
 
         # Send out a message every time the system traverses the distance specified
@@ -353,20 +401,23 @@ def serviceQueue(odometer : PhysicalOdometer, odometryRoom: MUCCommunicator, ann
             # Timestamp is the nanoseconds in the epoch
             message.timestamp = time.time() * 1000
             #message.timestamp = time.time_ns()
+            message.source = odometer.source
             messageText = message.formMessage()
             #log.debug("Sending: {}".format(message.formMessage()))
 
-            try:
-                odometryRoom.sendMessage(messageText)
-            except Exception as e:
-                log.fatal("---- Error in sending message ----")
-                log.fatal("Raw {}".format(e))
+            odometryRoom.sendMessage(messageText)
+            # try:
+            #     odometryRoom.sendMessage(messageText)
+            # except Exception as e:
+            #     log.fatal("---- Error in sending message ----")
+            #     log.fatal("Raw {}".format(e))
             distanceTraveledSinceLastMessage = 0.0
         if distanceTraveledSinceLastMessage <= -announcements:
             message = OdometryMessage()
             message.distance = -announcements
             message.timestamp = time.time() * 1000
             #message.timestamp = time.time_ns()
+            message.source = odometer.source
             messageText = message.formMessage()
             #log.debug("Sending: {}".format(messageText))
             try:
@@ -387,6 +438,16 @@ def processMessagesSync(odometry: MUCCommunicator):
     # Connect to the XMPP server and just return
     odometry.connect(True)
 
+def processOdometer(odometer: Odometer):
+    log.debug("Connect and start odometer")
+    # Connect the odometer and start.
+    odometer.connect()
+    # The start routines never return - this is executed in the main thread
+    while True:
+        odometer.start()
+        # This allows the type of odometry to be changed
+        odometer = startupOdometer(typeOfOdometry)
+
 # Start the system and run diagnostics
 log.debug("Starting system")
 system, emitter = startupSystem()
@@ -394,11 +455,7 @@ system, emitter = startupSystem()
 # system is the object representing the RIO
 # emitter is the associated emitter.
 
-# Start the odometer, and have it call the routine to apply the treatment
-# Here, we assume that the method to apply the treatment will be called at the precision of the system
-# Let's say it is every 1 cm
-
-odometer = startupOdometer(emitter.applyTreatment)
+odometer = startupOdometer(typeOfOdometry)
 
 # Startup communication to the MUC
 (odometryRoom, systemRoom, treatmentRoom) = startupCommunications(options)
@@ -434,12 +491,14 @@ treat.daemon = True
 threads.append(treat)
 treat.start()
 
+log.debug("Start odometry thread")
+odometry = threading.Thread(name=constants.THREAD_NAME_ODOMETRY, target=processOdometer, args=(odometer,))
+odometry.daemon = True
+threads.append(odometry)
+odometry.start()
 
-log.debug("Connect and start odometer")
-# Connect the odometer and start.
-odometer.connect()
-# The start routines never return - this is executed in the main thread
-odometer.start()
+
+
 
 sysThread.join()
 log.debug("System thread is finished.")

@@ -62,15 +62,21 @@ class PhysicalOdometer(Odometer):
     # is the MAXIMUM speed we can tolerate, where the virtual odometer accepts the speed at which the
     # odometer moves.  OK, that could be considered "always moves at the maximum", I suppose.
     #
-    # TODO: Simplfy this by accepting a dictionary of values for the parameters.  These should all be in the INI file
-    def __init__(self, lineA: str, lineB: str, wheel_size: int, encoder_clicks: int, speed: int, processor: Callable):
+    def __init__(self, **kwargs):
         """
-        A physical odometer
-        :param speed: Maximum speed of movement in meters per second
-        :param processor: The image processing routine to callback at each processing step
+        A physical odometer. This is for an Automation Direct TRD-NXXXX-RZWD
+        :param kwargs: LINE_A, LINE_B, PULSES, SPEED, WHEEL_SIZE
         """
         # The card on the RIO where the encoder connects
         super().__init__("")
+
+        wheel_size = kwargs[constants.KEYWORD_WHEEL_CIRCUMFERENCE]
+        encoder_clicks = kwargs[constants.KEYWORD_PPR]
+        lineA = kwargs[constants.KEYWORD_LINE_A]
+        lineB = kwargs[constants.KEYWORD_LINE_B]
+        speed = kwargs[constants.KEYWORD_SPEED]
+
+        self._maxSpeed = speed
 
         # LineA and lineB should be in the format ModX/portY/lineZ
         # These are ot needed for the angular encoder technique, as the terminals are specified in other options (PFI0)
@@ -105,6 +111,8 @@ class PhysicalOdometer(Odometer):
         self._bPrevious = False
         self._zCurrent = False
         self._zPrevious = False
+
+        self._source = constants.SOURCE_PHYSICAL
 
         # Not used
         self._aArmed = False
@@ -193,11 +201,12 @@ class PhysicalOdometer(Odometer):
 
         task.start()
         previous = 0.0
+        self._processing = True
         running = True
 
         # This loop will run until things are gracefully shut down by another thread
         # setting running to False.
-        while running:
+        while self._processing:
             try:
                 ang =task.read(number_of_samples_per_channel = 1) #nidaqmx.constants.READ_ALL_AVAILABLE)
                 #print("Current register is {}".format(channelA.ci_count))
