@@ -196,8 +196,8 @@ class MUCCommunicator():
 
             # Check to see if the client is still connected to server
             if not conn.isConnected():
-                self._log.error("Disconnected from chatroom. Reconnecting")
-                conn.reconnectAndReauth()
+                self._log.error("Disconnected from chatroom.")
+                #conn.reconnectAndReauth()
                 return 0
 
             # if conn.isConnected():
@@ -212,6 +212,11 @@ class MUCCommunicator():
     def GoOn(self,conn):
         while self._StepOn(conn):
             pass
+
+    def disconnectHandler(self):
+        self._log.critical("Disconnected from {}".format(self._muc))
+        if not self._connection.reconnectAndReauth():
+            self._log.fatal("Unable to recover connection")
 
     def connect(self, process: bool, occupants = False):
         """
@@ -245,6 +250,7 @@ class MUCCommunicator():
             # This line is troublesome on the jetson
             self._occupants = xmpp.features.discoverItems(self._connection, self._muc)
 
+        self._connection.RegisterDisconnectHandler(self.disconnectHandler)
         # for i in xmpp.features.discoverItems(self._connection, self._muc):
         #     (ids, features) = xmpp.features.discoverInfo(self._connection, i.get("jid"))
         #     print("Occupant {}:".format(i.get("jid")))
@@ -293,7 +299,11 @@ class MUCCommunicator():
                 self._log.fatal("---- Connection reset error encountered ----")
         else:
             self._connection.reconnectAndReauth()
-            raise ConnectionError(constants.MSG_NOT_CONNECTED)
+            if self._connection.isConnected():
+                self._log.warning("Reestablished connection, but something is wrong")
+            else:
+                self._log.fatal("Tried to reconnect, but failed")
+                raise ConnectionError(constants.MSG_NOT_CONNECTED)
         return id
 
 if __name__ == '__main__':
