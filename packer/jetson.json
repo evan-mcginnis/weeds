@@ -23,7 +23,7 @@
       "type": "shell",
       "remote_folder": "~",
       "inline": [
-        "bash -x ~/install-jetson.sh {{user `camera_address`}} {{user `nickname`}} {{user `name`}} {{user `server`}}",
+        "echo nvidia-greydog | sudo -S bash -x ~/install-jetson.sh {{user `camera_address`}} {{user `nickname`}} {{user `name`}} {{user `server`}}",
         "rm ~/install-jetson.sh"
       ]
     }

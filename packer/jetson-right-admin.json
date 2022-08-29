@@ -16,6 +16,11 @@
     },
     {
       "type": "file",
+      "source": "./gpsd",
+      "destination": "~/gpsd"
+    },
+    {
+      "type": "file",
       "source": "./{{ user `location` }}.dhcpd.conf",
       "destination": "~/dhcpd.conf"
     },

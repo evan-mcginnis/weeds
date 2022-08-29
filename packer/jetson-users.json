@@ -1,0 +1,36 @@
+{
+  "builders" : [
+    {
+      "type": "null",
+      "ssh_host":     "{{user `host`}}",
+      "ssh_username": "weeds",
+      "ssh_password" : "{{user `user_password`}}",
+      "ssh_pty" : "true"
+    }
+  ],
+  "provisioners" : [
+    {
+      "type": "file",
+      "source": "./config.aws",
+      "destination": "~/config.aws"
+    },
+    {
+      "type": "file",
+      "source": "./credentials.aws",
+      "destination": "~/credentials.aws"
+    },
+    {
+      "type": "file",
+      "source": "./config-aws.sh",
+      "destination": "~/config-aws.sh"
+    },
+    {
+      "type": "shell",
+      "remote_folder": "~",
+      "inline": [
+        "bash ~/config-aws.sh",
+        "rm ~/config-aws.sh"
+      ]
+    }
+  ]
+}

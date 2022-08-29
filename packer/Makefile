@@ -26,17 +26,25 @@ xavier-right:
 jetson-left:
 	packer build -var-file=variables-left.json jetson-software.json
 
+jetson-users:
+	packer build -var-file=variables-left.json jetson-users.json
+	packer build -var-file=variables-right.json jetson-users.json
+
+
 jetson-software:
 	cd ..; tar cf jetson.tar jetson lib
 rio-software:
 	cd ..; tar cf rio.tar rio lib
 
-distribute-software-lab: jetson-software rio-software
+distribute-software-tucson: jetson-software rio-software
 	packer build -var-file=variables-left.json jetson.json
 	packer build -var-file=variables-right.json jetson.json
+	packer build -var-file=variables-rio.yuma.json rio.json
+
+distribute-software-yuma: jetson-software rio-software
 	packer build -var-file=variables-xavier-left.json jetson.json
 	packer build -var-file=variables-xavier-right.json jetson.json
-	packer build -var-file=variables-rio.yuma.json rio.json
+
 
 distribute-rio: rio-software
 	packer build -var-file=variables-rio.yuma.json rio.json
