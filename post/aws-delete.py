@@ -15,7 +15,7 @@ import botocore.exceptions
 
 parser = argparse.ArgumentParser("AWS S3 Delete")
 parser.add_argument("-s", "--s3", action="store", required=False, default="s3.ini", help="S3 INI")
-parser.add_argument("-b", "--bucket", action="store", required=True,  help="S3 bucket name")
+parser.add_argument("-b", "--bucket", action="store", required=True,  help="S3 bucket name or ALL")
 arguments = parser.parse_args()
 
 # empty existing bucket
