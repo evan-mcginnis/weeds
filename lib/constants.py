@@ -297,6 +297,8 @@ JSON_PLAN           = "plan"
 JSON_DIAG_RSLT      = "result"
 JSON_DIAG_DETAIL    = "detail"
 JSON_SOURCE         = "source"
+JSON_LATITUDE       = "latitude"
+JSON_LONGITUDE      = "longitude"
 
 SOURCE_VIRTUAL      = "virtual"
 SOURCE_PHYSICAL     = "physical"
@@ -328,3 +330,8 @@ class Action(Enum):
     CURRENT = 6
     CONFIGURE = 7
 
+class Status(Enum):
+    QUIESCENT = 0
+    RUNNING = 1
+    EXIT_OK = 2
+    EXIT_FATAL = 3

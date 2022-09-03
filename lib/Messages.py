@@ -165,6 +165,34 @@ class OdometryMessage(MUCMessage):
         else:
             self._action = ""
 
+        if constants.JSON_LATITUDE in self._data:
+            self._latitude = self._data[constants.JSON_LATITUDE]
+        else:
+            self._latitude = 0.0
+
+        if constants.JSON_LONGITUDE in self._data:
+            self._longitude = self._data[constants.JSON_LONGITUDE]
+        else:
+            self._longitude = 0.0
+
+    @property
+    def latitude(self) -> float:
+        return self._latitude
+
+    @latitude.setter
+    def latitude(self, lat: float):
+        self._latitude = lat
+        self._data[constants.JSON_LATITUDE] = lat
+
+    @property
+    def longitude(self) -> float:
+        return self._longitude
+
+    @longitude.setter
+    def longitude(self, long: float):
+        self._longitude = long
+        self._data[constants.JSON_LONGITUDE] = long
+
     @property
     def speed(self) -> float:
         return self._speed
