@@ -297,7 +297,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def updateCurrentDistance(self, source: str, distance: float):
         log.debug("Update current distance")
-        self.count_distance.display(distance)
+        self.currentDistance = distance
+        self.count_distance.display(distance - self.absoluteDistance)
         if source == constants.SOURCE_VIRTUAL:
             self.count_distance.setStyleSheet("color: black; background-color: yellow")
         else:
