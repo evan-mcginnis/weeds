@@ -8,5 +8,5 @@ clean:
 	rm rio.log
 
 run-all-virtual:
-	 python controller.py -o -e -s $(SPEED) -i virtual.ini
+	 python3 controller.py -o -e -s $(SPEED) -i virtual.ini
 

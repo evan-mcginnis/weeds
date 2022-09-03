@@ -1,0 +1,6 @@
+dnspython==2.2.1
+gpsd_py3==0.3.0
+nidaqmx==0.5.7
+numpy==1.19.5
+xmpppy==0.7.1
+six==1.16.0

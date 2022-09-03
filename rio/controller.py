@@ -34,7 +34,7 @@ from PhysicalOdometer import PhysicalOdometer
 from Emitter import Emitter, PhysicalEmitter, VirtualEmitter
 from MUCCommunicator import MUCCommunicator
 from Messages import MUCMessage, OdometryMessage, SystemMessage
-
+from GPSClient import GPS
 
 
 # TODO: Add this as a parameter and sort out multiple emitters
@@ -69,6 +69,10 @@ if arguments.odometer:
     typeOfOdometry = constants.SubsystemType.VIRTUAL
 else:
     typeOfOdometry = constants.SubsystemType.PHYSICAL
+
+# Status of threads
+statusOdometry = constants.Status.QUIESCENT
+statusTreatment = constants.Status.QUIESCENT
 
 def startSession(options: OptionsFile, sessionName: str) -> bool:
     """
@@ -262,6 +266,21 @@ def startupCommunications(options: OptionsFile) -> ():
     return (odometryRoom, systemRoom, treatmentRoom)
 
 #
+# G P S
+#
+def startupGPS() -> GPS:
+    theGPS = GPS()
+    theGPS.connect()
+    if theGPS.isAvailable():
+        packet = theGPS.getCurrentPosition()
+        log.debug("Position: {}".format(packet.position()))
+        log.debug("Error: {}".format(packet.position_precision()))
+        log.debug("Fix: {}".format(packet.mode))
+    else:
+        log.warning("GPS location is not available. Image exif will not include this information")
+    return theGPS
+
+#
 # O D O M E T R Y
 #
 
@@ -387,14 +406,30 @@ def serviceQueue(odometer : PhysicalOdometer, odometryRoom: MUCCommunicator, ann
         starttime = nanoseconds()
 
         # Speed in kph
-        speed = (distanceTraveled / 100000) / (elapsedSeconds / 3600)
-        log.debug("{:.4f} mm Total: {:.4f} elapsed {:.4f} Speed {:.4f}kph".format(distanceTraveled, totalDistanceTraveled, elapsedSeconds, speed))
+        speed = 0
+        try:
+            speed = (distanceTraveled / 100000) / (elapsedSeconds / 3600)
+        except ZeroDivisionError as zero:
+            log.warning("Elapsed time was 0.  Something is wrong")
+
+        packet = gps.getCurrentPosition()
+        if packet is not None:
+            position = packet.position()
+        else:
+            position = (0.0,0.0)
+
+        log.debug("{:.4f} mm Total: {:.4f} elapsed {:.4f} Speed {:.4f} kph location: {}".format(distanceTraveled, totalDistanceTraveled, elapsedSeconds, speed, position))
 
         # Send out a message every time the system traverses the distance specified
 
         distanceTraveledSinceLastMessage += distanceTraveled
         if distanceTraveledSinceLastMessage >= announcements:
             message = OdometryMessage()
+
+            # Include GPS data if available
+            if gps.connected:
+                (message.latitude, message.longitude) = gps.getCurrentPosition().position()
+
             message.distance = announcements
             message.speed = speed
             message.totalDistance = totalDistanceTraveled
@@ -456,6 +491,9 @@ system, emitter = startupSystem()
 # emitter is the associated emitter.
 
 odometer = startupOdometer(typeOfOdometry)
+
+# Connect to the GPS
+gps = startupGPS()
 
 # Startup communication to the MUC
 (odometryRoom, systemRoom, treatmentRoom) = startupCommunications(options)
