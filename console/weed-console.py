@@ -53,6 +53,8 @@ class InitializationSignals(QObject):
 class OdometrySignals(QObject):
     distance = pyqtSignal(str, float, name="distance")
     speed = pyqtSignal(str, float, name="speed")
+    latitude = pyqtSignal(float, name="latitude")
+    longitude = pyqtSignal(float, name="longitude")
     virtual = pyqtSignal()
 
 class SystemSignals(QObject):
@@ -231,6 +233,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self._odometrySignals = OdometrySignals()
         self._systemSignals = SystemSignals()
 
+        self.statusTable.setUpdatesEnabled(True)
 
     @property
     def OKtoImage(self):
@@ -271,6 +274,18 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     @property
     def treatmentSignals(self):
         return self._treatmentSignals
+
+    def updateLatitude(self, latitude: float):
+        if latitude != 0.0:
+            self.latitude.display(latitude)
+        else:
+            self.longitude.display("-----------")
+
+    def updateLongitude(self, longitude: float):
+        if longitude != 0.0:
+            self.longitude.display(longitude)
+        else:
+            self.longitude.display("------------")
 
     def updateCurrentSpeed(self, source, speed: float):
         log.debug("Update current {} speed to {}".format(source, speed))
@@ -406,6 +421,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         missingEntities = 0
         for row in range(self.statusTable.rowCount()):
             for column in range(self.statusTable.columnCount()):
+                #self.statusTable.setItem(row, column, QtGui.)
                 _item = self.statusTable.item(row, column)
                 if _item:
                     text = self.statusTable.item(row, column).text()
@@ -453,7 +469,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self._treatmentRoom = room
 
     def setSpeed(self, speed: float):
-        self.average_kph.display(speed)
+        self.average_kph.display(round(speed,1))
 
     def setDistance(self, distance: float):
         self.currentDistance = distance
@@ -493,6 +509,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     item.setForeground(QtGui.QColor("black"))
                     #requiredOccupant.get("status").setText(constants.UI_STATUS_OK)
                     #requiredOccupant.get("status").setStyleSheet("color: white; background-color: green")
+
+        self.statusTable.update()
 
         # Note in the tabs if someone is missing who should be there
         self.noteMissingEntities()
@@ -653,6 +671,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self._treatmentSignals.plan.connect(self.setTreatments)
         self._odometrySignals.distance.connect(self.updateCurrentDistance)
         self._odometrySignals.speed.connect(self.updateCurrentSpeed)
+        self._odometrySignals.latitude.connect(self.updateLatitude)
+        self._odometrySignals.longitude.connect(self.updateLongitude)
 
         pool.start(self._taskSystem)
         pool.start(self._taskOdometry)
@@ -672,9 +692,16 @@ def process(conn, msg: xmpp.protocol.Message):
         signals = window.taskOdometry.signals
         signals.distance.emit(odometryMessage.source, float(odometryMessage.totalDistance))
         signals.speed.emit(odometryMessage.source, float(odometryMessage.speed))
-        # window.setSpeed(odometryMessage.speed)
-        # window.setDistance(odometryMessage.totalDistance)
-        #log.debug("Speed: {:.02f}".format(odometryMessage.speed))
+
+        # See if we have lat/long.  Bad form here, as 0,0 is a legit value
+        if odometryMessage.latitude != 0:
+            signals.latitude.emit(float(odometryMessage.latitude))
+            signals.longitude.emit(float(odometryMessage.longitude))
+        else:
+            signals.latitude.emit(0.0)
+            signals.longitude.emit(0.0)
+
+        log.debug("Speed: {:.02f}".format(odometryMessage.speed))
     elif msg.getFrom().getStripped() == options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_TREATMENT):
         treatmentMessage = TreatmentMessage(raw=msg.getBody())
         treatments += 1
