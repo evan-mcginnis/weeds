@@ -308,6 +308,9 @@
            <layout class="QVBoxLayout" name="verticalLayout_13">
             <item>
              <widget class="QLabel" name="label_14">
+              <property name="enabled">
+               <bool>true</bool>
+              </property>
               <property name="text">
                <string>KPH</string>
               </property>
@@ -395,8 +398,23 @@
            <layout class="QVBoxLayout" name="verticalLayout_19">
             <item>
              <widget class="QLabel" name="label_27">
+              <property name="enabled">
+               <bool>true</bool>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>16777215</width>
+                <height>33</height>
+               </size>
+              </property>
               <property name="text">
                <string>Location</string>
+              </property>
+              <property name="scaledContents">
+               <bool>false</bool>
+              </property>
+              <property name="margin">
+               <number>1</number>
               </property>
              </widget>
             </item>
@@ -466,7 +484,7 @@
               </property>
               <property name="sizeHint" stdset="0">
                <size>
-                <width>165</width>
+                <width>375</width>
                 <height>41</height>
                </size>
               </property>
