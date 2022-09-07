@@ -53,11 +53,16 @@ class MUCCommunicator():
         self._lock = threading.Lock()
 
         self._processing = False
+        self._state = constants.Status.QUIESCENT
 
         try:
             self._timeout = kwargs[constants.KEYWORD_TIMEOUT]
         except KeyError as key:
             self._timeout = constants.PROCESS_TIMEOUT_LONG
+
+    @property
+    def state(self) -> constants.Status:
+        return self._state
 
     @property
     def processing(self) -> bool:
@@ -215,8 +220,13 @@ class MUCCommunicator():
 
     def disconnectHandler(self):
         self._log.critical("Disconnected from {}".format(self._muc))
+        self._connected = False
         if not self._connection.reconnectAndReauth():
             self._log.fatal("Unable to recover connection")
+            self._state = constants.Status.EXIT_FATAL
+        else:
+            self._log.warning("Reconnected to MUC")
+            self._connected = True
 
     def connect(self, process: bool, occupants = False):
         """
@@ -265,6 +275,7 @@ class MUCCommunicator():
         #     self._connection.RegisterHandler('presence', self._presenceCB)
 
         self.connected = True
+        self._state = constants.Status.RUNNING
 
         # I hate delays, but this allows the connection to settle.
         time.sleep(4)
@@ -297,13 +308,21 @@ class MUCCommunicator():
                 id = self._connection.send(stranza)
             except ConnectionResetError as reset:
                 self._log.fatal("---- Connection reset error encountered ----")
+            except IOError as io:
+                self._log.fatal("I/O Error encountered. Typically this means that the server kicked us out of the MUC")
+                # Let the reconnect handler do its magic
+                time.sleep(2)
+
         else:
-            self._connection.reconnectAndReauth()
-            if self._connection.isConnected():
-                self._log.warning("Reestablished connection, but something is wrong")
-            else:
-                self._log.fatal("Tried to reconnect, but failed")
-                raise ConnectionError(constants.MSG_NOT_CONNECTED)
+            pass
+            # Restructuring things a bit -- the disconnect handler should do this
+            # self._log.error("Not connected to MUC")
+            # self._connection.reconnectAndReauth()
+            # if self._connection.isConnected():
+            #     self._log.warning("Reestablished connection, but something is wrong")
+            # else:
+            #     self._log.fatal("Tried to reconnect, but failed")
+            #     raise ConnectionError(constants.MSG_NOT_CONNECTED)
         return id
 
 if __name__ == '__main__':

@@ -26,6 +26,7 @@ THREAD_NAME_TREATMENT = "treatment"
 THREAD_NAME_ACQUIRE = "acquire"
 THREAD_NAME_SERVICE = "service"
 THREAD_NAME_HOUSEKEEPING = "housekeeping"
+THREAD_NAME_IMU = "imu"
 
 MSG_NOT_CONNECTED = "Not connected"
 MSG_LINES_NOT_SPECIFIED = "The A and B lines for the odometer must be on the command line or in the INI file"
@@ -138,6 +139,19 @@ TIMEOUT_CAMERA = 5000
 
 KEYWORD_DIRECTORY = "directory"
 KEYWORD_IP = "ip"
+KEYWORD_FILE_GYRO = "gyro"
+KEYWORD_FILE_ACCELERATION = "acceleration"
+
+PARAM_FILE_GYRO = "gyro.csv"
+PARAM_FILE_ACCELERATION = "acceleration.csv"
+
+#
+# I M U
+#
+# The files that will hold the IMU information for the weeding session
+
+FILE_GYRO = "gyro.csv"
+FILE_ACCELERATION = "acceleration.csv"
 
 names = [NAME_AREA, NAME_TYPE, NAME_LOCATION, NAME_CENTER, NAME_CONTOUR, NAME_SHAPE_INDEX, NAME_RATIO, NAME_IMAGE, NAME_REASON, NAME_HUE_MEAN, NAME_SATURATION]
 

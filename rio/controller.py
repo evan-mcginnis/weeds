@@ -28,6 +28,8 @@ try:
 except ImportError:
     virtualRequired = True
 
+from statemachine.exceptions import TransitionNotAllowed
+
 import constants
 from Odometer import Odometer, VirtualOdometer
 from PhysicalOdometer import PhysicalOdometer
@@ -35,6 +37,7 @@ from Emitter import Emitter, PhysicalEmitter, VirtualEmitter
 from MUCCommunicator import MUCCommunicator
 from Messages import MUCMessage, OdometryMessage, SystemMessage
 from GPSClient import GPS
+from CameraDepth import CameraDepth
 
 
 # TODO: Add this as a parameter and sort out multiple emitters
@@ -85,12 +88,18 @@ def startSession(options: OptionsFile, sessionName: str) -> bool:
     path = options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_OUTPUT) + "/" + sessionName
 
     try:
-        os.mkdir(path)
+        os.makedirs(path, exist_ok=True)
         os.chdir(path)
         started = True
     except OSError as e:
         log.critical("Unable to prepare and set directory to {}".format(path))
         log.critical("Raw: {}".format(e))
+
+    try:
+        camera.state.toClaim()
+    except TransitionNotAllowed as transition:
+        log.critical("Unable to transition the camera to claim")
+        log.critical(transition)
 
     log.debug("Session started")
     return started
@@ -100,6 +109,7 @@ def endSession(options: OptionsFile) -> bool:
     stopped = False
     path = options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_ROOT) + "/output"
 
+    camera.stop()
     # Change back to the general output directory not associated with any session
     try:
         os.chdir(path)
@@ -107,6 +117,13 @@ def endSession(options: OptionsFile) -> bool:
     except OSError as e:
         log.critical("Unable to prepare and set directory to {}".format(path))
         log.critical("Raw: {}".format(e))
+    # try:
+    #     camera.state.toStop()
+    # except TransitionNotAllowed as transition:
+    #     log.critical("Unable to transition the camera to idle")
+    #     log.critical(transition)
+
+
 
     log.debug("Session ended")
     return stopped
@@ -176,20 +193,26 @@ def process(conn, msg: xmpp.protocol.Message):
     if msg.getFrom() == console:
         if msg.getBody() is not None:
             systemMsg = SystemMessage(raw=msg.getBody())
-            log.debug("Action is {}".format(systemMsg.action))
+            timeMessageSent = systemMsg.timestamp
+            timeDelta = (time.time() * 1000) - timeMessageSent
+            log.debug("Action: {} Time Delta: {}".format(systemMsg.action, timeDelta))
 
-            # S T A R T
-            # For a start session, we need to at start logging with the name of the session
-            if systemMsg.action == constants.Action.START.name:
-                sessionName = systemMsg.name
-                log.debug("Start session")
-                startSession(options, systemMsg.name)
-            # This is just an alive message, so respond
-            if systemMsg.action == constants.Action.PING.name:
-                log.debug("PING")
-            if systemMsg.action == constants.Action.STOP.name:
-                log.debug("Stopping odometry")
-                endSession(options)
+            # Determine if this is an old message or not
+            if timeDelta < 5000:
+                # S T A R T
+                # For a start session, we need to at start logging with the name of the session
+                if systemMsg.action == constants.Action.START.name:
+                    sessionName = systemMsg.name
+                    log.debug("Start session {}".format(systemMsg.name))
+                    startSession(options, systemMsg.name)
+                # This is just an alive message, so respond
+                if systemMsg.action == constants.Action.PING.name:
+                    log.debug("PING")
+                if systemMsg.action == constants.Action.STOP.name:
+                    log.debug("Stopping odometry")
+                    endSession(options)
+            else:
+                log.debug("Old system message. Sent: {} Now: {} Delta: {}".format(timeMessageSent, time.time() * 1000, timeDelta))
 
 def processOdometry(conn, msg: xmpp.protocol.Message):
     global typeOfOdometry
@@ -279,6 +302,15 @@ def startupGPS() -> GPS:
     else:
         log.warning("GPS location is not available. Image exif will not include this information")
     return theGPS
+
+#
+# D E P T H  C A M E R A
+#
+def startupDepthCamera() -> CameraDepth:
+    camera = CameraDepth(gyro=constants.PARAM_FILE_GYRO, acceleration=constants.PARAM_FILE_ACCELERATION)
+
+    camera.state.toIdle()
+    return camera
 
 #
 # O D O M E T R Y
@@ -483,6 +515,35 @@ def processOdometer(odometer: Odometer):
         # This allows the type of odometry to be changed
         odometer = startupOdometer(typeOfOdometry)
 
+#
+# Connect to the depth camera and grab readings
+#
+
+def takeImages(camera: CameraDepth):
+
+    rc = 0
+
+    # Loop until we get an error
+    while rc == 0:
+        while camera.state.is_idle:
+            log.debug("Camera is idle")
+            time.sleep(.5)
+
+        # Connect to the camera and take an image
+        log.debug("Connecting to camera")
+        camera.connect()
+        camera.initialize()
+        camera.start()
+
+        if camera.initializeCapture():
+            try:
+                camera.startCapturing()
+            except IOError as io:
+                camera.log.error(io)
+            rc = 0
+        else:
+            rc = -1
+
 # Start the system and run diagnostics
 log.debug("Starting system")
 system, emitter = startupSystem()
@@ -491,6 +552,8 @@ system, emitter = startupSystem()
 # emitter is the associated emitter.
 
 odometer = startupOdometer(typeOfOdometry)
+
+camera = startupDepthCamera()
 
 # Connect to the GPS
 gps = startupGPS()
@@ -534,6 +597,12 @@ odometry = threading.Thread(name=constants.THREAD_NAME_ODOMETRY, target=processO
 odometry.daemon = True
 threads.append(odometry)
 odometry.start()
+
+log.debug("Start IMU thread")
+imu = threading.Thread(name=constants.THREAD_NAME_IMU, target=takeImages, args=(camera,))
+imu.daemon = True
+threads.append(imu)
+imu.start()
 
 
 
