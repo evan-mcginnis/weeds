@@ -1,0 +1,14 @@
+#!/bin/sh
+#
+# Startup script for odometry service
+#
+
+WEEDSHOME=/home/weeds/rio
+cd $WEEDSHOME
+export PYTHONPATH=/home/weeds/lib
+export OPENBLAS_CORETYPE=ARMv8
+# This will only grab the images, no treatment
+python3 $WEEDSHOME/controller.py
+
+exit $?
+

@@ -1,0 +1,12 @@
+{
+  "host": "169.254.212.35",
+  "sudo_password": "greydog",
+  "user_password": "greydog",
+  "admin-password": "greydog",
+  "admin-user": "admin",
+  "weeds-password": "greydog",
+  "weeds-user": "weeds",
+  "location": "tucson",
+  "pulses": "5000",
+  "server": "jetson-right.weeds.com"
+}

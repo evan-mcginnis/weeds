@@ -1,0 +1,12 @@
+[Unit]
+Description="Odometry and Treatment"
+
+[Service]
+Type=simple
+User=weeds
+WorkingDirectory=/home/weeds/rio
+ExecStart=/home/weeds/rio/odometry-service
+
+[Install]
+WantedBy=multi-user.target
+
