@@ -1,6 +1,7 @@
 #
 # U I
 #
+import datetime
 import re
 import sys
 from enum import Enum
@@ -207,7 +208,6 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.reset_distance.clicked.connect(self.resetDistance)
         self.reset_images_taken.clicked.connect(self.resetImageCount)
 
-        self.applyConstantSpeed.clicked.connect(self.startUsingConstantSpeed)
 
         # Set the initial button states
         self.button_start.setEnabled(False)
@@ -234,6 +234,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self._systemSignals = SystemSignals()
 
         self.statusTable.setUpdatesEnabled(True)
+
 
     @property
     def OKtoImage(self):
@@ -279,7 +280,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         if latitude != 0.0:
             self.latitude.display(latitude)
         else:
-            self.longitude.display("-----------")
+            self.latitude.display("------------")
 
     def updateLongitude(self, longitude: float):
         if longitude != 0.0:
@@ -353,6 +354,14 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             {"room": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_SYSTEM),
              "name": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_CLOUD),
              "status": [3,2]},
+
+            {"room": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_SYSTEM),
+             "name": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_CLOUD),
+             "status": [4,2]},
+
+            {"room": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_SYSTEM),
+             "name": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_CLOUD),
+             "status": [5,2]},
 
             {"room": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_TREATMENT),
              "name": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_ODOMETRY),
@@ -534,7 +543,11 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         systemMessage = SystemMessage()
 
         systemMessage.action = constants.Action.START
-        sessionName = shortuuid.uuid()
+        now = datetime.datetime.now()
+
+        # Construct the name for this session that is legal for AWS
+        timeStamp = now.strftime('%Y-%m-%d-%H-%M-%S-')
+        sessionName = timeStamp + shortuuid.uuid()
         systemMessage.name = options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_PREFIX) + sessionName
 
         # TODO: move this to time_ns
