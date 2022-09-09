@@ -67,7 +67,7 @@
        <enum>QTabWidget::Triangular</enum>
       </property>
       <property name="currentIndex">
-       <number>2</number>
+       <number>0</number>
       </property>
       <widget class="QWidget" name="tabSystem">
        <property name="enabled">
@@ -816,7 +816,7 @@
           <property name="minimumSize">
            <size>
             <width>1356</width>
-            <height>500</height>
+            <height>700</height>
            </size>
           </property>
           <property name="maximumSize">
@@ -1171,8 +1171,8 @@
               </property>
               <property name="minimumSize">
                <size>
-                <width>75</width>
-                <height>75</height>
+                <width>150</width>
+                <height>150</height>
                </size>
               </property>
               <property name="text">
@@ -1190,8 +1190,8 @@
               </property>
               <property name="minimumSize">
                <size>
-                <width>75</width>
-                <height>75</height>
+                <width>150</width>
+                <height>150</height>
                </size>
               </property>
               <property name="text">
@@ -1209,8 +1209,8 @@
               </property>
               <property name="minimumSize">
                <size>
-                <width>75</width>
-                <height>75</height>
+                <width>150</width>
+                <height>150</height>
                </size>
               </property>
               <property name="text">
@@ -1222,8 +1222,8 @@
              <widget class="QPushButton" name="emitter_left_3_2">
               <property name="minimumSize">
                <size>
-                <width>75</width>
-                <height>75</height>
+                <width>150</width>
+                <height>150</height>
                </size>
               </property>
               <property name="text">
@@ -1241,8 +1241,8 @@
               </property>
               <property name="minimumSize">
                <size>
-                <width>75</width>
-                <height>75</height>
+                <width>150</width>
+                <height>150</height>
                </size>
               </property>
               <property name="text">
@@ -1260,8 +1260,8 @@
               </property>
               <property name="minimumSize">
                <size>
-                <width>75</width>
-                <height>75</height>
+                <width>150</width>
+                <height>150</height>
                </size>
               </property>
               <property name="text">
@@ -1279,8 +1279,8 @@
               </property>
               <property name="minimumSize">
                <size>
-                <width>75</width>
-                <height>75</height>
+                <width>150</width>
+                <height>150</height>
                </size>
               </property>
               <property name="text">
@@ -1298,8 +1298,8 @@
               </property>
               <property name="minimumSize">
                <size>
-                <width>75</width>
-                <height>75</height>
+                <width>150</width>
+                <height>150</height>
                </size>
               </property>
               <property name="text">
@@ -1317,8 +1317,8 @@
               </property>
               <property name="minimumSize">
                <size>
-                <width>75</width>
-                <height>75</height>
+                <width>150</width>
+                <height>150</height>
                </size>
               </property>
               <property name="text">
@@ -1331,15 +1331,21 @@
           <item>
            <widget class="QPushButton" name="purgeLeft">
             <property name="sizePolicy">
-             <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+             <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
               <horstretch>0</horstretch>
               <verstretch>0</verstretch>
              </sizepolicy>
             </property>
+            <property name="minimumSize">
+             <size>
+              <width>250</width>
+              <height>250</height>
+             </size>
+            </property>
             <property name="maximumSize">
              <size>
-              <width>200</width>
-              <height>200</height>
+              <width>250</width>
+              <height>250</height>
              </size>
             </property>
             <property name="text">
@@ -1396,8 +1402,8 @@
               </property>
               <property name="minimumSize">
                <size>
-                <width>75</width>
-                <height>75</height>
+                <width>150</width>
+                <height>150</height>
                </size>
               </property>
               <property name="text">
@@ -1415,8 +1421,8 @@
               </property>
               <property name="minimumSize">
                <size>
-                <width>75</width>
-                <height>75</height>
+                <width>150</width>
+                <height>150</height>
                </size>
               </property>
               <property name="text">
@@ -1434,8 +1440,8 @@
               </property>
               <property name="minimumSize">
                <size>
-                <width>75</width>
-                <height>75</height>
+                <width>150</width>
+                <height>150</height>
                </size>
               </property>
               <property name="text">
@@ -1453,8 +1459,8 @@
               </property>
               <property name="minimumSize">
                <size>
-                <width>75</width>
-                <height>75</height>
+                <width>150</width>
+                <height>150</height>
                </size>
               </property>
               <property name="text">
@@ -1472,8 +1478,8 @@
               </property>
               <property name="minimumSize">
                <size>
-                <width>75</width>
-                <height>75</height>
+                <width>150</width>
+                <height>150</height>
                </size>
               </property>
               <property name="text">
@@ -1491,8 +1497,8 @@
               </property>
               <property name="minimumSize">
                <size>
-                <width>75</width>
-                <height>75</height>
+                <width>150</width>
+                <height>150</height>
                </size>
               </property>
               <property name="text">
@@ -1510,8 +1516,8 @@
               </property>
               <property name="minimumSize">
                <size>
-                <width>75</width>
-                <height>75</height>
+                <width>150</width>
+                <height>150</height>
                </size>
               </property>
               <property name="text">
@@ -1529,8 +1535,8 @@
               </property>
               <property name="minimumSize">
                <size>
-                <width>75</width>
-                <height>75</height>
+                <width>150</width>
+                <height>150</height>
                </size>
               </property>
               <property name="text">
@@ -1548,8 +1554,8 @@
               </property>
               <property name="minimumSize">
                <size>
-                <width>75</width>
-                <height>75</height>
+                <width>150</width>
+                <height>150</height>
                </size>
               </property>
               <property name="text">
@@ -1567,10 +1573,16 @@
               <verstretch>0</verstretch>
              </sizepolicy>
             </property>
+            <property name="minimumSize">
+             <size>
+              <width>250</width>
+              <height>250</height>
+             </size>
+            </property>
             <property name="maximumSize">
              <size>
-              <width>200</width>
-              <height>200</height>
+              <width>250</width>
+              <height>250</height>
              </size>
             </property>
             <property name="text">
