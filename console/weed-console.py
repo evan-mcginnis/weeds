@@ -10,6 +10,9 @@ import argparse
 import threading
 import time
 import sys
+import urllib.request
+import urllib.error
+
 from typing import Callable
 
 import dns.resolver
@@ -63,6 +66,7 @@ class SystemSignals(QObject):
 
 class TreatmentSignals(QObject):
     plan = pyqtSignal(int, name="plan")
+    image = pyqtSignal(str, str, name="image")
 
 
 class Housekeeping(QRunnable):
@@ -232,6 +236,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self._intializationSignals = InitializationSignals()
         self._odometrySignals = OdometrySignals()
         self._systemSignals = SystemSignals()
+        self._treatmentSignals = TreatmentSignals()
 
         self.statusTable.setUpdatesEnabled(True)
 
@@ -489,6 +494,23 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def setTreatments(self, treatments: int):
         self.count_images.display(treatments)
 
+    def setImage(self, position: str, url: str):
+        try:
+            request = urllib.request.urlopen(url)
+            data = request.read()
+            pixmap = QPixmap()
+            pixmap.loadFromData(data)
+            icon = QIcon(pixmap)
+            if position == constants.Position.LEFT.name.lower():
+                self.image_camera_left.setPixmap(pixmap)
+            elif position == constants.Position.RIGHT.name.lower():
+                self.image_camera_right.setPixmap(pixmap)
+
+        except urllib.error.HTTPError as httperror:
+            log.error("Unable to fetch from URL: {}".format(url))
+        except urllib.error.URLError as urlerror:
+            log.error("Unable to fetch from URL: {}".format(url))
+
     def setStatus(self, occupant: str, roomName: str, presence: Presence):
         """
         Sets the status for an occupant based on the list of required occupants.
@@ -683,6 +705,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self._treatmentSignals = self._taskTreatment.signals
 
         self._treatmentSignals.plan.connect(self.setTreatments)
+        self._treatmentSignals.image.connect(self.setImage)
+
         self._odometrySignals.distance.connect(self.updateCurrentDistance)
         self._odometrySignals.speed.connect(self.updateCurrentSpeed)
         self._odometrySignals.latitude.connect(self.updateLatitude)
@@ -721,7 +745,11 @@ def process(conn, msg: xmpp.protocol.Message):
         treatments += 1
         signals = window.taskTreatment.signals
         signals.plan.emit(treatments)
-        #window.setTreatments(treatments)
+        position = treatmentMessage.position
+        if len(treatmentMessage.url) > 0 and len(treatmentMessage.position) > 0:
+            log.debug("Image is at: {}".format(treatmentMessage.url))
+            signals.image.emit(position, treatmentMessage.url)
+        #window.Right(treatments)
         log.debug("Treatments: {:.02f}".format(treatments))
     else:
         print("skipped message {}".format(messageNumber))
