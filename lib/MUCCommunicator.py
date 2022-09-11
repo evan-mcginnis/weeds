@@ -9,6 +9,8 @@ import sys
 import asyncio
 import threading
 
+import traceback
+
 import xmpp.protocol
 from xmpp import *
 
@@ -194,6 +196,7 @@ class MUCCommunicator():
             except Exception as e:
                 self._log.error("Exception in message processing")
                 self._log.error("Raw:{}".format(e))
+                self._log.error(traceback.format_exc())
 
             if not self.processing:
                 self._log.debug("No longer processing messages")

@@ -12,6 +12,10 @@ class OptionsFile:
         self._filename = filename
         return
 
+    @property
+    def filename(self) -> str:
+        return self._filename
+
     def load(self) -> bool:
         """
         Load an INI format file.

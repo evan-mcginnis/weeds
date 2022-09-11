@@ -156,6 +156,7 @@ class CameraDepth(Camera):
             except TransitionNotAllowed as transition:
                 self.log.critical("Unable to transition camera to capturing")
                 self.log.critical(transition)
+                self._capturing = False
         except Exception as e:
             self.log.fatal("Failed to open the depth camera and start grabbing.")
             self.log.fatal("{}".format(e))
@@ -173,7 +174,7 @@ class CameraDepth(Camera):
         # This is a handshake so the stop method knows we have stopped capturing
         # Ideally, this would be a state machine, but that's overkill for what we need.
 
-        self.log.debug("IMI Capture complete")
+        self.log.debug("IMU Capture complete")
         self._capturingComplete = True
 
     def start(self):

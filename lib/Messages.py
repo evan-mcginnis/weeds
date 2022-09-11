@@ -284,6 +284,34 @@ class TreatmentMessage(MUCMessage):
         if constants.JSON_PLAN in self._data:
             self._plan = self._data[constants.JSON_PLAN]
 
+        if constants.JSON_URL in self._data:
+            self._url = self._data[constants.JSON_URL]
+        else:
+            self._url = ""
+
+        if constants.JSON_POSITION in self._data:
+            self._position = self._data[constants.JSON_POSITION]
+        else:
+            self._position = ""
+
+    @property
+    def position(self) -> str:
+        return self._position
+
+    @position.setter
+    def position(self, thePosition: str):
+        self._position = thePosition
+        self._data[constants.JSON_POSITION] = thePosition
+
+    @property
+    def url(self) -> str:
+        return self._url
+
+    @url.setter
+    def url(self, theUrl : str):
+        self._url = theUrl
+        self._data[constants.JSON_URL] = theUrl
+
     @property
     def plan(self):
         return self._plan

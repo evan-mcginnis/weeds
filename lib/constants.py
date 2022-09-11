@@ -275,6 +275,7 @@ PROPERTY_JID_CLOUD_1                 = "JID_CLOUD1"
 PROPERTY_JID_CLOUD_2                 = "JID_CLOUD2"
 PROPERTY_JID_CLOUD_3                 = "JID_CLOUD3"
 PROPERTY_JID_CONTROL                 = "JID_CONTROL"
+PROPERTY_POSITION                    = "POSITION"
 
 
 PROPERTY_DEFAULT_PASSWORD            = "DEFAULT_PASSWORD"
@@ -313,6 +314,8 @@ JSON_DIAG_DETAIL    = "detail"
 JSON_SOURCE         = "source"
 JSON_LATITUDE       = "latitude"
 JSON_LONGITUDE      = "longitude"
+JSON_URL            = "url"
+JSON_POSITION       = "position"
 
 SOURCE_VIRTUAL      = "virtual"
 SOURCE_PHYSICAL     = "physical"
@@ -329,6 +332,11 @@ DIAG_FAIL   = "fail"
 class Treatment(Enum):
     RAW_IMAGE = 0
     PLAN = 1
+
+class Position(Enum):
+    LEFT = 0
+    MIDDLE = 1
+    RIGHT = 2
 
 class SubsystemType(Enum):
     VIRTUAL = 0
