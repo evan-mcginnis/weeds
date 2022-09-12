@@ -90,6 +90,7 @@ class Housekeeping(QRunnable):
                 time.sleep(0.5)
             # Slow things down a bit so we can read the messages.  Not really needed
             time.sleep(1)
+            log.debug("Connected to {}".format(chatroom.muc))
             self._signals.progress.emit(100)
 
         # Signal that we are done
