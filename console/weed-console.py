@@ -447,7 +447,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         self.noteMissingEntities()
 
-        self.getCurrentOperation()
+        #self.getCurrentOperation()
 
     def getCurrentOperation(self):
         """
