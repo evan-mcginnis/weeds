@@ -281,6 +281,7 @@ class MUCCommunicator():
 
         self.connected = True
         self._state = constants.Status.RUNNING
+        self._log.debug("Connected to {}".format(self._muc))
 
         # I hate delays, but this allows the connection to settle.
         time.sleep(4)
