@@ -118,14 +118,16 @@ class MUCCommunicator():
     @property
     def connected(self) -> bool:
         # Read lock
-        with self._lock:
-            isConnected = self._connected
-        return isConnected
+        # with self._lock:
+        #     isConnected = self._connected
+        # return isConnected
+        return self._connected
 
     @connected.setter
     def connected(self, connectionState: bool):
-        with self._lock:
-            self._connected = connectionState
+        # with self._lock:
+        #     self._connected = connectionState
+        self._connected = connectionState
 
     @property
     def connection(self) -> xmpp.Client:
