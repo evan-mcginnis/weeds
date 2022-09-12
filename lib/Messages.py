@@ -75,8 +75,25 @@ class SystemMessage(MUCMessage):
 
         if constants.JSON_NAME in self._data:
             self._name = self._data[constants.JSON_NAME]
+        else:
+            self._name = ""
         if constants.JSON_ACTION in self._data:
             self._action = self._data[constants.JSON_ACTION]
+        else:
+            self._action = ""
+        if constants.JSON_OPERATION in self._data:
+            self._operation = self._data[constants.JSON_OPERATION]
+        else:
+            self._operation = ""
+
+    @property
+    def operation(self) -> str:
+        return self._operation
+
+    @operation.setter
+    def operation(self, theOperation: str):
+        self._operation = theOperation
+        self._data[constants.JSON_OPERATION] = theOperation
 
     @property
     def name(self):
@@ -94,9 +111,9 @@ class SystemMessage(MUCMessage):
 
     # START, STOP, DIAGNOSE
     @action.setter
-    def action(self, _action: constants.Action):
+    def action(self, _action: str):
         self._action = _action
-        self._data[constants.JSON_ACTION] = _action.name
+        self._data[constants.JSON_ACTION] = _action
 
     def parse(self) -> bool:
         return super().parse()

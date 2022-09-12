@@ -316,6 +316,7 @@ JSON_LATITUDE       = "latitude"
 JSON_LONGITUDE      = "longitude"
 JSON_URL            = "url"
 JSON_POSITION       = "position"
+JSON_OPERATION      = "operation"
 
 SOURCE_VIRTUAL      = "virtual"
 SOURCE_PHYSICAL     = "physical"
@@ -351,6 +352,11 @@ class Action(Enum):
     ACK = 5
     CURRENT = 6
     CONFIGURE = 7
+
+class Operation(Enum):
+    QUIESCENT = 0
+    IMAGING = 1
+    WEEDING = 2
 
 class Status(Enum):
     QUIESCENT = 0

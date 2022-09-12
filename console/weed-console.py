@@ -62,7 +62,8 @@ class OdometrySignals(QObject):
     virtual = pyqtSignal()
 
 class SystemSignals(QObject):
-    dianostics = pyqtSignal(bool, name="diagnostics")
+    diagnostics = pyqtSignal(bool, name="diagnostics")
+    operation = pyqtSignal(str, str, name="operation")
 
 class TreatmentSignals(QObject):
     plan = pyqtSignal(int, name="plan")
@@ -310,6 +311,22 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         else:
             self.count_distance.setStyleSheet("color: black; background-color: white")
 
+    def updateOperation(self, operation: str, session: str):
+        log.debug("Updating operation {}".format(operation))
+        if operation == constants.Operation.IMAGING.name:
+            # Disable the start button and enable the stop
+            self.button_start.setEnabled(False)
+            self.button_start_imaging.setEnabled(False)
+            self.button_stop.setEnabled(True)
+
+            self.reset_kph.setEnabled(True)
+            self.reset_distance.setEnabled(True)
+            self.reset_images_taken.setEnabled(True)
+
+            self.tabWidget.setIconSize(QtCore.QSize(32, 32))
+            self.tabWidget.setTabIcon(0, QtGui.QIcon('camera.png'))
+            self.status_current_operation.setText(constants.UI_OPERATION_IMAGING)
+
     def setupWindow(self):
         # Adjust the table headers.  Can't seem to set this in designer
         header = self.statusTable.horizontalHeader()
@@ -428,6 +445,17 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         self.noteMissingEntities()
 
+        self.getCurrentOperation()
+
+    def getCurrentOperation(self):
+        """
+        Ask the room what the current operation is.
+        """
+        systemMessage = SystemMessage()
+
+        systemMessage.action = constants.Action.CURRENT.name
+        self._systemRoom.sendMessage(systemMessage.formMessage())
+
     def noteMissingEntities(self):
         """
         Note missing entities by color coding them in the status table and putting an attention icon in the tab
@@ -498,11 +526,16 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         try:
             request = urllib.request.urlopen(url)
             data = request.read()
+            #pixmap = QPixmap()
+            width = self.image_camera_left.width()
+            height = self.image_camera_left.height()
             pixmap = QPixmap()
             pixmap.loadFromData(data)
-            icon = QIcon(pixmap)
+            scaled = pixmap.scaled(width,height,Qt.KeepAspectRatio, Qt.SmoothTransformation)
             if position == constants.Position.LEFT.name.lower():
+                #self.image_camera_left.setMaximumSize(pixmap.size())
                 self.image_camera_left.setPixmap(pixmap)
+                #self.image_camera_left.setMaximumSize(QtCore.QSize(3990,3000))
             elif position == constants.Position.RIGHT.name.lower():
                 self.image_camera_right.setPixmap(pixmap)
 
@@ -553,18 +586,22 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def startOperation(self, operation: str):
         # Disable the start button and enable the stop
-        self.button_start.setEnabled(False)
-        self.button_start_imaging.setEnabled(False)
-        self.button_stop.setEnabled(True)
+        try:
+            self.button_start.setEnabled(False)
+            self.button_start_imaging.setEnabled(False)
+            self.button_stop.setEnabled(True)
 
-        self.reset_kph.setEnabled(True)
-        self.reset_distance.setEnabled(True)
-        self.reset_images_taken.setEnabled(True)
+            self.reset_kph.setEnabled(True)
+            self.reset_distance.setEnabled(True)
+            self.reset_images_taken.setEnabled(True)
 
-        self.status_current_operation.setText(operation)
+            self.status_current_operation.setText(operation)
+        except Exception as e:
+            log.fatal(e)
+
         systemMessage = SystemMessage()
 
-        systemMessage.action = constants.Action.START
+        systemMessage.action = constants.Action.START.name
         now = datetime.datetime.now()
 
         # Construct the name for this session that is legal for AWS
@@ -584,8 +621,11 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         if self.confirmOperation(text):
             self.startOperation(constants.UI_OPERATION_IMAGING)
-            self.tabWidget.setIconSize(QtCore.QSize(32, 32))
-            self.tabWidget.setTabIcon(0, QtGui.QIcon('camera.png'))
+            try:
+                self.tabWidget.setIconSize(QtCore.QSize(32, 32))
+                self.tabWidget.setTabIcon(0, QtGui.QIcon('camera.png'))
+            except Exception as e:
+                log.fatal(e)
 
 
     def resetKPH(self):
@@ -637,7 +677,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         systemMessage = SystemMessage()
 
-        systemMessage.action = constants.Action.STOP
+        systemMessage.action = constants.Action.STOP.name
         systemMessage.timestamp = time.time() * 1000
         self._systemRoom.sendMessage(systemMessage.formMessage())
 
@@ -659,11 +699,15 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         qm.setFont(font)
         qm.setWindowTitle("Weeding")
         qm.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
-        qm.exec_()
-        if qm.standardButton(qm.clickedButton()) == QMessageBox.Yes:
-            confirmed = True
-        else:
-            confirmed = False
+        confirmed = False
+        try:
+            qm.exec_()
+            if qm.standardButton(qm.clickedButton()) == QMessageBox.Yes:
+                confirmed = True
+            else:
+                confirmed = False
+        except Exception as e:
+            log.fatal(e)
 
         return confirmed
 
@@ -712,6 +756,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self._odometrySignals.latitude.connect(self.updateLatitude)
         self._odometrySignals.longitude.connect(self.updateLongitude)
 
+        self._systemSignals.operation.connect(self.updateOperation)
+
         pool.start(self._taskSystem)
         pool.start(self._taskOdometry)
         pool.start(self._taskTreatment)
@@ -751,6 +797,12 @@ def process(conn, msg: xmpp.protocol.Message):
             signals.image.emit(position, treatmentMessage.url)
         #window.Right(treatments)
         log.debug("Treatments: {:.02f}".format(treatments))
+    elif msg.getFrom().getStripped() == options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_SYSTEM):
+        systemMessage = SystemMessage(raw=msg.getBody())
+        if systemMessage.action == constants.Action.ACK:
+            signals = window.taskSystem.signals
+            #signals.operation.emit(systemMessage.operation, systemMessage.name)
+            signals.operation.emit("DEBUG", "DEBUG")
     else:
         print("skipped message {}".format(messageNumber))
 
