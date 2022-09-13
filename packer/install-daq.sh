@@ -6,15 +6,16 @@
 
 # $1 # PULSES of odometer
 # $2 name of xmpp server
+# $3 position (left, middle, right)
 
 DAQ_HOME=~weeds/rio
 SERVICE_DEFINITION_DIR=/etc/systemd/system
 ODOMETRY_SERVICE_DEFINITION_FILE=odometry.service
-AWS_SERVICE_DEFINITION_FILE=weeds-uploader.service
+#AWS_SERVICE_DEFINITION_FILE=weeds-uploader.service
 PATH_TO_SERVICE_DEFINITION_FILE=$DAQ_HOME/$SERVICE_DEFINITION_FILE
-PATH_TO_AWS_SERVICE_DEFINITION_FILE=$DAQ_HOME/$SERVICE_DEFINITION_FILE
+#PATH_TO_AWS_SERVICE_DEFINITION_FILE=$DAQ_HOME/$SERVICE_DEFINITION_FILE
 ODOMETRY_SERVICE_NAME=odometry
-AWS_SERVICE_NAME=weeds-uploader
+#AWS_SERVICE_NAME=weeds-uploader
 
 tar xf rio.tar
 chown -R weeds rio
@@ -24,6 +25,7 @@ chgrp -R weeds lib
 cd rio
 sed --in-place "s/\%PULSES\%/$1/" options.ini
 sed --in-place "s/\%SERVER\%/$2/" options.ini
+sed --in-place "s/\%POSITION\%/$3/" options.ini
 
 #
 # S E R V I C E S

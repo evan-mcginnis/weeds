@@ -19,3 +19,13 @@ echo "Setup for NTP"
 echo "Setup for DHCP"
 sudo systemctl restart isc-dhcp-server.service
 exit $?
+
+# This is a client configuration -- putting it here so I don't forget
+
+echo "Configure DNS"
+apt install resolvconf
+localDNS = `grep "212.40" /etc/resolvconf/resolv.conf.d/head`
+if [ ]; then
+  echo nameserver 169.254.212.40 >> /etc/resolvconf/resolv.conf.d/head
+fi
+

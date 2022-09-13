@@ -1,0 +1,43 @@
+{
+  "builders" : [
+    {
+      "type": "null",
+      "ssh_host":     "{{user `host`}}",
+      "ssh_username": "weeds",
+      "ssh_password" : "{{user `sudo_password`}}",
+      "ssh_pty" : "true"
+    }
+  ],
+  "provisioners" : [
+    {
+      "type": "file",
+      "source": "../rio.tar",
+      "destination": "~/rio.tar"
+    },
+    {
+      "type": "file",
+      "source": "../post.tar",
+      "destination": "~/post.tar"
+    },
+    {
+      "type": "file",
+      "source": "./install-daq.sh",
+      "destination": "~/install-daq.sh"
+    },
+    {
+      "type": "file",
+      "source": "./install-uploader.sh",
+      "destination": "~/install-uploader.sh"
+    },
+    {
+      "type": "shell",
+      "remote_folder": "~",
+      "inline": [
+        "echo {{user `sudo_password`}} | sudo -S bash -x ~/install-daq.sh {{user `pulses`}} {{user `server`}} {{user `position`}}",
+        "echo {{user `sudo_password`}} | sudo -S bash -x ~/install-uploader.sh",
+        "rm ~/install-uploader.sh",
+        "rm ~/install-daq.sh"
+      ]
+    }
+  ]
+}

@@ -6,7 +6,8 @@
 	"location": "tucson",
 	"name": "jetson-right",
 	"nickname": "jetson-right",
-	"server": "jetson-right.weeds.com"
+	"server": "jetson-right.weeds.com",
+	"position": "right"
 }
 
 
