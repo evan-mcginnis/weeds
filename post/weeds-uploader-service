@@ -1,6 +1,6 @@
 #!/bin/sh
 
-WEEDSHOME=/home/weeds/jetson
+WEEDSHOME=/home/weeds/post
 export PYTHONPATH=/home/weeds/lib
 python3 $WEEDSHOME/aws-upload.py -w -d $WEEDSHOME/../output -lg logging-aws.ini -r 169.254.212.40
 

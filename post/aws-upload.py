@@ -199,7 +199,7 @@ else:
 if arguments.watch:
     # The room that will get status reports about this process
     systemRoom = MUCCommunicator(options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_SERVER),
-                                 options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_JID_JETSON),
+                                 options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_JID_CLOUD),
                                  options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_CLOUD),
                                  options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_DEFAULT_PASSWORD),
                                  options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_SYSTEM),
