@@ -233,6 +233,9 @@ class MUCCommunicator():
             self._log.warning("Reconnected to MUC")
             self._connected = True
 
+    def getOccupants(self):
+        self._occupants = xmpp.features.discoverItems(self._connection, self._muc)
+
     def connect(self, process: bool, occupants = False):
         """
         Connect to the xmpp server and join the MUC. This routine will not return.

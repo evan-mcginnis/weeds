@@ -12,6 +12,7 @@ import time
 import sys
 import urllib.request
 import urllib.error
+from threading import Semaphore
 
 from typing import Callable
 
@@ -71,8 +72,9 @@ class TreatmentSignals(QObject):
 
 
 class Housekeeping(QRunnable):
-    def __init__(self, signals, systemRoom, odometryRoom, treatmentRoom):
+    def __init__(self, initializing: Semaphore, signals, systemRoom : MUCCommunicator, odometryRoom : MUCCommunicator, treatmentRoom: MUCCommunicator):
         super().__init__()
+        self._initializing = initializing
         self._signals = signals
 
         self._systemRoom = systemRoom
@@ -80,6 +82,7 @@ class Housekeeping(QRunnable):
         self._treatmentRoom = treatmentRoom
 
     def run(self):
+
         log.debug("Housekeeping Worker thread")
 
         # Confirm the connectivity first
@@ -91,7 +94,11 @@ class Housekeeping(QRunnable):
             # Slow things down a bit so we can read the messages.  Not really needed
             time.sleep(1)
             log.debug("Connected to {}".format(chatroom.muc))
+            chatroom.getOccupants()
             self._signals.progress.emit(100)
+
+        # Indicate to waiting threads that we are good to go
+        self._initializing.release()
 
         # Signal that we are done
         self._signals.finished.emit()
@@ -197,8 +204,10 @@ class DialogInit(QtWidgets.QDialog, Ui_initProgress):
 
 
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
-    def __init__(self, *args, obj=None, **kwargs):
+    def __init__(self, initializing: Semaphore, *args, **kwargs):
         super(MainWindow, self).__init__(*args, **kwargs)
+
+        self._initializing = initializing
         self._treatmentSignals = None
         self._taskOdometry = None
         self._taskSystem = None
@@ -410,6 +419,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         """
         Initialize values on the screen
         """
+
+        self._initializing.acquire()
+
         window.setSpeed(0)
         stylesheet = "QHeaderView::section{Background-color:rgb(211,211,211); border - radius: 14px;}"
         self.statusTable.setStyleSheet(stylesheet)
@@ -448,6 +460,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.noteMissingEntities()
 
         #self.getCurrentOperation()
+
+        # Indicate that initialization is complete
+        self._initializing.release()
+
 
     def getCurrentOperation(self):
         """
@@ -729,12 +745,12 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         terminated = pool.waitForDone(5000)
         log.debug("Termination of threads: {}".format(terminated))
 
-    def runTasks(self):
+    def runTasks(self, initializing: Semaphore):
         """
         Startup all threads needed for application
         """
         pool = QThreadPool.globalInstance()
-        self._taskHousekeeping = Housekeeping(self._intializationSignals, self._systemRoom, self._odometryRoom, self._treatmentRoom)
+        self._taskHousekeeping = Housekeeping(initializing, self._intializationSignals, self._systemRoom, self._odometryRoom, self._treatmentRoom)
         self._taskHousekeeping.setAutoDelete(True)
         pool.start(self._taskHousekeeping)
 
@@ -890,7 +906,9 @@ def processMessages(room: MUCCommunicator):
 
 def processMessagesSync(room: MUCCommunicator):
     # Connect to the XMPP server and just return
-    room.connect(True, True)
+    # Curious. Suddenly fetching the occupants list does not work on windows tablet. Perhaps this is a version problem?
+
+    room.connect(True, False)
 
 # Delete this -- this is to keep track of the python threads
 threads = list()
@@ -924,9 +942,13 @@ log = logging.getLogger("console")
 
 (odometryRoom, systemRoom, treatmentRoom) = startupCommunications(options)
 
+# Control the initialization with this semaphore
+initializing = Semaphore()
+initializing.acquire()
+
 app = QtWidgets.QApplication(sys.argv)
 
-window = MainWindow()
+window = MainWindow(initializing)
 window.setupWindow()
 
 dialogInit = DialogInit(3, window.initializationSignals)
@@ -939,7 +961,7 @@ window.treatmentRoom = treatmentRoom
 window.setupRooms(odometryRoom, systemRoom, treatmentRoom)
 
 log.debug("Starting Qt Tasks")
-window.runTasks()
+window.runTasks(initializing)
 
 app.aboutToQuit.connect(window.exitHandler)
 
