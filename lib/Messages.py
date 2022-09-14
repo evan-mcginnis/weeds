@@ -85,6 +85,58 @@ class SystemMessage(MUCMessage):
             self._operation = self._data[constants.JSON_OPERATION]
         else:
             self._operation = ""
+        if constants.JSON_DIAG_RSLT in self._data:
+            self._diagnostics = self._data[constants.JSON_DIAG_RSLT]
+        else:
+            self._diagnostics = ""
+        if constants.JSON_STATUS_CAMERA in self._data:
+            self._status_camera = self._data[constants.JSON_STATUS_CAMERA]
+        else:
+            self._status_camera = ""
+        if constants.JSON_PARAM_GSD in self._data:
+            self._param_gsd = self._data[constants.JSON_PARAM_GSD]
+        else:
+            self._param_gsd = ""
+        if constants.JSON_POSITION in self._data:
+            self._position = self._data[constants.JSON_POSITION]
+        else:
+            self._position = ""
+
+    @property
+    def position(self) -> str:
+        return(self._position)
+
+    @position.setter
+    def position(self, thePosition):
+        self._position = thePosition
+        self._data[constants.JSON_POSITION] = thePosition
+
+    @property
+    def gsdCamera(self) -> int:
+        return(int(self._param_gsd))
+
+    @gsdCamera.setter
+    def gsdCamera(self, theGSD: str):
+        self._param_gsd = theGSD
+        self._data[constants.JSON_PARAM_GSD] = theGSD
+
+    @property
+    def statusCamera(self) -> str:
+        return(self._status_camera)
+
+    @statusCamera.setter
+    def statusCamera(self, theStatus):
+        self._status_camera = theStatus
+        self._data[constants.JSON_STATUS_CAMERA] = theStatus
+
+    @property
+    def diagnostics(self) -> str:
+        return self._diagnostics
+
+    @diagnostics.setter
+    def diagnostics(self, theDiagnostics):
+        self._diagnostics = theDiagnostics
+        self._data[constants.JSON_DIAG_RSLT] = theDiagnostics
 
     @property
     def operation(self) -> str:

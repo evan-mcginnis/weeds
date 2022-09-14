@@ -4,6 +4,7 @@
 
 import argparse
 import glob
+import platform
 import sys
 import threading
 import time
@@ -181,8 +182,14 @@ class Camera(ABC):
         Camera.cameraCount += 1
         Camera.cameras.append(self)
 
+        self._status = constants.OperationalStatus.UNKNOWN
+
         self._gsd = 0
         return
+
+    @property
+    def status(self) -> constants.OperationalStatus:
+        return self._status
 
     @abstractmethod
     def connect(self) -> bool:
@@ -428,17 +435,22 @@ class CameraBasler(Camera):
         for dev_info in tl_factory.EnumerateDevices():
             self.log.debug("Looking for {}. Current device is {}".format(self._ip, dev_info.GetIpAddress()))
             if dev_info.GetIpAddress() == self._ip:
-                # Original line
-                #self._camera = pylon.InstantCamera(tl_factory.CreateDevice(dev_info))
-                self._camera = pylon.InstantCamera()
-                self._camera.Attach(tl_factory.CreateDevice(dev_info))
+                try:
+                    self._camera = pylon.InstantCamera()
+                    self._camera.Attach(tl_factory.CreateDevice(dev_info))
+                except Exception as e:
+                    log.fatal("Error encountered in attaching camera")
+                    log.fatal("{}".format(e))
+                    self._status = constants.OperationalStatus.FAIL
                 #self._camera.MaxNumBuffer = 100
                 try:
                     self._camera.Open()
                     self.log.info("Using device {} at {}".format(self._camera.GetDeviceInfo().GetModelName(), dev_info.GetIpAddress()))
                     self._connected = True
+                    self._status = constants.OperationalStatus.OK
                 except Exception as e:
                     self.log.fatal("Error encountered in opening camera")
+                    self._status = constants.OperationalStatus.FAIL
                 # This shows how to get the list of what is available as attributes.  Not particularly useful for what
                 # we need here
                 # info = pylon.DeviceInfo()
@@ -649,7 +661,7 @@ class CameraBasler(Camera):
                     self._images.append(timestamped)
                 except IOError as e:
                     self.log.error(e)
-                self.log.debug("Image queue size: {}".format(len(self._images)))
+                #self.log.debug("Image queue size: {}".format(len(self._images)))
             self._camera.StopGrabbing()
 
         # For synchronous capture, we don't do anything but retrieve the image on demand
@@ -1172,12 +1184,20 @@ def storeImage() -> bool:
     veg.SetImage(rawImage)
 
     manipulated = ImageManipulation(rawImage, imageNumber, logger)
-    logger.logImage("original", manipulated.image)
+    fileName = logger.logImage("original", manipulated.image)
 
     # Send out a message to the treatment channel that an image has been taken
     message = TreatmentMessage()
     message.plan = constants.Treatment.RAW_IMAGE
     message.name = "original"
+    message.url = "http://" + platform.node() + "/" + currentSessionName + "/" + fileName
+
+    try:
+        position = options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_POSITION)
+        message.position = position
+    except KeyError:
+        log.error("Can't find {}/{} in ini file".format(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_POSITION))
+
     messageText = message.formMessage()
     log.debug("Sending: {}".format(messageText))
     roomTreatment.sendMessage(messageText)
@@ -1450,6 +1470,22 @@ def postWeedingCleanup():
     for file in cameraSettings:
         shutil.copy(file, outputDirectory)
 
+    path = options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_ROOT) + "/output"
+    root = options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_ROOT)
+
+
+    # Move the log file over to the output directory
+    try:
+
+        source = root + "/jetson/*.log"
+        destination = outputDirectory
+        for data in glob.glob(source):
+            shutil.move(data, destination)
+
+    except OSError as oserr:
+        log.critical("Unable to move {} to {}".format(source, destination))
+        log.critical(oserr)
+
     finished = os.path.join(logger.directory, options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_FILENAME_FINISHED))
     log.debug("Writing session statistics to: {}".format(finished))
     try:
@@ -1461,6 +1497,35 @@ def postWeedingCleanup():
 
     processing = False
 
+def sendCurrentOperation(systemRoom: MUCCommunicator):
+    systemMessage = SystemMessage()
+    systemMessage.action = constants.Action.ACK.name
+    systemMessage.operation = currentOperation
+    try:
+        position = options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_POSITION)
+        systemMessage.position = position
+    except KeyError:
+        log.error("Can't find {}/{} in ini file".format(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_POSITION))
+
+    systemRoom.sendMessage(systemMessage.formMessage())
+
+def runDiagnostics(systemRoom: MUCCommunicator, camera: Camera):
+    """
+    Run diagnostics for this subsystem, collecting information about the camera connectivity.
+    :param systemRoom: The room to send the results
+    """
+    systemMessage = SystemMessage()
+    systemMessage.action = constants.Action.DIAG_REPORT.name
+    systemMessage.diagnostics =  camera.status.name
+    systemMessage.gsdCamera = camera.gsd
+    try:
+        position = options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_POSITION)
+        systemMessage.position = position
+    except KeyError:
+        log.error("Can't find {}/{} in ini file".format(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_POSITION))
+    systemMessage.statusCamera = camera.status.name
+
+    systemRoom.sendMessage(systemMessage.formMessage())
 
 totalMovement = 0.0
 keepAliveMessages = 0
@@ -1473,6 +1538,8 @@ def messageSystemCB(conn,msg: xmpp.protocol.Message):
     global logger
     global processing
     global outputDirectory
+    global currentSessionName
+    global currentOperation
     # Make sure this is a message sent to the room, not directly to us
     if msg.getType() == "groupchat":
             body = msg.getBody()
@@ -1482,15 +1549,22 @@ def messageSystemCB(conn,msg: xmpp.protocol.Message):
                 systemMessage = SystemMessage(raw=msg.getBody())
                 if systemMessage.action == constants.Action.START.name:
                     processing = True
-                    sessionName = systemMessage.name
-                    outputDirectory = arguments.output + "/" + sessionName
+                    currentSessionName = systemMessage.name
+                    currentOperation = systemMessage.operation
+                    outputDirectory = arguments.output + "/" + currentSessionName
                     log.debug("Begin processing to: {}".format(outputDirectory))
                     logger = Logger()
                     if not logger.connect(outputDirectory):
                         log.error("Unable to connect to logging. {} does not exist.".format(outputDirectory))
                 if systemMessage.action == constants.Action.STOP.name:
                     log.debug("----- Stop weeding ------")
+                    currentOperation = constants.Operation.QUIESCENT.name
                     postWeedingCleanup()
+                if systemMessage.action == constants.Action.CURRENT.name:
+                    sendCurrentOperation(roomSystem)
+                if systemMessage.action == constants.Action.START_DIAG.name:
+                    log.debug("Request for diagnostics")
+                    runDiagnostics(roomSystem, camera)
 
     elif msg.getType() == "chat":
             print("private: " + str(msg.getFrom()) +  ":" +str(msg.getBody()))
@@ -1576,29 +1650,34 @@ def processMessages(communicator: MUCCommunicator):
 #
 def takeImages(camera: CameraBasler):
 
+    cameraConnected = False
+
     # Connect to the camera and take an image
     log.debug("Connecting to camera")
-    camera.connect()
+    cameraConnected = camera.connect()
 
-    filename = camera.camera.GetDeviceInfo().GetModelName() + ".pfs"
-    camera.camera.Open()
-    if not camera.load(filename):
-        # If we don't have a configuration, warn about this
-        log.warning("Unable to locate camera config {}".format(filename))
+    if cameraConnected:
+        # The camera settings are stored in files like aca-2500-gc.pfs
+        # This will be used for call capture parameters
+        filename = camera.camera.GetDeviceInfo().GetModelName() + ".pfs"
+        camera.camera.Open()
+        if not camera.load(filename):
+            # If we don't have a configuration, warn about this
+            log.warning("Unable to locate camera config {}".format(filename))
 
-    # Save what was used in capture
-    filename = "camera-" + options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_CAMERA_IP) + "-" + filename
-    camera.save(filename)
-    camera.camera.Close()
+        # Save what was used in capture
+        filename = "camera-" + options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_CAMERA_IP) + "-" + filename
+        camera.save(filename)
+        camera.camera.Close()
 
-    if camera.initializeCapture():
-        try:
-            camera.startCapturing()
-        except IOError as io:
-            camera.log.error(io)
-        rc = 0
-    else:
-        rc = -1
+        if camera.initializeCapture():
+            try:
+                camera.startCapturing()
+            except IOError as io:
+                camera.log.error(io)
+            rc = 0
+        else:
+            rc = -1
 
 def _takeImages(theCamera: CameraBasler):
 
@@ -1630,6 +1709,9 @@ def _takeImages(theCamera: CameraBasler):
 # Start up various subsystems
 #
 options = readINI()
+
+currentSessionName = ""
+currentOperation = constants.Operation.QUIESCENT.name
 
 (logger, log) = startupLogger(arguments.output)
 #log = logging.getLogger(__name__)

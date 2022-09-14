@@ -6,6 +6,7 @@ from enum import Enum
 # UI
 UI_STATUS_OK = "OK"
 UI_STATUS_NOT_OK = "Not OK"
+UI_STATUS_UNKNOWN = "Unknown"
 UI_OPERATION_IMAGING = "Imaging only"
 UI_OPERATION_WEEDING = "Weeding"
 UI_OPERATION_NONE = "No operation in progress"
@@ -287,9 +288,9 @@ PROPERTY_NICK_JETSON_1               = "NICK_JETSON_1"
 PROPERTY_NICK_JETSON_2               = "NICK_JETSON_2"
 PROPERTY_NICK_CONSOLE                = "NICK_CONSOLE"
 PROPERTY_NICK_CLOUD                  = "NICK_CLOUD"
-PROPERTY_NICK_CLOUD_1                = "NICK_CLOUD_1"
-PROPERTY_NICK_CLOUD_2                = "NICK_CLOUD_2"
-PROPERTY_NICK_CLOUD_3                = "NICK_CLOUD_3"
+PROPERTY_NICK_CLOUD_RIGHT            = "NICK_CLOUD_RIGHT"
+PROPERTY_NICK_CLOUD_MIDDLE           = "NICK_CLOUD_MIDDLE"
+PROPERTY_NICK_CLOUD_LEFT             = "NICK_CLOUD_LEFT"
 PROPERTY_NICK_CONTROL                = "NICK_CONTROL"
 PROPERTY_MSG_TYPE_NORMAL             = "MSG_TYPE_NORMAL"
 PROPERTY_MSG_TYPE_GROUPCHAT          = "MSG_TYPE_GROUPCHAT"
@@ -317,6 +318,8 @@ JSON_LONGITUDE      = "longitude"
 JSON_URL            = "url"
 JSON_POSITION       = "position"
 JSON_OPERATION      = "operation"
+JSON_STATUS_CAMERA  = "status-camera"
+JSON_PARAM_GSD      = "param-gsd"
 
 SOURCE_VIRTUAL      = "virtual"
 SOURCE_PHYSICAL     = "physical"
@@ -357,6 +360,12 @@ class Operation(Enum):
     QUIESCENT = 0
     IMAGING = 1
     WEEDING = 2
+
+
+class OperationalStatus(Enum):
+    OK = 0
+    UNKNOWN = 1
+    FAIL = 2
 
 class Status(Enum):
     QUIESCENT = 0

@@ -63,7 +63,8 @@ class OdometrySignals(QObject):
     virtual = pyqtSignal()
 
 class SystemSignals(QObject):
-    diagnostics = pyqtSignal(bool, name="diagnostics")
+    diagnostics = pyqtSignal(str, str, name="diagnostics")
+    camera = pyqtSignal(str, str, name="camera")
     operation = pyqtSignal(str, str, name="operation")
 
 class TreatmentSignals(QObject):
@@ -96,6 +97,11 @@ class Housekeeping(QRunnable):
             log.debug("Connected to {}".format(chatroom.muc))
             chatroom.getOccupants()
             self._signals.progress.emit(100)
+
+        # Have everyone run diagnostics
+        systemMessage = SystemMessage()
+        systemMessage.action = constants.Action.START_DIAG.name
+        self._systemRoom.sendMessage(systemMessage.formMessage())
 
         # Indicate to waiting threads that we are good to go
         self._initializing.release()
@@ -337,6 +343,49 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.tabWidget.setIconSize(QtCore.QSize(32, 32))
             self.tabWidget.setTabIcon(0, QtGui.QIcon('camera.png'))
             self.status_current_operation.setText(constants.UI_OPERATION_IMAGING)
+        elif operation == constants.Operation.QUIESCENT.name:
+            self.button_start.setEnabled(False)
+            self.button_start_imaging.setEnabled(True)
+            self.button_stop.setEnabled(False)
+
+            self.reset_kph.setEnabled(True)
+            self.reset_distance.setEnabled(True)
+            self.reset_images_taken.setEnabled(True)
+            self.tabWidget.setTabIcon(0, QtGui.QIcon())
+
+            self.status_current_operation.setText(constants.UI_OPERATION_NONE)
+
+    def updateDiagnostics(self, position: str, result: str):
+        self.diagnostic_rio.setText(result)
+
+    def updateCamera(self, position: str, result: str):
+        """
+        Update the camera status object
+        :param position: LEFT or RIGHT
+        :param result: OK, NOT_OK, or UNKNOWN
+        :return:
+        """
+        log.debug("Update camera status: {}/{}".format(position,result))
+        if position.lower() == constants.Position.LEFT.name.lower():
+            statusItem = self.status_camera_left
+        elif position.lower() == constants.Position.RIGHT.name.lower():
+            statusItem = self.status_camera_right
+        else:
+            log.error("Received status update for unknown camera: {}".format(position))
+            return
+
+        if result.lower() == constants.OperationalStatus.OK.name.lower():
+            statusItem.setText(constants.UI_STATUS_OK)
+            statusItem.setStyleSheet("color: white; background-color: green; font-size: 20pt")
+        elif result.lower() == constants.OperationalStatus.FAIL.name.lower():
+            statusItem.setText(constants.UI_STATUS_NOT_OK)
+            statusItem.setStyleSheet("color: white; background-color: red; font-size: 20pt")
+        elif result.lower() == constants.OperationalStatus.UNKNOWN.name.lower():
+            statusItem.setText(constants.UI_STATUS_UNKNOWN)
+            statusItem.setStyleSheet("color: white; background-color: gray; font-size: 20pt")
+        else:
+            log.error("Received unknown status: {}/{}".format(position, result))
+        statusItem.update()
 
     def setupWindow(self):
         # Adjust the table headers.  Can't seem to set this in designer
@@ -385,15 +434,15 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
              "status": [2,2]},
 
             {"room": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_SYSTEM),
-             "name": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_CLOUD),
+             "name": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_CLOUD_LEFT),
              "status": [3,2]},
 
             {"room": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_SYSTEM),
-             "name": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_CLOUD),
+             "name": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_CLOUD_MIDDLE),
              "status": [4,2]},
 
             {"room": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_SYSTEM),
-             "name": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_CLOUD),
+             "name": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_CLOUD_RIGHT),
              "status": [5,2]},
 
             {"room": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_TREATMENT),
@@ -449,17 +498,15 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 log.debug("Initial state for occupant: {}".format(occupant.get("name")))
                 self.setStatus(occupant.get("name"), fullRoomName, Presence.JOINED)
 
-        self.status_camera_left.setText(constants.UI_STATUS_OK)
-        self.status_camera_left.setStyleSheet("color: white; background-color: green")
-        self.status_camera_right.setText(constants.UI_STATUS_OK)
-        self.status_camera_right.setStyleSheet("color: white; background-color: green")
+        #self.updateCamera(constants.Position.LEFT.name, constants.OperationalStatus.UNKNOWN.name)
+        #self.updateCamera(constants.Position.RIGHT.name, constants.OperationalStatus.UNKNOWN.name)
 
         self.tractor_progress.setStyleSheet("color: white; background-color: green")
         self.tractor_progress.setValue(0)
 
         self.noteMissingEntities()
 
-        #self.getCurrentOperation()
+        self.getCurrentOperation()
 
         # Indicate that initialization is complete
         self._initializing.release()
@@ -602,7 +649,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def addImage(self):
         return
 
-    def startOperation(self, operation: str):
+    def startOperation(self, operation: str, operationDescription: str):
         # Disable the start button and enable the stop
         try:
             self.button_start.setEnabled(False)
@@ -613,7 +660,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.reset_distance.setEnabled(True)
             self.reset_images_taken.setEnabled(True)
 
-            self.status_current_operation.setText(operation)
+            self.status_current_operation.setText(operationDescription)
         except Exception as e:
             log.fatal(e)
 
@@ -626,7 +673,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         timeStamp = now.strftime('%Y-%m-%d-%H-%M-%S-')
         sessionName = timeStamp + shortuuid.uuid()
         systemMessage.name = options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_PREFIX) + sessionName
-
+        systemMessage.operation = operation
         # TODO: move this to time_ns
         systemMessage.timestamp = time.time() * 1000
         self._systemRoom.sendMessage(systemMessage.formMessage())
@@ -638,7 +685,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             text = constants.UI_CONFIRM_IMAGING_WITH_ERRORS
 
         if self.confirmOperation(text):
-            self.startOperation(constants.UI_OPERATION_IMAGING)
+            self.startOperation(constants.Operation.IMAGING.name, constants.UI_OPERATION_IMAGING)
             try:
                 self.tabWidget.setIconSize(QtCore.QSize(32, 32))
                 self.tabWidget.setTabIcon(0, QtGui.QIcon('camera.png'))
@@ -775,6 +822,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self._odometrySignals.longitude.connect(self.updateLongitude)
 
         self._systemSignals.operation.connect(self.updateOperation)
+        self._systemSignals.diagnostics.connect(self.updateDiagnostics)
+        self._systemSignals.camera.connect(self.updateCamera)
 
         pool.start(self._taskSystem)
         pool.start(self._taskOdometry)
@@ -817,10 +866,14 @@ def process(conn, msg: xmpp.protocol.Message):
         log.debug("Treatments: {:.02f}".format(treatments))
     elif msg.getFrom().getStripped() == options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_SYSTEM):
         systemMessage = SystemMessage(raw=msg.getBody())
-        if systemMessage.action == constants.Action.ACK:
+        if systemMessage.action == constants.Action.ACK.name:
             signals = window.taskSystem.signals
-            #signals.operation.emit(systemMessage.operation, systemMessage.name)
-            signals.operation.emit("DEBUG", "DEBUG")
+            signals.operation.emit(systemMessage.operation, systemMessage.name)
+        if systemMessage.action == constants.Action.DIAG_REPORT.name:
+            log.debug("Diagnostic report received for position {}".format(systemMessage.position))
+            signals = window.taskSystem.signals
+            signals.diagnostics.emit(systemMessage.position, systemMessage.diagnostics)
+            signals.camera.emit(systemMessage.position, systemMessage.statusCamera)
     else:
         print("skipped message {}".format(messageNumber))
 

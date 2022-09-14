@@ -67,7 +67,7 @@
        <enum>QTabWidget::Triangular</enum>
       </property>
       <property name="currentIndex">
-       <number>0</number>
+       <number>1</number>
       </property>
       <widget class="QWidget" name="tabSystem">
        <property name="enabled">
@@ -874,7 +874,7 @@
           <property name="minimumSize">
            <size>
             <width>1356</width>
-            <height>700</height>
+            <height>500</height>
            </size>
           </property>
           <property name="maximumSize">
@@ -1122,7 +1122,7 @@
            </widget>
           </item>
           <item row="0" column="1">
-           <widget class="QLabel" name="label_20">
+           <widget class="QLabel" name="diagnostic_rio">
             <property name="text">
              <string>No diagnostics</string>
             </property>

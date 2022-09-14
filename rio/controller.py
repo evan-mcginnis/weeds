@@ -77,14 +77,40 @@ else:
 statusOdometry = constants.Status.QUIESCENT
 statusTreatment = constants.Status.QUIESCENT
 
+# The current session & operation
+currentSessionName = ""
+currentOperation = constants.Operation.QUIESCENT.name
+
+def sendSessionInformation(options: OptionsFile) -> bool:
+    """
+    Send the current operation information
+    :param options:
+    """
+    systemMessage = SystemMessage()
+
+    # The response to a query is just an ACK
+    systemMessage.action = constants.Action.ACK.name
+    # If there is no operation currently in progress, the name will be a static value
+    systemMessage.name = currentSessionName
+    systemMessage.operation = currentOperation
+    messageText = systemMessage.formMessage()
+    systemRoom.sendMessage(messageText)
+
+    return True
+
 def startSession(options: OptionsFile, sessionName: str) -> bool:
     """
     Prepare for a new session. The current working directory is set after the session name
     :param sessionName:
     """
     global log
+    global currentSessionName
+    global currentOperation
+
     started = False
 
+    currentSessionName = sessionName
+    currentOperation = constants.Operation.IMAGING.name
     path = options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_OUTPUT) + "/" + sessionName
 
     try:
@@ -104,10 +130,39 @@ def startSession(options: OptionsFile, sessionName: str) -> bool:
     log.debug("Session started")
     return started
 
-def endSession(options: OptionsFile) -> bool:
+def endSession(options: OptionsFile, name: str) -> bool:
     global log
     stopped = False
-    path = options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_ROOT) + "/output"
+
+
+
+    path = options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_ROOT) + "/output/" + name
+    root = options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_ROOT)
+
+
+    # Move the log file over to the output directory
+    try:
+        source = root + "/rio/rio.log"
+        destination = path + "/rio.log"
+        os.rename(source, destination)
+    except OSError as oserr:
+        log.critical("Unable to move {} to {}".format(source, destination))
+        log.critical(oserr)
+
+    # Write out the stats for the session.
+    log.debug("End session")
+    try:
+        finished = options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_FILENAME_FINISHED)
+        log.debug("Writing session statistics to: {}".format(finished))
+    except KeyError as key:
+        log.critical("Could not find {}/{} in {}".format(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_FILENAME_FINISHED, options.filename))
+
+    try:
+        with open(finished, 'w') as fp:
+            fp.write("Session complete")
+    except IOError as e:
+        log.error("Unable to write out end of run data to file: {}".format(finished))
+        log.error("{}".format(e))
 
     camera.stop()
     # Change back to the general output directory not associated with any session
@@ -117,6 +172,7 @@ def endSession(options: OptionsFile) -> bool:
     except OSError as e:
         log.critical("Unable to prepare and set directory to {}".format(path))
         log.critical("Raw: {}".format(e))
+
     # try:
     #     camera.state.toStop()
     # except TransitionNotAllowed as transition:
@@ -182,6 +238,8 @@ def startupSystem():
 # For the treatement, there are a few things: listen for identifications, and for begin/end cycles
 #
 def process(conn, msg: xmpp.protocol.Message):
+    global currentSessionName
+    global currentOperation
     log.debug("Process message from {}".format(msg.getFrom()))
 
     # Messages from the system room will be in the form: system@conference.weeds.com/console
@@ -202,15 +260,21 @@ def process(conn, msg: xmpp.protocol.Message):
                 # S T A R T
                 # For a start session, we need to at start logging with the name of the session
                 if systemMsg.action == constants.Action.START.name:
-                    sessionName = systemMsg.name
+                    currentSessionName = systemMsg.name
                     log.debug("Start session {}".format(systemMsg.name))
                     startSession(options, systemMsg.name)
+                    currentOperation = constants.Operation.IMAGING.name
                 # This is just an alive message, so respond
                 if systemMsg.action == constants.Action.PING.name:
                     log.debug("PING")
                 if systemMsg.action == constants.Action.STOP.name:
-                    log.debug("Stopping odometry")
-                    endSession(options)
+                    log.debug("Stopping odometry session")
+                    currentOperation = constants.Operation.QUIESCENT.name
+                    currentSessionName = ""
+                    endSession(options, currentSessionName)
+                if systemMsg.action == constants.Action.CURRENT.name:
+                    log.debug("Query for current operation")
+                    sendSessionInformation(options)
             else:
                 log.debug("Old system message. Sent: {} Now: {} Delta: {}".format(timeMessageSent, time.time() * 1000, timeDelta))
 
@@ -539,7 +603,9 @@ def takeImages(camera: CameraDepth):
             try:
                 camera.startCapturing()
             except IOError as io:
+                log.critical("Failed to begin capturing")
                 camera.log.error(io)
+                rc = -1
             rc = 0
         else:
             rc = -1
