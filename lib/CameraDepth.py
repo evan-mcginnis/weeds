@@ -167,9 +167,17 @@ class CameraDepth(Camera):
             f = self._pipeline.wait_for_frames()
             self._currentAcceleration = self._acceleration(f[0].as_motion_frame().get_motion_data())
             self._currentGryo = self._gyro(f[1].as_motion_frame().get_motion_data())
-            self._gyroLogFile.write("{},{},{}\n".format(self._currentGryo[0], self._currentGryo[1], self._currentGryo[2]))
-            self._accelerationLogFile.write("{},{},{}\n".format(self._currentAcceleration[0], self._currentAcceleration[1], self._currentAcceleration[2]))
-            self.log.debug("Current gyro {}".format(self._currentGryo))
+            try:
+                self._gyroLogFile.write("{},{},{}\n".format(self._currentGryo[0], self._currentGryo[1], self._currentGryo[2]))
+                self._accelerationLogFile.write("{},{},{}\n".format(self._currentAcceleration[0], self._currentAcceleration[1], self._currentAcceleration[2]))
+            # This is the case where an operation is stopped while data is available.  A bit of a corner-case, but one that can
+            # be addressed with a semaphore.  This is certainly not a clean way to go about this.
+            except ValueError as value:
+                self.log.warning("Sloppiness detected.  Tried to write to a closed file")
+            except Exception as ex:
+                self.log.error("Unexpected exception hit in write of gyro and acceleration data")
+                self.log.error("Raw: {}".format(ex))
+            #self.log.debug("Current gyro {}".format(self._currentGryo))
 
         # This is a handshake so the stop method knows we have stopped capturing
         # Ideally, this would be a state machine, but that's overkill for what we need.

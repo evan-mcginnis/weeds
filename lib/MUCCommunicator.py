@@ -39,6 +39,8 @@ class MUCCommunicator():
         :param muc:  The full name of the room i.e., odometry@conference.weeds.com
         :param processor: The message processing routine. If this is None, the default processor is used
         """
+        self._reconnectOnSendFailure = False
+        self._id = 0
         self._jid = jid
         self._nickname = nickname
         self._password = jidPassword
@@ -195,10 +197,17 @@ class MUCCommunicator():
             self._log.debug("Processing messages")
             try:
                 conn.Process(self._timeout)
+            except xmpp.protocol.SystemShutdown:
+                # This error is not recoverable
+                self._log.fatal("XMPP System shutdown")
+                self._connected = False
+                return 0
             except Exception as e:
                 self._log.error("Exception in message processing")
                 self._log.error("Raw:{}".format(e))
                 self._log.error(traceback.format_exc())
+                return 0
+
 
             if not self.processing:
                 self._log.debug("No longer processing messages")
@@ -223,18 +232,67 @@ class MUCCommunicator():
         while self._StepOn(conn):
             pass
 
+    def streamErrorHandler(self, connection, error):
+        self._log.fatal("Stream error encountered")
+
     def disconnectHandler(self):
         self._log.critical("Disconnected from {}".format(self._muc))
-        self._connected = False
-        if not self._connection.reconnectAndReauth():
-            self._log.fatal("Unable to recover connection")
-            self._state = constants.Status.EXIT_FATAL
+
+        # There may have already been an error noticed in send, so don't reconnect in that case
+        if not self._connected:
+            self._connected = False
+            #self._reconnectOnSendFailure = True
+            self.connectToChatroom()
         else:
-            self._log.warning("Reconnected to MUC")
-            self._connected = True
+            self._log.warning("Will not reconnect to chatroom")
+
+        # if not self._connection.reconnectAndReauth():
+        #     self._log.fatal("Unable to recover connection")
+        #     self._state = constants.Status.EXIT_FATAL
+        # else:
+        #     if not self._connection.isConnected:
+        #         self._log.fatal("Reconnect indicates success, but not connected")
+        #         self._state = constants.Status.EXIT_FATAL
+        #     else:
+        #         self._log.warning("Reconnected to chatroom")
+        #         self._connected = True
 
     def getOccupants(self):
         self._occupants = xmpp.features.discoverItems(self._connection, self._muc)
+
+    def connectToChatroom(self):
+        """
+        Connect to chatroom and announce presence.
+        """
+        # This code is a duplicate of what is below, but this is the routine that should be used.
+
+        self._client = xmpp.protocol.JID(self._jid)
+
+        # Preparare the connection (xxx@conference.weeds.com -> weeds.com
+        self._connection = xmpp.Client(self._client.getDomain(), debug=[])
+
+        # TODO: This is wrong -- the code should lookup the host based on the SRV record to get both the hostname and port number
+        #self._connection.connect(server=('jetson-right.weeds.com', 5222))
+        connectionType = self._connection.connect(server=(self._server, 5222))
+        self._log.debug("Connected with type: [{}]".format(connectionType))
+        if connectionType != 'tls':
+            self._log.fatal("Unable to connect to XMPP server")
+
+        self._connection.auth(self._client.getNode(),self._password)
+
+
+        self._connection.sendInitPresence()
+
+        if self._callback is not None:
+            self._connection.RegisterHandler('message', self._callback)
+        else:
+            self._connection.RegisterHandler('message', self.messageCB)
+
+        self._connection.RegisterHandler('error', self.streamErrorHandler,xmlns=NS_STREAMS)
+
+        self._log.debug("Sending presence {}/{}".format(self._muc, self._nickname))
+        self._connection.send(xmpp.Presence(to="{}/{}".format(self._muc,self._nickname)))
+        self._connected = True
 
     def connect(self, process: bool, occupants = False):
         """
@@ -249,10 +307,16 @@ class MUCCommunicator():
 
         # TODO: This is wrong -- the code should lookup the host based on the SRV record to get both the hostname and port number
         #self._connection.connect(server=('jetson-right.weeds.com', 5222))
-        self._connection.connect(server=(self._server, 5222))
+        connectionType = self._connection.connect(server=(self._server, 5222))
+        self._log.debug("Connected with type: [{}]".format(connectionType))
+
+        # The only connection type considered a success is TLS.  If the server is not up, this will be ''
+        if connectionType != 'tls':
+            self._log.fatal("Unable to connect to XMPP server: {}/5222".format(self._server))
+            self._connected = False
+            return
 
         self._connection.auth(self._client.getNode(),self._password)
-
 
         self._connection.sendInitPresence()
 
@@ -308,25 +372,34 @@ class MUCCommunicator():
         :return:
         """
 
-        id = 0
+        self._id += 1
         # Send the message if we are still connected
         if self._connected and self._connection.isConnected():
-            stranza = "<message to='{0}' type='groupchat'><body>{1}</body></message>".format(self._muc, msg)
-            #print("Sending {}".format(stranza))
+            # Original stanza
+            #stranza = "<message to='{0}' type='groupchat'><body>{1}</body></message>".format(self._muc, msg)
+            stranza = "<message to='{0}' type='groupchat' id='{1}'><body>{2}</body></message>".format(self._muc, self._id, msg)
+            #self._log.debug("Sending {}".format(stranza))
             try:
-                id = self._connection.send(stranza)
+                self._connection.send(stranza)
             except ConnectionResetError as reset:
-                self._log.fatal("---- Connection reset error encountered ----")
+                self._log.error("---- Connection reset error encountered ----")
             except IOError as io:
-                self._log.fatal("I/O Error encountered. Typically this means that the server kicked us out of the MUC")
-                # Let the reconnect handler do its magic
+                self._log.error("I/O Error encountered. Typically this means that the server kicked us out of the MUC")
+                # Reconnect to the chatroom, as the disconnect handler scheme seems not to work as I want it to
+
+                #self.connectToChatroom()
+                #self._log.debug("Connected to chatroom")
                 time.sleep(2)
+                if self._state == constants.Status.EXIT_FATAL:
+                    self._log.error("XMPP connection cannot be recovered. -- E X I T I N G --")
+                    sys.exit(-1)
+            except Exception as ex:
+                self._log.fatal("Unknown error {}".format(ex))
+                sys.exit(-1)
 
         else:
-            pass
-            # Restructuring things a bit -- the disconnect handler should do this
-            # self._log.error("Not connected to MUC")
-            # self._connection.reconnectAndReauth()
+            self._log.error("Not connected to MUC")
+            #self.connectToChatroom()
             # if self._connection.isConnected():
             #     self._log.warning("Reestablished connection, but something is wrong")
             # else:
