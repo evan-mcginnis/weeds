@@ -37,6 +37,10 @@ class GPS:
         except ConnectionRefusedError as refused:
             self._log.error("Unable to connect to GPSD")
             self._connected = False
+        except UserWarning as warning:
+            self._log.error("Unable to connect to GPS")
+            self._log.error("Raw: {}".format(warning))
+            self._connected = False
 
         # See if we can get the current position
         packet = gpsd.get_current()

@@ -134,11 +134,8 @@ def endSession(options: OptionsFile, name: str) -> bool:
     global log
     stopped = False
 
-
-
     path = options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_ROOT) + "/output/" + name
     root = options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_ROOT)
-
 
     # Move the log file over to the output directory
     try:
@@ -269,9 +266,9 @@ def process(conn, msg: xmpp.protocol.Message):
                     log.debug("PING")
                 if systemMsg.action == constants.Action.STOP.name:
                     log.debug("Stopping odometry session")
+                    endSession(options, currentSessionName)
                     currentOperation = constants.Operation.QUIESCENT.name
                     currentSessionName = ""
-                    endSession(options, currentSessionName)
                 if systemMsg.action == constants.Action.CURRENT.name:
                     log.debug("Query for current operation")
                     sendSessionInformation(options)
@@ -636,6 +633,7 @@ odometryRoom.connect(False)
 
 log.debug("Start system thread")
 sysThread = threading.Thread(name=constants.THREAD_NAME_SYSTEM,target=processMessagesSync,args=(systemRoom,))
+sysThread.daemon = True
 threads.append(sysThread)
 sysThread.start()
 
@@ -671,12 +669,12 @@ threads.append(imu)
 imu.start()
 
 
+while True:
+    time.sleep(5)
+    for thread in threads:
+        if not thread.is_alive():
+            log.error("Thread {} exited. This is not normal.".format(thread.name))
+            sys.exit()
 
-
-sysThread.join()
-log.debug("System thread is finished.")
-service.join()
-log.debug("Service thread is finished.")
-# generator.join()
 
 sys.exit(0)
