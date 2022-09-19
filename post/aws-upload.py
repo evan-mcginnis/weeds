@@ -17,6 +17,7 @@ import syslog
 import shutil
 
 import botocore.exceptions
+from botocore.config import Config
 
 import constants
 import xmpp
@@ -79,6 +80,10 @@ def prepareImagesTAR(options: OptionsFile):
     """
     # Find, add, and delete the images
     images = glob.glob(PATTERN_IMAGES)
+    if len(images) == 0:
+        log.debug("No images found")
+        return
+
     # This is so we can call the images left and right
     theTAR = options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_JETSON) + "-" + TAR_IMAGES
     tar = tarfile.open(name=theTAR,mode="w|")
@@ -95,20 +100,49 @@ def prepareImagesTAR(options: OptionsFile):
     tar.close()
     return
 
-def upload(bucket : str, options: OptionsFile):
+def upload(bucket : str, options: OptionsFile) -> bool:
     """
     Upload a session's data to AWS
     :param bucket: Name of the S3 Bucket
     :param options: Options file
     """
+    log.debug("Uploading: {}".format(bucket))
     # Create the target bucket that will hold data from this run if it is not already there
-    s3 = boto3.resource('s3')
-    buckets = s3.buckets.all()
-    if bucket in buckets:
-        log.debug("Bucket {} already exists".format(bucket))
+    config = Config(
+        connect_timeout=10,
+        read_timeout=10,
+        retries={'max_attempts': 2})
+
+    # Typically, unable to connect is caused by a network failure somewhere along the chain
+    try:
+        s3 = boto3.resource('s3', config=config)
+    except Exception as ex:
+        log.fatal("Unable to connect to AWS")
+        log.fatal("Raw: {}".format(ex))
+        return False
+
+    try:
+        buckets = s3.buckets.all()
+        for aBucket in buckets:
+            log.debug("Bucket: {}".format(aBucket.name))
+        log.debug("Fetched bucket names")
+    except Exception as ex:
+        log.error("Hit an exception in upload")
+        log.error(ex)
+        return False
+
+    bucketExists = False
+    for aBucket in buckets:
+        log.debug("Bucket: {}".format(aBucket.name))
+        if aBucket.name == bucket:
+            log.debug("Bucket {} already exists".format(bucket))
+            bucketExists = True
+
+    if bucketExists:
         bucketName = bucket
     else:
         try:
+            log.debug("Creating bucket")
             bucketName, bucketResponse = createBucket(bucket, s3Resource.meta.client)
             first_bucket = s3Resource.Bucket(name=bucketName)
         except botocore.exceptions.ClientError as client:
@@ -118,8 +152,9 @@ def upload(bucket : str, options: OptionsFile):
                 bucketName = bucket
             else:
                 log.warning("Ignoring this directory")
-                return
+                return False
 
+    log.debug("Preparing TAR")
     # Prepare things for S3 upload
     prepareImagesTAR(options)
 
@@ -135,6 +170,7 @@ def upload(bucket : str, options: OptionsFile):
         object = s3Resource.Object(bucket_name=bucketName, key=key)
         log.info("Uploading {}".format(file))
         object.upload_file(Filename=file)
+    return True
 
 def callbackSystem(conn,msg: xmpp.protocol.Message):
     # Make sure this is a message sent to the room, not directly to us
@@ -252,17 +288,19 @@ if arguments.watch or arguments.upload:
             metadataFile = "*" + options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_SUFFIX_META)
             finished = glob.glob(metadataFile)
             if len(finished) > 0:
-                upload(directory, options)
+
+                uploaded = upload(directory, options)
 
                 syslog.syslog(syslog.LOG_INFO,"Using S3 bucket: {}".format(directory))
 
                 # Cleanup
-                try:
-                    log.debug("Removing directory after upload.")
-                    os.chdir("..")
-                    shutil.rmtree(directory)
-                except OSError as e:
-                    syslog.syslog(syslog.LOG_ERR, "Could not remove directory: {}".format(e.strerror))
+                if uploaded:
+                    try:
+                        log.debug("Removing directory after upload.")
+                        os.chdir("..")
+                        shutil.rmtree(directory)
+                    except OSError as e:
+                        syslog.syslog(syslog.LOG_ERR, "Could not remove directory: {}".format(e.strerror))
             else:
                 log.debug("No metadata file ({}) found, so skipping directory".format(metadataFile))
                 os.chdir("..")
