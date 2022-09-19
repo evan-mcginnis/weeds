@@ -958,10 +958,17 @@ def processMessages(room: MUCCommunicator):
     room.connect(False, True)
 
 def processMessagesSync(room: MUCCommunicator):
-    # Connect to the XMPP server and just return
+    # Connect to the XMPP server and process incoming messages
     # Curious. Suddenly fetching the occupants list does not work on windows tablet. Perhaps this is a version problem?
 
     room.connect(True, False)
+
+    # This is the case where the server was not up to begin with
+    # TODO: Sort through this sequence.  If the server is not up, we will get that in the init phase.
+    # This is the case where the server can't be reached _after_ initialization
+    if not room.connected:
+        pass
+
 
 # Delete this -- this is to keep track of the python threads
 threads = list()
