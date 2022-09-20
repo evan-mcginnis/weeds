@@ -43,19 +43,20 @@ jetson-software:
 	cd ..; tar cf jetson.tar jetson lib http
 
 rio-software:
-	cd ..; tar cf rio.tar rio lib daq http
+	cd ..; tar cf rio.tar rio lib http
 
 daq-software:
-	cd ..; tar cf rio.tar rio lib daq http
+	cd ..; tar cf rio.tar rio lib http
 
 distribute-software-tucson: jetson-software rio-software post-software
 	packer build -var-file=variables-left.json jetson.json
 	packer build -var-file=variables-right.json jetson.json
 	packer build -var-file=variables-daq.json daq.json
 
-distribute-software-yuma: jetson-software rio-software
+distribute-software-yuma: jetson-software rio-software post-software
 	packer build -var-file=variables-xavier-left.json jetson.json
 	packer build -var-file=variables-xavier-right.json jetson.json
+	packer build -var-file=variables-daq.json daq.json
 
 
 distribute-rio: rio-software

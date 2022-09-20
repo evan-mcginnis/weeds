@@ -1,8 +1,8 @@
 {
-	"host": "169.254.213.50",
+	"host": "169.254.212.50",
 	"sudo_password": "nvidia-greydog",
 	"user_password": "nvidia-greydog",
-	"camera_address": "169.254.213.51",
+	"camera_address": "169.254.212.51",
 	"location" : "yuma",
 	"name": "jetson-left",
 	"nickname": "jetson-left",

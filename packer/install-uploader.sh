@@ -13,6 +13,7 @@ AWS_SERVICE_NAME=weeds-uploader
 tar xf post.tar
 chown -R weeds post
 chgrp -R weeds post
+chmod +x post/weeds-uploader-service
 
 #
 # I N I  F I L E
