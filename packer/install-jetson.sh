@@ -32,6 +32,7 @@ chgrp -R weeds jetson
 chgrp -R weeds lib
 chgrp -R weeds http
 #chgrp -R weeds post
+chmod +x jetson/weeds-service
 
 cd jetson
 sed --in-place "s/\%CAMERAIP\%/$1/" options.ini

@@ -16,15 +16,26 @@
     },
     {
       "type": "file",
+      "source": "../post.tar",
+      "destination": "~/post.tar"
+    },
+    {
+      "type": "file",
       "source": "./install-jetson.sh",
       "destination": "~/install-jetson.sh"
+    },
+    {
+      "type": "file",
+      "source": "./install-uploader.sh",
+      "destination": "~/install-uploader.sh"
     },
     {
       "type": "shell",
       "remote_folder": "~",
       "inline": [
-        "echo nvidia-greydog | sudo -S bash -x ~/install-jetson.sh {{user `camera_address`}} {{user `nickname`}} {{user `name`}} {{user `server`}}",
-        "rm ~/install-jetson.sh"
+        "echo nvidia-greydog | sudo -S bash -x ~/install-jetson.sh {{user `camera_address`}} {{user `nickname`}} {{user `name`}} {{user `server`}} {{user `position`}}",
+        "echo nvidia-greydog | sudo -S bash -x ~/install-uploader.sh",
+        "rm ~/install-uploader.sh"
       ]
     }
   ]

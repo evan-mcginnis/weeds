@@ -6,7 +6,7 @@
 	"location" : "yuma",
 	"name": "jetson-left",
 	"nickname": "jetson-left",
-	"server": "xavier-right.weeds.com"
+	"server": "169.254.212.35"
 }
 
 

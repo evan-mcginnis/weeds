@@ -26,7 +26,7 @@ cd rio
 sed --in-place "s/\%PULSES\%/$1/" options.ini
 sed --in-place "s/\%SERVER\%/$2/" options.ini
 sed --in-place "s/\%POSITION\%/$3/" options.ini
-
+chmod +x odometry-service
 #
 # S E R V I C E S
 #
