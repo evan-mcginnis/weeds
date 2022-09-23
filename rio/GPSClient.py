@@ -43,7 +43,12 @@ class GPS:
             self._connected = False
 
         # See if we can get the current position
-        packet = gpsd.get_current()
+        packet = None
+        try:
+            packet = gpsd.get_current()
+        except Exception as ex:
+            self._log.error("Raw {}".format(ex))
+
         if packet is None:
             self._connected = False
         else:

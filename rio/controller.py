@@ -40,9 +40,6 @@ from GPSClient import GPS
 from CameraDepth import CameraDepth
 
 
-# TODO: Add this as a parameter and sort out multiple emitters
-
-RIO_MODULE = "Mod4"
 
 parser = argparse.ArgumentParser("RIO Controller")
 
@@ -209,24 +206,37 @@ def startupSystem():
 
     # Connect to the emitter and run diagnostics
     # Here, we assume that there is only one emitter, which is not a good assumption
-    # TODO: Allow multiple emitters
 
     # V I R T U A L  E M I T T E R  O R  P H Y S I C A L  E M I T T E R
 
     # Here, we associated an module on the RIO with the emitter. I suppose this needs to be down
     # to a set of pins on that card as well, but this will do for now
 
+    try:
+        rightModuleName = options.option(constants.PROPERTY_SECTION_RIO, constants.PROPERTY_RIGHT)
+        leftModuleName = options.option(constants.PROPERTY_SECTION_RIO, constants.PROPERTY_LEFT)
+    except KeyError as key:
+        log.fatal("Unable to find DAQ module location in options file.")
+        log.fatal("Raw: {}".format(key))
+        sys.exit(-1)
+
     if arguments.emitter:
-        emitter = VirtualEmitter(RIO_MODULE)
+        rightEmitter = VirtualEmitter(rightModuleName)
+        leftEmitter = VirtualEmitter(leftModuleName)
     else:
-        emitter = PhysicalEmitter(RIO_MODULE)
+        rightEmitter = PhysicalEmitter(rightModuleName)
+        leftEmitter = PhysicalEmitter(leftModuleName)
 
+    diagnosticResultRightEmitter, diagnosticTextRightEmitter = rightEmitter.diagnostics()
+    diagnosticResultLeftEmitter, diagnosticTextLeftEmitter = leftEmitter.diagnostics()
 
-    diagnosticResultEmitter, diagnosticTextEmitter = emitter.diagnostics()
-    if not diagnosticResultEmitter:
-        print(diagnosticTextEmitter)
+    if not diagnosticResultRightEmitter:
+        print(diagnosticTextRightEmitter)
 
-    return system, emitter
+    if not diagnosticResultLeftEmitter:
+        print(diagnosticTextLeftEmitter)
+
+    return system, rightEmitter, leftEmitter
 
 #
 # P R O C E S S
@@ -357,9 +367,9 @@ def startupGPS() -> GPS:
     theGPS.connect()
     if theGPS.isAvailable():
         packet = theGPS.getCurrentPosition()
-        log.debug("Position: {}".format(packet.position()))
-        log.debug("Error: {}".format(packet.position_precision()))
-        log.debug("Fix: {}".format(packet.mode))
+        log.debug("GPS Position: {}".format(packet.position()))
+        log.debug("GPS Error: {}".format(packet.position_precision()))
+        log.debug("GPS Fix: {}".format(packet.mode))
     else:
         log.warning("GPS location is not available. Image exif will not include this information")
     return theGPS
@@ -609,7 +619,7 @@ def takeImages(camera: CameraDepth):
 
 # Start the system and run diagnostics
 log.debug("Starting system")
-system, emitter = startupSystem()
+system, emitterRight, emitterLeft = startupSystem()
 
 # system is the object representing the RIO
 # emitter is the associated emitter.
