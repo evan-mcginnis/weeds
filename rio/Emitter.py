@@ -1,7 +1,7 @@
 #
 # E M I T T E R  A N D  T R E A T M E N T
 #
-
+import logging
 import time
 
 import numpy as np
@@ -12,6 +12,7 @@ from abc import ABC, abstractmethod
 # from time import sleep
 # from datetime import datetime
 import nidaqmx as ni
+from nidaqmx import DaqError, DaqWarning
 import threading, queue
 
 # Pieces for how NI names their ports
@@ -20,7 +21,7 @@ NI_PORT0 = "port0"
 NI_LINE = "line"
 NI_SEPARATOR = "/"
 
-MAX_EMITTERS = 6
+MAX_EMITTERS = 12
 
 #
 # W A R N I N G
@@ -79,6 +80,8 @@ class Emitter(ABC):
         # a list of all the treatments.  I suspect this will never be greater than two
         self._treatments = queue.SimpleQueue()
         self._module = module
+        self._log = logging.getLogger(__name__)
+
         return
 
     @property
@@ -177,27 +180,47 @@ class PhysicalEmitter(Emitter):
         diagnosticsOn = [True] * MAX_EMITTERS
         diagnosticsOff = [False] * MAX_EMITTERS
 
+        performDiagnostics = True
         with ni.Task() as task:
             for line in range(1, MAX_EMITTERS + 1):
                 # Form a channel descriptor line "Mod4/port0/line3"
                 channel = self.channelName(self.module, 0, line)
-                task.do_channels.add_do_chan(channel)
+                try:
+                    task.do_channels.add_do_chan(channel)
+                    performDiagnostics = True
+                except DaqError as daq:
+                    self._log.fatal("Unable to connect to the DAQ")
+                    self._log.fatal("Check power and connectivity to DAQ")
+                    performDiagnostics = False
+                    diagnosticResult = False
+                    diagnosticText = "Unable to connect to the DAQ"
+                    break
 
-            # Turn off all the emitters as cleanup
-            task.write(diagnosticsOff)
 
-            # Not much of a diagnostic here -- just turn the emitters on and off
-            diagnosticResult = True
-            diagnosticText = "Emitter diagnostics passed"
-            try:
-                for i in range(5):
-                    task.write(diagnosticsOn)
-                    time.sleep(1)
+            if performDiagnostics:
+                # Turn off all the emitters as cleanup
+                try:
                     task.write(diagnosticsOff)
-                    time.sleep(1)
-            except ni.errors.DaqError:
-                diagnosticResult = False
-                diagnosticText = "Error encountered in NI: "
+                except DaqError as daq:
+                    self._log.fatal("Unable to write to emitters to setup diagnostics")
+                    performDiagnostics = False
+                    diagnosticResult = False
+                    diagnosticText = "Unable to setup diagnostics"
+
+            if performDiagnostics:
+                # Not much of a diagnostic here -- just turn the emitters on and off
+                diagnosticResult = True
+                diagnosticText = "Emitter diagnostics passed"
+                try:
+                    for i in range(5):
+                        task.write(diagnosticsOn)
+                        time.sleep(1)
+                        task.write(diagnosticsOff)
+                        time.sleep(1)
+
+                except ni.errors.DaqError:
+                    diagnosticResult = False
+                    diagnosticText = "Error encountered in NI: "
 
 
         return diagnosticResult, diagnosticText

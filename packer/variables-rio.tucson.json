@@ -9,5 +9,6 @@
   "location": "tucson",
   "pulses": "5000",
   "server": "jetson-right.weeds.com",
-  "position": "middle"
+  "position": "middle",
+  "foward": "COUNTER-CLOCKWISE"
 }

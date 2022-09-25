@@ -209,7 +209,7 @@ def startupSystem():
 
     # V I R T U A L  E M I T T E R  O R  P H Y S I C A L  E M I T T E R
 
-    # Here, we associated an module on the RIO with the emitter. I suppose this needs to be down
+    # Here, we associated a module on the RIO with the emitter. I suppose this needs to be down
     # to a set of pins on that card as well, but this will do for now
 
     try:
@@ -231,10 +231,12 @@ def startupSystem():
     diagnosticResultLeftEmitter, diagnosticTextLeftEmitter = leftEmitter.diagnostics()
 
     if not diagnosticResultRightEmitter:
-        print(diagnosticTextRightEmitter)
+        log.warning(diagnosticTextRightEmitter)
+        rightEmitter = None
 
     if not diagnosticResultLeftEmitter:
-        print(diagnosticTextLeftEmitter)
+        log.warning(diagnosticTextLeftEmitter)
+        leftEmitter = None
 
     return system, rightEmitter, leftEmitter
 
@@ -400,49 +402,61 @@ def startupOdometer(typeOfOdometer: constants.SubsystemType) -> Odometer:
     pulsesPerRotation = 0
     wheelSize = 0
 
-    # V I R T U A L  O D O M E T E R
-    #
-    # This creates an odometer that will simulate moving forward with a given speed and will
-    # call the treatment controller at set intervals
-    if typeOfOdometer == constants.SubsystemType.VIRTUAL:
-        log.debug("Using virtual odometry")
-        pulsesPerRotation = int(options.option(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_PPR))
-        wheelSize = int(options.option(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_WHEEL_CIRCUMFERENCE))
-        odometer = VirtualOdometer(WHEEL_SIZE=wheelSize, PULSES=pulsesPerRotation, SPEED=arguments.speed)
-    else:
-        # Get the A & B lines -- either from the INI file or on the command line
-        if len(arguments.odometer_line_a) == 0:
-            lineA = options.option(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_PFI_A)
+    try:
+        # V I R T U A L  O D O M E T E R
+        #
+        # This creates an odometer that will simulate moving forward with a given speed and will
+        # call the treatment controller at set intervals
+        if typeOfOdometer == constants.SubsystemType.VIRTUAL:
+            log.debug("Using virtual odometry")
+            pulsesPerRotation = int(options.option(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_PPR))
+            wheelSize = int(options.option(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_WHEEL_CIRCUMFERENCE))
+            odometer = VirtualOdometer(WHEEL_SIZE=wheelSize, PULSES=pulsesPerRotation, SPEED=arguments.speed)
         else:
-            lineA = arguments.odometer_line_a
+            # Get the A & B lines -- either from the INI file or on the command line
+            if len(arguments.odometer_line_a) == 0:
+                lineA = options.option(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_PFI_A)
+            else:
+                lineA = arguments.odometer_line_a
 
-        if len(arguments.odometer_line_b) == 0:
-            lineB = options.option(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_PFI_B)
-        else:
-            lineB = arguments.odometer_line_b
+            if len(arguments.odometer_line_b) == 0:
+                lineB = options.option(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_PFI_B)
+            else:
+                lineB = arguments.odometer_line_b
 
-        if pulsesPerRotation == 0:
-            try:
-                pulsesPerRotation = int(options.option(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_PPR))
-            except KeyError:
-                print("Pulses Per Rotation must be specified as command line option or in the INI file.")
-        if wheelSize == 0:
-            try:
-                wheelSize = int(options.option(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_WHEEL_CIRCUMFERENCE))
-            except KeyError:
-                print("Wheel Size must be specified as command line option or in the INI file.")
-        # The lines specified could not be found in either the INI or on the command line
-        if len(lineA) == 0 or len(lineB) == 0:
-            print(constants.MSG_LINES_NOT_SPECIFIED)
-            log.error(constants.MSG_LINES_NOT_SPECIFIED)
-            sys.exit(1)
+            if pulsesPerRotation == 0:
+                try:
+                    pulsesPerRotation = int(options.option(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_PPR))
+                except KeyError:
+                    print("Pulses Per Rotation must be specified as command line option or in the INI file.")
+            if wheelSize == 0:
+                try:
+                    wheelSize = int(options.option(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_WHEEL_CIRCUMFERENCE))
+                except KeyError:
+                    print("Wheel Size must be specified as command line option or in the INI file.")
+            # The lines specified could not be found in either the INI or on the command line
+            if len(lineA) == 0 or len(lineB) == 0:
+                print(constants.MSG_LINES_NOT_SPECIFIED)
+                log.error(constants.MSG_LINES_NOT_SPECIFIED)
+                sys.exit(1)
 
-        #odometer = PhysicalOdometer(lineA, lineB, wheelSize, pulsesPerRotation, 0, callback)
-        odometer = PhysicalOdometer(LINE_A = lineA,
-                                    LINE_B = lineB,
-                                    WHEEL_SIZE = wheelSize,
-                                    PULSES = pulsesPerRotation,
-                                    SPEED = 0)
+            # Is forward clockwise or counter-clockwise?
+            forward = options.option(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_FORWARD)
+
+            # The counter used to read the rotations
+            theCounter = options.option(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_COUNTER)
+            #odometer = PhysicalOdometer(lineA, lineB, wheelSize, pulsesPerRotation, 0, callback)
+            odometer = PhysicalOdometer(LINE_A = lineA,
+                                        LINE_B = lineB,
+                                        COUNTER = theCounter,
+                                        WHEEL_SIZE = wheelSize,
+                                        FORWARD = forward,
+                                        PULSES = pulsesPerRotation,
+                                        SPEED = 0)
+    except KeyError as key:
+        log.fatal("Unable to find a key in the INI file: {}".format(key))
+        sys.exit(1)
+
 
     if not odometer.connect():
         print("Unable to connect to odometer.")
@@ -582,9 +596,11 @@ def processOdometer(odometer: Odometer):
     odometer.connect()
     # The start routines never return - this is executed in the main thread
     while True:
-        odometer.start()
-        # This allows the type of odometry to be changed
-        odometer = startupOdometer(typeOfOdometry)
+        if odometer.start():
+            # This allows the type of odometry to be changed
+            odometer = startupOdometer(typeOfOdometry)
+        else:
+            break
 
 #
 # Connect to the depth camera and grab readings
@@ -617,9 +633,14 @@ def takeImages(camera: CameraDepth):
         else:
             rc = -1
 
-# Start the system and run diagnostics
+# Start the NI system and run diagnostics
 log.debug("Starting system")
-system, emitterRight, emitterLeft = startupSystem()
+systemNI, emitterRight, emitterLeft = startupSystem()
+
+# If the emitters fail diagostics
+if emitterLeft is None or emitterLeft is None:
+    log.fatal("--- Failure in emitter diagnostics. This is a non-recoverable error. ---")
+    sys.exit(-1)
 
 # system is the object representing the RIO
 # emitter is the associated emitter.

@@ -76,6 +76,11 @@ class PhysicalOdometer(Odometer):
         lineB = kwargs[constants.KEYWORD_LINE_B]
         speed = kwargs[constants.KEYWORD_SPEED]
 
+        self._counter = kwargs[constants.KEYWORD_COUNTER]
+
+        # Indicate of forward means clockwise or counter-clockwise
+        self._forward = kwargs[constants.KEYWORD_FORWARD]
+
         self._maxSpeed = speed
 
         # LineA and lineB should be in the format ModX/portY/lineZ
@@ -173,57 +178,86 @@ class PhysicalOdometer(Odometer):
         self._callback = callback
 
 
-    def start(self):
+    def start(self) -> bool:
         """
         Treat the encoder as an angular encoder, putting new readings on the change queue
+        If an error is encoutered in starting the readings, return False.  Transient errors will not stop processing.
         """
         global running
         total = 0.0
+
+        daqErrorEncountered = False
         self.log.debug("Begin rotation detection using Angular Encoding")
-        task = ni.Task(new_task_name=constants.RIO_TASK_NAME)
+
+        try:
+            task = ni.Task(new_task_name=constants.RIO_TASK_NAME)
+        except nidaqmx.errors.DaqError:
+            self.log.fatal("Unable to create NI task. Usually this is the result of an ungraceful shutdown")
+            daqErrorEncountered = True
+
         #channelA = task.ci_channels.add_ci_ang_encoder_chan(counter = 'Mod3/ctr0', decoding_type = EncoderType.X_1, zidx_enable=True, units=AngleUnits.DEGREES, pulses_per_rev=1000, initial_angle=0.0)
 
-        # Add the channel as an angular encoder without Z index support, as we really don't care about the number of rotations
-        channelA = task.ci_channels.add_ci_ang_encoder_chan(counter = 'Mod3/ctr0', decoding_type = EncoderType.X_1, zidx_enable=False, zidx_val=0, units=AngleUnits.DEGREES, pulses_per_rev=self.encoderClicksPerRevolution, initial_angle=0.0)
-
-
-        channelA.ci_encoder_a_input_dig_fltr_min_pulse_width = 0.0001
-        channelA.ci_encoder_a_input_dig_fltr_enable = True
-        channelA.ci_encoder_a_input_term = 'PFI0'
-        channelA.ci_encoder_b_input_dig_fltr_min_pulse_width = 0.0001
-        channelA.ci_encoder_b_input_dig_fltr_enable = True
-        channelA.ci_encoder_b_input_term = 'PFI1'
-        channelA.ci_encoder_z_input_dig_fltr_min_pulse_width = 0.0001
-        channelA.ci_encoder_z_input_dig_fltr_enable = True
-        channelA.ci_encoder_z_input_term = 'PFI2'
-
-        task.timing.samp_clk_overrun_behavior = nidaqmx.constants.OverflowBehavior.TOP_TASK_AND_ERROR
-
-        task.start()
-        previous = 0.0
-        self._processing = True
-        running = True
-
-        # This loop will run until things are gracefully shut down by another thread
-        # setting running to False.
-        while self._processing:
+        if not daqErrorEncountered:
+            # Add the channel as an angular encoder without Z index support, as we really don't care about the number of rotations
             try:
-                ang =task.read(number_of_samples_per_channel = 1) #nidaqmx.constants.READ_ALL_AVAILABLE)
-                #print("Current register is {}".format(channelA.ci_count))
-            except nidaqmx.errors.DaqError:
-                self.log.error("Read error encountered")
-                continue
+                channelA = task.ci_channels.add_ci_ang_encoder_chan(counter = self._counter, decoding_type = EncoderType.X_1, zidx_enable=False, zidx_val=0, units=AngleUnits.DEGREES, pulses_per_rev=self.encoderClicksPerRevolution, initial_angle=0.0)
+            except nidaqmx.errors.DaqError as daq:
+                self.log.fatal("DAQ setup error encountered")
+                self.log.fatal("Raw: {}".format(daq))
+                daqErrorEncountered = True
 
-            # If the current reading has changed from the previous reading, the wheel has moved
-            if ang[0] != 0 and ang[0] != previous:
+            if self._forward == constants.Forward.CLOCKWISE.name:
+                channelA.ci_encoder_a_input_term = 'PFI0'
+                channelA.ci_encoder_b_input_term = 'PFI1'
+            elif self._forward == constants.Forward.COUNTER_CLOCKWISE.name:
+                channelA.ci_encoder_a_input_term = 'PFI1'
+                channelA.ci_encoder_b_input_term = 'PFI0'
+            else:
+                self.log.fatal("[FORWARD = CLOCKWISE | COUNTER_CLOCKWISE] must be specified.  Got {}".format(self._forward))
+                daqErrorEncountered = True
+
+        if not daqErrorEncountered:
+            channelA.ci_encoder_a_input_dig_fltr_min_pulse_width = 0.0001
+            channelA.ci_encoder_a_input_dig_fltr_enable = True
+            # Test of counter-clockwise/clockwise.  I believe we can just swap the definitions of A & B
+            #channelA.ci_encoder_a_input_term = 'PFI0'
+            channelA.ci_encoder_b_input_dig_fltr_min_pulse_width = 0.0001
+            channelA.ci_encoder_b_input_dig_fltr_enable = True
+            # Clockwise/counterclockwise test
+            #channelA.ci_encoder_b_input_term = 'PFI1'
+            channelA.ci_encoder_z_input_dig_fltr_min_pulse_width = 0.0001
+            channelA.ci_encoder_z_input_dig_fltr_enable = True
+            channelA.ci_encoder_z_input_term = 'PFI2'
+
+            task.timing.samp_clk_overrun_behavior = nidaqmx.constants.OverflowBehavior.TOP_TASK_AND_ERROR
+
+            task.start()
+            previous = 0.0
+            self._processing = True
+            running = True
+
+            # This loop will run until things are gracefully shut down by another thread
+            # setting running to False.
+            while self._processing:
                 try:
-                    # Put the current angular reading in the queue
-                    self._changeQueue.put(float(ang[0]), block=False)
-                except queue.Full:
-                    self.log.error("Distance queue is full. Reading is lost.")
-                previous = ang[0]
+                    ang =task.read(number_of_samples_per_channel = 1) #nidaqmx.constants.READ_ALL_AVAILABLE)
+                    #print("Current register is {}".format(channelA.ci_count))
+                except nidaqmx.errors.DaqError:
+                    self.log.error("Read error encountered")
+                    continue
 
-        task.stop()
+                # If the current reading has changed from the previous reading, the wheel has moved
+                if ang[0] != 0 and ang[0] != previous:
+                    try:
+                        # Put the current angular reading in the queue
+                        self._changeQueue.put(float(ang[0]), block=False)
+                    except queue.Full:
+                        self.log.error("Distance queue is full. Reading is lost.")
+                    previous = ang[0]
+
+            task.stop()
+
+        return not daqErrorEncountered
 
 
 

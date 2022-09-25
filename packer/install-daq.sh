@@ -7,6 +7,7 @@
 # $1 # PULSES of odometer
 # $2 name of xmpp server
 # $3 position (left, middle, right)
+# $4 forward (CLOCKWISE, COUNTER-CLOCKWISE)
 
 DAQ_HOME=~weeds/rio
 SERVICE_DEFINITION_DIR=/etc/systemd/system
@@ -26,6 +27,7 @@ cd rio
 sed --in-place "s/\%PULSES\%/$1/" options.ini
 sed --in-place "s/\%SERVER\%/$2/" options.ini
 sed --in-place "s/\%POSITION\%/$3/" options.ini
+sed --in-place "s/\%FORWARD\%/$4/" options.ini
 chmod +x odometry-service
 #
 # S E R V I C E S

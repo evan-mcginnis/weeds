@@ -8,5 +8,6 @@
   "weeds-user": "weeds",
   "location": "yuma",
   "pulses": "1024",
-  "server": "jetson-right.weeds.com"
+  "server": "jetson-right.weeds.com",
+  "forward": "CLOCKWISE"
 }
