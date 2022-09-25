@@ -67,7 +67,7 @@
        <enum>QTabWidget::Triangular</enum>
       </property>
       <property name="currentIndex">
-       <number>0</number>
+       <number>2</number>
       </property>
       <widget class="QWidget" name="tabSystem">
        <property name="enabled">
@@ -1201,25 +1201,26 @@
          <layout class="QHBoxLayout" name="horizontalLayout_4">
           <item>
            <layout class="QGridLayout" name="gridLayout">
-            <property name="sizeConstraint">
-             <enum>QLayout::SetFixedSize</enum>
-            </property>
-            <property name="leftMargin">
-             <number>0</number>
-            </property>
-            <property name="topMargin">
-             <number>0</number>
-            </property>
-            <property name="rightMargin">
-             <number>0</number>
-            </property>
-            <property name="bottomMargin">
-             <number>0</number>
-            </property>
-            <property name="spacing">
-             <number>6</number>
-            </property>
             <item row="0" column="0">
+             <widget class="QPushButton" name="emitter_left_4_1">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="minimumSize">
+               <size>
+                <width>150</width>
+                <height>150</height>
+               </size>
+              </property>
+              <property name="text">
+               <string>4-1</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="1">
              <widget class="QPushButton" name="emitter_left_3_1">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
@@ -1238,7 +1239,7 @@
               </property>
              </widget>
             </item>
-            <item row="0" column="1">
+            <item row="0" column="2">
              <widget class="QPushButton" name="emitter_left_2_1">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
@@ -1257,7 +1258,7 @@
               </property>
              </widget>
             </item>
-            <item row="0" column="2">
+            <item row="0" column="3">
              <widget class="QPushButton" name="emitter_left_1_1">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
@@ -1277,6 +1278,19 @@
              </widget>
             </item>
             <item row="1" column="0">
+             <widget class="QPushButton" name="emitter_left_4_2">
+              <property name="minimumSize">
+               <size>
+                <width>150</width>
+                <height>150</height>
+               </size>
+              </property>
+              <property name="text">
+               <string>4-2</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="1">
              <widget class="QPushButton" name="emitter_left_3_2">
               <property name="minimumSize">
                <size>
@@ -1289,7 +1303,7 @@
               </property>
              </widget>
             </item>
-            <item row="1" column="1">
+            <item row="1" column="2">
              <widget class="QPushButton" name="emitter_left_2_2">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
@@ -1308,7 +1322,7 @@
               </property>
              </widget>
             </item>
-            <item row="1" column="2">
+            <item row="1" column="3">
              <widget class="QPushButton" name="emitter_left_1_2">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
@@ -1328,6 +1342,25 @@
              </widget>
             </item>
             <item row="2" column="0">
+             <widget class="QPushButton" name="emitter_left_4_3">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="minimumSize">
+               <size>
+                <width>150</width>
+                <height>150</height>
+               </size>
+              </property>
+              <property name="text">
+               <string>4-3</string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="1">
              <widget class="QPushButton" name="emitter_left_3_3">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
@@ -1346,7 +1379,7 @@
               </property>
              </widget>
             </item>
-            <item row="2" column="1">
+            <item row="2" column="2">
              <widget class="QPushButton" name="emitter_left_2_3">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
@@ -1365,7 +1398,7 @@
               </property>
              </widget>
             </item>
-            <item row="2" column="2">
+            <item row="2" column="3">
              <widget class="QPushButton" name="emitter_left_1_3">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
@@ -1503,6 +1536,18 @@
            <layout class="QHBoxLayout" name="horizontalLayout">
             <item>
              <widget class="QProgressBar" name="progressBar">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="minimumSize">
+               <size>
+                <width>620</width>
+                <height>0</height>
+               </size>
+              </property>
               <property name="value">
                <number>24</number>
               </property>
@@ -1551,9 +1596,28 @@
         <item>
          <layout class="QHBoxLayout" name="horizontalLayout_5">
           <item>
-           <layout class="QGridLayout" name="gridLayout_2">
+           <layout class="QGridLayout" name="emitter_grid_right">
             <item row="0" column="0">
-             <widget class="QPushButton" name="pushButton_11">
+             <widget class="QPushButton" name="emitter_right_4_1">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="minimumSize">
+               <size>
+                <width>150</width>
+                <height>150</height>
+               </size>
+              </property>
+              <property name="text">
+               <string>4-1</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="1">
+             <widget class="QPushButton" name="emitter_right_3_1">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
                 <horstretch>0</horstretch>
@@ -1571,8 +1635,8 @@
               </property>
              </widget>
             </item>
-            <item row="0" column="1">
-             <widget class="QPushButton" name="pushButton_12">
+            <item row="0" column="2">
+             <widget class="QPushButton" name="emitter_right_2_1">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
                 <horstretch>0</horstretch>
@@ -1590,8 +1654,8 @@
               </property>
              </widget>
             </item>
-            <item row="0" column="2">
-             <widget class="QPushButton" name="pushButton_13">
+            <item row="0" column="3">
+             <widget class="QPushButton" name="emitter_right_1_1">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
                 <horstretch>0</horstretch>
@@ -1610,7 +1674,26 @@
              </widget>
             </item>
             <item row="1" column="0">
-             <widget class="QPushButton" name="pushButton_14">
+             <widget class="QPushButton" name="emitter_right_4_2">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="minimumSize">
+               <size>
+                <width>150</width>
+                <height>150</height>
+               </size>
+              </property>
+              <property name="text">
+               <string>4-2</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="1">
+             <widget class="QPushButton" name="emitter_right_3_2">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
                 <horstretch>0</horstretch>
@@ -1628,8 +1711,8 @@
               </property>
              </widget>
             </item>
-            <item row="1" column="1">
-             <widget class="QPushButton" name="pushButton_15">
+            <item row="1" column="2">
+             <widget class="QPushButton" name="emitter_right_2_2">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
                 <horstretch>0</horstretch>
@@ -1647,8 +1730,8 @@
               </property>
              </widget>
             </item>
-            <item row="1" column="2">
-             <widget class="QPushButton" name="pushButton_16">
+            <item row="1" column="3">
+             <widget class="QPushButton" name="emitter_right_1_2">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
                 <horstretch>0</horstretch>
@@ -1667,7 +1750,26 @@
              </widget>
             </item>
             <item row="2" column="0">
-             <widget class="QPushButton" name="pushButton_17">
+             <widget class="QPushButton" name="emitter_right_4_3">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="minimumSize">
+               <size>
+                <width>150</width>
+                <height>150</height>
+               </size>
+              </property>
+              <property name="text">
+               <string>4-3</string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="1">
+             <widget class="QPushButton" name="emitter_right_3_3">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
                 <horstretch>0</horstretch>
@@ -1685,8 +1787,8 @@
               </property>
              </widget>
             </item>
-            <item row="2" column="1">
-             <widget class="QPushButton" name="pushButton_18">
+            <item row="2" column="2">
+             <widget class="QPushButton" name="emitter_right_2_3">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
                 <horstretch>0</horstretch>
@@ -1704,8 +1806,8 @@
               </property>
              </widget>
             </item>
-            <item row="2" column="2">
-             <widget class="QPushButton" name="pushButton_19">
+            <item row="2" column="3">
+             <widget class="QPushButton" name="emitter_right_1_3">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
                 <horstretch>0</horstretch>
