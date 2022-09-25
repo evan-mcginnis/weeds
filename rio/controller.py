@@ -537,10 +537,11 @@ def serviceQueue(odometer : PhysicalOdometer, odometryRoom: MUCCommunicator, ann
 
         log.debug("{:.4f} mm Total: {:.4f} elapsed {:.4f} Speed {:.4f} kph location: {}".format(distanceTraveled, totalDistanceTraveled, elapsedSeconds, speed, position))
 
-        # Send out a message every time the system traverses the distance specified
+        # Send out a message every time the system traverses the distance specified -- forward or backward
 
         distanceTraveledSinceLastMessage += distanceTraveled
-        if distanceTraveledSinceLastMessage >= announcements:
+        if distanceTraveledSinceLastMessage >= announcements or distanceTraveledSinceLastMessage <= -announcements:
+
             message = OdometryMessage()
 
             # Include GPS data if available
@@ -564,19 +565,24 @@ def serviceQueue(odometer : PhysicalOdometer, odometryRoom: MUCCommunicator, ann
             #     log.fatal("---- Error in sending message ----")
             #     log.fatal("Raw {}".format(e))
             distanceTraveledSinceLastMessage = 0.0
-        if distanceTraveledSinceLastMessage <= -announcements:
-            message = OdometryMessage()
-            message.distance = -announcements
-            message.timestamp = time.time() * 1000
-            #message.timestamp = time.time_ns()
-            message.source = odometer.source
-            messageText = message.formMessage()
-            #log.debug("Sending: {}".format(messageText))
-            try:
-                odometryRoom.sendMessage(messageText)
-            except Exception as e:
-                log.fatal("---- Error in sending message -----")
-            distanceTraveledSinceLastMessage = 0.0
+        # if distanceTraveledSinceLastMessage <= -announcements:
+        #     message = OdometryMessage()
+        #
+        #     # Include GPS data if available
+        #     if gps.connected:
+        #         (message.latitude, message.longitude) = gps.getCurrentPosition().position()
+        #
+        #     message.distance = -announcements
+        #     message.timestamp = time.time() * 1000
+        #     #message.timestamp = time.time_ns()
+        #     message.source = odometer.source
+        #     messageText = message.formMessage()
+        #     #log.debug("Sending: {}".format(messageText))
+        #     try:
+        #         odometryRoom.sendMessage(messageText)
+        #     except Exception as e:
+        #         log.fatal("---- Error in sending message -----")
+        #     distanceTraveledSinceLastMessage = 0.0
 
         i += 1
 
