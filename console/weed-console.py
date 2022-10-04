@@ -29,6 +29,8 @@ import constants
 
 from MUCCommunicator import MUCCommunicator
 from Messages import MUCMessage, OdometryMessage, SystemMessage, TreatmentMessage
+from WeedExceptions import XMPPServerUnreachable, XMPPServerAuthFailure
+
 import shortuuid
 
 from PyQt5 import QtWidgets
@@ -38,6 +40,8 @@ from PyQt5.QtCore import *
 
 from console import Ui_MainWindow
 from dialog_init import Ui_initProgress
+
+shuttingDown = False
 
 messageNumber = 0
 treatments = 0
@@ -50,24 +54,28 @@ class Status(Enum):
     OK = 0
     ERROR = 1
 
-class InitializationSignals(QObject):
+class WeedsSignals(QObject):
+    xmppStatus = pyqtSignal(str, name="xmppStatus")
+
+class InitializationSignals(WeedsSignals):
     finished = pyqtSignal(name="finished")
     result = pyqtSignal(str, name="result")
     progress = pyqtSignal(int)
 
-class OdometrySignals(QObject):
+class OdometrySignals(WeedsSignals):
     distance = pyqtSignal(str, float, name="distance")
     speed = pyqtSignal(str, float, name="speed")
     latitude = pyqtSignal(float, name="latitude")
     longitude = pyqtSignal(float, name="longitude")
     virtual = pyqtSignal()
 
-class SystemSignals(QObject):
+class SystemSignals(WeedsSignals):
     diagnostics = pyqtSignal(str, str, name="diagnostics")
     camera = pyqtSignal(str, str, name="camera")
     operation = pyqtSignal(str, str, name="operation")
+    occupant = pyqtSignal(str, str, str, name="occupant")
 
-class TreatmentSignals(QObject):
+class TreatmentSignals(WeedsSignals):
     plan = pyqtSignal(int, name="plan")
     image = pyqtSignal(str, str, name="image")
 
@@ -109,10 +117,16 @@ class Housekeeping(QRunnable):
         # Signal that we are done
         self._signals.finished.emit()
 
-
-class WorkerSystem(QRunnable):
+class Worker(QRunnable):
     def __init__(self, room):
         super().__init__()
+
+        self._room = room
+
+
+class WorkerSystem(Worker):
+    def __init__(self, room):
+        super().__init__(room)
         self._signals = SystemSignals()
 
         self._room = room
@@ -125,12 +139,10 @@ class WorkerSystem(QRunnable):
         processMessagesSync(self._room)
 
 
-class WorkerOdometry(QRunnable):
+class WorkerOdometry(Worker):
     def __init__(self, room):
-        super().__init__()
+        super().__init__(room)
         self._signals = OdometrySignals()
-
-        self._room = room
 
     @property
     def signals(self) -> OdometrySignals:
@@ -151,12 +163,10 @@ class WorkerOdometry(QRunnable):
             log.error("Processed message that was not for odometry")
 
 
-class WorkerTreatment(QRunnable):
+class WorkerTreatment(Worker):
     def __init__(self, room):
-        super().__init__()
+        super().__init__(room)
         self._signals = TreatmentSignals()
-
-        self._room = room
 
     @property
     def signals(self) -> TreatmentSignals:
@@ -284,19 +294,19 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         return self._taskTreatment
 
     @property
-    def initializationSignals(self):
+    def initializationSignals(self) -> pyqtSignal:
         return self._intializationSignals
 
     @property
-    def odometrySignals(self):
+    def odometrySignals(self) -> pyqtSignal:
         return self._odometrySignals
 
     @property
-    def systemSignals(self):
+    def systemSignals(self) -> pyqtSignal:
         return self._systemSignals
 
     @property
-    def treatmentSignals(self):
+    def treatmentSignals(self) -> pyqtSignal:
         return self._treatmentSignals
 
     def updateLatitude(self, latitude: float):
@@ -609,7 +619,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         except urllib.error.URLError as urlerror:
             log.error("Unable to fetch from URL: {}".format(url))
 
-    def setStatus(self, occupant: str, roomName: str, presence: Presence):
+    def setStatus(self, occupant: str, roomName: str, presence: str): #presence: Presence):
         """
         Sets the status for an occupant based on the list of required occupants.
         Only those occupants required to be in the room will have status updated.
@@ -625,7 +635,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 # The occupant left or joined
                 x = requiredOccupant.get("status")[0]
                 y = requiredOccupant.get("status")[1]
-                if presence == Presence.LEFT:
+                if presence == Presence.LEFT.name:
                     self.statusTable.setItem(x,y,QtWidgets.QTableWidgetItem(constants.UI_STATUS_NOT_OK))
                     item = self.statusTable.item(x,y)
                     item.setBackground(QtGui.QColor("red"))
@@ -641,6 +651,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     #requiredOccupant.get("status").setStyleSheet("color: white; background-color: green")
 
         self.statusTable.update()
+
+        # Curious -- this is the only way to get the table to update from NOT OK to OK.  The other way works just fine.
+        self.statusTable.viewport().update()
+        #self.statusTable.repaint()
 
         # Note in the tabs if someone is missing who should be there
         self.noteMissingEntities()
@@ -792,6 +806,12 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         terminated = pool.waitForDone(5000)
         log.debug("Termination of threads: {}".format(terminated))
 
+    def initialize(self):
+
+        log.debug("Initializing application")
+        pool = QThreadPool.globalInstance()
+        pool.start(self._taskHousekeeping)
+
     def runTasks(self, initializing: Semaphore):
         """
         Startup all threads needed for application
@@ -824,6 +844,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self._systemSignals.operation.connect(self.updateOperation)
         self._systemSignals.diagnostics.connect(self.updateDiagnostics)
         self._systemSignals.camera.connect(self.updateCamera)
+        self._systemSignals.occupant.connect(self.setStatus)
 
         pool.start(self._taskSystem)
         pool.start(self._taskOdometry)
@@ -886,7 +907,8 @@ def presenceCB(conn, presence: xmpp.protocol.Message):
     else:
         # Indicates leaving the room
         if presence.getID() == None:
-            window.setStatus(presence.getFrom().getResource(), presence.getFrom().getStripped(), Presence.LEFT)
+            window.systemSignals.occupant.emit(presence.getFrom().getResource(), presence.getFrom().getStripped(), Presence.LEFT.name)
+            #window.setStatus(presence.getFrom().getResource(), presence.getFrom().getStripped(), Presence.LEFT)
             if presence.getFrom().getStripped() == options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_SYSTEM):
                 log.debug("{} left the room {}".format(presence.getFrom().getResource(), presence.getFrom()))
                 systemRoom.occupantExited(presence.getFrom().getResource())
@@ -896,7 +918,7 @@ def presenceCB(conn, presence: xmpp.protocol.Message):
         # Otherwise the occupant entered the room
         else:
             log.debug("{} entered the room {}".format(presence.getFrom().getResource(), presence.getFrom()))
-            window.setStatus(presence.getFrom().getResource(), presence.getFrom().getStripped(), Presence.JOINED)
+            window.setStatus(presence.getFrom().getResource(), presence.getFrom().getStripped(), Presence.JOINED.name)
             if presence.getFrom().getStripped() == options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_SYSTEM):
                 log.debug("{} entered the room {}".format(presence.getFrom().getResource(), presence.getFrom()))
                 systemRoom.occupantEntered(presence.getFrom().getResource(),presence.getFrom().getStripped())
@@ -953,15 +975,32 @@ def startupCommunications(options: OptionsFile):
 
     return (odometryRoom, systemRoom, treatmentRoom)
 
-def processMessages(room: MUCCommunicator):
-    # Connect to the XMPP server and just return
-    room.connect(False, True)
+# def processMessages(room: MUCCommunicator):
+#     # Connect to the XMPP server and just return
+#     room.connect(False, True)
 
 def processMessagesSync(room: MUCCommunicator):
     # Connect to the XMPP server and process incoming messages
     # Curious. Suddenly fetching the occupants list does not work on windows tablet. Perhaps this is a version problem?
 
-    room.connect(True, False)
+    # Originally
+    #room.connect(True, False)
+
+    room.processing = True
+
+    while room.processing:
+        try:
+            # This method should never return unless something went wrong
+            room.connect(True)
+            log.debug("Connected and processed messages, but encountered errors")
+            time.sleep(5)
+        except XMPPServerUnreachable:
+            log.warning("Unable to connect and process messages.  Will retry and reinitialize.")
+            time.sleep(5)
+            room.processing = True
+        except XMPPServerAuthFailure:
+            log.fatal("Unable to authenticate using parameters")
+            room.processing = False
 
     # This is the case where the server was not up to begin with
     # TODO: Sort through this sequence.  If the server is not up, we will get that in the init phase.
