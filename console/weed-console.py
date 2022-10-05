@@ -407,6 +407,12 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.statusTable.horizontalHeader().setVisible(True)
         self.statusTable.verticalHeader().setVisible(True)
 
+        nNumRows = 5
+        nRowHeight = self.statusTable.rowHeight(0)
+        nTableHeight = (nNumRows * nRowHeight) + self.statusTable.horizontalHeader().height() + 2 * self.statusTable.frameWidth();
+        self.statusTable.setMinimumHeight(nTableHeight)
+        self.statusTable.setMaximumHeight(nTableHeight)
+
     def setupRooms(self, odometryRoom: MUCCommunicator, systemRoom: MUCCommunicator, treatmentRoom: MUCCommunicator):
         """
         Set up up the rooms and initialize the list of required occupants

@@ -67,7 +67,7 @@
        <enum>QTabWidget::Triangular</enum>
       </property>
       <property name="currentIndex">
-       <number>2</number>
+       <number>0</number>
       </property>
       <widget class="QWidget" name="tabSystem">
        <property name="enabled">
@@ -900,6 +900,9 @@
           <property name="cornerButtonEnabled">
            <bool>true</bool>
           </property>
+          <property name="rowCount">
+           <number>5</number>
+          </property>
           <attribute name="horizontalHeaderVisible">
            <bool>false</bool>
           </attribute>
@@ -970,16 +973,6 @@
           <row>
            <property name="text">
             <string>AWS Middle</string>
-           </property>
-           <property name="font">
-            <font>
-             <pointsize>20</pointsize>
-            </font>
-           </property>
-          </row>
-          <row>
-           <property name="text">
-            <string>AWS Right</string>
            </property>
            <property name="font">
             <font>
