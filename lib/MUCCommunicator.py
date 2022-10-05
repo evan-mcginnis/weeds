@@ -21,6 +21,7 @@ from argparse import ArgumentParser
 #import dns.resolver
 import threading
 
+from WeedExceptions import XMPPServerUnreachable, XMPPServerAuthFailure
 import constants
 
 #
@@ -268,7 +269,7 @@ class MUCCommunicator():
 
         self._client = xmpp.protocol.JID(self._jid)
 
-        # Preparare the connection (xxx@conference.weeds.com -> weeds.com
+        # Prepare the connection (xxx@conference.weeds.com -> weeds.com
         self._connection = xmpp.Client(self._client.getDomain(), debug=[])
 
         # TODO: This is wrong -- the code should lookup the host based on the SRV record to get both the hostname and port number
@@ -299,6 +300,7 @@ class MUCCommunicator():
         Connect to the xmpp server and join the MUC. This routine will not return.
         :return:
         """
+        shouldRetry = False
         # Create the client
         self._client = xmpp.protocol.JID(self._jid)
 
@@ -312,9 +314,9 @@ class MUCCommunicator():
 
         # The only connection type considered a success is TLS.  If the server is not up, this will be ''
         if connectionType != 'tls':
-            self._log.fatal("Unable to connect to XMPP server: {}/5222".format(self._server))
+            self._log.warning("Unable to connect to XMPP server: {}/5222".format(self._server))
             self._connected = False
-            return
+            raise XMPPServerUnreachable("Unable to connect with TLS")
 
         self._connection.auth(self._client.getNode(),self._password)
 
@@ -360,6 +362,27 @@ class MUCCommunicator():
             # This won't be executed until the processing loop has a keyboard interrupt
             #self.sendMessage("{} stopping message processing".format(self._nickname))
         return
+
+    def processMessages(self):
+        """
+        Process messages for the chatroom -- note that this routine will never return.
+        :param communicator: The chatroom communicator
+        """
+        self._log.info("Connecting to chatroom")
+        processing = True
+
+        while processing:
+            try:
+                # This method should never return unless something went wrong
+                self.connect(True)
+                self._log.debug("Connected and processed messages, but encountered errors")
+            except XMPPServerUnreachable:
+                self._log.warning("Unable to connect and process messages.  Will retry.")
+                time.sleep(5)
+                processing = True
+            except XMPPServerAuthFailure:
+                self._log.fatal("Unable to authenticate using parameters")
+                processing = False
 
     def disconnect(self):
         raise NotImplementedError

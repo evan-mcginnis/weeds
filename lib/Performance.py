@@ -49,4 +49,6 @@ class Performance:
             self._file.write("%s,%s\n" % (name, str(self._elapsed_milliseconds)))
 
     def cleanup(self):
-        self._file.close()
+        pass
+        # The with style of opening the file should make an explicit close unnecessary.
+        #self._file.close()

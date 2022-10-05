@@ -380,6 +380,12 @@ class OperationalStatus(Enum):
     UNKNOWN = 1
     FAIL = 2
 
+class XMPPStatus(Enum):
+    CONNECTED = 0
+    DISCONNECT_RETRY = 1
+    DISCONNECT_FAIL = 2
+
+
 class Status(Enum):
     QUIESCENT = 0
     RUNNING = 1
