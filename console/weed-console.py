@@ -651,8 +651,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 else:
                     self.statusTable.setItem(x,y,QtWidgets.QTableWidgetItem(constants.UI_STATUS_OK))
                     item = self.statusTable.item(x,y)
-                    item.setBackground(QtGui.QColor("green"))
-                    item.setForeground(QtGui.QColor("black"))
+                    if item is not None:
+                        item.setBackground(QtGui.QColor("green"))
+                        item.setForeground(QtGui.QColor("black"))
                     #requiredOccupant.get("status").setText(constants.UI_STATUS_OK)
                     #requiredOccupant.get("status").setStyleSheet("color: white; background-color: green")
 
