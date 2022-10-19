@@ -28,7 +28,11 @@ import dns.resolver
 
 from OptionsFile import OptionsFile
 from MUCCommunicator import MUCCommunicator
-from Messages import SystemMessage
+
+# TODO: This causes problems on the left jetson.  Not sure why
+# This does not show up up the program os run from the command line, but only if it is a service
+
+#from Messages import SystemMessage
 
 now = datetime.datetime.now()
 timeStamp = now.strftime('%Y-%m-%d-%H-%M-%S-')
@@ -216,9 +220,6 @@ parser.add_argument('-r', '--dns', action="store", required=False, help="DNS ser
 
 arguments = parser.parse_args()
 
-# Initialize the UUID library to generate legal bucket names in AWS
-#shortuuid.set_alphabet('0123456789abcdefghijklmnopqrstuvwxyz')
-
 log = startupLogging()
 
 options = OptionsFile(arguments.ini)
@@ -232,6 +233,7 @@ else:
     sys.exit(-1)
 
 # If this is a daemon, connect to the system chatroom
+
 if arguments.watch:
     # The room that will get status reports about this process
     systemRoom = MUCCommunicator(options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_SERVER),
@@ -261,7 +263,7 @@ if arguments.watch or arguments.upload:
         try:
             time.sleep(30)
             answer = my_resolver.resolve('aws.amazon.com')
-            log.debug("AWS can be resolved, so uploads will be attempted")
+            #log.debug("AWS can be resolved, so uploads will be attempted")
         except dns.resolver.NoNameservers:
             log.debug("Can't resolve aws.amazon.com. This is normal under field conditions")
             time.sleep(30)
