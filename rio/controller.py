@@ -21,6 +21,7 @@ from OptionsFile import OptionsFile
 import logging
 import logging.config
 import xmpp
+import numpy as np
 
 try:
     import nidaqmx as ni
@@ -39,6 +40,7 @@ from Messages import MUCMessage, OdometryMessage, SystemMessage
 from GPSClient import GPS
 from CameraDepth import CameraDepth
 
+from WeedExceptions import XMPPServerAuthFailure, XMPPServerUnreachable
 
 
 parser = argparse.ArgumentParser("RIO Controller")
@@ -119,7 +121,8 @@ def startSession(options: OptionsFile, sessionName: str) -> bool:
         log.critical("Raw: {}".format(e))
 
     try:
-        camera.state.toClaim()
+        cameraForIMU.state.toClaim()
+        cameraForDepth.state.toClaim()
     except TransitionNotAllowed as transition:
         log.critical("Unable to transition the camera to claim")
         log.critical(transition)
@@ -158,7 +161,8 @@ def endSession(options: OptionsFile, name: str) -> bool:
         log.error("Unable to write out end of run data to file: {}".format(finished))
         log.error("{}".format(e))
 
-    camera.stop()
+    cameraForIMU.stop()
+    cameraForDepth.stop()
     # Change back to the general output directory not associated with any session
     try:
         os.chdir(path)
@@ -287,10 +291,40 @@ def process(conn, msg: xmpp.protocol.Message):
             else:
                 log.debug("Old system message. Sent: {} Now: {} Delta: {}".format(timeMessageSent, time.time() * 1000, timeDelta))
 
+#
+# Processing the odometry messages is required here only because the depth cameras are on the same system that interprets the odometry
+# signals -- this should be moved to the nvidia systems later
+
+imageNumber = 0
+distanceTravelledSinceLastCapture = 0
+
 def processOdometry(conn, msg: xmpp.protocol.Message):
     global typeOfOdometry
+    global distanceTravelledSinceLastCapture
+    global imageNumber
 
-    log.debug("Process message from {}".format(msg.getFrom()))
+    depthArray = np.ndarray
+    log.debug("Process odometry message from {}".format(msg.getFrom()))
+    odometryMsg = OdometryMessage(raw=msg.getBody())
+    distanceTravelledSinceLastCapture += odometryMsg.distance
+    log.debug("Distance travelled: {}".format(odometryMsg.distance))
+
+    try:
+        imageWidth = int(options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_IMAGE_WIDTH))
+    except KeyError:
+        # This is normal when things are on the odometer system, as we don't have the attribute we need there
+        log.error("Unable to find {}/{} in ini file".format(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_IMAGE_WIDTH))
+        imageWidth = 310
+
+    # If the system has travelled the width of the RGB image, take a depth reading.
+    if distanceTravelledSinceLastCapture > imageWidth:
+        imageNumber += 1
+        depthArray = cameraForDepth.capture()
+        imageName = "depth-{:05d}".format(imageNumber)
+        log.debug("Saving depth image {}".format(imageName))
+        np.save(imageName,depthArray)
+        distanceTravelledSinceLastCapture = 0
+
 
     # Messages from the system room will be in the form: system@conference.weeds.com/console
 
@@ -379,11 +413,18 @@ def startupGPS() -> GPS:
 #
 # D E P T H  C A M E R A
 #
-def startupDepthCamera() -> CameraDepth:
-    camera = CameraDepth(gyro=constants.PARAM_FILE_GYRO, acceleration=constants.PARAM_FILE_ACCELERATION)
+def startupDepthCamera() -> (CameraDepth, CameraDepth):
 
-    camera.state.toIdle()
-    return camera
+    # Start the IMU camera
+    cameraForIMU = CameraDepth(constants.Capture.IMU, gyro=constants.PARAM_FILE_GYRO, acceleration=constants.PARAM_FILE_ACCELERATION)
+
+    # Start the Depth Camera
+    cameraForDepth = CameraDepth(constants.Capture.DEPTH)
+
+    cameraForIMU.state.toIdle()
+    cameraForDepth.state.toIdle()
+
+    return cameraForIMU, cameraForDepth
 
 #
 # O D O M E T R Y
@@ -427,11 +468,13 @@ def startupOdometer(typeOfOdometer: constants.SubsystemType) -> Odometer:
             if pulsesPerRotation == 0:
                 try:
                     pulsesPerRotation = int(options.option(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_PPR))
+                    log.debug("Using PPR: {}".format(pulsesPerRotation))
                 except KeyError:
-                    print("Pulses Per Rotation must be specified as command line option or in the INI file.")
+                    log.error("Pulses Per Rotation must be specified as command line option or in the INI file.")
             if wheelSize == 0:
                 try:
-                    wheelSize = int(options.option(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_WHEEL_CIRCUMFERENCE))
+                    wheelSize = float(options.option(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_WHEEL_CIRCUMFERENCE))
+                    log.debug("Using wheel size: {}".format(wheelSize))
                 except KeyError:
                     print("Wheel Size must be specified as command line option or in the INI file.")
             # The lines specified could not be found in either the INI or on the command line
@@ -497,7 +540,7 @@ def serviceQueue(odometer : PhysicalOdometer, odometryRoom: MUCCommunicator, ann
     # The previous angle -- the current reading will definitely be different
     previous = 0.0
 
-    totalDistanceTraveled = 0.0
+    mmTotalTravel = 0.0
     distanceTraveledSinceLastMessage = 0.0
     servicing = True
 
@@ -512,20 +555,22 @@ def serviceQueue(odometer : PhysicalOdometer, odometryRoom: MUCCommunicator, ann
     log.debug("Waiting for angle changes to appear on queue")
     # Loop until graceful exit.
     i = 0
-    starttime = nanoseconds()
+    starttime = time.time_ns()
     while servicing:
         angle = changeQueue.get(block=True)
-        distanceTraveled = (angle - previous) * odometer.distancePerDegree
-        totalDistanceTraveled += distanceTraveled
+        # mm of travel
+        mmTraveled = (angle - previous) * odometer.distancePerDegree
+        mmTotalTravel += mmTraveled
         previous = angle
-        stoptime = nanoseconds()
-        elapsedSeconds = (stoptime - starttime) / 1000000000
-        starttime = nanoseconds()
+        # Record the time of this reading -- not quite correct, as this should be in the observation
+        stoptime = time.time_ns()
+        #elapsedSeconds = (stoptime - starttime) / 1000000000
+        elapsedSeconds = (stoptime - starttime) / 1e9
+        starttime = time.time_ns()
 
-        # Speed in kph
-        speed = 0
+        kph = 0
         try:
-            speed = (distanceTraveled / 100000) / (elapsedSeconds / 3600)
+            kph = (mmTraveled / 1e6) / (elapsedSeconds / 3600)
         except ZeroDivisionError as zero:
             log.warning("Elapsed time was 0.  Something is wrong")
 
@@ -535,25 +580,35 @@ def serviceQueue(odometer : PhysicalOdometer, odometryRoom: MUCCommunicator, ann
         else:
             position = (0.0,0.0)
 
-        log.debug("{:.4f} mm Total: {:.4f} elapsed {:.4f} Speed {:.4f} kph location: {}".format(distanceTraveled, totalDistanceTraveled, elapsedSeconds, speed, position))
+        gyro = np.array2string(cameraForIMU.gyro, formatter={'float_kind': lambda x: "%.2f" % x})
+        acceleration = np.array2string(cameraForIMU.acceleration, formatter={'float_kind': lambda x: "%.2f" % x})
+        log.debug("{:.4f} mm Total: {:.4f} mm elapsed {:.4f} Speed {:.4f} kph location: {} gyro: {} acceleration {}".
+                  format(mmTraveled, mmTotalTravel, elapsedSeconds, kph, position, gyro, acceleration))
 
         # Send out a message every time the system traverses the distance specified -- forward or backward
 
-        distanceTraveledSinceLastMessage += distanceTraveled
+        distanceTraveledSinceLastMessage += mmTraveled
         if distanceTraveledSinceLastMessage >= announcements or distanceTraveledSinceLastMessage <= -announcements:
 
+            # Create a blank odometry message
             message = OdometryMessage()
 
             # Include GPS data if available
             if gps.connected:
                 (message.latitude, message.longitude) = gps.getCurrentPosition().position()
 
-            message.distance = announcements
-            message.speed = speed
-            message.totalDistance = totalDistanceTraveled
+            # Include gyro information if available
+
+            if cameraForIMU.connected:
+                message.gyro = cameraForIMU.gyro
+                message.acceleration = cameraForIMU.acceleration
+
+            message.distance = distanceTraveledSinceLastMessage
+            message.speed = kph
+            message.totalDistance = mmTotalTravel
             # Timestamp is the nanoseconds in the epoch
-            message.timestamp = time.time() * 1000
-            #message.timestamp = time.time_ns()
+            #message.timestamp = time.time() * 1000
+            message.timestamp = time.time_ns()
             message.source = odometer.source
             messageText = message.formMessage()
             #log.debug("Sending: {}".format(message.formMessage()))
@@ -565,24 +620,6 @@ def serviceQueue(odometer : PhysicalOdometer, odometryRoom: MUCCommunicator, ann
             #     log.fatal("---- Error in sending message ----")
             #     log.fatal("Raw {}".format(e))
             distanceTraveledSinceLastMessage = 0.0
-        # if distanceTraveledSinceLastMessage <= -announcements:
-        #     message = OdometryMessage()
-        #
-        #     # Include GPS data if available
-        #     if gps.connected:
-        #         (message.latitude, message.longitude) = gps.getCurrentPosition().position()
-        #
-        #     message.distance = -announcements
-        #     message.timestamp = time.time() * 1000
-        #     #message.timestamp = time.time_ns()
-        #     message.source = odometer.source
-        #     messageText = message.formMessage()
-        #     #log.debug("Sending: {}".format(messageText))
-        #     try:
-        #         odometryRoom.sendMessage(messageText)
-        #     except Exception as e:
-        #         log.fatal("---- Error in sending message -----")
-        #     distanceTraveledSinceLastMessage = 0.0
 
         i += 1
 
@@ -592,9 +629,24 @@ def processMessages(odometry: MUCCommunicator):
     # Connect to the XMPP server and just return
     odometry.connect(False)
 
-def processMessagesSync(odometry: MUCCommunicator):
+def processMessagesSync(communicator: MUCCommunicator):
     # Connect to the XMPP server and just return
-    odometry.connect(True)
+    log.info("Connecting to chatroom")
+    processing = True
+
+    while processing:
+        try:
+            communicator.connect(True)
+            log.debug("Connected and processed messages")
+        except XMPPServerUnreachable:
+            log.warning("Unable to connect and process messages.  Will retry.")
+            time.sleep(5)
+            processing = True
+        except XMPPServerAuthFailure:
+            log.fatal("Unable to authenticate using parameters")
+            processing = False
+
+    #odometry.connect(True)
 
 def processOdometer(odometer: Odometer):
     log.debug("Connect and start odometer")
@@ -619,16 +671,17 @@ def takeImages(camera: CameraDepth):
     # Loop until we get an error
     while rc == 0:
         while camera.state.is_idle:
-            log.debug("Camera is idle")
+            #log.debug("Camera is idle (This is normal when an operation is not in progress")
             time.sleep(.5)
 
         # Connect to the camera and take an image
-        log.debug("Connecting to camera")
+        log.debug("Connecting to camera for capture type: {}".format(camera.captureType))
         camera.connect()
         camera.initialize()
         camera.start()
 
         if camera.initializeCapture():
+            log.debug("Starting capture type: {}".format(camera.captureType))
             try:
                 camera.startCapturing()
             except IOError as io:
@@ -637,6 +690,7 @@ def takeImages(camera: CameraDepth):
                 rc = -1
             rc = 0
         else:
+            log.critical("Unable to initialize camera")
             rc = -1
 
 # Start the NI system and run diagnostics
@@ -653,7 +707,7 @@ if emitterLeft is None or emitterLeft is None:
 
 odometer = startupOdometer(typeOfOdometry)
 
-camera = startupDepthCamera()
+(cameraForIMU, cameraForDepth) = startupDepthCamera()
 
 # Connect to the GPS
 gps = startupGPS()
@@ -663,7 +717,7 @@ gps = startupGPS()
 threads = list()
 
 # log.debug("Start generator thread")
-# generator = threading.Thread(name=constants.THREAD_NAME_ODOMETRY,target=processMessagesSync, args=(odometryRoom,))
+# generator = threading.Thread(name=constants.THREAD_NAME_ODOMETRY,target=processMessagesSync:, args=(odometryRoom,))
 # threads.append(generator)
 # generator.start()
 odometryRoom.connect(False)
@@ -700,11 +754,23 @@ threads.append(odometry)
 odometry.start()
 
 log.debug("Start IMU thread")
-imu = threading.Thread(name=constants.THREAD_NAME_IMU, target=takeImages, args=(camera,))
+imu = threading.Thread(name=constants.THREAD_NAME_IMU, target=takeImages, args=(cameraForIMU,))
 imu.daemon = True
 threads.append(imu)
 imu.start()
 
+log.debug("Start depth thread")
+depth = threading.Thread(name=constants.THREAD_NAME_DEPTH, target=takeImages, args=(cameraForDepth,))
+depth.daemon = True
+threads.append(depth)
+depth.start()
+
+# The position thread will not be required when the depth cameras are moved to the nvidia systems
+log.debug("Start position thread")
+position = threading.Thread(name=constants.THREAD_NAME_POSITION, target=processMessagesSync, args=(odometryRoom,))
+position.daemon = True
+threads.append(position)
+position.start()
 
 while True:
     time.sleep(5)
