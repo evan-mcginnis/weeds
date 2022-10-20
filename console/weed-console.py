@@ -67,6 +67,7 @@ class OdometrySignals(WeedsSignals):
     speed = pyqtSignal(str, float, name="speed")
     latitude = pyqtSignal(float, name="latitude")
     longitude = pyqtSignal(float, name="longitude")
+    progress = pyqtSignal(float, name="progress")
     virtual = pyqtSignal()
 
 class SystemSignals(WeedsSignals):
@@ -229,6 +230,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self._taskSystem = None
         self._taskHousekeeping = None
         self._taskTreatment = None
+        self._distanceOverCapturedLength = 0.0
         self.setupUi(self)
 
         # Wire up the buttons
@@ -321,6 +323,21 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         else:
             self.longitude.display("------------")
 
+    def updateProgress(self, distance: float):
+        self._distanceOverCapturedLength += distance
+
+        try:
+            percentage = int((self._distanceOverCapturedLength / 310) * 100)
+        except ZeroDivisionError:
+            percentage = 0
+
+        log.debug("Advanced {}/{} or {}% of total".format(distance, self._distanceOverCapturedLength, percentage))
+
+        if percentage > 100:
+            percentage = 100
+            self._distanceOverCapturedLength = 0
+        self.tractor_progress.setValue(percentage)
+
     def updateCurrentSpeed(self, source, speed: float):
         log.debug("Update current {} speed to {}".format(source, speed))
         if source == constants.SOURCE_VIRTUAL:
@@ -332,7 +349,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def updateCurrentDistance(self, source: str, distance: float):
         log.debug("Update current distance")
         self.currentDistance = distance
-        self.count_distance.display(distance - self.absoluteDistance)
+
+        # The distance in the message is in mm -- display is in cm
+        self.count_distance.display((distance - self.absoluteDistance) / 10)
         if source == constants.SOURCE_VIRTUAL:
             self.count_distance.setStyleSheet("color: black; background-color: yellow")
         else:
@@ -407,7 +426,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.statusTable.horizontalHeader().setVisible(True)
         self.statusTable.verticalHeader().setVisible(True)
 
-        nNumRows = 5
+        nNumRows = 6
         nRowHeight = self.statusTable.rowHeight(0)
         nTableHeight = (nNumRows * nRowHeight) + self.statusTable.horizontalHeader().height() + 2 * self.statusTable.frameWidth();
         self.statusTable.setMinimumHeight(nTableHeight)
@@ -724,6 +743,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def resetDistance(self):
         self.absoluteDistance = self.currentDistance
+        self.count_distance.display(0.0)
 
     def startUsingConstantSpeed(self):
         desiredSpeed = self.constantSpeed.value()
@@ -843,6 +863,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self._treatmentSignals.plan.connect(self.setTreatments)
         self._treatmentSignals.image.connect(self.setImage)
 
+        self._odometrySignals.progress.connect(self.updateProgress)
         self._odometrySignals.distance.connect(self.updateCurrentDistance)
         self._odometrySignals.speed.connect(self.updateCurrentSpeed)
         self._odometrySignals.latitude.connect(self.updateLatitude)
@@ -871,6 +892,7 @@ def process(conn, msg: xmpp.protocol.Message):
         signals = window.taskOdometry.signals
         signals.distance.emit(odometryMessage.source, float(odometryMessage.totalDistance))
         signals.speed.emit(odometryMessage.source, float(odometryMessage.speed))
+        signals.progress.emit(float(odometryMessage.distance))
 
         # See if we have lat/long.  Bad form here, as 0,0 is a legit value
         if odometryMessage.latitude != 0:
