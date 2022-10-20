@@ -40,8 +40,11 @@ timeStamp = now.strftime('%Y-%m-%d-%H-%M-%S-')
 PREFIX = 'yuma-' + timeStamp
 
 PATTERN_IMAGES = '*' + constants.EXTENSION_IMAGE
+PATTERN_DEPTH = '*' + constants.EXTENSION_NPY
 KEY_IMAGES = 'images'
+KEY_DEPTH = 'depth'
 TAR_IMAGES = 'images.tar'
+TAR_DEPTH = 'depth.tar'
 
 s3Resource = boto3.resource('s3')
 
@@ -77,19 +80,19 @@ def findFiles(directory: str):
     flist = glob.glob('*')
     return flist
 
-def prepareImagesTAR(options: OptionsFile):
+def prepareImagesTAR(options: OptionsFile, pattern: str, name: str) -> str:
     """
     Adds the images to the tar file and then removes the original
     :return:
     """
     # Find, add, and delete the images
-    images = glob.glob(PATTERN_IMAGES)
+    images = glob.glob(pattern)
     if len(images) == 0:
-        log.debug("No images found")
+        log.debug("No images found for pattern {}".format(pattern))
         return
 
     # This is so we can call the images left and right
-    theTAR = options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_JETSON) + "-" + TAR_IMAGES
+    theTAR = options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_JETSON) + "-" + name
     tar = tarfile.open(name=theTAR,mode="w|")
     for image in images:
         try:
@@ -102,7 +105,7 @@ def prepareImagesTAR(options: OptionsFile):
         except OSError as e:
             log.fatal("Could not remove image {}: {}".format(image, e.strerror))
     tar.close()
-    return
+    return theTAR
 
 def upload(bucket : str, options: OptionsFile) -> bool:
     """
@@ -158,9 +161,10 @@ def upload(bucket : str, options: OptionsFile) -> bool:
                 log.warning("Ignoring this directory")
                 return False
 
-    log.debug("Preparing TAR")
+    log.debug("Preparing TAR files")
     # Prepare things for S3 upload
-    prepareImagesTAR(options)
+    prepareImagesTAR(options, PATTERN_IMAGES, TAR_IMAGES)
+    prepareImagesTAR(options, PATTERN_DEPTH, TAR_DEPTH)
 
     # Find all the files in the directory
     files = glob.glob('*')
