@@ -16,12 +16,15 @@ from nidaqmx import DaqError, DaqWarning
 import threading, queue
 
 # Pieces for how NI names their ports
+import constants
+
 NI_PORT = "port"
 NI_PORT0 = "port0"
 NI_LINE = "line"
 NI_SEPARATOR = "/"
 
-MAX_EMITTERS = 12
+MAX_EMITTERS = 24
+
 
 #
 # W A R N I N G
@@ -114,8 +117,19 @@ class Emitter(ABC):
         return True
 
     @staticmethod
-    def channelName(module: str, port: int, line: int) -> str:
+    def channelNameUsingLineNumber(module: str, port: int, line: int) -> str:
+        """
+        Channel name in NI format, i.e., Mod4/0/line3
+        :param module:
+        :param port:
+        :param line:
+        :return: Channel name in NI format
+        """
         return module + NI_SEPARATOR + NI_PORT + str(port) + NI_SEPARATOR + NI_LINE + str(line)
+
+    @staticmethod
+    def channelNameUsingLineName(module: str, port: int, line: str) -> str:
+        return module + NI_SEPARATOR + NI_PORT + str(port) + NI_SEPARATOR + line
 #
 # A Virtual emitter is one that does not correspond to any specific hardware
 #
@@ -170,60 +184,69 @@ class PhysicalEmitter(Emitter):
 
         return True
 
-    def diagnostics(self) -> (bool, str):
-        """
-        Execute emitter diagnostics.
-        :return: False on failure
-        """
 
-        # Arrays for turning all the lines on and off
-        diagnosticsOn = [True] * MAX_EMITTERS
-        diagnosticsOff = [False] * MAX_EMITTERS
+    # These are the line assignments for the emitters. Note that these are NOT the pin assignments
 
-        performDiagnostics = True
+    lines = {
+        # The left side
+        "LEFT11" : "line0", "LEFT21" : "line3", "LEFT31": "line6", "LEFT41": "line9",
+        "LEFT12" : "line1", "LEFT22" : "line4", "LEFT32": "line7", "LEFT42": "line10",
+        "LEFT13" : "line2", "LEFT23" : "line5", "LEFT33": "line8", "LEFT43": "line11",
+        # The right side
+        "RIGHT11" : "line12", "RIGHT21" : "line15", "RIGHT31": "line18", "RIGHT41": "line21",
+        "RIGHT12" : "line13", "RIGHT22" : "line16", "RIGHT32": "line19", "RIGHT42": "line22",
+        "RIGHT13" : "line14", "RIGHT23" : "line17", "RIGHT33": "line20", "RIGHT43": "line23"
+    }
+
+    def lineFor(self, side: constants.Side, tier: int, position: int) -> str:
+        """
+        Gets the line for the associatated emitter given the side, tier, and position
+        :param side: Side.LEFT or Side.RIGHT
+        :param tier: 1-4, 4 is closest to tractor, 1 is furthest
+        :param position: 1-3, 1 is closest to left when facing rear of tractor
+        """
+        line = ""
+        key = side.name + str(tier) + str(position)
+        try:
+            line = self.lines.get(key)
+        except KeyError as key:
+            self._log.error("Unable to find line for Side: {} tier: {} position: {}".format(side.name, tier, position))
+        return line
+
+    def on(self, side: constants.Side, tier: int, position: int):
         with ni.Task() as task:
-            for line in range(1, MAX_EMITTERS + 1):
-                # Form a channel descriptor line "Mod4/port0/line3"
-                channel = self.channelName(self.module, 0, line)
-                try:
-                    task.do_channels.add_do_chan(channel)
-                    performDiagnostics = True
-                except DaqError as daq:
-                    self._log.fatal("Unable to connect to the DAQ")
-                    self._log.fatal("Check power and connectivity to DAQ")
-                    performDiagnostics = False
-                    diagnosticResult = False
-                    diagnosticText = "Unable to connect to the DAQ"
-                    break
+            channel = self.channelNameUsingLineNumber(self.module, self.lineFor(side, tier, position))
 
+            try:
+                task.do_channels.add_do_chan(channel)
+                task.write(True)
+            except DaqError as daq:
+                self.log.error("Unable to turn on emitter {} {} {}".format(side, tier, position))
 
-            if performDiagnostics:
-                # Turn off all the emitters as cleanup
-                try:
-                    task.write(diagnosticsOff)
-                except DaqError as daq:
-                    self._log.fatal("Unable to write to emitters to setup diagnostics")
-                    performDiagnostics = False
-                    diagnosticResult = False
-                    diagnosticText = "Unable to setup diagnostics"
-
-            if performDiagnostics:
-                # Not much of a diagnostic here -- just turn the emitters on and off
-                diagnosticResult = True
-                diagnosticText = "Emitter diagnostics passed"
-                try:
-                    for i in range(5):
-                        task.write(diagnosticsOn)
-                        time.sleep(1)
-                        task.write(diagnosticsOff)
-                        time.sleep(1)
-
-                except ni.errors.DaqError:
-                    diagnosticResult = False
-                    diagnosticText = "Error encountered in NI: "
-
+    def diagnostics(self) -> (bool, str):
+        diagnosticResult = True
+        diagnosticText = "Diagnostic test passed"
+        try:
+            for side in constants.Side:
+                for tier in range(4):
+                    for position in range(3):
+                        with ni.Task() as task:
+                            line = self.lineFor(side, tier + 1, position + 1)
+                            #channel = self.channelNameUsingLineNumber(self.module, 0, line)
+                            channel = "{}/port{}/{}".format(self.module,0,line)
+                            self._log.debug("Add channel: {}".format(channel))
+                            task.do_channels.add_do_chan(channel)
+                            task.write(True)
+                            time.sleep(1)
+                            task.write(False)
+        except DaqError as daq:
+            self._log.fatal("Unable to write to emitters for diagnostics")
+            diagnosticText = "Unable to write to the emitters for diagnostics"
+            diagnosticResult = False
 
         return diagnosticResult, diagnosticText
+
+
 
 def checkLineNames(line: str) -> (str, int):
     """
