@@ -14,6 +14,7 @@ import math
 import pandas as pd
 import logging
 from math import pi
+#from GPSPhoto import gpsphoto
 
 from collections import namedtuple
 from operator import mul
@@ -152,6 +153,9 @@ class ImageManipulation:
     def save(self, image: np.ndarray, name: str):
         data = Image.fromarray((image * 255).astype(np.uint8))
         data.save(name)
+
+    def addGPS(self, latitude: float, longitude: float):
+        pass
 
     def write(self, image: np.ndarray, name: str):
         cv.imwrite(name, image)

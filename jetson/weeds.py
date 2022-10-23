@@ -35,6 +35,7 @@ from Reporting import Reporting
 from Treatment import Treatment
 from MUCCommunicator import MUCCommunicator
 from Messages import OdometryMessage, SystemMessage, TreatmentMessage
+from WeedExceptions import XMPPServerUnreachable, XMPPServerAuthFailure
 
 #from Selection import Selection
 
@@ -138,7 +139,7 @@ class ImageEvents(pypylon.pylon.ImageEventHandler):
         :param camera:
         :param grabResult:
         """
-        log.debug("OnImageGrabbed event for device: {}".format(camera.GetDeviceInfo().GetModelName()))
+        #log.debug("OnImageGrabbed event for device: {}".format(camera.GetDeviceInfo().GetModelName()))
 
         # Image grabbed successfully?
         if grabResult.GrabSucceeded():
@@ -152,7 +153,7 @@ class ImageEvents(pypylon.pylon.ImageEventHandler):
 
             cameraNumber = camera.GetCameraContext()
             camera = Camera.cameras[cameraNumber]
-            log.debug("Camera context is {} Queue is {}".format(cameraNumber, len(camera._images)))
+            #log.debug("Camera context is {} Queue is {}".format(cameraNumber, len(camera._images)))
             camera._images.append(timestamped)
 
             # print("SizeX: ", grabResult.GetWidth())
@@ -1587,6 +1588,7 @@ def messageOdometryCB(conn, msg: xmpp.protocol.Message):
         if body is not None:
             log.debug("Distance message from {}: [{}]".format(msg.getFrom(), msg.getBody()))
             odometryMessage = OdometryMessage(raw=body)
+            log.debug("Message: {}".format(odometryMessage.data))
             totalMovement += odometryMessage.distance
             movementSinceLastProcessing += odometryMessage.distance
             # The time of the observation
@@ -1596,7 +1598,8 @@ def messageOdometryCB(conn, msg: xmpp.protocol.Message):
             # get that sorted out.  Just convert the reading to milliseconds for now
             #timeDelta = (time.time() * 1000) - (timeRead / 1000000)
             timeDelta = (time.time() * 1000) - timeRead
-            log.debug("Total movement is {} at time {}. Time now is {} delta from now {} ms".format(totalMovement, timeRead, time.time() * 1000, timeDelta))
+            log.debug("Total movement: {} at time: {}. Movement since last acquisition: {} Time now is {} delta from now {} ms".
+                      format(totalMovement, timeRead, movementSinceLastProcessing, time.time() * 1000, timeDelta))
 
             if timeDelta > 5000:
                 log.debug("Old message seen.  Ignored")
@@ -1604,9 +1607,9 @@ def messageOdometryCB(conn, msg: xmpp.protocol.Message):
             # If the movement is equal to the size of the image, take a picture
             # We need to allow for some overlap so the images can be stitched together.
             # So reduce this by the overlap factor
-            elif movementSinceLastProcessing > (float(options.option(constants.PROPERTY_SECTION_CAMERA,
-                                                                     constants.PROPERTY_OVERLAP_FACTOR)) * camera.gsd):
-                log.info("Acquiring image")
+            elif movementSinceLastProcessing > ((1 - float(options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_OVERLAP_FACTOR))) * camera.gsd):
+                gsd = (1 - float( options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_OVERLAP_FACTOR))) * camera.gsd
+                log.info("Acquiring image.  Movement since last processing {} GSD {}".format(movementSinceLastProcessing,gsd))
                 movementSinceLastProcessing = 0
                 processor()
         else:
@@ -1643,7 +1646,19 @@ def processMessages(communicator: MUCCommunicator):
     :param communicator: The chatroom communicator
     """
     log.info("Connecting to chatroom")
-    communicator.connect(True)
+    processing = True
+
+    while processing:
+        try:
+            communicator.connect(True)
+            log.debug("Connected and processed messages")
+        except XMPPServerUnreachable:
+            log.warning("Unable to connect and process messages.  Will retry.")
+            time.sleep(5)
+            processing = True
+        except XMPPServerAuthFailure:
+            log.fatal("Unable to authenticate using parameters")
+            processing = False
 
 #
 # Take the images -- this method will not return, only add new images to the queue
@@ -1716,11 +1731,11 @@ currentOperation = constants.Operation.QUIESCENT.name
 (logger, log) = startupLogger(arguments.output)
 #log = logging.getLogger(__name__)
 
-theCamera = startupCamera(options)
+camera = startupCamera(options)
 log.debug("camera started")
 
-cameraIP = options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_CAMERA_IP)
-camera = CameraBasler(ip = cameraIP)
+#cameraIP = options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_CAMERA_IP)
+#camera = CameraBasler(ip = cameraIP)
 
 (roomOdometry, roomSystem, roomTreatment) = startupCommunications(options, messageOdometryCB, messageSystemCB, messageTreatmentCB)
 log.debug("Communications started")
@@ -1740,19 +1755,22 @@ acquire.start()
 
 
 log.debug("Starting odometry receiver")
-generator = threading.Thread(name=constants.THREAD_NAME_ODOMETRY, target=processMessages, args=(roomOdometry,))
+#generator = threading.Thread(name=constants.THREAD_NAME_ODOMETRY, target=processMessages, args=(roomOdometry,))
+generator = threading.Thread(name=constants.THREAD_NAME_ODOMETRY, target=roomOdometry.processMessages, args=())
 generator.daemon = True
 threads.append(generator)
 generator.start()
 
 log.debug("Starting system receiver")
-sys = threading.Thread(name=constants.THREAD_NAME_SYSTEM, target=processMessages, args=(roomSystem,))
+#sys = threading.Thread(name=constants.THREAD_NAME_SYSTEM, target=processMessages, args=(roomSystem,))
+sys = threading.Thread(name=constants.THREAD_NAME_SYSTEM, target=roomSystem.processMessages, args=())
 sys.daemon = True
 threads.append(sys)
 sys.start()
 
 log.debug("Starting treatment thread")
-treat = threading.Thread(name=constants.THREAD_NAME_TREATMENT, target=processMessages, args=(roomTreatment,))
+#treat = threading.Thread(name=constants.THREAD_NAME_TREATMENT, target=processMessages, args=(roomTreatment,))
+treat = threading.Thread(name=constants.THREAD_NAME_TREATMENT, target=roomTreatment.processMessages, args=())
 treat.daemon = True
 threads.append(treat)
 treat.start()
