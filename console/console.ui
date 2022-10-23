@@ -568,6 +568,9 @@
           </item>
           <item>
            <layout class="QVBoxLayout" name="verticalLayout_15">
+            <property name="sizeConstraint">
+             <enum>QLayout::SetFixedSize</enum>
+            </property>
             <item>
              <widget class="QLabel" name="label_16">
               <property name="text">
@@ -629,6 +632,19 @@
           </item>
           <item>
            <spacer name="horizontalSpacer_11">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+          <item>
+           <spacer name="horizontalSpacer_16">
             <property name="orientation">
              <enum>Qt::Horizontal</enum>
             </property>
@@ -868,13 +884,13 @@
           <property name="sizePolicy">
            <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
             <horstretch>1</horstretch>
-            <verstretch>0</verstretch>
+            <verstretch>1</verstretch>
            </sizepolicy>
           </property>
           <property name="minimumSize">
            <size>
             <width>1356</width>
-            <height>500</height>
+            <height>583</height>
            </size>
           </property>
           <property name="maximumSize">
@@ -901,7 +917,7 @@
            <bool>true</bool>
           </property>
           <property name="rowCount">
-           <number>5</number>
+           <number>6</number>
           </property>
           <attribute name="horizontalHeaderVisible">
            <bool>false</bool>
@@ -973,6 +989,16 @@
           <row>
            <property name="text">
             <string>AWS Middle</string>
+           </property>
+           <property name="font">
+            <font>
+             <pointsize>20</pointsize>
+            </font>
+           </property>
+          </row>
+          <row>
+           <property name="text">
+            <string>AWS Right</string>
            </property>
            <property name="font">
             <font>

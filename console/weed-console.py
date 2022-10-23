@@ -323,6 +323,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         else:
             self.longitude.display("------------")
 
+
+
     def updateProgress(self, distance: float):
         self._distanceOverCapturedLength += distance
 
@@ -732,6 +734,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             except Exception as e:
                 log.fatal(e)
 
+    def resetProgress(self):
+        self._distanceOverCapturedLength = 0
+        self.tractor_progress.setValue(0)
 
     def resetKPH(self):
         self.setSpeed(0.0)
@@ -789,6 +794,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         # Remove the icon in the tab
         self.tabWidget.setTabIcon(0, QtGui.QIcon())
+        self.resetImageCount()
+        self.resetProgress()
         log.debug("Stop Weeding")
 
     def confirmOperation(self, text):
