@@ -6,8 +6,11 @@
 
 import argparse
 
+import PIL
 import matplotlib.pyplot as plt
+import matplotlib.image
 import numpy as np
+from PIL import Image
 
 parser = argparse.ArgumentParser("Visualize Depth Data")
 parser.add_argument("-i", "--input", action="store", required=True, help="Depth data file in npy format")
@@ -22,7 +25,14 @@ except FileNotFoundError:
 
 
 if depth is not None:
-    plt.imshow(depth, interpolation='none')
+    print("Max X is: {}".format(depth.max()))
+    print("Shape is: {}".format(np.shape(depth)))
+    plt.imshow(depth, interpolation='none', vmin=430, vmax=470)
     plt.show()
+    matplotlib.image.imsave("depth.png", depth)
+
+# if depth is not None:
+#     im = Image.fromarray(depth)
+#     im.save("depth.jpg")
 
 
