@@ -6,8 +6,9 @@
 	"location": "tucson",
 	"name": "jetson-right",
 	"nickname": "jetson-right",
-	"server": "jetson-right.weeds.com",
-	"position": "right"
+	"server": "169.254.212.35",
+	"position": "right",
+	"serial": "027422070613"
 }
 
 

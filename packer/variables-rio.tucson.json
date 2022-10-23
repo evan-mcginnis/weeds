@@ -8,7 +8,7 @@
   "weeds-user": "weeds",
   "location": "tucson",
   "pulses": "5000",
-  "server": "jetson-right.weeds.com",
+  "server": "169.254.212.35",
   "position": "middle",
-  "foward": "COUNTER-CLOCKWISE"
+  "forward": "COUNTER-CLOCKWISE"
 }

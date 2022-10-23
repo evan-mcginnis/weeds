@@ -24,8 +24,10 @@ create_ini_file_link() {
   if [ ! -L ~weeds/post/options.ini ]; then
     if [ -f ~weeds/jetson/options.ini ]; then
       ln -s  ~weeds/jetson/options.ini ~weeds/post/options.ini
+      chown -h weeds:weeds ~weeds/post/options.ini
     elif [ -f ~weeds/rio/options.ini ]; then
       ln -s  ~weeds/rio/options.ini ~weeds/post/options.ini
+      chown -h weeds:weeds ~weeds/post/options.ini
     fi
   fi
 }

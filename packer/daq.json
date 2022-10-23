@@ -33,7 +33,7 @@
       "type": "shell",
       "remote_folder": "~",
       "inline": [
-        "echo {{user `sudo_password`}} | sudo -S bash -x ~/install-daq.sh {{user `pulses`}} {{user `server`}} {{user `position`}} {{user `forward`}}",
+        "echo {{user `sudo_password`}} | sudo -S bash -x ~/install-daq.sh {{user `pulses`}} {{user `server`}} {{user `position`}} {{user `forward`}} {{user `size`}} {{user `serial`}}",
         "echo {{user `sudo_password`}} | sudo -S bash -x ~/install-uploader.sh",
         "rm ~/install-uploader.sh",
         "rm ~/install-daq.sh"

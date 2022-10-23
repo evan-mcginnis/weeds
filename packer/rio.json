@@ -23,7 +23,7 @@
       "type": "shell",
       "remote_folder": "~",
       "inline": [
-        "bash -x ~/install-rio.sh {{user `pulses`}} {{user `server`}}",
+        "bash -x ~/install-rio.sh {{user `pulses`}} {{user `server`}} {{user `size`}}",
         "rm ~/install-rio.sh"
       ]
     }
