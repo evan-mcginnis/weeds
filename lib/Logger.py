@@ -28,8 +28,8 @@ class Logger:
             return False
 
     def logImage(self, name: str, image) -> str:
-        pathname = "{}/{}-{:03d}.jpg".format(self.rootDirectory, name, self.sequence)
-        filename = "{}-{:03d}.jpg".format(name, self.sequence)
+        pathname = "{}/{}-{:05d}.jpg".format(self.rootDirectory, name, self.sequence)
+        filename = "{}-{:05d}.jpg".format(name, self.sequence)
 
         cv.imwrite(pathname, image)
         self.sequence = self.sequence + 1

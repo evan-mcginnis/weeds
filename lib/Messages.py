@@ -6,6 +6,7 @@
 import json
 import logging
 from abc import ABC, abstractmethod
+import numpy as np
 
 import constants
 
@@ -68,6 +69,9 @@ class MUCMessage(ABC):
         """
         self._json = json.dumps(self._data)
         return self._json
+
+
+
 
 class SystemMessage(MUCMessage):
     def __init__(self, **kwargs):
@@ -243,6 +247,34 @@ class OdometryMessage(MUCMessage):
             self._longitude = self._data[constants.JSON_LONGITUDE]
         else:
             self._longitude = 0.0
+
+        if constants.JSON_GYRO in self._data:
+            self._gyro = self._data[constants.JSON_GYRO]
+        else:
+            self._gyro = ""
+
+        if constants.JSON_ACCELERATION in self._data:
+            self._acceleration = self._data[constants.JSON_ACCELERATION]
+        else:
+            self._acceleration = ""
+
+    @property
+    def gyro(self) -> str:
+        return self._gyro
+
+    @gyro.setter
+    def gyro(self, values: np.ndarray):
+        self._gyro = "({},{},{})".format(values[0],values[1], values[2])
+        self._data[constants.JSON_GYRO] = self._gyro
+
+    @property
+    def acceleration(self) -> str:
+        return self._acceleration
+
+    @acceleration.setter
+    def acceleration(self, values: np.ndarray):
+        self._acceleration = "({},{},{})".format(values[0],values[1],values[2])
+        self._data[constants.JSON_ACCELERATION] = self._acceleration
 
     @property
     def latitude(self) -> float:

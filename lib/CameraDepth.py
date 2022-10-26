@@ -1,5 +1,5 @@
 #
-# C A M E R A F I L E
+# C A M E R A D E P T H
 #
 import pathlib
 import logging
@@ -11,7 +11,6 @@ from io import TextIOWrapper
 
 import numpy as np
 import os
-#import cv2 as cv
 from abc import ABC, abstractmethod
 
 from statemachine.exceptions import TransitionNotAllowed
@@ -20,9 +19,12 @@ import constants
 from Performance import Performance
 
 from Camera import Camera
+from WeedExceptions import DepthUnknownStream
 
+import pyrealsense2 as rs
+import numpy as np
 
-
+from RealSense import RealSense
 
 #
 # The Basler camera is accessed through the pylon API
@@ -43,13 +45,12 @@ class ProcessedImage():
     def timestamp(self) -> int:
         return self._timestamp
 
-import pyrealsense2 as rs
-import numpy as np
+
 
 
 class CameraDepth(Camera):
 
-    def __init__(self, **kwargs):
+    def __init__(self, captureType: constants.Capture, **kwargs):
         """
         The depth object.
         :param kwargs: gyro=<name of gryo log file> acceleration=<name of acceleration log file>
@@ -61,36 +62,78 @@ class CameraDepth(Camera):
         self._camera = None
         self.log = logging.getLogger(__name__)
         self._capturing = False
-        self._images = deque(maxlen=constants.IMAGE_QUEUE_LEN)
+        self._images = deque(maxlen=constants.DEPTH_QUEUE_LEN)
 
         self._pipeline = None
         self._config = None
 
         self._currentGryo = np.zeros(3)
         self._currentAcceleration = np.zeros(3)
+        self._depth = np.empty([constants.DEPTH_MAX_HORIZONTAL, constants.DEPTH_MAX_VERTICAL])
+        self._imageNumber = 0
+
+        self._pipelineIMU = None
+        self._pipelineDepth = None
+
+        self._configIMU = None
+        self._configDepth = None
+
+        self._initialized = False
 
         # Indicates that the capturing is complete
         self._capturingComplete = False
 
+        self._captureType = captureType
+
+        # For the IMU capture, the names of the gyro and acceleration file must be supplied
+        if captureType == constants.Capture.IMU:
+            try:
+                self._gyro_log = kwargs[constants.KEYWORD_FILE_GYRO]
+                self._acceleration_log = kwargs[constants.KEYWORD_FILE_ACCELERATION]
+            except KeyError as key:
+                raise ValueError("These keywords are required: {} {}".format(constants.KEYWORD_FILE_GYRO, constants.KEYWORD_FILE_ACCELERATION))
+
+        # Cameras are identified by the serial number -- this represents the one we want
         try:
-            self._gyro_log = kwargs[constants.KEYWORD_FILE_GYRO]
-            self._acceleration_log = kwargs[constants.KEYWORD_FILE_ACCELERATION]
+            self._serial = str(kwargs[constants.KEYWORD_SERIAL])
         except KeyError as key:
-            raise ValueError("These keywords are required: {} {}".format(constants.KEYWORD_FILE_GYRO, constants.KEYWORD_FILE_ACCELERATION))
+            raise ValueError("The serial number of the device must be specified by keyword: {}".format(constants.KEYWORD_SERIAL))
+
+        # The configuration of the depth camera
+        try:
+            self._config = kwargs[constants.KEYWORD_CONFIGURATION]
+        except KeyError as key:
+            self.log.warning("The configuration of the device is not specified with keyword: {}. Using defaults.".format(constants.KEYWORD_CONFIGURATION))
 
         super().__init__(**kwargs)
 
         return
 
     @property
-    def gyro(self):
+    def imageNumber(self) -> int:
+        return self._imageNumber
+
+    @imageNumber.setter
+    def imageNumber(self, number: int):
+        self._imageNumber = number
+
+    @property
+    def gyro(self) -> np.ndarray:
         return self._currentGryo
 
     @property
-    def acceleration(self):
+    def acceleration(self) -> np.ndarray:
         return self._currentAcceleration
 
+    @property
+    def connected(self) -> bool:
+        return self._connected
+
     def connect(self) -> bool:
+
+        # Enable the camera and apply the config
+        # rs.enable_device(self._config, self._serial)
+
 
         self._connected = True
 
@@ -99,16 +142,37 @@ class CameraDepth(Camera):
 
     def initializeCapture(self):
 
-        self._pipeline = rs.pipeline()
-        self._config = rs.config()
-
-        # Enable the gyroscopic and accelerometer streams
-        self._config.enable_stream(rs.stream.accel)
-        self._config.enable_stream(rs.stream.gyro)
-
         self._initialized = True
+        if self._captureType == constants.Capture.IMU:
+            # Capturing both the IMU data and the depth data in one stream seems to be problematic, separate these
+            self._pipelineIMU = rs.pipeline()
+            self._configIMU = rs.config()
 
-        return(self._initialized)
+            # Choose the device based on serial number
+            self.log.debug("Enable IMU device with serial number: {}".format(self._serial))
+            self._configIMU.enable_device(self._serial)
+
+            # Enable the gyroscopic and accelerometer streams
+            self._configIMU.enable_stream(rs.stream.accel)
+            self._configIMU.enable_stream(rs.stream.gyro)
+
+        elif self._captureType == constants.Capture.DEPTH:
+            # Enable depth stream to capture 1280x720, 6 FPS
+            self._pipelineDepth = rs.pipeline()
+            self._configDepth = rs.config()
+
+            # Choose the device based on serial number
+            self.log.debug("Enable depth device with serial number: {}".format(self._serial))
+            self._configDepth.enable_device(self._serial)
+
+            self._configDepth.enable_stream(rs.stream.depth, constants.DEPTH_MAX_HORIZONTAL, constants.DEPTH_MAX_VERTICAL, rs.format.z16, constants.DEPTH_MAX_FRAMES)
+
+        else:
+            self._initialized = False
+            raise DepthUnknownStream("Unknown stream: {}".format(self._captureType))
+
+
+        return self._initialized
 
     def initialize(self):
         """
@@ -119,15 +183,20 @@ class CameraDepth(Camera):
         if not self._connected:
             raise IOError("Depth Camera is not connected.")
 
-        try:
-            self._gyroLogFile = open(self._gyro_log, "w")
-        except OSError:
-            raise IOError("Cannot access gyro file: {}".format(self._gyro_log))
+        if self._captureType == constants.Capture.IMU:
+            try:
+                self._gyroLogFile = open(self._gyro_log, "w")
+            except OSError:
+                raise IOError("Cannot access gyro file: {}".format(self._gyro_log))
+            except ResourceWarning:
+                self.log.error("Unable to open {} for writing.".format(self._gyro_log))
 
-        try:
-            self._accelerationLogFile = open(self._acceleration_log, "w")
-        except OSError:
-            raise IOError("Cannot access acceleration file: {}".format(self._acceleration_log))
+            try:
+                self._accelerationLogFile = open(self._acceleration_log, "w")
+            except OSError:
+                raise IOError("Cannot access acceleration file: {}".format(self._acceleration_log))
+            except ResourceWarning:
+                self.log.error("Unable to open {} for writing.".format(self._acceleration_log))
 
         self.log.debug("Depth Camera initialized")
 
@@ -145,44 +214,101 @@ class CameraDepth(Camera):
     def _acceleration(self, acceleration) -> np.ndarray:
         return np.asarray([acceleration.x, acceleration.y, acceleration.z])
 
+    @property
+    def captureType(self) -> str:
+        return self._captureType.name
+
     def startCapturing(self):
 
-        self.log.debug("Begin grab of IMU stream")
-        try:
-            self._pipeline.start(self._config)
-            self._capturing = True
+        # The IMU capture loop
+        if self._captureType == constants.Capture.IMU:
+            self.log.debug("Begin grab of IMU stream")
             try:
-                self.state.toCapture()
-            except TransitionNotAllowed as transition:
-                self.log.critical("Unable to transition camera to capturing")
-                self.log.critical(transition)
+                self._pipelineIMU.start(self._configIMU)
+                self._capturing = True
+                try:
+                    self.state.toCapture()
+                except TransitionNotAllowed as transition:
+                    self.log.critical("Unable to transition camera to capturing")
+                    self.log.critical(transition)
+                    self._capturing = False
+            except Exception as e:
+                self.log.fatal("Failed to open the depth camera {} and start grabbing IMU.".format(self._serial))
+                self.log.fatal("RAW: /{}".format(e))
                 self._capturing = False
-        except Exception as e:
-            self.log.fatal("Failed to open the depth camera and start grabbing.")
-            self.log.fatal("{}".format(e))
-            self._capturing = False
 
-        self.log.debug("Capturing IMU data")
-        while self._capturing:
-            f = self._pipeline.wait_for_frames()
-            self._currentAcceleration = self._acceleration(f[0].as_motion_frame().get_motion_data())
-            self._currentGryo = self._gyro(f[1].as_motion_frame().get_motion_data())
+            self.log.debug("Capturing IMU data")
+            while self._capturing:
+                f = self._pipelineIMU.wait_for_frames()
+                self._currentAcceleration = self._acceleration(f[0].as_motion_frame().get_motion_data())
+                self._currentGryo = self._gyro(f[1].as_motion_frame().get_motion_data())
+                #self._currentDepth = f.get_depth_frame()
+
+
+                try:
+                    self._gyroLogFile.write("{},{},{}\n".format(self._currentGryo[0], self._currentGryo[1], self._currentGryo[2]))
+                    self._accelerationLogFile.write("{},{},{}\n".format(self._currentAcceleration[0], self._currentAcceleration[1], self._currentAcceleration[2]))
+                    #epthFile = constants.FILE_DEPTH.format(1)
+                    #np.save(depthFile, self._depth)
+                # This is the case where an operation is stopped while data is available.  A bit of a corner-case, but one that can
+                # be addressed with a semaphore.  This is certainly not a clean way to go about this.
+                except ValueError as value:
+                    self.log.warning("Sloppiness detected.  Tried to write to a closed file")
+                except Exception as ex:
+                    self.log.error("Unexpected exception hit in write of gyro and acceleration data")
+                    self.log.error("Raw: {}".format(ex))
+                #self.log.debug("Current gyro {}".format(self._currentGryo))
+
+            # This is a handshake so the stop method knows we have stopped capturing
+            # Ideally, this would be a state machine, but that's overkill for what we need.
+
+            self.log.debug("IMU Capture complete")
+
+        # The depth capture loop
+        elif self._captureType == constants.Capture.DEPTH:
+            self.log.debug("Begin grab of depth stream")
             try:
-                self._gyroLogFile.write("{},{},{}\n".format(self._currentGryo[0], self._currentGryo[1], self._currentGryo[2]))
-                self._accelerationLogFile.write("{},{},{}\n".format(self._currentAcceleration[0], self._currentAcceleration[1], self._currentAcceleration[2]))
-            # This is the case where an operation is stopped while data is available.  A bit of a corner-case, but one that can
-            # be addressed with a semaphore.  This is certainly not a clean way to go about this.
-            except ValueError as value:
-                self.log.warning("Sloppiness detected.  Tried to write to a closed file")
-            except Exception as ex:
-                self.log.error("Unexpected exception hit in write of gyro and acceleration data")
-                self.log.error("Raw: {}".format(ex))
-            #self.log.debug("Current gyro {}".format(self._currentGryo))
+                self._pipelineDepth.start(self._configDepth)
+                self._capturing = True
+                try:
+                    self.state.toCapture()
+                except TransitionNotAllowed as transition:
+                    self.log.critical("Unable to transition camera to capturing")
+                    self.log.critical(transition)
+                    self._capturing = False
+            except Exception as e:
+                self.log.fatal("Failed to open the depth camera {} and start grabbing depth data.".format(self._serial))
+                self.log.fatal("{}".format(e))
+                self._capturing = False
 
-        # This is a handshake so the stop method knows we have stopped capturing
-        # Ideally, this would be a state machine, but that's overkill for what we need.
 
-        self.log.debug("IMU Capture complete")
+            self.log.debug("Capturing DEPTH data")
+            while self._capturing:
+                try:
+                    f = self._pipelineDepth.wait_for_frames()
+                    _currentDepth = f.get_depth_frame()
+                except Exception as e:
+                    self.log.fatal("Failed to capture depth frame")
+
+                # Convert the depth data to a numpy array.  Probably overkill
+                self._depth = np.asanyarray(_currentDepth.get_data())
+
+                # Put the image in the queue
+                self.log.debug("Appending depth data to queue")
+                self._images.append(self._depth)
+
+                # try:
+                #     depthFile = constants.FILE_DEPTH.format(1)
+                #     np.save(depthFile, self._depth)!
+                # except Exception as ex:
+                #     self.log.error("Unexpected exception hit in write of depth data")
+                #     self.log.error("Raw: {}".format(ex))
+
+            # This is a handshake so the stop method knows we have stopped capturing
+            # Ideally, this would be a state machine, but that's overkill for what we need.
+
+            self.log.debug("Depth Capture complete")
+
         self._capturingComplete = True
 
     def start(self):
@@ -213,14 +339,14 @@ class CameraDepth(Camera):
 
             self.state.toStop()
 
-        # Wait for the capturing to finish
-        while not self._capturingComplete:
-            self.log.debug("Waiting for capture to complete")
+            # Wait for the capturing to finish
+            while not self._capturingComplete:
+                self.log.debug("Waiting for capture to complete")
 
-        # Close the log files
-        self._gyroLogFile.close()
-        self._accelerationLogFile.close()
-
+            # Close the log files
+            if self._captureType == constants.Capture.IMU:
+                self._gyroLogFile.close()
+                self._accelerationLogFile.close()
 
         return
 
@@ -254,6 +380,17 @@ class CameraDepth(Camera):
 
         if not self._connected:
             raise IOError("Camera is not connected")
+
+        if len(self._images) == 0:
+            self.log.error("Image queue is empty.")
+            processed = np.empty([constants.DEPTH_MAX_HORIZONTAL, constants.DEPTH_MAX_VERTICAL])
+        else:
+            self.log.debug("Serving image from queue")
+            processed = self._images.popleft()
+            #img = processed.image
+            #timestamp = processed.timestamp
+            #self.log.debug("Image captured at " + str(timestamp))
+        return processed
 
 
     def getResolution(self) -> ():
@@ -310,6 +447,8 @@ if __name__ == "__main__":
     import argparse
     import sys
     from OptionsFile import OptionsFile
+    import matplotlib.pyplot as plt
+    import matplotlib.image
 
     import threading
 
@@ -338,9 +477,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser("Depth Camera Utility")
 
     parser.add_argument('-s', '--single', action="store", required=True, help="Take a single picture")
+    parser.add_argument('-c', '--camera', action="store", required=True, help="Serial number of target device")
     parser.add_argument('-l', '--logging', action="store", required=False, default="logging.ini", help="Log file configuration")
     parser.add_argument('-p', '--performance', action="store", required=False, default="camera.csv", help="Performance file")
     parser.add_argument('-o', '--options', action="store", required=False, default=constants.PROPERTY_FILENAME, help="Options INI")
+    parser.add_argument('-i', '--info', action="store_true", required=False, default=False)
+    parser.add_argument('-t', '--type', action="store", required=True)
     arguments = parser.parse_args()
 
     # Initialize logging
@@ -358,11 +500,21 @@ if __name__ == "__main__":
         print("Error encountered with option load for: {}".format(arguments.options))
         sys.exit(1)
 
-    #cameraIP = options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_CAMERA_IP)
-    camera = CameraDepth(gyro=constants.PARAM_FILE_GYRO, acceleration=constants.PARAM_FILE_ACCELERATION)
 
+    realsense = RealSense()
 
+    devices = realsense.query()
+    device = realsense.device(arguments.camera)
 
+    if arguments.type == "imu":
+        camera = CameraDepth(constants.Capture.IMU, gyro=constants.PARAM_FILE_GYRO, acceleration=constants.PARAM_FILE_ACCELERATION)
+    else:
+        camera = CameraDepth(constants.Capture.DEPTH, serial=arguments.camera)
+
+    camera.state.toIdle()
+    camera.state.toClaim()
+    camera.connect()
+    #camera.initializeCapture()
     # Start the thread that will begin acquiring images
     acquire = threading.Thread(name=constants.THREAD_NAME_ACQUIRE, target=takeImages, args=(camera,))
     acquire.start()
@@ -372,15 +524,18 @@ if __name__ == "__main__":
     #acquire.join()
 
 
-    # timenow = time.time()
-    # logging.debug("Image needed from {}".format(timenow))
-    # try:
-    #     performance.start()
-    #     img = camera.capture()
-    #     performance.stopAndRecord(constants.PERF_ACQUIRE)
-    #     cv.imwrite(arguments.single, img)
-    # except IOError as io:
-    #     camera.log.error("Failed to capture image: {0}".format(io))
+    timenow = time.time()
+    logging.debug("Image needed from {}".format(timenow))
+    try:
+        performance.start()
+        depth = camera.capture()
+        performance.stopAndRecord(constants.PERF_ACQUIRE)
+        np.save("depth.npy", depth)
+        # plt.imshow(depth, interpolation='none')
+        # plt.show()
+        # matplotlib.image.imsave("depth.png", depth, vmin=40, vmax=50, cmap='jet')
+    except IOError as io:
+        camera.log.error("Failed to capture image: {0}".format(io))
     rc = 0
 
     # Stop the camera, and this should stop the thread as well

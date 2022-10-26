@@ -17,6 +17,8 @@ UI_CONFIRM_IMAGING_WITH_ERRORS = "Not all components are operational. Do you wan
 PREFIX_CAMERA_CONFIGURATION = "camera-configuration-"
 EXTENSION_CAMERA_SETTINGS = ".pfs"
 EXTENSION_IMAGE = ".jpg"
+EXTENSION_NPY = ".npy"
+EXTENSION_NPZ = ".npz"
 
 # This is just the text that will be placed on the visible treatment plan
 SPRAYER_NAME = ""
@@ -28,6 +30,11 @@ THREAD_NAME_ACQUIRE = "acquire"
 THREAD_NAME_SERVICE = "service"
 THREAD_NAME_HOUSEKEEPING = "housekeeping"
 THREAD_NAME_IMU = "imu"
+THREAD_NAME_DEPTH = "depth"
+# These next two are temporary -- not needed when we move the depth cameras to the jetson
+THREAD_NAME_DEPTH_LEFT = "depth_left"
+THREAD_NAME_DEPTH_RIGHT = "depth_right"
+THREAD_NAME_POSITION = "position"
 
 MSG_NOT_CONNECTED = "Not connected"
 MSG_LINES_NOT_SPECIFIED = "The A and B lines for the odometer must be on the command line or in the INI file"
@@ -135,6 +142,7 @@ STRATEGY_SYNC = 1
 
 # The number of images to keep
 IMAGE_QUEUE_LEN = 50
+DEPTH_QUEUE_LEN =5
 # Probably way too long 5000 ms for camera to acquire image
 TIMEOUT_CAMERA = 5000
 
@@ -142,9 +150,18 @@ KEYWORD_DIRECTORY = "directory"
 KEYWORD_IP = "ip"
 KEYWORD_FILE_GYRO = "gyro"
 KEYWORD_FILE_ACCELERATION = "acceleration"
+KEYWORD_SERIAL = "serial"
+KEYWORD_CONFIGURATION = "config"
 
 PARAM_FILE_GYRO = "gyro.csv"
 PARAM_FILE_ACCELERATION = "acceleration.csv"
+
+#
+# D E P T H
+#
+DEPTH_MAX_HORIZONTAL = 1280
+DEPTH_MAX_VERTICAL = 720
+DEPTH_MAX_FRAMES = 6
 
 #
 # I M U
@@ -153,6 +170,7 @@ PARAM_FILE_ACCELERATION = "acceleration.csv"
 
 FILE_GYRO = "gyro.csv"
 FILE_ACCELERATION = "acceleration.csv"
+FILE_DEPTH = "depth-{:03d}.npy"
 
 names = [NAME_AREA, NAME_TYPE, NAME_LOCATION, NAME_CENTER, NAME_CONTOUR, NAME_SHAPE_INDEX, NAME_RATIO, NAME_IMAGE, NAME_REASON, NAME_HUE_MEAN, NAME_SATURATION]
 
@@ -221,6 +239,10 @@ PROPERTY_IMAGE_WIDTH = "IMAGE_WIDTH"
 PROPERTY_IMAGE_HEIGHT = "IMAGE_HEIGHT"
 PROPERTY_OVERLAP_FACTOR = "OVERLAP_FACTOR"
 PROPERTY_OUTPUT = "OUTPUT"
+PROPERTY_SERIAL = "SERIAL"
+# Temporary until the depth cameras are moved to the NVIDIA systems
+PROPERTY_SERIAL_LEFT = "SERIAL-LEFT"
+PROPERTY_SERIAL_RIGHT = "SERIAL-RIGHT"
 
 # R I O
 PROPERTY_SECTION_RIO = "RIO"
@@ -328,6 +350,8 @@ JSON_URL            = "url"
 JSON_POSITION       = "position"
 JSON_OPERATION      = "operation"
 JSON_STATUS_CAMERA  = "status-camera"
+JSON_GYRO           = "gyro"
+JSON_ACCELERATION   = "acceleration"
 JSON_PARAM_GSD      = "param-gsd"
 
 SOURCE_VIRTUAL      = "virtual"
@@ -391,3 +415,14 @@ class Status(Enum):
     RUNNING = 1
     EXIT_OK = 2
     EXIT_FATAL = 3
+
+class Capture(Enum):
+    DEPTH = 0
+    IMU = 1
+    RGB = 2
+
+class Side(Enum):
+    RIGHT = 0
+    LEFT = 1
+
+
