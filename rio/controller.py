@@ -40,7 +40,7 @@ from Messages import MUCMessage, OdometryMessage, SystemMessage
 from GPSClient import GPS
 from CameraDepth import CameraDepth
 
-from WeedExceptions import XMPPServerAuthFailure, XMPPServerUnreachable
+from WeedExceptions import XMPPServerAuthFailure, XMPPServerUnreachable, DAQError
 
 
 parser = argparse.ArgumentParser("RIO Controller")
@@ -167,6 +167,8 @@ def endSession(options: OptionsFile, name: str) -> bool:
     cameraForDepthLeft.stop()
     cameraForDepthRight.stop()
     imageNumber = 0
+    cameraForDepthLeft.imageNumber = 0
+    cameraForDepthRight.imageNumber = 0
     # Change back to the general output directory not associated with any session
     try:
         os.chdir(path)
@@ -196,13 +198,52 @@ def diagnostics():
 #
 # Start up system components and run diagnostics
 #
-def startupSystem():
+def startupSystem(options: OptionsFile):
     system = ni.system.System.local()
     #system.driver_version
     #devices = system.devices
-    for device in system.devices:
-        log.debug(" Found: {}".format(device))
+
+    # This delays system startup until the DAQ is connected to USB and power
+
+    while len(system.devices) == 0:
+        log.error("Unable to locate DAQ devices. Is the DAQ plugged in and powered?")
+        # This delay is completely arbitrary. Could be eliminated with no ill effects.
+        time.sleep(5)
+        system = ni.system.System.local()
+
+    devices = system.devices
+    for device in devices:
+        log.debug("Found: {}".format(device))
         #print(device)
+
+    # Make certain the cards are in the position described
+    emitterCardMissing = True
+    odometerCardMissing = True
+
+    # The default names for the cards
+    emitterCardName = "Mod4"
+    odometerCardName = "Mod3"
+
+    try:
+        emitterCardName = options.option(constants.PROPERTY_SECTION_RIO, constants.PROPERTY_RIGHT)
+        emitterCardMissing = emitterCardName in system.devices
+    except KeyError as key:
+        log.error("Unable to file {}/{} in options file.".format(constants.PROPERTY_SECTION_RIO, constants.PROPERTY_RIGHT))
+
+    try:
+        odometerCardName = options.option(constants.PROPERTY_SECTION_RIO, constants.PROPERTY_ODOMETER)
+        odometerCardMissing = odometerCardName in system.devices
+    except KeyError as key:
+        log.error("Unable to file {}/{} in options file.".format(constants.PROPERTY_SECTION_RIO, constants.PROPERTY_ODOMETER))
+
+    if odometerCardMissing:
+        errText = "Unable to find card for the odometer ({})".format(odometerCardName)
+        raise DAQError(errText, True)
+
+    if emitterCardMissing:
+        errText = "Unable to find card for the emitter ({})".format(emitterCardName)
+        raise DAQError(errText, True)
+
     # channels = ni.system.physical_channel.PhysicalChannel("Mod3")
     # print(channels)
 
@@ -213,7 +254,6 @@ def startupSystem():
         sys.exit(1)
 
     # Connect to the emitter and run diagnostics
-    # Here, we assume that there is only one emitter, which is not a good assumption
 
     # V I R T U A L  E M I T T E R  O R  P H Y S I C A L  E M I T T E R
 
@@ -322,22 +362,21 @@ def processOdometry(conn, msg: xmpp.protocol.Message):
 
     # If the system has travelled the width of the RGB image, take a depth reading.
     if distanceTravelledSinceLastCapture > imageWidth:
-        imageNumber += 1
+        imageNumber = cameraForDepthLeft.imageNumber + 1
+        cameraForDepthLeft.imageNumber = imageNumber
+        cameraForDepthRight.imageNumber = imageNumber
 
-        # TODO: Debug DEPTH Camera
         # Left and right images
-        if cameraForDepthLeft._connected:
-            depthArray = cameraForDepthLeft.capture()
-            imageName = "depth-left-{:05d}".format(imageNumber)
-            log.debug("Saving depth image {}".format(imageName))
-            np.save(imageName,depthArray)
+        depthArray = cameraForDepthLeft.capture()
+        imageName = "depth-left-{:05d}".format(imageNumber)
+        log.debug("Saving depth image {}".format(imageName))
+        np.save(imageName,depthArray)
 
-        if cameraForDepthRight._connected:
-            depthArray = cameraForDepthRight.capture()
-            imageName = "depth-right-{:05d}".format(imageNumber)
-            log.debug("Saving depth image {}".format(imageName))
-            np.save(imageName,depthArray)
-            distanceTravelledSinceLastCapture = 0
+        depthArray = cameraForDepthRight.capture()
+        imageName = "depth-right-{:05d}".format(imageNumber)
+        log.debug("Saving depth image {}".format(imageName))
+        np.save(imageName,depthArray)
+        distanceTravelledSinceLastCapture = 0
 
 
     # Messages from the system room will be in the form: system@conference.weeds.com/console
@@ -477,7 +516,7 @@ def startupOdometer(typeOfOdometer: constants.SubsystemType) -> Odometer:
     :return:
     """
     pulsesPerRotation = 0
-    wheelSize = 0
+    wheelSize = 0.0
 
     try:
         # V I R T U A L  O D O M E T E R
@@ -487,7 +526,7 @@ def startupOdometer(typeOfOdometer: constants.SubsystemType) -> Odometer:
         if typeOfOdometer == constants.SubsystemType.VIRTUAL:
             log.debug("Using virtual odometry")
             pulsesPerRotation = int(options.option(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_PPR))
-            wheelSize = int(options.option(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_WHEEL_CIRCUMFERENCE))
+            wheelSize = float(options.option(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_WHEEL_CIRCUMFERENCE))
             odometer = VirtualOdometer(WHEEL_SIZE=wheelSize, PULSES=pulsesPerRotation, SPEED=arguments.speed)
         else:
             # Get the A & B lines -- either from the INI file or on the command line
@@ -735,7 +774,11 @@ def takeImages(camera: CameraDepth):
 
 # Start the NI system and run diagnostics
 log.debug("Starting system")
-systemNI, emitterRight, emitterLeft = startupSystem()
+try:
+    systemNI, emitterRight, emitterLeft = startupSystem(options)
+except DAQError as daq:
+    log.fatal(daq._message)
+    sys.exit(-1)
 
 # If the emitters fail diagostics
 if emitterLeft is None or emitterLeft is None:
