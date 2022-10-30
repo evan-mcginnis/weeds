@@ -326,16 +326,18 @@ def processOdometry(conn, msg: xmpp.protocol.Message):
 
         # TODO: Debug DEPTH Camera
         # Left and right images
-        depthArray = cameraForDepthLeft.capture()
-        imageName = "depth-left-{:05d}".format(imageNumber)
-        log.debug("Saving depth image {}".format(imageName))
-        np.save(imageName,depthArray)
+        if cameraForDepthLeft._connected:
+            depthArray = cameraForDepthLeft.capture()
+            imageName = "depth-left-{:05d}".format(imageNumber)
+            log.debug("Saving depth image {}".format(imageName))
+            np.save(imageName,depthArray)
 
-        depthArray = cameraForDepthRight.capture()
-        imageName = "depth-right-{:05d}".format(imageNumber)
-        log.debug("Saving depth image {}".format(imageName))
-        np.save(imageName,depthArray)
-        distanceTravelledSinceLastCapture = 0
+        if cameraForDepthRight._connected:
+            depthArray = cameraForDepthRight.capture()
+            imageName = "depth-right-{:05d}".format(imageNumber)
+            log.debug("Saving depth image {}".format(imageName))
+            np.save(imageName,depthArray)
+            distanceTravelledSinceLastCapture = 0
 
 
     # Messages from the system room will be in the form: system@conference.weeds.com/console

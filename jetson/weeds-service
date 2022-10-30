@@ -4,6 +4,8 @@ WEEDSHOME=/home/weeds/jetson
 cd $WEEDSHOME
 export PYTHONPATH=/home/weeds/lib
 export OPENBLAS_CORETYPE=ARMv8
+# THis is a complete hack to give the cameras time to come up
+sleep 20
 # This will only grab the images, no treatment
 python3 $WEEDSHOME/weeds.py -o $WEEDSHOME/../output --grab
 
