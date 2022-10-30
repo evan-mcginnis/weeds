@@ -15,8 +15,19 @@ class DepthUnknownStream(WeedExceptions):
 
 class XMPPServerUnreachable(WeedExceptions):
     def __init__(self, message):
-        super().__init__(self._message)
+        super().__init__(message)
 
 class XMPPServerAuthFailure(WeedExceptions):
     def __init__(self, message):
+        super().__init__(message)
+
+class CameraError(WeedExceptions):
+    def __init__(self, message: str, eligible: bool):
         super().__init__(self._message)
+        self.eligibleForReconnect = eligible
+
+class DAQError(WeedExceptions):
+    def __init__(self, message: str, eligible: bool):
+        super().__init__(message)
+        self.eligibleForReconnect = eligible
+

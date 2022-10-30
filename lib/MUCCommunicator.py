@@ -24,6 +24,19 @@ import threading
 from WeedExceptions import XMPPServerUnreachable, XMPPServerAuthFailure
 import constants
 
+from statemachine import StateMachine, State
+from statemachine.exceptions import TransitionNotAllowed
+
+class MUCState(StateMachine):
+    new = State('New', initial=True)
+    connected = State('Connected')
+    disconnected = State('Disconnected')
+    pending = State('Pending')
+
+    initialized = new.to(pending)
+    toPending = disconnected.to(pending)
+    toConnected = pending.to(connected)
+    toDisconnected = connected.to(disconnected)
 #
 # M U C C O M M U N I C A T O R
 #
@@ -58,7 +71,8 @@ class MUCCommunicator():
         self._lock = threading.Lock()
 
         self._processing = False
-        self._state = constants.Status.QUIESCENT
+        self._currentOperation = constants.Status.QUIESCENT
+        self._state = MUCState()
 
         try:
             self._timeout = kwargs[constants.KEYWORD_TIMEOUT]
@@ -66,7 +80,7 @@ class MUCCommunicator():
             self._timeout = constants.PROCESS_TIMEOUT_LONG
 
     @property
-    def state(self) -> constants.Status:
+    def state(self) -> MUCState:
         return self._state
 
     @property
@@ -199,9 +213,9 @@ class MUCCommunicator():
             try:
                 conn.Process(self._timeout)
             except xmpp.protocol.SystemShutdown:
-                # This error is not recoverable
                 self._log.fatal("XMPP System shutdown")
                 self._connected = False
+                self._state.toDisconnected()
                 return 0
             except Exception as e:
                 self._log.error("Exception in message processing")
@@ -243,7 +257,9 @@ class MUCCommunicator():
         if not self._connected:
             self._connected = False
             #self._reconnectOnSendFailure = True
-            self.connectToChatroom()
+            while not self._connected:
+                self._log.debug("Reconnecting to chatroom")
+                self.connectToChatroom()
         else:
             self._log.warning("Will not reconnect to chatroom")
 
@@ -276,8 +292,10 @@ class MUCCommunicator():
         #self._connection.connect(server=('jetson-right.weeds.com', 5222))
         connectionType = self._connection.connect(server=(self._server, 5222))
         self._log.debug("Connected with type: [{}]".format(connectionType))
+
         if connectionType != 'tls':
-            self._log.fatal("Unable to connect to XMPP server")
+            self._log.error("Unable to connect to XMPP server with a TLS")
+            return
 
         self._connection.auth(self._client.getNode(),self._password)
 
@@ -301,6 +319,14 @@ class MUCCommunicator():
         :return:
         """
         shouldRetry = False
+
+        if self.state.is_new:
+            self._log.debug("Connecting for first time")
+            self.state.initialized()
+        elif self.state.is_disconnected:
+            self._log.debug("Reconnecting to chatroom")
+            self.state.toPending()
+
         # Create the client
         self._client = xmpp.protocol.JID(self._jid)
 
@@ -349,7 +375,8 @@ class MUCCommunicator():
         #     self._connection.RegisterHandler('presence', self._presenceCB)
 
         self.connected = True
-        self._state = constants.Status.RUNNING
+        self._currentOperation = constants.Status.RUNNING
+        self._state.toConnected()
         self._log.debug("Connected to {}".format(self._muc))
 
         # I hate delays, but this allows the connection to settle.
@@ -413,7 +440,7 @@ class MUCCommunicator():
                 #self.connectToChatroom()
                 #self._log.debug("Connected to chatroom")
                 time.sleep(2)
-                if self._state == constants.Status.EXIT_FATAL:
+                if self._currentOperation == constants.Status.EXIT_FATAL:
                     self._log.error("XMPP connection cannot be recovered. -- E X I T I N G --")
                     sys.exit(-1)
             except Exception as ex:
