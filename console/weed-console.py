@@ -340,7 +340,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         if percentage > 100:
             percentage = 100
             self._distanceOverCapturedLength = 0
-        self.tractor_progress.setValue(percentage)
+        self.tractor_progress_left.setValue(percentage)
+        self.tractor_progress_right.setValue(percentage)
 
     def updateCurrentSpeed(self, source, speed: float):
         log.debug("Update current {} speed to {}".format(source, speed))
@@ -540,8 +541,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         #self.updateCamera(constants.Position.LEFT.name, constants.OperationalStatus.UNKNOWN.name)
         #self.updateCamera(constants.Position.RIGHT.name, constants.OperationalStatus.UNKNOWN.name)
 
-        self.tractor_progress.setStyleSheet("color: white; background-color: green")
-        self.tractor_progress.setValue(0)
+        self.tractor_progress_left.setStyleSheet("color: white; background-color: green")
+        self.tractor_progress_left.setValue(0)
+        self.tractor_progress_right.setStyleSheet("color: white; background-color: green")
+        self.tractor_progress_right.setValue(0)
 
         self.noteMissingEntities()
 
