@@ -137,7 +137,7 @@ class WorkerSystem(Worker):
         return self._signals
 
     def run(self):
-        processMessagesSync(self._room)
+        processMessagesSync(self._room, self._signals)
 
 
 class WorkerOdometry(Worker):
@@ -150,7 +150,7 @@ class WorkerOdometry(Worker):
         return self._signals
 
     def run(self):
-        processMessagesSync(self._room)
+        processMessagesSync(self._room, self._signals)
 
     def process(self, conn, msg: xmpp.protocol.Message):
         if msg.getFrom().getStripped() == options.option(constants.PROPERTY_SECTION_XMPP,
@@ -174,7 +174,7 @@ class WorkerTreatment(Worker):
         return self._signals
 
     def run(self):
-        processMessagesSync(self._room)
+        processMessagesSync(self._room, self._signals)
 
     def process(self, conn, msg: xmpp.protocol.Message):
         if msg.getFrom().getStripped() == options.option(constants.PROPERTY_SECTION_XMPP,
@@ -270,6 +270,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         self.statusTable.setUpdatesEnabled(True)
 
+        # Dialogs
+        self._dialogDisconnected = QMessageBox()
 
     @property
     def OKtoImage(self):
@@ -798,6 +800,26 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.resetProgress()
         log.debug("Stop Weeding")
 
+    def xmppError(self, state: str):
+        log.debug("Informing user of XMPP state")
+        if state == constants.OperationalStatus.FAIL.name:
+            font = QFont()
+            font.setFamily("Arial")
+            font.setPointSize(20)
+            self._dialogDisconnected.setText("Autoreconnect to message server in progress")
+            self._dialogDisconnected.setFont(font)
+            self._dialogDisconnected.setWindowTitle("Communication Problem")
+            self._dialogDisconnected.setStandardButtons(QMessageBox.Ok)
+            self._dialogDisconnected.setWindowFlag(Qt.WindowStaysOnTopHint)
+            try:
+                self._dialogDisconnected.exec_()
+            except Exception as e:
+                log.fatal(e)
+        elif state == constants.OperationalStatus.OK.name:
+            self._dialogDisconnected.setText("Connection restored")
+        else:
+            log.debug("Unknown state: ({})".format(str))
+
     def confirmOperation(self, text):
         """
         Confirm the operation with a yes or no
@@ -869,17 +891,21 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         self._treatmentSignals.plan.connect(self.setTreatments)
         self._treatmentSignals.image.connect(self.setImage)
+        self._treatmentSignals.xmppStatus.connect(self.xmppError)
 
         self._odometrySignals.progress.connect(self.updateProgress)
         self._odometrySignals.distance.connect(self.updateCurrentDistance)
         self._odometrySignals.speed.connect(self.updateCurrentSpeed)
         self._odometrySignals.latitude.connect(self.updateLatitude)
         self._odometrySignals.longitude.connect(self.updateLongitude)
+        self._odometrySignals.xmppStatus.connect(self.xmppError)
 
         self._systemSignals.operation.connect(self.updateOperation)
         self._systemSignals.diagnostics.connect(self.updateDiagnostics)
         self._systemSignals.camera.connect(self.updateCamera)
         self._systemSignals.occupant.connect(self.setStatus)
+        self._systemSignals.xmppStatus.connect(self.xmppError)
+
 
         pool.start(self._taskSystem)
         pool.start(self._taskOdometry)
@@ -1011,11 +1037,15 @@ def startupCommunications(options: OptionsFile):
 
     return (odometryRoom, systemRoom, treatmentRoom)
 
-# def processMessages(room: MUCCommunicator):
-#     # Connect to the XMPP server and just return
-#     room.connect(False, True)
+def processingStarted(weedSignals: WeedsSignals):
+    """
+    Used as a callback to indicate that processing has resumed.
+    :param weedSignals: A signals object
+    """
+    weedSignals.xmppStatus.emit(constants.OperationalStatus.OK.name)
 
-def processMessagesSync(room: MUCCommunicator):
+
+def processMessagesSync(room: MUCCommunicator, signals: WeedsSignals):
     # Connect to the XMPP server and process incoming messages
     # Curious. Suddenly fetching the occupants list does not work on windows tablet. Perhaps this is a version problem?
 
@@ -1027,8 +1057,10 @@ def processMessagesSync(room: MUCCommunicator):
     while room.processing:
         try:
             # This method should never return unless something went wrong
-            room.connect(True)
+            room.connect(True, False, processingStarted, signals)
             log.debug("Connected and processed messages, but encountered errors")
+            # Send a signal that the XMPP connection has failed
+            signals.xmppStatus.emit(constants.OperationalStatus.FAIL.name)
             time.sleep(5)
         except XMPPServerUnreachable:
             log.warning("Unable to connect and process messages.  Will retry and reinitialize.")
@@ -1055,22 +1087,30 @@ parser.add_argument('-l', '--log', action="store", required=False, default="logg
 parser.add_argument('-d', '--dns', action="store", required=False, help="DNS server address")
 
 arguments = parser.parse_args()
+options = OptionsFile(arguments.ini)
+
+if not options.load():
+    print("Failed to load options from {}.".format(arguments.ini))
+    sys.exit(1)
+
+if arguments.dns is not None:
+    dnsServer = arguments.dns
+else:
+    try:
+        dnsServer = options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_DNS_SERVER)
+    except KeyError:
+        print("DNS Server must be specified either in INI file or on command line")
+        sys.exit(1)
 
 # Use a character set that amazon aws will accept
 shortuuid.set_alphabet('0123456789abcdefghijklmnopqrstuvwxyz')
 
 # Force resolutions to come from a server that has the entries we want
-print("DNS: {}".format(arguments.dns))
+print("DNS: {}".format(dnsServer))
 my_resolver = dns.resolver.Resolver(configure=False)
-my_resolver.nameservers = [arguments.dns]
+my_resolver.nameservers = [dnsServer]
 
 answer = my_resolver.resolve('jetson.weeds.com')
-
-options = OptionsFile(arguments.ini)
-if not options.load():
-    print("Failed to load options from {}.".format(arguments.ini))
-    sys.exit(1)
-
 
 logging.config.fileConfig(arguments.log)
 log = logging.getLogger("console")

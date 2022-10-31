@@ -313,7 +313,7 @@ class MUCCommunicator():
         self._connection.send(xmpp.Presence(to="{}/{}".format(self._muc,self._nickname)))
         self._connected = True
 
-    def connect(self, process: bool, occupants = False):
+    def connect(self, process: bool, occupants = False, processCallback: Callable = None, processData = None):
         """
         Connect to the xmpp server and join the MUC. This routine will not return.
         :return:
@@ -384,6 +384,13 @@ class MUCCommunicator():
 
         if process:
             self.processing = True
+
+            # As this routine never returns, we need a mechanism to call back the requester just prior to
+            # entering the message processing loop.  This is used by the UI to show the status of the connection.
+
+            if processCallback is not None:
+                processCallback(processData)
+
             #self.sendMessage("{} beginning to process messages".format(self._nickname))
             self.GoOn(self._connection)
             # This won't be executed until the processing loop has a keyboard interrupt
