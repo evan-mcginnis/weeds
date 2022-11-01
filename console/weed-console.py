@@ -741,7 +741,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def resetProgress(self):
         self._distanceOverCapturedLength = 0
-        self.tractor_progress.setValue(0)
+        self.tractor_progress_left.setValue(0)
+        self.tractor_progress_right.setValue(0)
 
     def resetKPH(self):
         self.setSpeed(0.0)
