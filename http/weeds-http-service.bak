@@ -1,0 +1,10 @@
+#!/bin/sh
+
+# Pictures will appear here
+DOCSHOME=~weeds/output
+
+# Start up the web server on port 80
+python3 -m http.server 80
+
+exit $?
+

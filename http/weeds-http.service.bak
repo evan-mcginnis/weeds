@@ -1,0 +1,12 @@
+[Unit]
+Description="Weed Web Server"
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/home/weeds/output
+ExecStart=/home/weeds/http/weeds-http-service
+
+[Install]
+WantedBy=multi-user.target
+
