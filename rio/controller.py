@@ -17,6 +17,9 @@ import threading
 import time
 import sys
 from typing import Callable
+
+import gpsd
+
 from OptionsFile import OptionsFile
 import logging
 import logging.config
@@ -39,8 +42,9 @@ from MUCCommunicator import MUCCommunicator
 from Messages import MUCMessage, OdometryMessage, SystemMessage
 from GPSClient import GPS
 from CameraDepth import CameraDepth
-
+from NationalInstruments import NationalInstruments, VirtualNationalInstruments, PhysicalNationalInstruments
 from WeedExceptions import XMPPServerAuthFailure, XMPPServerUnreachable, DAQError
+from RealSense import RealSense
 
 
 parser = argparse.ArgumentParser("RIO Controller")
@@ -199,50 +203,57 @@ def diagnostics():
 # Start up system components and run diagnostics
 #
 def startupSystem(options: OptionsFile):
-    system = ni.system.System.local()
-    #system.driver_version
-    #devices = system.devices
 
-    # This delays system startup until the DAQ is connected to USB and power
+    # The system is running in a mode where a physical RIO is expected
 
-    while len(system.devices) == 0:
-        log.error("Unable to locate DAQ devices. Is the DAQ plugged in and powered?")
-        # This delay is completely arbitrary. Could be eliminated with no ill effects.
-        time.sleep(5)
+    if not arguments.rio:
+        attachedDAQ = PhysicalNationalInstruments()
         system = ni.system.System.local()
+        attachedDAQ.system = system
 
-    devices = system.devices
-    for device in devices:
-        log.debug("Found: {}".format(device))
-        #print(device)
+        #system.driver_version
 
-    # Make certain the cards are in the position described
-    emitterCardMissing = True
-    odometerCardMissing = True
+        # This delays system startup until the DAQ is connected to USB and power
 
-    # The default names for the cards
-    emitterCardName = "Mod4"
-    odometerCardName = "Mod3"
+        while len(system.devices) == 0:
+            log.error("Unable to locate DAQ devices. Is the DAQ plugged in and powered?")
+            # This delay is completely arbitrary. Could be eliminated with no ill effects.
+            time.sleep(5)
+            system = ni.system.System.local()
 
-    try:
-        emitterCardName = options.option(constants.PROPERTY_SECTION_RIO, constants.PROPERTY_RIGHT)
-        emitterCardMissing = emitterCardName in system.devices
-    except KeyError as key:
-        log.error("Unable to file {}/{} in options file.".format(constants.PROPERTY_SECTION_RIO, constants.PROPERTY_RIGHT))
+        devices = system.devices.device_names
+        for device in devices:
+            log.debug("Found: {}".format(device))
 
-    try:
-        odometerCardName = options.option(constants.PROPERTY_SECTION_RIO, constants.PROPERTY_ODOMETER)
-        odometerCardMissing = odometerCardName in system.devices
-    except KeyError as key:
-        log.error("Unable to file {}/{} in options file.".format(constants.PROPERTY_SECTION_RIO, constants.PROPERTY_ODOMETER))
+        # Make certain the cards are in the position described
+        emitterCardMissing = True
+        odometerCardMissing = True
 
-    if odometerCardMissing:
-        errText = "Unable to find card for the odometer ({})".format(odometerCardName)
-        raise DAQError(errText, True)
+        # The default names for the cards
+        emitterCardName = "Mod4"
+        odometerCardName = "Mod3"
 
-    if emitterCardMissing:
-        errText = "Unable to find card for the emitter ({})".format(emitterCardName)
-        raise DAQError(errText, True)
+        try:
+            emitterCardName = options.option(constants.PROPERTY_SECTION_RIO, constants.PROPERTY_RIGHT)
+            emitterCardMissing = emitterCardName not in system.devices.device_names
+        except KeyError as key:
+            log.error("Unable to file {}/{} in options file.".format(constants.PROPERTY_SECTION_RIO, constants.PROPERTY_RIGHT))
+
+        try:
+            odometerCardName = options.option(constants.PROPERTY_SECTION_RIO, constants.PROPERTY_CARD_ODOMETER)
+            odometerCardMissing = odometerCardName not in system.devices.device_names
+        except KeyError as key:
+            log.error("Unable to file {}/{} in options file.".format(constants.PROPERTY_SECTION_RIO, constants.PROPERTY_CARD_ODOMETER))
+
+        if odometerCardMissing:
+            errText = "Unable to find card for the odometer ({}) in {}".format(odometerCardName, system.devices.device_names)
+            raise DAQError(errText, True)
+
+        if emitterCardMissing:
+            errText = "Unable to find card for the emitter ({}) in {}".format(emitterCardName, system.devices.device_names)
+            raise DAQError(errText, True)
+    else:
+        attachedDAQ = VirtualNationalInstruments()
 
     # channels = ni.system.physical_channel.PhysicalChannel("Mod3")
     # print(channels)
@@ -286,7 +297,7 @@ def startupSystem(options: OptionsFile):
         log.warning(diagnosticTextLeftEmitter)
         leftEmitter = None
 
-    return system, rightEmitter, leftEmitter
+    return attachedDAQ, rightEmitter, leftEmitter
 
 #
 # P R O C E S S
@@ -297,7 +308,12 @@ def startupSystem(options: OptionsFile):
 def process(conn, msg: xmpp.protocol.Message):
     global currentSessionName
     global currentOperation
-    log.debug("Process message from {}".format(msg.getFrom()))
+    log.debug("Process message from {}: {}".format(msg.getFrom(), msg.getBody()))
+
+    # Not sure what is happening here, but sometimes we get messages with no body.
+    if msg.getBody() is None:
+        log.debug("Empty message received")
+        return
 
     # Messages from the system room will be in the form: system@conference.weeds.com/console
 
@@ -342,6 +358,10 @@ def process(conn, msg: xmpp.protocol.Message):
 imageNumber = 0
 distanceTravelledSinceLastCapture = 0
 
+def nullProcessor(conn, msg: xmpp.protocol.Message):
+    log.debug("Null message processor")
+    pass
+
 def processOdometry(conn, msg: xmpp.protocol.Message):
     global typeOfOdometry
     global distanceTravelledSinceLastCapture
@@ -366,16 +386,19 @@ def processOdometry(conn, msg: xmpp.protocol.Message):
         cameraForDepthLeft.imageNumber = imageNumber
         cameraForDepthRight.imageNumber = imageNumber
 
-        # Left and right images
-        depthArray = cameraForDepthLeft.capture()
-        imageName = "depth-left-{:05d}".format(imageNumber)
-        log.debug("Saving depth image {}".format(imageName))
-        np.save(imageName,depthArray)
+        # Left and right depth images
+        if cameraForDepthLeft.state.is_capturing:
+            depthArray = cameraForDepthLeft.capture()
+            imageName = "depth-left-{:05d}".format(imageNumber)
+            log.debug("Saving depth image {}".format(imageName))
+            np.save(imageName,depthArray)
 
-        depthArray = cameraForDepthRight.capture()
-        imageName = "depth-right-{:05d}".format(imageNumber)
-        log.debug("Saving depth image {}".format(imageName))
-        np.save(imageName,depthArray)
+        if cameraForDepthRight.state.is_capturing:
+            depthArray = cameraForDepthRight.capture()
+            imageName = "depth-right-{:05d}".format(imageNumber)
+            log.debug("Saving depth image {}".format(imageName))
+            np.save(imageName,depthArray)
+
         distanceTravelledSinceLastCapture = 0
 
 
@@ -429,6 +452,15 @@ def startupCommunications(options: OptionsFile) -> ():
                                    processOdometry,
                                    None) # Don't care about presence
 
+    odometryRoom2 = MUCCommunicator(options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_SERVER),
+                                    options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_JID_RIO),
+                                    options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_IMU),
+                                    options.option(constants.PROPERTY_SECTION_XMPP,
+                                                   constants.PROPERTY_DEFAULT_PASSWORD),
+                                    options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_ODOMETRY),
+                                    nullProcessor,
+                                    None)  # Don't care about presence
+
     # The room that will get status reports about this process
     systemRoom = MUCCommunicator(options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_SERVER),
                                  options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_JID_RIO),
@@ -446,19 +478,27 @@ def startupCommunications(options: OptionsFile) -> ():
                                      process,
                                      None) # Don't care about presence
 
-    return (odometryRoom, systemRoom, treatmentRoom)
+    return (odometryRoom, odometryRoom2, systemRoom, treatmentRoom)
 
 #
 # G P S
 #
 def startupGPS() -> GPS:
     theGPS = GPS()
-    theGPS.connect()
+    try:
+        theGPS.connect()
+    except gpsd.NoFixError:
+        log.error("The GPS does not yet have a 2D fix")
+
     if theGPS.isAvailable():
-        packet = theGPS.getCurrentPosition()
-        log.debug("GPS Position: {}".format(packet.position()))
-        log.debug("GPS Error: {}".format(packet.position_precision()))
-        log.debug("GPS Fix: {}".format(packet.mode))
+        try:
+            packet = theGPS.getCurrentPosition()
+            log.debug("GPS Position: {}".format(packet.position()))
+            log.debug("GPS Error: {}".format(packet.position_precision()))
+            log.debug("GPS Fix: {}".format(packet.mode))
+        except gpsd.NoFixError:
+            log.error("The GPS does not yet have a 2D fix")
+
     else:
         log.warning("GPS location is not available. Image exif will not include this information")
     return theGPS
@@ -468,6 +508,14 @@ def startupGPS() -> GPS:
 #
 def startupDepthCamera() -> (CameraDepth, CameraDepth, CameraDepth):
 
+    sensors = RealSense()
+    markSensorAsFailed = False
+
+    if sensors.count() < 2:
+        log.error("Detected {} depth/IMU sensors. Expected 2.".format(sensors.count()))
+        log.error("No sensor will be used.")
+        markSensorAsFailed = True
+
     # Start the IMU camera
     try:
         cameraForIMU = CameraDepth(constants.Capture.IMU,
@@ -475,7 +523,10 @@ def startupDepthCamera() -> (CameraDepth, CameraDepth, CameraDepth):
                                    acceleration=constants.PARAM_FILE_ACCELERATION,
                                    serial='937622070186')
                                    #serial=options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_SERIAL_RIGHT))
-        cameraForIMU.state.toIdle()
+        if markSensorAsFailed:
+            cameraForIMU.state.toMissing()
+        else:
+            cameraForIMU._state.toIdle()
     except KeyError:
         log.error("Unable to find serial number for depth camera: {}/{} & {}".format(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_SERIAL_LEFT, constants.PROPERTY_SERIAL_RIGHT))
         cameraForIMU = None
@@ -491,8 +542,12 @@ def startupDepthCamera() -> (CameraDepth, CameraDepth, CameraDepth):
         cameraForDepthRight = CameraDepth(constants.Capture.DEPTH,
                                           serial='027422070613')
                                           #serial=options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_SERIAL_RIGHT))
-        cameraForDepthLeft.state.toIdle()
-        cameraForDepthRight.state.toIdle()
+        if markSensorAsFailed:
+            cameraForDepthRight.state.toMissing()
+            cameraForDepthLeft.state.toMissing()
+        else:
+            cameraForDepthLeft._state.toIdle()
+            cameraForDepthRight._state.toIdle()
     except KeyError:
         log.error("Unable to find serial number for depth camera: {}/{} & {}".format(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_SERIAL_LEFT, constants.PROPERTY_SERIAL_RIGHT))
         cameraForDepthRight = None
@@ -724,6 +779,8 @@ def processMessagesSync(communicator: MUCCommunicator):
         except XMPPServerAuthFailure:
             log.fatal("Unable to authenticate using parameters")
             processing = False
+        log.debug("Disconnected from chatroom")
+        communicator.state.toDisconnected()
 
     #odometry.connect(True)
 
@@ -749,7 +806,7 @@ def takeImages(camera: CameraDepth):
 
     # Loop until we get an error
     while rc == 0:
-        while camera.state.is_idle:
+        while camera._state.is_idle:
             #log.debug("Camera is idle (This is normal when an operation is not in progress")
             time.sleep(.5)
 
@@ -796,7 +853,7 @@ odometer = startupOdometer(typeOfOdometry)
 gps = startupGPS()
 
 # Startup communication to the MUC
-(odometryRoom, systemRoom, treatmentRoom) = startupCommunications(options)
+(odometryRoom, odometryRoom2, systemRoom, treatmentRoom) = startupCommunications(options)
 threads = list()
 
 # log.debug("Start generator thread")
@@ -854,12 +911,12 @@ depth.daemon = True
 threads.append(depth)
 depth.start()
 
-# The position thread will not be required when the depth cameras are moved to the nvidia systems
-log.debug("Start position thread")
-position = threading.Thread(name=constants.THREAD_NAME_POSITION, target=processMessagesSync, args=(odometryRoom,))
-position.daemon = True
-threads.append(position)
-position.start()
+# # The position thread will not be required when the depth cameras are moved to the nvidia systems
+# log.debug("Start position thread")
+# position = threading.Thread(name=constants.THREAD_NAME_POSITION, target=processMessagesSync, args=(odometryRoom2,))
+# position.daemon = True
+# threads.append(position)
+# position.start()
 
 while True:
     time.sleep(5)
