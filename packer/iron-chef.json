@@ -1,0 +1,31 @@
+{
+  "builders" : [
+    {
+      "type": "null",
+      "ssh_host":     "{{user `host`}}",
+      "ssh_username": "weeds",
+      "ssh_password" : "{{user `sudo_password`}}",
+      "ssh_pty" : "true"
+    }
+  ],
+  "provisioners" : [
+    {
+      "type": "file",
+      "source": "../rio.tar",
+      "destination": "~/rio.tar"
+    },
+    {
+      "type": "file",
+      "source": "./install-rio.sh",
+      "destination": "~/install-rio.sh"
+    },
+    {
+      "type": "shell",
+      "remote_folder": "~",
+      "inline": [
+        "bash -x ~/install-rio.sh {{user `pulses`}} {{user `server`}}",
+        "rm ~/install-rio.sh"
+      ]
+    }
+  ]
+}
