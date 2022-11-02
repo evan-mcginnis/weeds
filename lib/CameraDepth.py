@@ -219,6 +219,16 @@ class CameraDepth(Camera):
         return self._captureType.name
 
     def startCapturing(self):
+        self.log.debug("Beginning capture of type {}".format(self._captureType.name))
+
+        # This is a bit of a dummy loop
+        if self.state.is_failed or self.state.is_missing:
+            self.log.critical("Camera is marked as failed or missing. No capture")
+            self._capturing = True
+            while self._capturing:
+                time.sleep(60)
+            self.log.debug("Null capture complete")
+            return
 
         # The IMU capture loop
         if self._captureType == constants.Capture.IMU:
@@ -227,15 +237,16 @@ class CameraDepth(Camera):
                 self._pipelineIMU.start(self._configIMU)
                 self._capturing = True
                 try:
-                    self.state.toCapture()
+                    self._state.toCapture()
                 except TransitionNotAllowed as transition:
                     self.log.critical("Unable to transition camera to capturing")
                     self.log.critical(transition)
                     self._capturing = False
             except Exception as e:
                 self.log.fatal("Failed to open the depth camera {} and start grabbing IMU.".format(self._serial))
-                self.log.fatal("RAW: /{}".format(e))
+                self.log.fatal("RAW: {}".format(e))
                 self._capturing = False
+                self.state.toFailed()
 
             self.log.debug("Capturing IMU data")
             while self._capturing:
@@ -271,7 +282,7 @@ class CameraDepth(Camera):
                 self._pipelineDepth.start(self._configDepth)
                 self._capturing = True
                 try:
-                    self.state.toCapture()
+                    self._state.toCapture()
                 except TransitionNotAllowed as transition:
                     self.log.critical("Unable to transition camera to capturing")
                     self.log.critical(transition)
@@ -279,6 +290,7 @@ class CameraDepth(Camera):
             except Exception as e:
                 self.log.fatal("Failed to open the depth camera {} and start grabbing depth data.".format(self._serial))
                 self.log.fatal("{}".format(e))
+                self.state.toFailed()
                 self._capturing = False
 
 
@@ -309,6 +321,7 @@ class CameraDepth(Camera):
 
             self.log.debug("Depth Capture complete")
 
+        self.log.debug("Capture complete")
         self._capturingComplete = True
 
     def start(self):
@@ -337,7 +350,7 @@ class CameraDepth(Camera):
         if self._connected:
             self._capturing = False
 
-            self.state.toStop()
+            self._state.toStop()
 
             # Wait for the capturing to finish
             while not self._capturingComplete:
@@ -511,8 +524,8 @@ if __name__ == "__main__":
     else:
         camera = CameraDepth(constants.Capture.DEPTH, serial=arguments.camera)
 
-    camera.state.toIdle()
-    camera.state.toClaim()
+    camera._state.toIdle()
+    camera._state.toClaim()
     camera.connect()
     #camera.initializeCapture()
     # Start the thread that will begin acquiring images
