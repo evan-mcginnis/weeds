@@ -209,7 +209,7 @@ class MUCCommunicator():
         """
         try:
             # Process the messages, timing out every so often to run some diagnostics
-            self._log.debug("Processing messages")
+            self._log.debug("Processing messages with timeout: {}".format(self._timeout))
             try:
                 conn.Process(self._timeout)
             except xmpp.protocol.SystemShutdown:
@@ -219,8 +219,8 @@ class MUCCommunicator():
                 return 0
             except Exception as e:
                 self._log.error("Exception in message processing")
-                self._log.error("Raw:{}".format(e))
-                self._log.error(traceback.format_exc())
+                self._log.error("Raw: {}".format(e))
+                self._log.error("{}".format(traceback.format_exc()))
                 return 0
 
 
@@ -286,7 +286,8 @@ class MUCCommunicator():
         self._client = xmpp.protocol.JID(self._jid)
 
         # Prepare the connection (xxx@conference.weeds.com -> weeds.com
-        self._connection = xmpp.Client(self._client.getDomain(), debug=[])
+        #self._connection = xmpp.Client(self._client.getDomain(), debug=[])
+        self._connection = xmpp.Client(self._client.getDomain(), debug=debug)
 
         # TODO: This is wrong -- the code should lookup the host based on the SRV record to get both the hostname and port number
         #self._connection.connect(server=('jetson-right.weeds.com', 5222))
