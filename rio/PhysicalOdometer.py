@@ -229,7 +229,7 @@ class PhysicalOdometer(Odometer):
             channelA.ci_encoder_z_input_dig_fltr_enable = True
             channelA.ci_encoder_z_input_term = 'PFI2'
 
-            task.timing.samp_clk_overrun_behavior = nidaqmx.constants.OverflowBehavior.TOP_TASK_AND_ERROR
+            #task.timing.samp_clk_overrun_behavior = nidaqmx.constants.OverflowBehavior.TOP_TASK_AND_ERROR
 
             task.start()
             previous = 0.0
