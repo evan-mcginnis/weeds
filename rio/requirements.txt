@@ -1,8 +1,7 @@
-constants==0.6.0
 dnspython==2.2.1
 gpsd_py3==0.3.0
-Messages==0.8.0
 nidaqmx==0.5.7
 numpy==1.19.5
-PyYAML==6.0
 xmpppy==0.7.1
+python-statemachine==0.8.0
+
