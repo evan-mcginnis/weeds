@@ -2,7 +2,7 @@
 
 WEEDSHOME=/home/weeds/jetson
 cd $WEEDSHOME
-export PYTHONPATH=/home/weeds/lib
+export PYTHONPATH=/home/weeds/lib:/home/weeds/librealsense/build/wrappers/python
 export OPENBLAS_CORETYPE=ARMv8
 # THis is a complete hack to give the cameras time to come up
 sleep 20
