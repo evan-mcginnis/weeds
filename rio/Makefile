@@ -16,6 +16,8 @@ export-daq-config:
 import-daq-config:
 	nidaqmxconfig --import daq.cfg --replace
 
+# Runs in virtual mode where the odometer is virtual and is at a constant speed
+
 run-all-virtual:
 	 python3 controller.py -o -e -r -s $(SPEED) -i virtual.ini
 

@@ -29,7 +29,8 @@ PYLINT=pylint
 # Defaults if they are not specified on the make line
 #
 # Log configuration
-LOG?=info-logging.yaml
+#LOG?=info-logging.yaml
+LOG?=logging.ini
 # output directory
 OUTPUT?=output
 # input image set
@@ -48,6 +49,8 @@ PARAMETERS?=all-parameters.csv
 THRESHOLDS?="(130,0)"
 # Contours
 CONTOURS?=-c
+# Init file
+INI?=options.ini
 
 # Clean this up a bit, reducing the ML algorithm to one parameter
 ALGFLAG=-k
@@ -75,7 +78,7 @@ endif
 TREATMENT?=-sp
 
 weeds:
-	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a $(INDEX) -t $(THRESHOLDS) -df $(TRAINING) $(ALGFLAG) -sc -v -lg $(LOG) -se $(PARAMETERS) -d $(DECORATIONS) $(CONTOURS)
+	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a $(INDEX) -t $(THRESHOLDS) -df $(TRAINING) $(ALGFLAG) -sc -v -lg $(LOG) -se $(PARAMETERS) -d $(DECORATIONS) $(CONTOURS) -ini $(INI)
 
 treatment:
 	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a $(INDEX) -t $(THRESHOLDS) -df $(TRAINING) $(ALGFLAG) -sc -v -lg $(LOG) -se $(PARAMETERS) $(TREATMENT) -d location

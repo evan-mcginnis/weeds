@@ -153,7 +153,7 @@ listen:
     module: ejabberd_s2s_in
   -
     port: 5280
-    ip: "169.254.212.40"
+    ip: "169.254.212.35"
     module: ejabberd_http
     request_handlers:
       "/ws": ejabberd_http_ws

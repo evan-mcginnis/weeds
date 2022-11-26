@@ -197,6 +197,7 @@ class Classifier:
     def load(self, filename: str, stratify : bool):
                # Confirm the file exists
         if not os.path.isfile(filename):
+            self.log.critical("Unable to load file: {}".format(filename))
             raise FileNotFoundError
 
         self.log.info("Load training file")

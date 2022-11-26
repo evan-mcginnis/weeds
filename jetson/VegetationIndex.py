@@ -11,7 +11,7 @@ import viplab_lib as vip
 from mpl_toolkits import mplot3d
 
 from ImageManipulation import ImageManipulation
-
+from DepthImage import DepthImage
 #
 # If the CUDA libraries cannot be imported, disable GPU support
 # Nano vs PC, usually
@@ -48,6 +48,8 @@ class VegetationIndex:
         self.blueBandMasked = np.empty([0,0], dtype=np.uint8)
 
         self.mask = np.empty([0,0])
+
+        self._depthImage = None
 
         self.HSV_COLOR_THRESHOLD = 20
 
@@ -175,6 +177,13 @@ class VegetationIndex:
         data = Image.fromarray((self.GetMaskedImage() * 255).astype(np.uint8))
         data.save(name)
 
+    def SetDepth(self, depth: np.ndarray):
+        """
+        Set the depth data
+        :param depth: numpy array of depth readings
+        """
+        self._depth = DepthImage(depth)
+
     def SetImage(self, image):
         normalized = np.zeros_like(image)
         finalImage = cv.normalize(image,  normalized, 0, 255, cv.NORM_MINMAX)
@@ -272,6 +281,15 @@ class VegetationIndex:
     # def Stitch(self, location: str) -> Image:
     #
     #     return None
+
+    def DI(self, threshold: float) -> np.ndarray:
+        """
+        Compute an index based on depth data
+        :param threshold: threshold of the distance
+        :return: numpy array of index
+        """
+        self._depth.applyThreshold(threshold)
+        return self._depth.array
 
     def TGI(self) -> np.ndarray:
         #img = self.images[0]
@@ -681,7 +699,8 @@ if __name__ == "__main__":
                       "COM1"  : (5,-9999), # Originally 25
                       "MEXG"  : (30,-9999), # Originally 40
                       "COM2"  : (15,-9999),
-                      "TGI"   : (20,-9999)}
+                      "TGI"   : (20,-9999),
+                      "DI"    : (440,0)}
     threholds = threshOverhead
 
     # All of the indices
@@ -697,7 +716,8 @@ if __name__ == "__main__":
                "Modified Excess Green": {"short": "MexG", "create": utility.MExG, "negate": True, "threshold": threholds["MEXG"], "direction": 1},
                #"Combined Index 2": {"short": "COM2", "create": utility.COM2, "negate": True, "threshold": threholds["COM2"], "direction": -1},
                "Combined Index 2": {"short": "COM2", "create": utility.COM2, "negate": False, "threshold": None, "direction": 1},
-               "Triangulation Greenness Index": {"short": "TGI", "create": utility.TGI, "negate": False, "threshold": threholds["TGI"], "direction": 1}}
+               "Triangulation Greenness Index": {"short": "TGI", "create": utility.TGI, "negate": False, "threshold": threholds["TGI"], "direction": 1},
+               "Depth Index": {"short": "DI", "create": utility.DI, "negate": False, "threshold": threholds["TGI"], "direction": 1}}
 
     # Debug the implementations:
     indices = {

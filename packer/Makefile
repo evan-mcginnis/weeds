@@ -1,6 +1,16 @@
+#
+# Make certain SSH is enabled on the device first
+# https://linuxize.com/post/how-to-enable-ssh-on-ubuntu-20-04/
+#
+
 rio:
 	packer build rio-admin.json
 	packer build rio-user.json
+
+# This is the target to configure a blank system with the DAQ attached (middle)
+
+commission-daq:
+	packer build -var-file=variables-daq.json daq-admin.json
 
 jetson:
 	packer build jetson-admin.json

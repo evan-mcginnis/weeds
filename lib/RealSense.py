@@ -3,24 +3,39 @@
 #
 
 import pyrealsense2 as rs
+import constants
 
 class RealSense():
     def __init__(self):
         self.ctx = rs.context()
         self._devices = []
+        self._serial = None
 
     @property
     def devices(self):
         return self._devices
 
-    def device(self, serialno: str) -> rs.device:
+    def device(self, **kwargs) -> rs.device:
         found = False
         camera = None
-        for d in self._devices:
-            if serialno == d.get_info(rs.camera_info.serial_number):
+
+        try:
+            self._serial = str(kwargs[constants.KEYWORD_SERIAL])
+        except KeyError as key:
+            print("The serial number of the device is not specified by keyword: {}  Using the first device".format(constants.KEYWORD_SERIAL))
+
+        if self._serial is not None:
+            for d in self._devices:
+                if self._serial == d.get_info(rs.camera_info.serial_number):
+                    found = True
+                    camera = d
+                    break
+        else:
+            self.query()
+            if len(self.ctx.devices) > 0:
+                camera = self.ctx.devices[0]
                 found = True
-                camera = d
-                break
+
         if not found:
             camera = None
 
@@ -75,16 +90,18 @@ if __name__ == "__main__":
         sensors.list()
 
     if arguments.camera is not None:
-        camera = sensors.device(arguments.camera)
+        camera = sensors.device(serial=arguments.camera)
+    else:
+        camera = sensors.device()
 
-        if camera is None:
-            print("Unable to find camera: {}".format(arguments.camera))
-            rc = -1
-        else:
-            if arguments.reset:
-                sensors.reset(camera)
-            if arguments.details:
-                print("Camera: {}".format(camera))
+    if camera is None:
+        print("Unable to find camera: {}".format(arguments.camera))
+        rc = -1
+    else:
+        if arguments.reset:
+            sensors.reset(camera)
+        if arguments.details:
+            print("Camera: {}".format(camera))
 
     sys.exit(rc)
 

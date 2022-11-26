@@ -20,6 +20,7 @@ from Performance import Performance
 
 from Camera import Camera
 from WeedExceptions import DepthUnknownStream
+from DepthImage import DepthImage
 
 import pyrealsense2 as rs
 import numpy as np
@@ -64,6 +65,7 @@ class CameraDepth(Camera):
         self._capturing = False
         self._images = deque(maxlen=constants.DEPTH_QUEUE_LEN)
 
+        self._serial = None
         self._pipeline = None
         self._config = None
 
@@ -97,7 +99,7 @@ class CameraDepth(Camera):
         try:
             self._serial = str(kwargs[constants.KEYWORD_SERIAL])
         except KeyError as key:
-            raise ValueError("The serial number of the device must be specified by keyword: {}".format(constants.KEYWORD_SERIAL))
+            self.log.info("The serial number of the device is not specified by keyword: {}  Using the first device".format(constants.KEYWORD_SERIAL))
 
         # The configuration of the depth camera
         try:
@@ -148,9 +150,10 @@ class CameraDepth(Camera):
             self._pipelineIMU = rs.pipeline()
             self._configIMU = rs.config()
 
-            # Choose the device based on serial number
-            self.log.debug("Enable IMU device with serial number: {}".format(self._serial))
-            self._configIMU.enable_device(self._serial)
+            if self._serial is not None:
+                # Choose the device based on serial number
+                self.log.debug("Enable IMU device with serial number: {}".format(self._serial))
+                self._configIMU.enable_device(self._serial)
 
             # Enable the gyroscopic and accelerometer streams
             self._configIMU.enable_stream(rs.stream.accel)
@@ -161,9 +164,10 @@ class CameraDepth(Camera):
             self._pipelineDepth = rs.pipeline()
             self._configDepth = rs.config()
 
-            # Choose the device based on serial number
-            self.log.debug("Enable depth device with serial number: {}".format(self._serial))
-            self._configDepth.enable_device(self._serial)
+            if self._serial is not None:
+                # Choose the device based on serial number
+                self.log.debug("Enable depth device with serial number: {}".format(self._serial))
+                self._configDepth.enable_device(self._serial)
 
             self._configDepth.enable_stream(rs.stream.depth, constants.DEPTH_MAX_HORIZONTAL, constants.DEPTH_MAX_VERTICAL, rs.format.z16, constants.DEPTH_MAX_FRAMES)
 
@@ -460,8 +464,8 @@ if __name__ == "__main__":
     import argparse
     import sys
     from OptionsFile import OptionsFile
-    import matplotlib.pyplot as plt
-    import matplotlib.image
+    #import matplotlib.pyplot as plt
+    #import matplotlib.image
 
     import threading
 
@@ -490,7 +494,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser("Depth Camera Utility")
 
     parser.add_argument('-s', '--single', action="store", required=True, help="Take a single picture")
-    parser.add_argument('-c', '--camera', action="store", required=True, help="Serial number of target device")
+    parser.add_argument('-c', '--camera', action="store", required=False, help="Serial number of target device")
     parser.add_argument('-l', '--logging', action="store", required=False, default="logging.ini", help="Log file configuration")
     parser.add_argument('-p', '--performance', action="store", required=False, default="camera.csv", help="Performance file")
     parser.add_argument('-o', '--options', action="store", required=False, default=constants.PROPERTY_FILENAME, help="Options INI")
@@ -517,12 +521,13 @@ if __name__ == "__main__":
     realsense = RealSense()
 
     devices = realsense.query()
-    device = realsense.device(arguments.camera)
+    device = realsense.device()
 
     if arguments.type == "imu":
         camera = CameraDepth(constants.Capture.IMU, gyro=constants.PARAM_FILE_GYRO, acceleration=constants.PARAM_FILE_ACCELERATION)
     else:
-        camera = CameraDepth(constants.Capture.DEPTH, serial=arguments.camera)
+        #camera = CameraDepth(constants.Capture.DEPTH, serial=arguments.camera)
+        camera = CameraDepth(constants.Capture.DEPTH)
 
     camera._state.toIdle()
     camera._state.toClaim()

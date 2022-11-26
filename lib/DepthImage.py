@@ -41,6 +41,16 @@ class DepthImage:
                             aDepth: Tuple,
                             bDepth: Tuple,
                             fromDimensions: Tuple) -> np.ndarray:
+        """
+        Extract the portion of the data that corresponds to the RGB image. Note that this will replace the data
+        the object was initialized with.
+        :param aRGB: Location of the A lego in RGB
+        :param bRGB: Location of the B lego in RGB
+        :param aDepth: Location of the A lego in the depth data
+        :param bDepth: Location of the B lego in the depth data
+        :param fromDimensions: The size of the RGB image
+        :return: the extracted array
+        """
         # The length of the line in RGB
         distanceInRGB = abs(aRGB[0] - bRGB[0])
         # The length of the line in the depth data
