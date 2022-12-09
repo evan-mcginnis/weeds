@@ -35,6 +35,7 @@ THREAD_NAME_DEPTH = "depth"
 THREAD_NAME_DEPTH_LEFT = "depth_left"
 THREAD_NAME_DEPTH_RIGHT = "depth_right"
 THREAD_NAME_POSITION = "position"
+THREAD_NAME_SUPERVISOR = "supervisor"
 
 MSG_NOT_CONNECTED = "Not connected"
 MSG_LINES_NOT_SPECIFIED = "The A and B lines for the odometer must be on the command line or in the INI file"
@@ -106,6 +107,7 @@ JID_CONSOLE                 = "console@weeds.com"
 DEFAULT_PASSWORD            = "greydog"
 #DEFAULT_PASSWORD           = "weeds"
 
+NICK_CONTROLER              = "controller"
 NICK_ODOMETRY               = "rio"
 NICK_TREATMENT              = "treatment"
 NICK_JETSON                 = "jetson"
@@ -248,6 +250,9 @@ PROPERTY_SERIAL_RIGHT = "SERIAL-RIGHT"
 
 # D E P T H
 PROPERTY_SECTION_DEPTH = "DEPTH"
+PROPERTY_AGL_UP = "AGL_UP"
+PROPERTY_AGL_DOWN = "AGL_DOWN"
+PROPERTY_AGL_STOP = "AGL_STOP"
 
 # R I O
 PROPERTY_SECTION_RIO = "RIO"
@@ -414,6 +419,10 @@ class Operation(Enum):
     IMAGING = 1
     WEEDING = 2
 
+class Orientation(Enum):
+    UP = 0
+    DOWN = 1
+    UNKNOWN = 2
 
 class OperationalStatus(Enum):
     OK = 0
