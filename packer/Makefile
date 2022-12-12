@@ -43,6 +43,9 @@ jetson-users:
 iron-chef: rio-software
 	packer build -var-file=variables-iron-chef.json iron-chef.json
 
+copper-chef: rio-software
+	packer build -var-file=variables-daq.json daq.json
+
 daq: daq-software  post-software
 	packer build -var-file=variables-daq.json daq.json
 
@@ -58,12 +61,15 @@ rio-software:
 daq-software:
 	cd ..; tar cf rio.tar rio lib http
 
-distribute-software-tucson: jetson-software rio-software post-software
+controller-software:
+	cd ..; tar cf controller.tar controller
+
+distribute-software-tucson: jetson-software rio-software post-software controller-software
 	packer build -var-file=variables-left.json jetson.json
 	packer build -var-file=variables-right.json jetson.json
 	packer build -var-file=variables-daq.json daq.json
 
-distribute-software-yuma: jetson-software rio-software post-software
+distribute-software-yuma: jetson-software rio-software post-software controller-software
 	packer build -var-file=variables-xavier-left.json jetson.json
 	packer build -var-file=variables-xavier-right.json jetson.json
 	packer build -var-file=variables-daq-yuma.json daq.json

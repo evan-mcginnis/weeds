@@ -21,6 +21,11 @@
     },
     {
       "type": "file",
+      "source": "../controller.tar",
+      "destination": "~/controller.tar"
+    },
+    {
+      "type": "file",
       "source": "./install-daq.sh",
       "destination": "~/install-daq.sh"
     },
@@ -30,11 +35,17 @@
       "destination": "~/install-uploader.sh"
     },
     {
+      "type": "file",
+      "source": "./install-controller.sh",
+      "destination": "~/install-controller.sh"
+    },
+    {
       "type": "shell",
       "remote_folder": "~",
       "inline": [
         "echo {{user `sudo_password`}} | sudo -S bash -x ~/install-daq.sh {{user `pulses`}} {{user `server`}} {{user `position`}} {{user `forward`}} {{user `size`}} {{user `serial`}}",
         "echo {{user `sudo_password`}} | sudo -S bash -x ~/install-uploader.sh",
+        "echo {{user `sudo_password`}} | sudo -S bash -x ~/install-controller.sh",
         "rm ~/install-uploader.sh",
         "rm ~/install-daq.sh"
       ]

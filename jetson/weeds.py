@@ -1067,7 +1067,7 @@ def startupCommunications(options: OptionsFile, callbackOdometer: Callable, call
                                     None)
     #print("XMPP communications started")
 
-    return (odometryRoom, systemRoom, treatmentRoom)
+    return odometryRoom, systemRoom, treatmentRoom
 #
 # L O G G E R
 #
@@ -1867,7 +1867,18 @@ def takeRGBImages(camera: _CameraBasler):
         if isinstance(camera, _CameraBasler):
             # The camera settings are stored in files like aca-2500-gc.pfs
             # This will be used for call capture parameters
-            filename = camera.camera.GetDeviceInfo().GetModelName() + ".pfs"
+            # Get the specific settings for location and position <location>-<position>.pfs
+            try:
+                location = options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_LOCATION)
+                position = options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_POSITION)
+                filename = "{}-{}.pfs".format(location, position)
+            except KeyError as key:
+                log.error("Unable to find location/position in ini file. Expected {}/{} and {}/{}"
+                          .format(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_LOCATION,
+                                  constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_POSITION))
+                filename = camera.camera.GetDeviceInfo().GetModelName() + ".pfs"
+                log.error("Using camera defaults from {}".format(filename))
+
             camera.camera.Open()
             if not camera.load(filename):
                 # If we don't have a configuration, warn about this

@@ -13,11 +13,11 @@
 DAQ_HOME=~weeds/rio
 SERVICE_DEFINITION_DIR=/etc/systemd/system
 ODOMETRY_SERVICE_DEFINITION_FILE=odometry.service
-#AWS_SERVICE_DEFINITION_FILE=weeds-uploader.service
+#CONTROLLER_SERVICE_DEFINITION_FILE=weeds-controller.service
 PATH_TO_SERVICE_DEFINITION_FILE=$DAQ_HOME/$SERVICE_DEFINITION_FILE
-#PATH_TO_AWS_SERVICE_DEFINITION_FILE=$DAQ_HOME/$SERVICE_DEFINITION_FILE
+#PATH_TO_CONTROLLER_SERVICE_DEFINITION_FILE=$DAQ_HOME/$SERVICE_DEFINITION_FILE
 ODOMETRY_SERVICE_NAME=odometry
-#AWS_SERVICE_NAME=weeds-uploader
+#CONTROLLER_SERVICE_NAME=weeds-controller
 
 tar xf rio.tar
 chown -R weeds rio
@@ -60,12 +60,12 @@ enable_if_not() {
 }
 
 create_service_if_missing $ODOMETRY_SERVICE_DEFINITION_FILE
-#create_service_if_missing $AWS_SERVICE_DEFINITION_FILE
+#create_service_if_missing $CONTROLLER_SERVICE_DEFINITION_FILE
 enable_if_not $ODOMETRY_SERVICE_NAME
-#enable_if_not $AWS_SERVICE_NAME
+#enable_if_not $CONTROLLER_SERVICE_NAME
 
 systemctl reload-or-restart $ODOMETRY_SERVICE_NAME
-#systemctl reload-or-restart $AWS_SERVICE_NAME
+#systemctl reload-or-restart $CONTROLLER_SERVICE_NAME
 
 exit $?
 

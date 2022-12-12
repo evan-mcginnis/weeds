@@ -41,6 +41,7 @@ sed --in-place "s/\%NICKJETSON\%/$3/" options.ini
 sed --in-place "s/\%SERVER\%/$4/" options.ini
 sed --in-place "s/\%NICKJETSON%/$3/" logging.ini
 sed --in-place "s/\%POSITION%/$5/" options.ini
+sed --in-place "s/\%LOCATION%/$6/" options.ini
 
 #
 # S E R V I C E S

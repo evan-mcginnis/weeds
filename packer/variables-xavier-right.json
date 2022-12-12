@@ -1,5 +1,5 @@
 {
-	"host": "169.254.212.40",
+	"host": "xavier-right.weeds.com",
 	"sudo_password": "nvidia-greydog",
 	"user_password": "nvidia-greydog",
 	"camera_address": "169.254.212.41",
