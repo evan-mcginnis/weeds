@@ -653,8 +653,10 @@ def reportProgress():
     # TODO: Report forward progress to message bus
     return
 
-def nanoseconds() -> int:
-    return time.time_ns()
+def nanoseconds() -> float:
+    ns = time.time() * 1000
+    # ns = time.time_ns()
+    return ns
 
 def serviceQueue(odometer : PhysicalOdometer, odometryRoom: MUCCommunicator, announcements: int):
     """
@@ -685,7 +687,8 @@ def serviceQueue(odometer : PhysicalOdometer, odometryRoom: MUCCommunicator, ann
     log.debug("Waiting for angle changes to appear on queue")
     # Loop until graceful exit.
     i = 0
-    starttime = time.time_ns()
+    #starttime = time.time_ns()
+    starttime = nanoseconds()
     while servicing:
         angle = changeQueue.get(block=True)
         # mm of travel
@@ -693,10 +696,11 @@ def serviceQueue(odometer : PhysicalOdometer, odometryRoom: MUCCommunicator, ann
         mmTotalTravel += mmTraveled
         previous = angle
         # Record the time of this reading -- not quite correct, as this should be in the observation
-        stoptime = time.time_ns()
+        #stoptime = time.time_ns()
+        stoptime = nanoseconds()
         #elapsedSeconds = (stoptime - starttime) / 1000000000
         elapsedSeconds = (stoptime - starttime) / 1e9
-        starttime = time.time_ns()
+        starttime = nanoseconds()
 
         kph = 0
         try:
@@ -742,7 +746,7 @@ def serviceQueue(odometer : PhysicalOdometer, odometryRoom: MUCCommunicator, ann
             message.totalDistance = mmTotalTravel
             # Timestamp is the nanoseconds in the epoch
             #message.timestamp = time.time() * 1000
-            message.timestamp = time.time_ns()
+            message.timestamp = nanoseconds()
             message.source = odometer.source
             messageText = message.formMessage()
             #log.debug("Sending: {}".format(message.formMessage()))
