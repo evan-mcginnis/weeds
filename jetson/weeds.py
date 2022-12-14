@@ -47,6 +47,8 @@ from Messages import OdometryMessage, SystemMessage, TreatmentMessage
 from WeedExceptions import XMPPServerUnreachable, XMPPServerAuthFailure
 from CameraDepth import CameraDepth
 from RealSense import RealSense
+from ProcessedImage import ProcessedImage, Images
+from Enrich import Enrich
 
 #from Selection import Selection
 
@@ -231,7 +233,7 @@ class _Camera(ABC):
         return 0
 
     @abstractmethod
-    def capture(self) -> np.ndarray:
+    def capture(self) -> ProcessedImage:
         self._connected = False
         return
 
@@ -293,7 +295,7 @@ class _CameraFile(_Camera):
     def start(self):
         return
 
-    def capture(self) -> np.ndarray:
+    def capture(self) -> ProcessedImage:
         """
         Each time capture() is called, the next image in the directory is returned
         :return:
@@ -303,7 +305,8 @@ class _CameraFile(_Camera):
             imageName = str(self._flist[self._currentImage])
             image = cv.imread(imageName,cv.IMREAD_COLOR)
             self._currentImage = self._currentImage + 1
-            return(image)
+            processed = ProcessedImage(image, 0)
+            return processed
         # Raise an EOFError  when we get through the sequence of images
         else:
             raise EOFError
@@ -367,7 +370,7 @@ class _CameraPhysical(_Camera):
         """
         return True, "Camera diagnostics not provided"
 
-    def capture(self) -> np.ndarray:
+    def capture(self) -> ProcessedImage:
         """
         Capture a single image from the camera.
         Requires calling the connect() method before this call.
@@ -377,8 +380,9 @@ class _CameraPhysical(_Camera):
         ret, frame = self._cam.read()
         if not ret:
             raise IOError("There was an error encountered communicating with the camera")
-        #cv.imwrite("camera.jpg", frame)
-        return frame
+        # cv.imwrite("camera.jpg", frame)
+        processed = ProcessedImage(frame, 0)
+        return processed
 
     def getResolution(self) -> ():
         w = self._cam.get(cv.CAP_PROP_FRAME_WIDTH)
@@ -394,19 +398,6 @@ class _CameraPhysical(_Camera):
 # Perhaps this can be through openCV, but this will do for now
 #
 
-class ProcessedImage():
-    def __init__(self, image, timestamp: int):
-        self._image = image
-        self._timestamp = timestamp
-        self._indexed = False
-
-    @property
-    def image(self) -> np.ndarray:
-        return self._image
-
-    @property
-    def timestamp(self) -> int:
-        return self._timestamp
 
 from pypylon import pylon
 from pypylon import genicam
@@ -731,7 +722,7 @@ class _CameraBasler(_Camera):
         """
         return True, "Camera diagnostics not provided"
 
-    def capture(self) -> np.ndarray:
+    def capture(self) -> ProcessedImage:
         """
         Capture a single image from the camera.
         Requires calling the connect() method before this call.
@@ -757,7 +748,7 @@ class _CameraBasler(_Camera):
             img = processed.image
             timestamp = processed.timestamp
             self.log.debug("Image captured at " + str(timestamp))
-        return img
+        return processed
 
     def getResolution(self) -> ():
         w = self._camera.get(cv.CAP_PROP_FRAME_WIDTH)
@@ -1277,7 +1268,8 @@ def storeImage() -> bool:
     log.info("Storing image " + str(imageNumber))
     performance.start()
     try:
-        rawImage = camera.capture()
+        processed = camera.capture()
+        rawImage = processed.image
     except IOError as e:
         log.fatal("Cannot capture image. ({})".format(e))
         return False
@@ -1303,6 +1295,7 @@ def storeImage() -> bool:
     manipulated = ImageManipulation(rawImage, imageNumber, logger)
     fileName = logger.logImage("rgb", manipulated.image)
 
+    #rawImages.enqueue()
     # Send out a message to the treatment channel that an image has been taken
     message = TreatmentMessage()
     message.plan = constants.Treatment.RAW_IMAGE
@@ -1338,7 +1331,8 @@ def processImage() -> bool:
 
         # Attempt to capture the image.
         try:
-            rawImage = camera.capture()
+            processed = camera.capture()
+            rawImage = processed.image
         except EOFError as eof:
             # This case is where we just hit the end of an image set from disk
             log.info("Encountered end of image set")
@@ -1930,6 +1924,22 @@ def _takeImages(theCamera: _CameraBasler):
         log.error("Capture initialization failed.")
         rc = -1
 
+#
+# Enrich the images on disk with the EXIF data
+# This is to allow the processing engine to not be concerned with I/O
+#
+def enrichImages():
+    """
+    Enrich the images with various EXIF tags.
+    """
+    enricher = Enrich()
+    while True:
+        while len(rawImages):
+            rawImage = rawImages.dequeue()
+            enricher.addEXIFToImage(rawImage)
+        # Sleep for a bit to allow the queue to build up
+        time.sleep(5)
+
 # Start up various subsystems
 #
 options = readINI()
@@ -1966,6 +1976,11 @@ threads = list()
 # If this is part of a system, startup all the threads required, and have the odometry messages drive things
 #
 if not arguments.standalone:
+
+    # Images before and after processing
+    rawImages = Images()
+    processedImages = Images()
+
     log.debug("Start RGB image acquisition")
     acquire = threading.Thread(name=constants.THREAD_NAME_ACQUIRE, target=takeRGBImages, args=(camera,))
     threads.append(acquire)
@@ -1998,6 +2013,11 @@ if not arguments.standalone:
     threads.append(treat)
     treat.start()
 
+    log.debug("Starting enrichment thread")
+    enrich = threading.Thread(name=constants.THREAD_NAME_TREATMENT, target=enrichImages, args=())
+    enrich.daemon = True
+    threads.append(enrich)
+    enrich.start()
 
     # Wait for the workers to finish
     for index, thread in enumerate(threads):
