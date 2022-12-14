@@ -953,6 +953,14 @@ def process(conn, msg: xmpp.protocol.Message):
         log.debug("Treatments: {:.02f}".format(treatments))
     elif msg.getFrom().getStripped() == options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_SYSTEM):
         systemMessage = SystemMessage(raw=msg.getBody())
+        # Start the operation
+        if systemMessage.action == constants.Action.START.name:
+            signals = window.taskSystem.signals
+            signals.operation.emit(systemMessage.operation, systemMessage.name)
+        # Stop the operation
+        if systemMessage.action == constants.Action.STOP.name:
+            signals = window.taskSystem.signals
+            signals.operation.emit(constants.Operation.QUIESCENT.name, systemMessage.name)
         if systemMessage.action == constants.Action.ACK.name:
             signals = window.taskSystem.signals
             signals.operation.emit(systemMessage.operation, systemMessage.name)
@@ -1074,7 +1082,7 @@ def processMessagesSync(room: MUCCommunicator, signals: WeedsSignals):
             log.fatal("Unable to authenticate using parameters")
             room.processing = False
 
-    # This is the case where the server was not up to begin with
+    # This is the case where the server was not up to 3egin with
     # TODO: Sort through this sequence.  If the server is not up, we will get that in the init phase.
     # This is the case where the server can't be reached _after_ initialization
     if not room.connected:
