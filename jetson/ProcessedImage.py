@@ -37,7 +37,7 @@ class ProcessedImage:
 
     @exposure.setter
     def exposure(self, theExposure: int):
-        self.exposure = theExposure
+        self._exposure = theExposure
 
     @property
     def latitude(self) -> float:
@@ -52,7 +52,7 @@ class ProcessedImage:
         return self._longitude
 
     @longitude.setter
-    def latitude(self, theLongitude: float):
+    def longitude(self, theLongitude: float):
         self._longitude = theLongitude
 
     @property
@@ -83,8 +83,8 @@ class ProcessedImage:
     def model(self) -> str:
         return self._make
 
-    @make.setter
-    def make(self, theModel: str):
+    @model.setter
+    def model(self, theModel: str):
         self._make = theModel
 
     def addEXIF(self, **kwargs):

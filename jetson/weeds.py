@@ -29,10 +29,10 @@ import os
 import shutil
 
 import xmpp
-#from xmpp import protocol
+# from xmpp import protocol
 
 # This does not work
-#from CameraFile import CameraFile, CameraBasler
+# from CameraFile import CameraFile, CameraBasler
 
 from VegetationIndex import VegetationIndex
 from ImageManipulation import ImageManipulation
@@ -49,6 +49,7 @@ from CameraDepth import CameraDepth
 from RealSense import RealSense
 from ProcessedImage import ProcessedImage, Images
 from Enrich import Enrich
+from Context import Context
 
 #from Selection import Selection
 
@@ -1256,7 +1257,7 @@ if arguments.contours:
 imageNumber = 0
 processing = False
 
-def storeImage() -> bool:
+def storeImage(contextForImage: Context) -> bool:
     global imageNumber
 
     if not processing:
@@ -1293,9 +1294,8 @@ def storeImage() -> bool:
     veg.SetImage(rawImage)
 
     manipulated = ImageManipulation(rawImage, imageNumber, logger)
-    fileName = logger.logImage("rgb", manipulated.image)
+    fileName = logger.logImage(constants.FILENAME_RAW, manipulated.image)
 
-    #rawImages.enqueue()
     # Send out a message to the treatment channel that an image has been taken
     message = TreatmentMessage()
     message.plan = constants.Treatment.RAW_IMAGE
@@ -1312,12 +1312,22 @@ def storeImage() -> bool:
     log.debug("Sending: {}".format(messageText))
     roomTreatment.sendMessage(messageText)
 
+    # Set the context and enqueue the image
+    processed.make = contextForImage.make
+    processed.model = contextForImage.model
+    processed.exposure = contextForImage.exposure
+    processed.latitude = contextForImage.latitude
+    processed.longitude = contextForImage.longitude
+    processed.filename = fileName
+    # Enqueue the image to be written out later
+    #rawImages.enqueue(processed)
+
     imageNumber += 1
     return True
 
 mmPerPixel = 0.01
 
-def processImage() -> bool:
+def processImage(contextForImage: Context) -> bool:
     global imageNumber
     global sequence
     global previousImage
@@ -1362,7 +1372,7 @@ def processImage() -> bool:
         performance.stopAndRecord(constants.PERF_ACQUIRE)
 
         manipulated = ImageManipulation(rawImage, imageNumber, logger)
-        logger.logImage("original", manipulated.image)
+        logger.logImage(constants.FILENAME_RAW, manipulated.image)
 
         #manipulated.mmPerPixel = mmPerPixel
         #ImageManipulation.show("Greyscale", manipulated.toGreyscale())
@@ -1749,7 +1759,15 @@ def messageOdometryCB(conn, msg: xmpp.protocol.Message):
                 gsd = (1 - float( options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_OVERLAP_FACTOR))) * camera.gsd
                 log.info("Acquiring image.  Movement since last processing {} GSD {}".format(movementSinceLastProcessing,gsd))
                 movementSinceLastProcessing = 0
-                processor()
+
+                # Record the context under which this photo was taken
+                contextForImage = Context()
+                contextForImage.latitude = odometryMessage.latitude
+                contextForImage.longitude = odometryMessage.longitude
+                # Convert to kilometers
+                contextForImage.speed = odometryMessage.speed / 1e+6
+                # contextForPhoto.model
+                processor(contextForImage)
         else:
             # There's not much to do here for keepalive messages
             keepAliveMessages += 1
@@ -1936,7 +1954,8 @@ def enrichImages():
     while True:
         while len(rawImages):
             rawImage = rawImages.dequeue()
-            enricher.addEXIFToImage(rawImage)
+            log.info("Enrich image on disk with EXIF: {}".format(rawImage.filename))
+            enricher.addEXIFToImageAndWriteToDisk(rawImage)
         # Sleep for a bit to allow the queue to build up
         time.sleep(5)
 

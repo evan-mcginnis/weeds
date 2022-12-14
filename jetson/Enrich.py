@@ -9,6 +9,7 @@ from exif import Image
 import logging
 import logging.config
 import math
+from pathlib import Path
 
 from ProcessedImage import ProcessedImage
 
@@ -47,8 +48,12 @@ class Enrich:
         :param image: the target image, already on disk without EXIF
         """
         filename = image.filename
+        self._log.debug("Enriching {} with EXIF data".format(filename))
         with open(filename, 'rb') as image_file:
-            img = Image(image_file)
+            self._log.debug("Reading image")
+            image_bytes = image_file.read()
+            img = Image(image_bytes)
+            self._log.debug("Assigning EXIF data to image")
             img.software = image.software
             img.copyright = image.copyright
             img.make = image.make
@@ -63,8 +68,11 @@ class Enrich:
             img.gps_longitude = (degrees, minutes, seconds)
             img.gps_longitude_ref = "W"
 
-        with open(filename, 'wb') as new_image_file:
-            new_image_file.write(img.get_file())
+            newFilename = filename.replace(constants.FILENAME_RAW, constants.FILENAME_FINISHED)
+
+            self._log.debug("Write out enriched file {}".format(newFilename))
+            with open(newFilename, 'wb') as new_image_file:
+                new_image_file.write(img.get_file())
 
     def addEXIFToFile(self, image: str, **kwargs):
         """
@@ -148,13 +156,22 @@ if __name__ == "__main__":
         if arguments.show:
             enricher.printEXIF(arguments.input)
         else:
-            enricher.addEXIFToFile(arguments.input,
-                                   SPEED=3.0,
-                                   SOFTWARE="UofA Weeds",
-                                   COPYRIGHT="Evan McGinnis",
-                                   EXPOSURE=385,
-                                   MAKE="basler",
-                                   MODEL="2500",
-                                   LATITUDE=32.228995,
-                                   LONGITUDE=-110.9398582)
+            processed = ProcessedImage(None, 0)
+            processed.filename = arguments.input
+            processed.model = "2500"
+            processed.make = "basler"
+            processed.copyright = "Evan McGinnis"
+            processed.software = "UofA Weeds"
+            processed.latitude = 32.228995
+            processed.longitude = -110.9398582
+            enricher.addEXIFToImageAndWriteToDisk(processed)
+            # enricher.addEXIFToFile(arguments.input,
+            #                        SPEED=3.0,
+            #                        SOFTWARE="UofA Weeds",
+            #                        COPYRIGHT="Evan McGinnis",
+            #                        EXPOSURE=385,
+            #                        MAKE="basler",
+            #                        MODEL="2500",
+            #                        LATITUDE=32.228995,
+            #                        LONGITUDE=-110.9398582)
 
