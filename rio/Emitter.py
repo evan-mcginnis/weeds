@@ -18,6 +18,18 @@ import threading, queue
 # Pieces for how NI names their ports
 import constants
 
+from collections import deque
+
+class Treatments:
+    def __init__(self):
+        self._elements = deque()
+
+    def enqueue(self, element):
+        self._elements.append(element)
+
+    def dequeue(self):
+        return self._elements.popleft()
+
 NI_PORT = "port"
 NI_PORT0 = "port0"
 NI_LINE = "line"
@@ -81,7 +93,7 @@ class Emitter(ABC):
         :param module: A string name of the module -- usually something like Mod4
         """
         # a list of all the treatments.  I suspect this will never be greater than two
-        self._treatments = queue.SimpleQueue()
+        self._treatments = Treatments()
         self._module = module
         self._log = logging.getLogger(__name__)
 
@@ -113,7 +125,7 @@ class Emitter(ABC):
         :param plan:
         :return:
         """
-        self._treatments.put(plan)
+        self._treatments.enqueue(plan)
         return True
 
     @staticmethod
