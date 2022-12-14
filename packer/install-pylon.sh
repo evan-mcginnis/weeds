@@ -5,6 +5,7 @@
 
 gunzip pylon_6.2.0.21487_aarch64_setup.tar.gz
 tar xf pylon_6.2.0.21487_aarch64_setup.tar
+sudo mkdir /opt/pylon
 sudo tar -C /opt/pylon -xzf ./pylon_*.tar.gz
 sudo chmod 755 /opt/pylon
 
