@@ -288,7 +288,7 @@ class CameraDepth(Camera):
                 try:
                     self._state.toCapture()
                 except TransitionNotAllowed as transition:
-                    self.log.critical("Unable to transition camera to capturing")
+                    self.log.critical("Unable to transition depth camera to capturing")
                     self.log.critical(transition)
                     self._capturing = False
             except Exception as e:
@@ -310,7 +310,7 @@ class CameraDepth(Camera):
                 self._depth = np.asanyarray(_currentDepth.get_data())
 
                 # Put the image in the queue
-                self.log.debug("Appending depth data to queue")
+                #self.log.debug("Appending depth data to queue")
                 self._images.append(self._depth)
 
                 # try:

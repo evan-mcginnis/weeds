@@ -20,6 +20,9 @@ EXTENSION_IMAGE = ".jpg"
 EXTENSION_NPY = ".npy"
 EXTENSION_NPZ = ".npz"
 
+FILENAME_RAW = "raw"
+FILENAME_FINISHED = "img"
+
 # This is just the text that will be placed on the visible treatment plan
 SPRAYER_NAME = ""
 
@@ -36,6 +39,7 @@ THREAD_NAME_DEPTH_LEFT = "depth_left"
 THREAD_NAME_DEPTH_RIGHT = "depth_right"
 THREAD_NAME_POSITION = "position"
 THREAD_NAME_SUPERVISOR = "supervisor"
+THREAD_NAME_ENRICH = "enrich"
 
 MSG_NOT_CONNECTED = "Not connected"
 MSG_LINES_NOT_SPECIFIED = "The A and B lines for the odometer must be on the command line or in the INI file"
