@@ -1,0 +1,12 @@
+[Unit]
+Description="Weed Controller"
+
+[Service]
+Type=simple
+User=weeds
+WorkingDirectory=/home/weeds/controller
+ExecStart=/home/weeds/controller/controller-service
+
+[Install]
+WantedBy=multi-user.target
+

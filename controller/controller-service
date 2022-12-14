@@ -1,0 +1,11 @@
+#!/bin/sh
+
+WEEDSHOME=/home/weeds/controller
+cd $WEEDSHOME
+export PYTHONPATH=/home/weeds/lib:/home/weeds/librealsense/build/wrappers/python
+export OPENBLAS_CORETYPE=ARMv8
+# This will only grab the images, no treatment
+python3 $WEEDSHOME/weed-supervisor.py -ini options.ini -lg logging.ini
+
+exit $?
+
