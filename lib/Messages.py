@@ -248,6 +248,11 @@ class OdometryMessage(MUCMessage):
         else:
             self._longitude = 0.0
 
+        if constants.JSON_PULSES in self._data:
+            self._pulses = self._data[constants.JSON_PULSES]
+        else:
+            self._pulses = 0
+
         if constants.JSON_GYRO in self._data:
             self._gyro = self._data[constants.JSON_GYRO]
         else:
@@ -293,6 +298,15 @@ class OdometryMessage(MUCMessage):
     def longitude(self, long: float):
         self._longitude = long
         self._data[constants.JSON_LONGITUDE] = long
+
+    @property
+    def pulses(self) -> int:
+        return self._pulses
+
+    @pulses.setter
+    def pulses(self, pulses: int):
+        self._pulses = pulses
+        self._data[constants.JSON_PULSES] = pulses
 
     @property
     def speed(self) -> float:

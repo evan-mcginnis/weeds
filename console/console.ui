@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1578</width>
+    <width>1737</width>
     <height>1200</height>
    </rect>
   </property>
@@ -67,7 +67,7 @@
        <enum>QTabWidget::Triangular</enum>
       </property>
       <property name="currentIndex">
-       <number>0</number>
+       <number>1</number>
       </property>
       <widget class="QWidget" name="tabSystem">
        <property name="enabled">
@@ -90,7 +90,7 @@
        <attribute name="title">
         <string>System Overview</string>
        </attribute>
-       <layout class="QVBoxLayout" name="verticalLayout_9">
+       <layout class="QVBoxLayout" name="verticalLayout_10">
         <item>
          <layout class="QHBoxLayout" name="horizontalLayout_6">
           <item>
@@ -354,7 +354,7 @@
          </layout>
         </item>
         <item>
-         <layout class="QHBoxLayout" name="horizontalLayout_17">
+         <layout class="QHBoxLayout" name="horizontalLayout_7">
           <item>
            <layout class="QVBoxLayout" name="verticalLayout_13">
             <item>
@@ -420,27 +420,14 @@
            </layout>
           </item>
           <item>
-           <spacer name="horizontalSpacer_7">
-            <property name="orientation">
-             <enum>Qt::Horizontal</enum>
-            </property>
-            <property name="sizeHint" stdset="0">
-             <size>
-              <width>40</width>
-              <height>20</height>
-             </size>
-            </property>
-           </spacer>
-          </item>
-          <item>
            <spacer name="horizontalSpacer">
             <property name="orientation">
              <enum>Qt::Horizontal</enum>
             </property>
             <property name="sizeHint" stdset="0">
              <size>
-              <width>40</width>
-              <height>20</height>
+              <width>13</width>
+              <height>268</height>
              </size>
             </property>
            </spacer>
@@ -553,21 +540,18 @@
             </property>
             <property name="sizeHint" stdset="0">
              <size>
-              <width>40</width>
-              <height>20</height>
+              <width>13</width>
+              <height>268</height>
              </size>
             </property>
            </spacer>
           </item>
           <item>
-           <layout class="QVBoxLayout" name="verticalLayout_15">
-            <property name="sizeConstraint">
-             <enum>QLayout::SetFixedSize</enum>
-            </property>
+           <layout class="QVBoxLayout" name="verticalLayout_9">
             <item>
              <widget class="QLabel" name="label_16">
               <property name="text">
-               <string>Distance (CM)</string>
+               <string>Distance (CM) / Pulses</string>
               </property>
              </widget>
             </item>
@@ -575,8 +559,36 @@
              <widget class="QLCDNumber" name="count_distance">
               <property name="minimumSize">
                <size>
-                <width>525</width>
-                <height>175</height>
+                <width>425</width>
+                <height>85</height>
+               </size>
+              </property>
+              <property name="frameShape">
+               <enum>QFrame::Box</enum>
+              </property>
+              <property name="frameShadow">
+               <enum>QFrame::Sunken</enum>
+              </property>
+              <property name="lineWidth">
+               <number>2</number>
+              </property>
+              <property name="smallDecimalPoint">
+               <bool>false</bool>
+              </property>
+              <property name="digitCount">
+               <number>6</number>
+              </property>
+              <property name="segmentStyle">
+               <enum>QLCDNumber::Filled</enum>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLCDNumber" name="count_pulses">
+              <property name="minimumSize">
+               <size>
+                <width>425</width>
+                <height>85</height>
                </size>
               </property>
               <property name="frameShape">
@@ -630,21 +642,8 @@
             </property>
             <property name="sizeHint" stdset="0">
              <size>
-              <width>40</width>
-              <height>20</height>
-             </size>
-            </property>
-           </spacer>
-          </item>
-          <item>
-           <spacer name="horizontalSpacer_16">
-            <property name="orientation">
-             <enum>Qt::Horizontal</enum>
-            </property>
-            <property name="sizeHint" stdset="0">
-             <size>
-              <width>40</width>
-              <height>20</height>
+              <width>13</width>
+              <height>268</height>
              </size>
             </property>
            </spacer>
@@ -1104,6 +1103,12 @@
               <horstretch>0</horstretch>
               <verstretch>0</verstretch>
              </sizepolicy>
+            </property>
+            <property name="minimumSize">
+             <size>
+              <width>200</width>
+              <height>41</height>
+             </size>
             </property>
             <property name="maximumSize">
              <size>
@@ -1954,7 +1959,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1578</width>
+     <width>1737</width>
      <height>21</height>
     </rect>
    </property>

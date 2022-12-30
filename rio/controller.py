@@ -125,9 +125,9 @@ def startSession(options: OptionsFile, sessionName: str) -> bool:
         log.critical("Raw: {}".format(e))
 
     try:
-        cameraForIMU.state.toClaim()
-        cameraForDepthLeft.state.toClaim()
-        cameraForDepthRight.state.toClaim()
+        if cameraForIMU is not None:
+            cameraForIMU.state.toClaim()
+
     except TransitionNotAllowed as transition:
         log.critical("Unable to transition the camera to claim")
         log.critical(transition)
@@ -167,12 +167,10 @@ def endSession(options: OptionsFile, name: str) -> bool:
         log.error("Unable to write out end of run data to file: {}".format(finished))
         log.error("{}".format(e))
 
-    cameraForIMU.stop()
-    cameraForDepthLeft.stop()
-    cameraForDepthRight.stop()
+    if cameraForIMU is not None:
+        cameraForIMU.stop()
     imageNumber = 0
-    cameraForDepthLeft.imageNumber = 0
-    cameraForDepthRight.imageNumber = 0
+
     # Change back to the general output directory not associated with any session
     try:
         os.chdir(path)
@@ -180,14 +178,6 @@ def endSession(options: OptionsFile, name: str) -> bool:
     except OSError as e:
         log.critical("Unable to prepare and set directory to {}".format(path))
         log.critical("Raw: {}".format(e))
-
-    # try:
-    #     camera.state.toStop()
-    # except TransitionNotAllowed as transition:
-    #     log.critical("Unable to transition the camera to idle")
-    #     log.critical(transition)
-
-
 
     log.debug("Session ended")
     return stopped
@@ -381,23 +371,23 @@ def processOdometry(conn, msg: xmpp.protocol.Message):
         imageWidth = 310
 
     # If the system has travelled the width of the RGB image, take a depth reading.
-    if distanceTravelledSinceLastCapture > imageWidth:
-        imageNumber = cameraForDepthLeft.imageNumber + 1
-        cameraForDepthLeft.imageNumber = imageNumber
-        cameraForDepthRight.imageNumber = imageNumber
-
-        # Left and right depth images
-        if cameraForDepthLeft.state.is_capturing:
-            depthArray = cameraForDepthLeft.capture()
-            imageName = "depth-left-{:05d}".format(imageNumber)
-            log.debug("Saving depth image {}".format(imageName))
-            np.save(imageName,depthArray)
-
-        if cameraForDepthRight.state.is_capturing:
-            depthArray = cameraForDepthRight.capture()
-            imageName = "depth-right-{:05d}".format(imageNumber)
-            log.debug("Saving depth image {}".format(imageName))
-            np.save(imageName,depthArray)
+    # if distanceTravelledSinceLastCapture > imageWidth:
+    #     imageNumber = cameraForDepthLeft.imageNumber + 1
+    #     cameraForDepthLeft.imageNumber = imageNumber
+    #     cameraForDepthRight.imageNumber = imageNumber
+    #
+    #     # Left and right depth images
+    #     if cameraForDepthLeft.state.is_capturing:
+    #         depthArray = cameraForDepthLeft.capture()
+    #         imageName = "depth-left-{:05d}".format(imageNumber)
+    #         log.debug("Saving depth image {}".format(imageName))
+    #         np.save(imageName,depthArray)
+    #
+    #     if cameraForDepthRight.state.is_capturing:
+    #         depthArray = cameraForDepthRight.capture()
+    #         imageName = "depth-right-{:05d}".format(imageNumber)
+    #         log.debug("Saving depth image {}".format(imageName))
+    #         np.save(imageName,depthArray)
 
         distanceTravelledSinceLastCapture = 0
 
@@ -506,55 +496,40 @@ def startupGPS() -> GPS:
 #
 # D E P T H  C A M E R A
 #
-def startupDepthCamera() -> (CameraDepth, CameraDepth, CameraDepth):
+def startupDepthCamera() -> CameraDepth:
 
     sensors = RealSense()
     markSensorAsFailed = False
+    intelIMU = None
 
-    if sensors.count() < 2:
-        log.error("Detected {} depth/IMU sensors. Expected 2.".format(sensors.count()))
+    if sensors.count() < 1:
+        log.error("Detected {} depth/IMU sensors. Expected 1 or more.".format(sensors.count()))
         log.error("No sensor will be used.")
-        markSensorAsFailed = True
+        intelIMU = CameraDepth(constants.Capture.IMU,
+                               gyro=constants.PARAM_FILE_GYRO,
+                               acceleration=constants.PARAM_FILE_ACCELERATION)
+        intelIMU.state.toMissing()
+        return intelIMU
 
     # Start the IMU camera
     try:
-        cameraForIMU = CameraDepth(constants.Capture.IMU,
+        intelIMU = CameraDepth(constants.Capture.IMU,
                                    gyro=constants.PARAM_FILE_GYRO,
-                                   acceleration=constants.PARAM_FILE_ACCELERATION,
-                                   serial='937622070186')
+                                   acceleration=constants.PARAM_FILE_ACCELERATION)
+                                   #serial='937622070186')
                                    #serial=options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_SERIAL_RIGHT))
         if markSensorAsFailed:
-            cameraForIMU.state.toMissing()
+            intelIMU.state.toMissing()
         else:
-            cameraForIMU._state.toIdle()
+            intelIMU.state.toIdle()
     except KeyError:
         log.error("Unable to find serial number for depth camera: {}/{} & {}".format(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_SERIAL_LEFT, constants.PROPERTY_SERIAL_RIGHT))
-        cameraForIMU = None
+        intelIMU = None
     except ValueError as val:
         log.error("Camera construction failed: {}".format(val))
-        cameraForIMU = None
+        intelIMU = None
 
-    # Start the Depth Cameras
-    try:
-        cameraForDepthLeft = CameraDepth(constants.Capture.DEPTH,
-                                         serial='937622070186')
-                                         #serial=options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_SERIAL_LEFT))
-        cameraForDepthRight = CameraDepth(constants.Capture.DEPTH,
-                                          serial='027422070613')
-                                          #serial=options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_SERIAL_RIGHT))
-        if markSensorAsFailed:
-            cameraForDepthRight.state.toMissing()
-            cameraForDepthLeft.state.toMissing()
-        else:
-            cameraForDepthLeft._state.toIdle()
-            cameraForDepthRight._state.toIdle()
-    except KeyError:
-        log.error("Unable to find serial number for depth camera: {}/{} & {}".format(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_SERIAL_LEFT, constants.PROPERTY_SERIAL_RIGHT))
-        cameraForDepthRight = None
-        cameraForDepthLeft = None
-
-
-    return cameraForIMU, cameraForDepthLeft, cameraForDepthRight
+    return intelIMU
 
 #
 # O D O M E T R Y
@@ -672,6 +647,8 @@ def serviceQueue(odometer : PhysicalOdometer, odometryRoom: MUCCommunicator, ann
     # The previous angle -- the current reading will definitely be different
     previous = 0.0
 
+    # The pulses of the encoder
+    pulses = 0
     mmTotalTravel = 0.0
     distanceTraveledSinceLastMessage = 0.0
     servicing = True
@@ -695,6 +672,7 @@ def serviceQueue(odometer : PhysicalOdometer, odometryRoom: MUCCommunicator, ann
         mmTraveled = (angle - previous) * odometer.distancePerDegree
         mmTotalTravel += mmTraveled
         previous = angle
+        pulses += 1
         # Record the time of this reading -- not quite correct, as this should be in the observation
         #stoptime = time.time_ns()
         stoptime = nanoseconds()
@@ -710,7 +688,11 @@ def serviceQueue(odometer : PhysicalOdometer, odometryRoom: MUCCommunicator, ann
 
         packet = gps.getCurrentPosition()
         if packet is not None:
-            position = packet.position()
+            try:
+                position = packet.position()
+            except gpsd.NoFixError as fix:
+                log.error("Unable to obtain a 2D fix to determine location")
+                position = (0.0,0.0)
         else:
             position = (0.0,0.0)
 
@@ -732,8 +714,8 @@ def serviceQueue(odometer : PhysicalOdometer, odometryRoom: MUCCommunicator, ann
             message = OdometryMessage()
 
             # Include GPS data if available
-            if gps.connected:
-                (message.latitude, message.longitude) = gps.getCurrentPosition().position()
+            # if gps.connected:
+            #     (message.latitude, message.longitude) = position
 
             # Include gyro information if available
 
@@ -744,6 +726,7 @@ def serviceQueue(odometer : PhysicalOdometer, odometryRoom: MUCCommunicator, ann
             message.distance = distanceTraveledSinceLastMessage
             message.speed = kph
             message.totalDistance = mmTotalTravel
+            message.pulses = pulses
             # Timestamp is the nanoseconds in the epoch
             #message.timestamp = time.time() * 1000
             message.timestamp = nanoseconds()
@@ -801,37 +784,44 @@ def processOdometer(odometer: Odometer):
             break
 
 #
-# Connect to the depth camera and grab readings
+# Connect to the depth camera and grab readings for IMU
 #
 
-def takeImages(camera: CameraDepth):
+def takeIMUReadings(camera: CameraDepth):
 
     rc = 0
 
     # Loop until we get an error
     while rc == 0:
-        while camera._state.is_idle:
-            #log.debug("Camera is idle (This is normal when an operation is not in progress")
-            time.sleep(.5)
 
-        # Connect to the camera and take an image
-        log.debug("Connecting to camera for capture type: {}".format(camera.captureType))
-        camera.connect()
-        camera.initialize()
-        camera.start()
+        # This is the case where we could not detect the camera at startup
 
-        if camera.initializeCapture():
-            log.debug("Starting capture type: {}".format(camera.captureType))
-            try:
-                camera.startCapturing()
-            except IOError as io:
-                log.critical("Failed to begin capturing")
-                camera.log.error(io)
-                rc = -1
-            rc = 0
+        if camera is None:
+            log.warning("Unable to detect IMU. Sleeping for now")
+            time.sleep(5)
         else:
-            log.critical("Unable to initialize camera")
-            rc = -1
+            while camera.state.is_idle:
+                #log.debug("Camera is idle (This is normal when an operation is not in progress")
+                time.sleep(.5)
+
+            # Connect to the camera and take an image
+            log.debug("Connecting to camera for capture type: {}".format(camera.captureType))
+            camera.connect()
+            camera.initialize()
+            camera.start()
+
+            if camera.initializeCapture():
+                log.debug("Starting capture type: {}".format(camera.captureType))
+                try:
+                    camera.startCapturing()
+                except IOError as io:
+                    log.critical("Failed to begin capturing")
+                    camera.log.error(io)
+                    rc = -1
+                rc = 0
+            else:
+                log.critical("Unable to initialize camera")
+                rc = -1
 
 # Start the NI system and run diagnostics
 log.debug("Starting system")
@@ -851,7 +841,7 @@ if emitterLeft is None or emitterLeft is None:
 
 odometer = startupOdometer(typeOfOdometry)
 
-(cameraForIMU, cameraForDepthLeft, cameraForDepthRight) = startupDepthCamera()
+cameraForIMU = startupDepthCamera()
 
 # Connect to the GPS
 gps = startupGPS()
@@ -897,23 +887,13 @@ odometry.daemon = True
 threads.append(odometry)
 odometry.start()
 
-# log.debug("Start IMU thread")
-# imu = threading.Thread(name=constants.THREAD_NAME_IMU, target=takeImages, args=(cameraForIMU,))
-# imu.daemon = True
-# threads.append(imu)
-# imu.start()
+log.debug("Start IMU thread")
+imu = threading.Thread(name=constants.THREAD_NAME_IMU, target=takeIMUReadings, args=(cameraForIMU,))
+imu.daemon = True
+threads.append(imu)
+imu.start()
 
-log.debug("Start depth thread for left camera")
-depth = threading.Thread(name=constants.THREAD_NAME_DEPTH, target=takeImages, args=(cameraForDepthLeft,))
-depth.daemon = True
-threads.append(depth)
-depth.start()
 
-log.debug("Start depth thread for right camera")
-depth = threading.Thread(name=constants.THREAD_NAME_DEPTH, target=takeImages, args=(cameraForDepthRight,))
-depth.daemon = True
-threads.append(depth)
-depth.start()
 
 # # The position thread will not be required when the depth cameras are moved to the nvidia systems
 # log.debug("Start position thread")

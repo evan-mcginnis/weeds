@@ -209,7 +209,7 @@ class MUCCommunicator():
         """
         try:
             # Process the messages, timing out every so often to run some diagnostics
-            self._log.debug("Processing messages with timeout: {}".format(self._timeout))
+            # self._log.debug("Processing messages with timeout: {}".format(self._timeout))
             try:
                 conn.Process(self._timeout)
             except xmpp.protocol.SystemShutdown:

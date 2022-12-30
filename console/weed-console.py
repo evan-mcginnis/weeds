@@ -64,6 +64,7 @@ class InitializationSignals(WeedsSignals):
 
 class OdometrySignals(WeedsSignals):
     distance = pyqtSignal(str, float, name="distance")
+    pulses = pyqtSignal(str, float, name="pulses")
     speed = pyqtSignal(str, float, name="speed")
     latitude = pyqtSignal(float, name="latitude")
     longitude = pyqtSignal(float, name="longitude")
@@ -156,6 +157,7 @@ class WorkerOdometry(Worker):
         if msg.getFrom().getStripped() == options.option(constants.PROPERTY_SECTION_XMPP,
                                                          constants.PROPERTY_ROOM_ODOMETRY):
             odometryMessage = OdometryMessage(raw=msg.getBody())
+            self._signals.pulses.emit(odometryMessage.source, float(odometryMessage.pulses))
             self._signals.distance.emit(odometryMessage.source, float(odometryMessage.speed))
             # window.setSpeed(odometryMessage.speed)
             self._signals.speed.emit(odometryMessage.source, float(odometryMessage.speed))
@@ -231,6 +233,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self._taskHousekeeping = None
         self._taskTreatment = None
         self._distanceOverCapturedLength = 0.0
+        self._currentPulses = 0
         self.setupUi(self)
 
         # Wire up the buttons
@@ -260,6 +263,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         self.currentDistance = 0.0
         self.absoluteDistance = 0.0
+        self.absolutePulses = 0
 
         self._requiredOccupants = list()
 
@@ -361,6 +365,17 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.count_distance.setStyleSheet("color: black; background-color: yellow")
         else:
             self.count_distance.setStyleSheet("color: black; background-color: white")
+
+    def updatePulses(self, source: str, pulses: float):
+        log.debug("Update pulse count")
+        self._currentPulses += pulses
+
+        # The distance in the message is in mm -- display is in cm
+        self.count_pulses.display(pulses - self.absolutePulses)
+        if source == constants.SOURCE_VIRTUAL:
+            self.count_pulses.setStyleSheet("color: black; background-color: yellow")
+        else:
+            self.count_pulses.setStyleSheet("color: black; background-color: white")
 
     def updateOperation(self, operation: str, session: str):
         log.debug("Updating operation {}".format(operation))
@@ -621,6 +636,11 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def setSpeed(self, speed: float):
         self.average_kph.display(round(speed,1))
 
+    def setPulses(self, pulses: float):
+        self._currentPulses = pulses
+        # If the user has reset the distance to 0, use the offset
+        self.count_pulses.display(pulses - self.absolutePulses)
+
     def setDistance(self, distance: float):
         self.currentDistance = distance
         # If the user has reset the distance to 0, use the offset
@@ -754,6 +774,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def resetDistance(self):
         self.absoluteDistance = self.currentDistance
+        self.absolutePulses = self._currentPulses
+        self.count_pulses.display(0.0)
         self.count_distance.display(0.0)
 
     def startUsingConstantSpeed(self):
@@ -899,6 +921,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         self._odometrySignals.progress.connect(self.updateProgress)
         self._odometrySignals.distance.connect(self.updateCurrentDistance)
+        self._odometrySignals.pulses.connect(self.updatePulses)
         self._odometrySignals.speed.connect(self.updateCurrentSpeed)
         self._odometrySignals.latitude.connect(self.updateLatitude)
         self._odometrySignals.longitude.connect(self.updateLongitude)
@@ -929,6 +952,7 @@ def process(conn, msg: xmpp.protocol.Message):
         signals = window.taskOdometry.signals
         signals.distance.emit(odometryMessage.source, float(odometryMessage.totalDistance))
         signals.speed.emit(odometryMessage.source, float(odometryMessage.speed))
+        signals.pulses.emit(odometryMessage.source, float(odometryMessage.pulses))
         signals.progress.emit(float(odometryMessage.distance))
 
         # See if we have lat/long.  Bad form here, as 0,0 is a legit value
