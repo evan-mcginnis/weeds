@@ -26,6 +26,11 @@
     },
     {
       "type": "file",
+      "source": "../http.tar",
+      "destination": "~/http.tar"
+    },
+    {
+      "type": "file",
       "source": "./install-daq.sh",
       "destination": "~/install-daq.sh"
     },
@@ -40,12 +45,18 @@
       "destination": "~/install-controller.sh"
     },
     {
+      "type": "file",
+      "source": "./install-http.sh",
+      "destination": "~/install-http.sh"
+    },
+    {
       "type": "shell",
       "remote_folder": "~",
       "inline": [
         "echo {{user `sudo_password`}} | sudo -S bash -x ~/install-daq.sh {{user `pulses`}} {{user `server`}} {{user `position`}} {{user `forward`}} {{user `size`}} {{user `serial`}}",
         "echo {{user `sudo_password`}} | sudo -S bash -x ~/install-uploader.sh",
         "echo {{user `sudo_password`}} | sudo -S bash -x ~/install-controller.sh",
+        "echo {{user `sudo_password`}} | sudo -S bash -x ~/install-http.sh",
         "rm ~/install-uploader.sh",
         "rm ~/install-daq.sh"
       ]
