@@ -56,9 +56,9 @@ PYLINT=pylint
 #LOG?=info-logging.yaml
 LOG?=logging.ini
 # output directory
-OUTPUT?=output
+OUTPUT?=../../output
 # input image set
-INPUT?=input2
+INPUT?=../../images
 # Training data
 TRAINING?=training-521.csv
 # Decorations on the output images
@@ -78,6 +78,9 @@ STANDALONE=--standalone
 # Init file
 INI?=options.ini
 
+# Logging
+LOG=standalone-logging.ini
+INI=standalone.ini
 
 # Clean this up a bit, reducing the ML algorithm to one parameter
 ALGFLAG=-k
@@ -110,7 +113,7 @@ weeds:
 	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a $(INDEX) -t $(THRESHOLDS) -df $(TRAINING) $(ALGFLAG) -sc -v -lg $(LOG) -se $(PARAMETERS) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE)
 
 treatment:
-	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a $(INDEX) -t $(THRESHOLDS) -df $(TRAINING) $(ALGFLAG) -sc -v -lg $(LOG) -se $(PARAMETERS) $(TREATMENT) -d location
+	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a $(INDEX) -t $(THRESHOLDS) -df $(TRAINING) $(ALGFLAG) -sc -v -lg $(LOG) -se $(PARAMETERS) -d location $(TREATMENT) -ini $(INI) $(STANDALONE)
 
 lint:
 	$(PYLINT) weeds.py

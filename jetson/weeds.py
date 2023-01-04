@@ -1349,7 +1349,7 @@ def processImage(contextForImage: Context) -> bool:
             return False
         except IOError as io:
             # This is the case where something went wrong with a grab from a camera
-            log.error("Encountered IO Error {}".format(io))
+            log.error("Encountered I/O Error {}".format(io))
             return False
 
         performance.stopAndRecord(constants.PERF_ACQUIRE)
@@ -1357,17 +1357,20 @@ def processImage(contextForImage: Context) -> bool:
         #ImageManipulation.show("Source",image)
         veg.SetImage(rawImage)
 
-        # Attempt to capture the depth data
-        try:
-            depthData = depthCamera.capture()
-        except EOFError as eof:
-            # This case is where we just hit the end of an image set from disk
-            log.info("Encountered end of image set")
-            return False
-        except IOError as io:
-            # This is the case where something went wrong with a grab from a camera
-            log.error("Encountered IO Error {}".format(io))
-            return False
+        # Attempt to capture the depth data if connected
+        if depthCamera.connected:
+            try:
+                depthData = depthCamera.capture()
+            except EOFError as eof:
+                # This case is where we just hit the end of an image set from disk
+                log.info("Encountered end of image set")
+                return False
+            except IOError as io:
+                # This is the case where something went wrong with a grab from a camera
+                log.error("Encountered I/O Error for depth camera: {}".format(io))
+                return False
+        else:
+            log.warning("Depth camera is not connected")
 
         performance.stopAndRecord(constants.PERF_ACQUIRE)
 
@@ -2042,11 +2045,12 @@ if not arguments.standalone:
     for index, thread in enumerate(threads):
         thread.join()
 
-else: # if not arguments.standalone
+else:  # if not arguments.standalone
 
     # Connect to the camera and process until an error is hit
     camera.connect()
-    while processor():
+    contextForImage = Context()
+    while processor(contextForImage):
         pass
 
 
