@@ -18,6 +18,16 @@ GRID_SIZE = 40
 
 # Number of treatment sprayers
 TREATMENT_HEADS = 12
+TREATMENT_HEADS_TIERS = 4
+TREATMENT_HEADS_PER_TIER = 3
+
+# The linear coverage is 6 heads
+TREATMENT_HEADS_LINEAR = 6
+
+# Center of one head one to the adjacent one in the same tier (mm)
+TREATMENT_CENTER_OF_HEADS_SPACING = 40
+# Centerline of one tier of emitters to the next (mm)
+TREATMENT_CENTER_OF_TIERS_SPACING = 47.625
 
 # Minimum percentage of vegetation in a cell to be considered a treatment target
 MIN_VEGETATION_FACTOR = 0.75
@@ -27,14 +37,14 @@ class Treatment:
         self._image = image
         self._binary = binary
         (self._maxRows, self._maxColumns, self._depth) = self._image.shape
-        rows, cols = (int(self._maxRows / GRID_SIZE), int(self._maxColumns/ GRID_SIZE))
+        rows, cols = (int(self._maxRows / GRID_SIZE), int(self._maxColumns / GRID_SIZE))
         self._treatmentGrid = [[0]*cols]*rows
         self._grid = pd.DataFrame(dtype=int)
         self._treatmentPlan = pd.DataFrame(dtype=int)
         self.log = logging.getLogger(__name__)
 
         # Determine the number of pixels and individual sprayer head can cover
-        self._sprayerCoverage = int(self._maxRows / TREATMENT_HEADS)
+        self._sprayerCoverage = int(self._maxRows / TREATMENT_HEADS_LINEAR)
         self._gridSize = self._sprayerCoverage
 
     @property
@@ -71,10 +81,10 @@ class Treatment:
         """
         (maxRows, maxColumns, depth) = self._image.shape
         # The vertical lines aren't needed anymore
-        for i in range(0,maxRows, self._gridSize):
-            cv.line(self._image,(0,i), (maxColumns,i),constants.COLOR_TREATMENT_GRID, constants.SIZE_TREATMENT_LINE, cv.LINE_AA)
+        for i in range(0, maxRows, self._gridSize):
+            cv.line(self._image, (0, i), (maxColumns, i), constants.COLOR_TREATMENT_GRID, constants.SIZE_TREATMENT_LINE, cv.LINE_AA)
         sprayerLane = 0
-        for j in range(0,maxColumns,self._gridSize):
+        for j in range(0, maxColumns, self._gridSize):
             laneText = constants.SPRAYER_NAME + " " + str(sprayerLane)
             # TODO: This is a bit of a mess that needs to be sorted out.
             if j > 0:
@@ -124,11 +134,11 @@ class Treatment:
         # If anything is the grid is a vegetated pixel, return true
         return np.any(gridContents)
 
-        # This is a threshold based scheme we don't want to use
-        # The average of a fully vegetated cell is 255
-        average = np.average(gridContents)
-        #print("Average in cell: {:.2f}".format(average))
-        return average > (MIN_VEGETATION_FACTOR * 255)
+        # # This is a threshold based scheme we don't want to use
+        # # The average of a fully vegetated cell is 255
+        # average = np.average(gridContents)
+        # #print("Average in cell: {:.2f}".format(average))
+        # return average > (MIN_VEGETATION_FACTOR * 255)
 
 
     def generatePlan(self, classified: {}) -> []:

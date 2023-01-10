@@ -1301,6 +1301,7 @@ def storeImage(contextForImage: Context) -> bool:
     message.plan = constants.Treatment.RAW_IMAGE
     message.name = "original"
     message.url = "http://" + platform.node() + "/" + currentSessionName + "/" + fileName
+    message.timestamp = time.time() * 1000
 
     try:
         position = options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_POSITION)
@@ -1682,6 +1683,16 @@ def runDiagnostics(systemRoom: MUCCommunicator, camera: _Camera):
 totalMovement = 0.0
 keepAliveMessages = 0
 movementSinceLastProcessing = 0.0
+
+def messageIsCurrent(timestamp: int) -> bool:
+    """
+    Determine if a message is old or curret
+    :param timestamp: Timestamp the message was sent
+    :return: True if message is current, False otherwise
+    """
+    timeDelta = (time.time() * 1000) - timestamp
+    return timeDelta < constants.OLD_MESSAGE
+
 #
 # The callback for messages received in the system room.
 # When the total distance is the width of the image, grab an image and process it.
@@ -1694,11 +1705,12 @@ def messageSystemCB(conn,msg: xmpp.protocol.Message):
     global currentOperation
     # Make sure this is a message sent to the room, not directly to us
     if msg.getType() == "groupchat":
-            body = msg.getBody()
-            # Check if this is a real message and not just an empty keep-alive message
-            if body is not None:
-                log.debug("system message from {}: [{}]".format(msg.getFrom(), msg.getBody()))
-                systemMessage = SystemMessage(raw=msg.getBody())
+        body = msg.getBody()
+        # Check if this is a real message and not just an empty keep-alive message
+        if body is not None:
+            log.debug("system message from {}: [{}]".format(msg.getFrom(), msg.getBody()))
+            systemMessage = SystemMessage(raw=msg.getBody())
+            if messageIsCurrent(systemMessage.timestamp):
                 if systemMessage.action == constants.Action.START.name:
                     processing = True
                     currentSessionName = systemMessage.name
@@ -1717,6 +1729,8 @@ def messageSystemCB(conn,msg: xmpp.protocol.Message):
                 if systemMessage.action == constants.Action.START_DIAG.name:
                     log.debug("Request for diagnostics")
                     runDiagnostics(roomSystem, camera)
+            else:
+                log.info("Old message seen -- ignored")
 
     elif msg.getType() == "chat":
             print("private: " + str(msg.getFrom()) +  ":" +str(msg.getBody()))
