@@ -67,7 +67,7 @@
        <enum>QTabWidget::Triangular</enum>
       </property>
       <property name="currentIndex">
-       <number>1</number>
+       <number>2</number>
       </property>
       <widget class="QWidget" name="tabSystem">
        <property name="enabled">
@@ -1452,7 +1452,7 @@
              </spacer>
             </item>
             <item alignment="Qt::AlignHCenter">
-             <widget class="QPushButton" name="purgeLeft">
+             <widget class="QPushButton" name="purge_left">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
                 <horstretch>0</horstretch>
@@ -1515,7 +1515,7 @@
                </widget>
               </item>
               <item>
-               <widget class="QSpinBox" name="spinBox">
+               <widget class="QSpinBox" name="purgeTimeLeft">
                 <property name="value">
                  <number>5</number>
                 </property>
@@ -1860,7 +1860,7 @@
              </spacer>
             </item>
             <item alignment="Qt::AlignHCenter">
-             <widget class="QPushButton" name="purgeLeft_2">
+             <widget class="QPushButton" name="purge_right">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
                 <horstretch>0</horstretch>
@@ -1923,7 +1923,7 @@
                </widget>
               </item>
               <item>
-               <widget class="QSpinBox" name="spinBox_2">
+               <widget class="QSpinBox" name="purgeTimeRight">
                 <property name="value">
                  <number>5</number>
                 </property>

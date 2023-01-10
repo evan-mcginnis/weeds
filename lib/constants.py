@@ -88,7 +88,7 @@ NAME_ECCENTRICITY           = "eccentricity"
 NAME_ROUNDNESS              = "roundness"
 NAME_CONVEXITY              = "convexity"
 NAME_SOLIDITY               = "solidity"
-
+NAME_DIST_TO_LEADING_EDGE   = "leading"
 #
 # X M P P  R O O M S  A N D  J I D S
 #
@@ -384,6 +384,15 @@ JSON_STATUS_CAMERA  = "status-camera"
 JSON_GYRO           = "gyro"
 JSON_ACCELERATION   = "acceleration"
 JSON_PARAM_GSD      = "param-gsd"
+JSON_PULSE_START    = "pulse_start"
+JSON_PULSE_STOP     = "pulse_stop"
+JSON_EMITTER_TIER   = "tier"
+JSON_EMITTER_POS    = "position"
+JSON_EMITTER_NUMBER = "number"
+JSON_EMITTER_DURATION = "duration"
+
+EMITTER_ALL         = "0"
+EMITTER_NOT_SET     = "-1"
 
 SOURCE_VIRTUAL      = "virtual"
 SOURCE_PHYSICAL     = "physical"

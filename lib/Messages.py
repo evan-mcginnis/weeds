@@ -4,7 +4,7 @@
 
 #import xml.etree.ElementTree as ET
 import json
-import logging
+#import logging
 from abc import ABC, abstractmethod
 import numpy as np
 
@@ -17,6 +17,7 @@ class MUCMessage(ABC):
         self._data = {}
         self._body = ""
         self._timestamp = 0
+        self._json = ""
 
         # This is the case where a dictionary is passed in with all the data
         # _body contains a string & _data contains a dictionary
@@ -53,14 +54,14 @@ class MUCMessage(ABC):
     def data(self, document: str):
         self._body = document
 
-    @abstractmethod
-    def parse(self) -> bool:
-        """
-        Parse the message
-        :return: False on invalid body, true otherwise
-        """
-        #self._root = ET.fromstring(self._body)
-        return self._root is not None
+    # @abstractmethod
+    # def parse(self) -> bool:
+    #     """
+    #     Parse the message
+    #     :return: False on invalid body, true otherwise
+    #     """
+    #     #self._root = ET.fromstring(self._body)
+    #     return self._root is not None
 
     def formMessage(self) -> str:
         """
@@ -69,9 +70,6 @@ class MUCMessage(ABC):
         """
         self._json = json.dumps(self._data)
         return self._json
-
-
-
 
 class SystemMessage(MUCMessage):
     def __init__(self, **kwargs):
@@ -108,7 +106,7 @@ class SystemMessage(MUCMessage):
 
     @property
     def position(self) -> str:
-        return(self._position)
+        return self._position
 
     @position.setter
     def position(self, thePosition):
@@ -117,7 +115,7 @@ class SystemMessage(MUCMessage):
 
     @property
     def gsdCamera(self) -> int:
-        return(int(self._param_gsd))
+        return int(self._param_gsd)
 
     @gsdCamera.setter
     def gsdCamera(self, theGSD: str):
@@ -126,7 +124,7 @@ class SystemMessage(MUCMessage):
 
     @property
     def statusCamera(self) -> str:
-        return(self._status_camera)
+        return self._status_camera
 
     @statusCamera.setter
     def statusCamera(self, theStatus):
@@ -171,8 +169,8 @@ class SystemMessage(MUCMessage):
         self._action = _action
         self._data[constants.JSON_ACTION] = _action
 
-    def parse(self) -> bool:
-        return super().parse()
+    # def parse(self) -> bool:
+    #     return super().parse()
 
 class DiagnosticMessage(SystemMessage):
     def __init__(self, **kwargs):
@@ -269,7 +267,7 @@ class OdometryMessage(MUCMessage):
 
     @gyro.setter
     def gyro(self, values: np.ndarray):
-        self._gyro = "({},{},{})".format(values[0],values[1], values[2])
+        self._gyro = "({},{},{})".format(values[0], values[1], values[2])
         self._data[constants.JSON_GYRO] = self._gyro
 
     @property
@@ -278,7 +276,7 @@ class OdometryMessage(MUCMessage):
 
     @acceleration.setter
     def acceleration(self, values: np.ndarray):
-        self._acceleration = "({},{},{})".format(values[0],values[1],values[2])
+        self._acceleration = "({},{},{})".format(values[0], values[1], values[2])
         self._data[constants.JSON_ACCELERATION] = self._acceleration
 
     @property
@@ -353,9 +351,9 @@ class OdometryMessage(MUCMessage):
         self._action = requestedAction
         self._data[constants.JSON_ACTION] = requestedAction
 
-    @property
-    def root(self):
-        return self._root
+    # @property
+    # def root(self):
+    #     return self._root
 
     @property
     def body(self):
@@ -387,10 +385,15 @@ class OdometryMessage(MUCMessage):
     def parse(self) -> bool:
         super().parse()
 
+
+
+#
+# The treament message is issued to turn on emitters and to send out the raw plan
+#
 class TreatmentMessage(MUCMessage):
     def __init__(self, **kwargs):
         """
-        A message to the odometry room
+        A message to the treatment room
         :param body: Message body.
         """
         super().__init__(**kwargs)
@@ -404,13 +407,54 @@ class TreatmentMessage(MUCMessage):
         else:
             self._url = ""
 
+        # Left or right position of the emitter
         if constants.JSON_POSITION in self._data:
             self._position = self._data[constants.JSON_POSITION]
         else:
-            self._position = ""
+            self._position = constants.EMITTER_NOT_SET
+
+        if constants.JSON_EMITTER_NUMBER in self._data:
+            self._emitter_number = self._data[constants.JSON_EMITTER_NUMBER]
+        else:
+            self._emitter_number = constants.EMITTER_NOT_SET
+
+        # The odometry pulse on which the emitter is activated
+        if constants.JSON_PULSE_START in self._data:
+            self._pulse_start = self._data[constants.JSON_PULSE_START]
+        else:
+            self._pulse_start = constants.EMITTER_NOT_SET
+
+        # The odometry pulse on which the emitter is stopped
+        if constants.JSON_PULSE_STOP in self._data:
+            self._pulse_stop = self._data[constants.JSON_PULSE_STOP]
+        else:
+            self._pulse_stop = constants.EMITTER_NOT_SET
+
+
+        # The position of the emitter within the tier
+        if constants.JSON_EMITTER_POS in self._data:
+            self._emitter_position = self._data[constants.JSON_EMITTER_POS]
+        else:
+            self._emitter_position = constants.EMITTER_NOT_SET
+
+        # The emitter tier
+        if constants.JSON_EMITTER_TIER in self._data:
+            self._emitter_tier = self._data[constants.JSON_EMITTER_TIER]
+        else:
+            self._emitter_tier = constants.EMITTER_NOT_SET
+
+        # The duration of the emitter pulse in milliseconds
+        if constants.JSON_EMITTER_DURATION in self._data:
+            self._emitter_duration = self._data[constants.JSON_EMITTER_DURATION]
+        else:
+            self._emitter_duration = constants.EMITTER_NOT_SET
 
     @property
     def position(self) -> str:
+        """
+        The position of the emitter to activate
+        :return:
+        """
         return self._position
 
     @position.setter
@@ -420,10 +464,19 @@ class TreatmentMessage(MUCMessage):
 
     @property
     def url(self) -> str:
+        """
+        The URL of the image of the plan
+        :return:
+        A string of the image representing the plan
+        """
         return self._url
 
     @url.setter
     def url(self, theUrl : str):
+        """
+        Set the URL of the image
+        :param theUrl: The URM to use
+        """
         self._url = theUrl
         self._data[constants.JSON_URL] = theUrl
 
@@ -457,6 +510,105 @@ class TreatmentMessage(MUCMessage):
     @body.setter
     def body(self, document: str):
         self._body = document
+
+    @property
+    def pulse_start(self) -> int:
+        """
+        The odometry pulse value on which the emitter is to be activated
+        :return:
+        """
+        return int(self._pulse_start)
+
+    @pulse_start.setter
+    def pulse_start(self, thePulse: int):
+        """
+        Set the odometry pulse on which the emitter is to be activated. Use 0 to signal immediate activation
+        :param theDuration: The pulse value to use or 0 (zero)
+        """
+        self._pulse_start = thePulse
+        self._data[constants.JSON_PULSE_START] = thePulse
+    @property
+    def pulse_stop(self) -> int:
+        """
+        The odometry pulse value on which the emitter is to be activated
+        :return:
+        """
+        return int(self._pulse_stop)
+
+    @pulse_stop.setter
+    def pulse_stop(self, thePulse: int):
+        """
+        Set the odometry pulse on which the emitter is to be activated. Use 0 to signal immediate activation
+        :param thePulse: The pulse value to use or 0 (zero)
+        """
+        self._pulse_stop = thePulse
+        self._data[constants.JSON_PULSE_STOP] = thePulse
+
+    @property
+    def duration(self) -> int:
+        """
+        The duration of the pulse in seconds. Only used if the pulse to terminate the treatment is not specified.
+        :return:
+        """
+
+        value = int(self._emitter_duration)
+        return value
+
+    @duration.setter
+    def duration(self, theDuration: int):
+        self._emitter_duration = theDuration
+        self._data[constants.JSON_EMITTER_DURATION] =  theDuration
+
+    @property
+    def tier(self) -> int:
+        """
+        The tier (row) of the emitter
+        :return:
+        """
+        return int(self._emitter_tier)
+
+    @tier.setter
+    def tier(self, theTier: int):
+        """
+        Specify the tier (row) of the emitter
+        :param theTier:
+        """
+        self._emitter_tier = theTier
+        self._data[constants.JSON_EMITTER_TIER] = theTier
+
+    @property
+    def number(self) -> int:
+        """
+        The number within the tier of the emitter
+        :return:
+        """
+        return int(self._emitter_number)
+
+    @number.setter
+    def number(self, theNumber: int):
+        """
+        Specify the tier (row) of the emitter
+        :param theTier:
+        """
+        self._emitter_number = theNumber
+        self._data[constants.JSON_EMITTER_NUMBER] = theNumber
+
+    @property
+    def side(self) -> int:
+        """
+        The position within the weeder (LEFT or RIGHT)
+        :return: constants.Position LEFT or RIGHT
+        """
+        return int(self._emitter_position)
+
+    @side.setter
+    def side(self, thePosition: str):
+        """
+        Set the position within the tier weeder (LEFT OR RIGHT)
+        :param thePosition: use constants.Position for LEFT or RIGHT
+        """
+        self._emitter_position = constants.Side[thePosition].value
+        self._data[constants.JSON_EMITTER_POS] = self._emitter_position
 
     @property
     def message(self) -> str:

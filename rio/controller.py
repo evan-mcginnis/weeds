@@ -21,7 +21,7 @@ from typing import Callable
 import gpsd
 
 from OptionsFile import OptionsFile
-import logging
+# import logging
 import logging.config
 import xmpp
 import numpy as np
@@ -39,7 +39,7 @@ from Odometer import Odometer, VirtualOdometer
 from PhysicalOdometer import PhysicalOdometer
 from Emitter import Emitter, PhysicalEmitter, VirtualEmitter
 from MUCCommunicator import MUCCommunicator
-from Messages import MUCMessage, OdometryMessage, SystemMessage
+from Messages import MUCMessage, OdometryMessage, SystemMessage, TreatmentMessage
 from GPSClient import GPS
 from CameraDepth import CameraDepth
 from NationalInstruments import NationalInstruments, VirtualNationalInstruments, PhysicalNationalInstruments
@@ -293,25 +293,25 @@ def startupSystem(options: OptionsFile):
 # P R O C E S S
 #
 # For the odometer, there isn't much to do, as it just reports movement.
-# For the treatement, there are a few things: listen for identifications, and for begin/end cycles
+# For the treatment, there are a few things: listen for identifications, and for begin/end cycles
 #
 def process(conn, msg: xmpp.protocol.Message):
     global currentSessionName
     global currentOperation
     log.debug("Process message from {}: {}".format(msg.getFrom(), msg.getBody()))
 
-    # Not sure what is happening here, but sometimes we get messages with no body.
+    # Not sure what is happening here, but sometimes we get messages with an empty body.
     if msg.getBody() is None:
         log.debug("Empty message received")
         return
 
     # Messages from the system room will be in the form: system@conference.weeds.com/console
 
-    console = options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_SYSTEM) \
+    console_in_system = options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_SYSTEM) \
               +  "/" \
               + options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_CONSOLE)
 
-    if msg.getFrom() == console:
+    if msg.getFrom() == console_in_system:
         if msg.getBody() is not None:
             systemMsg = SystemMessage(raw=msg.getBody())
             timeMessageSent = systemMsg.timestamp
@@ -320,7 +320,7 @@ def process(conn, msg: xmpp.protocol.Message):
 
             # Determine if this is an old message or not
             if timeDelta < 5000:
-                # S T A R T
+                # S T A R T  O R  S T O P  S E S S I O N
                 # For a start session, we need to at start logging with the name of the session
                 if systemMsg.action == constants.Action.START.name:
                     currentSessionName = systemMsg.name
@@ -341,6 +341,51 @@ def process(conn, msg: xmpp.protocol.Message):
             else:
                 log.debug("Old system message. Sent: {} Now: {} Delta: {}".format(timeMessageSent, time.time() * 1000, timeDelta))
 
+def processTreatment(conn, msg: xmpp.protocol.Message):
+    """
+    Process messages from the treatment room
+    :param conn:
+    :param msg:
+    """
+    log.debug("Process treatment message from [{}]: {}".format(msg.getFrom(), msg.getBody()))
+
+    # Not sure what is happening here, but sometimes we get messages with an empty body.
+    if msg.getBody() is None:
+        log.debug("Empty message received")
+        return
+
+    # Messages from the system room will be in the form: system@conference.weeds.com/console
+
+    console_in_treatment = options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_TREATMENT) \
+              +  "/" \
+              + options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_CONSOLE)
+
+    # This is the case where a user requests the emitter change from the application
+    if msg.getFrom() == console_in_treatment:
+        treatmentMsg = TreatmentMessage(raw=msg.getBody())
+        timeMessageSent = treatmentMsg.timestamp
+        timeDelta = (time.time() * 1000) - timeMessageSent
+        if timeDelta < 5000:
+            log.debug("Treatment for emitter: (side={},tier={},number={}) for {} seconds Time Delta: {}".format(
+                treatmentMsg.side,
+                treatmentMsg.tier,
+                treatmentMsg.number,
+                treatmentMsg.duration,
+                timeDelta))
+
+            # A value in the tier of EMITTER_ALL means all the emitters in all the tiers.
+            if treatmentMsg.tier == int(constants.EMITTER_ALL):
+                log.debug("Purging emitters on side: {}".format(constants.Side(treatmentMsg.side)))
+                emitterRight.beginPreparations()
+                emitterRight.addAllEmitters(constants.Side(treatmentMsg.side))
+                emitterRight.turnOnEmitters(treatmentMsg.duration)
+                # emitterRight.cleanup()
+
+            else:
+                # Turn on the emitter and leave it on for the duration specified
+                emitterRight.on(constants.Side(treatmentMsg.side), treatmentMsg.tier, treatmentMsg.number, treatmentMsg.duration)
+        else:
+            log.info("Old message seen: time delta {}".format(timeDelta))
 #
 # Processing the odometry messages is required here only because the depth cameras are on the same system that interprets the odometry
 # signals -- this should be moved to the nvidia systems later
@@ -465,7 +510,7 @@ def startupCommunications(options: OptionsFile) -> ():
                                      options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_ODOMETRY),
                                      options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_DEFAULT_PASSWORD),
                                      options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_TREATMENT),
-                                     process,
+                                     processTreatment,
                                      None) # Don't care about presence
 
     return (odometryRoom, odometryRoom2, systemRoom, treatmentRoom)
@@ -502,6 +547,7 @@ def startupDepthCamera() -> CameraDepth:
     markSensorAsFailed = False
     intelIMU = None
 
+    sensors.query()
     if sensors.count() < 1:
         log.error("Detected {} depth/IMU sensors. Expected 1 or more.".format(sensors.count()))
         log.error("No sensor will be used.")
@@ -514,10 +560,8 @@ def startupDepthCamera() -> CameraDepth:
     # Start the IMU camera
     try:
         intelIMU = CameraDepth(constants.Capture.IMU,
-                                   gyro=constants.PARAM_FILE_GYRO,
-                                   acceleration=constants.PARAM_FILE_ACCELERATION)
-                                   #serial='937622070186')
-                                   #serial=options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_SERIAL_RIGHT))
+                               gyro=constants.PARAM_FILE_GYRO,
+                               acceleration=constants.PARAM_FILE_ACCELERATION)
         if markSensorAsFailed:
             intelIMU.state.toMissing()
         else:

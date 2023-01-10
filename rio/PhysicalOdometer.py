@@ -231,7 +231,13 @@ class PhysicalOdometer(Odometer):
 
             #task.timing.samp_clk_overrun_behavior = nidaqmx.constants.OverflowBehavior.TOP_TASK_AND_ERROR
 
-            task.start()
+            try:
+                task.start()
+            except nidaqmx.errors.DaqError as daqerr:
+                self.log.fatal("Unable to start reading odometer.  Usually this means the resource is still reserved")
+                self.log.fatal(daqerr)
+                return daqErrorEncountered
+
             previous = 0.0
             self._processing = True
             running = True

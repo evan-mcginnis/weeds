@@ -245,6 +245,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.reset_distance.clicked.connect(self.resetDistance)
         self.reset_images_taken.clicked.connect(self.resetImageCount)
 
+        self.purge_left.clicked.connect(self.purgeAllHandler)
+        self.purge_right.clicked.connect(self.purgeAllHandler)
 
         # Set the initial button states
         self.button_start.setEnabled(False)
@@ -276,6 +278,105 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         # Dialogs
         self._dialogDisconnected = QMessageBox()
+
+        self._emitterButtons = [
+            {'button': self.emitter_left_1_1, 'side': constants.Side.LEFT, 'tier': 1, 'position': 1},
+            {'button': self.emitter_left_1_2, 'side': constants.Side.LEFT, 'tier': 1, 'position': 2},
+            {'button': self.emitter_left_1_3, 'side': constants.Side.LEFT, 'tier': 1, 'position': 3},
+            {'button': self.emitter_left_2_1, 'side': constants.Side.LEFT, 'tier': 2, 'position': 1},
+            {'button': self.emitter_left_2_2, 'side': constants.Side.LEFT, 'tier': 2, 'position': 2},
+            {'button': self.emitter_left_2_3, 'side': constants.Side.LEFT, 'tier': 2, 'position': 3},
+            {'button': self.emitter_left_3_1, 'side': constants.Side.LEFT, 'tier': 3, 'position': 1},
+            {'button': self.emitter_left_3_2, 'side': constants.Side.LEFT, 'tier': 3, 'position': 2},
+            {'button': self.emitter_left_3_3, 'side': constants.Side.LEFT, 'tier': 3, 'position': 3},
+            {'button': self.emitter_left_4_1, 'side': constants.Side.LEFT, 'tier': 4, 'position': 1},
+            {'button': self.emitter_left_4_2, 'side': constants.Side.LEFT, 'tier': 4, 'position': 2},
+            {'button': self.emitter_left_4_3, 'side': constants.Side.LEFT, 'tier': 4, 'position': 3},
+
+            {'button': self.emitter_right_1_1, 'side': constants.Side.RIGHT, 'tier': 1, 'position': 1},
+            {'button': self.emitter_right_1_2, 'side': constants.Side.RIGHT, 'tier': 1, 'position': 2},
+            {'button': self.emitter_right_1_3, 'side': constants.Side.RIGHT, 'tier': 1, 'position': 3},
+            {'button': self.emitter_right_2_1, 'side': constants.Side.RIGHT, 'tier': 2, 'position': 1},
+            {'button': self.emitter_right_2_2, 'side': constants.Side.RIGHT, 'tier': 2, 'position': 2},
+            {'button': self.emitter_right_2_3, 'side': constants.Side.RIGHT, 'tier': 2, 'position': 3},
+            {'button': self.emitter_right_3_1, 'side': constants.Side.RIGHT, 'tier': 3, 'position': 1},
+            {'button': self.emitter_right_3_2, 'side': constants.Side.RIGHT, 'tier': 3, 'position': 2},
+            {'button': self.emitter_right_3_3, 'side': constants.Side.RIGHT, 'tier': 3, 'position': 3},
+            {'button': self.emitter_right_4_1, 'side': constants.Side.RIGHT, 'tier': 4, 'position': 1},
+            {'button': self.emitter_right_4_2, 'side': constants.Side.RIGHT, 'tier': 4, 'position': 2},
+            {'button': self.emitter_right_4_3, 'side': constants.Side.RIGHT, 'tier': 4, 'position': 3}
+        ]
+
+        self.setEmitterButtonsState(True)
+        self.setEmitterButtonHandler()
+
+    def setEmitterButtonsState(self, enabled: bool):
+        """
+        Set the button state of the emitters
+        :param enabled:
+        """
+        for buttonEntry in self._emitterButtons:
+            buttonEntry['button'].setEnabled(enabled)
+
+    def purgeAllHandler(self):
+        sending = self.sender()
+
+        # The name of the button is purge_<side>
+        buttonName = sending.objectName().split('_')
+        side = buttonName[1]
+
+        treatmentMessage = TreatmentMessage()
+
+        if side.upper() == constants.Side.RIGHT.name:
+            treatmentMessage.duration = self.purgeTimeRight.value()
+        elif side.upper() == constants.Side.LEFT.name:
+            treatmentMessage.duration = self.purgeTimeLeft.value()
+        else:
+            log.error("Unable to determine which side the emitter is on: {}".format(side))
+            return
+
+        treatmentMessage.side = side.upper()
+        treatmentMessage.tier = constants.EMITTER_ALL
+        treatmentMessage.number = constants.EMITTER_ALL
+        treatmentMessage.timestamp = time.time() * 1000
+
+        self._treatmentRoom.sendMessage(treatmentMessage.formMessage())
+
+    def emitterHandler(self):
+        sending = self.sender()
+
+        # Break apart the emitter button name of the form emitter_<side>_<tier>_<number>
+        emitter = sending.objectName().split('_')
+        side = emitter[1]
+        tier = emitter[2]
+        number = emitter[3]
+
+        treatmentMessage = TreatmentMessage()
+        treatmentMessage.side = side.upper()
+        treatmentMessage.tier = tier
+        treatmentMessage.number = number
+        treatmentMessage.timestamp = time.time() * 1000
+
+        if treatmentMessage.side == constants.Side.RIGHT.value:
+            treatmentMessage.duration = self.purgeTimeRight.value()
+        elif treatmentMessage.side == constants.Side.LEFT.value:
+            treatmentMessage.duration = self.purgeTimeLeft.value()
+        else:
+            log.error("Unable to determine which side the emitter is on: [{}]".format(side.upper()))
+            return
+
+        log.debug("Enable emitter: ({},{},{}) duration {}".format(treatmentMessage.side,
+                                                                  treatmentMessage.tier,
+                                                                  treatmentMessage.number,
+                                                                  treatmentMessage.duration))
+
+        self._treatmentRoom.sendMessage(treatmentMessage.formMessage())
+
+    def setEmitterButtonHandler(self):
+        # for button in self._emitterButtons:
+        #     button['button'].clicked.connect(lambda: self.emitterHandler(button['side'], button['tier'], button['position']))
+        for button in self._emitterButtons:
+            button['button'].clicked.connect(self.emitterHandler)
 
     @property
     def OKtoImage(self):

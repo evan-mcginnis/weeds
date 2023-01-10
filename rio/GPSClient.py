@@ -69,6 +69,8 @@ class GPS:
                 position = gpsd.get_current()
             except UserWarning as user:
                 self._log.error("GPS Not active")
+            except gpsd.NoFixError as fix:
+                self._log.error("Needs a GPS 2D fix")
         return position
 
 # Example for another library
@@ -114,9 +116,12 @@ if __name__ == '__main__':
     packet = theGPS.getCurrentPosition()
     finish = time.time() * 1000
     if packet is not None:
-        print("Position: {}".format(packet.position()))
-        print("Error: {}".format(packet.position_precision()))
-        print("Fix: {}".format(packet.mode))
-        print("Elapsed time {} ms".format(finish - start))
+        try:
+            print("Position: {}".format(packet.position()))
+            print("Error: {}".format(packet.position_precision()))
+            print("Fix: {}".format(packet.mode))
+            print("Elapsed time {} ms".format(finish - start))
+        except gpsd.NoFixError as fix:
+            print("Unable to obtain a 2D fix")
     else:
         print("No position data")
