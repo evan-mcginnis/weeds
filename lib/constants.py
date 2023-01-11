@@ -307,9 +307,12 @@ PROPERTY_IMAGES = "IMAGES"
 PROPERTY_WEEDS_LOG = "WEEDS-LOG"
 PROPERTY_KEY_IMAGES = "images.tar"
 PROPERTY_KEY_WEEDS_LOG = "weeds-log"
+
 #
 # X M P P  R O O M S  A N D  J I D S
 #
+OLD_MESSAGE                          = 5000
+
 PROPERTY_SECTION_XMPP                = "XMPP"
 PROPERTY_SECTION_GENERAL             = "GENERAL"
 PROPERTY_ROOT                        = "ROOT"
@@ -413,6 +416,8 @@ class Forward(Enum):
 class Treatment(Enum):
     RAW_IMAGE = 0
     PLAN = 1
+    EMITTER_INSTRUCTIONS = 2
+    UNKNOWN = 3
 
 class Position(Enum):
     LEFT = 0

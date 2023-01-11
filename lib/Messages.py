@@ -4,12 +4,13 @@
 
 #import xml.etree.ElementTree as ET
 import json
+import time
 #import logging
 from abc import ABC, abstractmethod
 import numpy as np
 
 import constants
-
+import logging
 
 class MUCMessage(ABC):
     def __init__(self, **kwargs):
@@ -18,6 +19,7 @@ class MUCMessage(ABC):
         self._body = ""
         self._timestamp = 0
         self._json = ""
+        self._log = logging.getLogger(__name__)
 
         # This is the case where a dictionary is passed in with all the data
         # _body contains a string & _data contains a dictionary
@@ -68,6 +70,8 @@ class MUCMessage(ABC):
         Create an JSON Message
         :return: String of the message
         """
+        if self._timestamp == 0:
+            self.timestamp = time.time() * 1000
         self._json = json.dumps(self._data)
         return self._json
 
@@ -388,7 +392,7 @@ class OdometryMessage(MUCMessage):
 
 
 #
-# The treament message is issued to turn on emitters and to send out the raw plan
+# The treatment message is issued to turn on emitters and to send out the raw plan
 #
 class TreatmentMessage(MUCMessage):
     def __init__(self, **kwargs):
@@ -400,7 +404,12 @@ class TreatmentMessage(MUCMessage):
         self._name = ""
 
         if constants.JSON_PLAN in self._data:
-            self._plan = self._data[constants.JSON_PLAN]
+            try:
+                self._plan = constants.Treatment[self._data[constants.JSON_PLAN]]
+            except KeyError:
+                self._log.error("Unable to find mapping for {}".format(self._data[constants.JSON_PLAN]))
+        else:
+            self._plan = constants.Treatment.UNKNOWN
 
         if constants.JSON_URL in self._data:
             self._url = self._data[constants.JSON_URL]
