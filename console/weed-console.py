@@ -339,6 +339,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         treatmentMessage.tier = constants.EMITTER_ALL
         treatmentMessage.number = constants.EMITTER_ALL
         treatmentMessage.timestamp = time.time() * 1000
+        # These are direct emitter instructions, not a plan
+        treatmentMessage.plan = constants.Treatment.EMITTER_INSTRUCTIONS
 
         self._treatmentRoom.sendMessage(treatmentMessage.formMessage())
 
@@ -356,6 +358,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         treatmentMessage.tier = tier
         treatmentMessage.number = number
         treatmentMessage.timestamp = time.time() * 1000
+        # These are direct emitter instructions, not a plan
+        treatmentMessage.plan = constants.Treatment.EMITTER_INSTRUCTIONS
 
         if treatmentMessage.side == constants.Side.RIGHT.value:
             treatmentMessage.duration = self.purgeTimeRight.value()
@@ -759,7 +763,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             height = self.image_camera_left.height()
             pixmap = QPixmap()
             pixmap.loadFromData(data)
-            scaled = pixmap.scaled(width,height,Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            scaled = pixmap.scaled(width, height, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             if position == constants.Position.LEFT.name.lower():
                 #self.image_camera_left.setMaximumSize(pixmap.size())
                 self.image_camera_left.setPixmap(pixmap)
@@ -1047,6 +1051,15 @@ def process(conn, msg: xmpp.protocol.Message):
     global messageNumber
     global treatments
 
+    msgText = msg.getBody()
+    if msgText is not None:
+        message = MUCMessage(raw=msg.getBody())
+        timeMessageSent = message.timestamp
+        timeDelta = (time.time() * 1000) - timeMessageSent
+        if timeDelta > 5000:
+            log.debug("Old message seen -- ignored")
+            return
+
     if msg.getFrom().getStripped() == options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_ODOMETRY):
         log.debug("Processing Odometry message")
         odometryMessage = OdometryMessage(raw=msg.getBody())
@@ -1067,13 +1080,15 @@ def process(conn, msg: xmpp.protocol.Message):
         log.debug("Speed: {:.02f}".format(odometryMessage.speed))
     elif msg.getFrom().getStripped() == options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_TREATMENT):
         treatmentMessage = TreatmentMessage(raw=msg.getBody())
-        treatments += 1
-        signals = window.taskTreatment.signals
-        signals.plan.emit(treatments)
-        position = treatmentMessage.position
-        if len(treatmentMessage.url) > 0 and len(treatmentMessage.position) > 0:
-            log.debug("Image is at: {}".format(treatmentMessage.url))
-            signals.image.emit(position, treatmentMessage.url)
+        # Just the raw image from the camera
+        if treatmentMessage.plan == constants.Treatment.RAW_IMAGE:
+            treatments += 1
+            signals = window.taskTreatment.signals
+            signals.plan.emit(treatments)
+            position = treatmentMessage.position
+            if len(treatmentMessage.url) > 0 and len(treatmentMessage.position) > 0:
+                log.debug("Image is at: {}".format(treatmentMessage.url))
+                signals.image.emit(position, treatmentMessage.url)
         #window.Right(treatments)
         log.debug("Treatments: {:.02f}".format(treatments))
     elif msg.getFrom().getStripped() == options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_SYSTEM):
