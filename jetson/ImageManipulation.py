@@ -562,6 +562,18 @@ class ImageManipulation:
             self._shapeIndices.append(shapeIndex)
         return
 
+    def computeDistancesToEmitter(self, pixelSize: float, resolution: ()):
+        """
+        Compute the distance to the emitter edge for all items
+        """
+        maxY, maxX, bands = resolution
+        for blobName, blobAttributes in self._blobs.items():
+            # The location within the image
+            (x, y, w, h) = blobAttributes[constants.NAME_LOCATION]
+
+            distanceToEdge = (maxX - x) * pixelSize
+            blobAttributes[constants.NAME_DIST_TO_LEADING_EDGE] = distanceToEdge
+        return
 
     @staticmethod
     def lengthWidthRatio(contour: np.ndarray) -> float:
@@ -993,6 +1005,12 @@ class ImageManipulation:
         # cv.drawContours(self._contours_image, self._contours, contourIdx=-1, color=(255,0,0),thickness=2)
         # cv.imwrite("contours.jpg", self._contours_image)
 
+    def drawDistances(self):
+        """
+        Draw the distances for weeds to the edge of the image
+        """
+        self.log.debug("Draw distances for weeds. Not yet implemented")
+
     def drawBoxes(self, name: str, rectangles: [], decorations: []):
         """
         Draw colored boxes around the blobs based on what type they are
@@ -1038,6 +1056,7 @@ class ImageManipulation:
                 roundnessText = "Roundness: {:.4f}".format(rectAttributes[constants.NAME_ROUNDNESS])
                 convexityText = "Convexity: {:.4f}".format(rectAttributes[constants.NAME_CONVEXITY])
                 solidityText = "Solidity: {:.4f}".format(rectAttributes[constants.NAME_SOLIDITY])
+                distanceToEmitterText = "Distance to Emitter: {:.4f}".format(rectAttributes[constants.NAME_DIST_TO_LEADING_EDGE])
                 if constants.NAME_LOCATION in decorations:
                     cv.putText(self._image, location, (cX - 25, cY - 25),cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
                 if constants.NAME_AREA in decorations:
@@ -1069,6 +1088,8 @@ class ImageManipulation:
                     cv.putText(self._image, convexityText, (cX - 25, cY - 350), cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
                 if constants.NAME_SOLIDITY in decorations:
                     cv.putText(self._image, solidityText, (cX - 25, cY - 375), cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+                if constants.NAME_DIST_TO_LEADING_EDGE in decorations:
+                    cv.putText(self._image, distanceToEmitterText, (cX - 25, cY - 400), cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
 
 
         #cv.imwrite("opencv-centers.jpg", self._image)

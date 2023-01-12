@@ -180,7 +180,7 @@ class ImageEvents(pypylon.pylon.ImageEventHandler):
 
 # Example of an image event handler.
 class SampleImageEventHandler(pypylon.pylon.ImageEventHandler):
-    def OnImageGrabbed(self, camera, grabResult):
+    def OnImageGrabbed(self, _camera, grabResult):
         print("CSampleImageEventHandler::OnImageGrabbed called.")
         print()
         print()
@@ -262,11 +262,26 @@ class _Camera(ABC):
 
 class _CameraFile(_Camera):
     def __init__(self, **kwargs):
-        self._connected = False
-        self.directory =  kwargs[constants.KEYWORD_DIRECTORY]
-        self._currentImage = 0
         super().__init__(**kwargs)
+        self._connected = False
+
         self.log = logging.getLogger(__name__)
+        if constants.KEYWORD_DIRECTORY in kwargs:
+            self.directory = kwargs[constants.KEYWORD_DIRECTORY]
+        else:
+            self.log.fatal("The image directory name must be specified with the keyword {}".format(constants.KEYWORD_DIRECTORY))
+        if constants.KEYWORD_GSD in kwargs:
+            self._gsd = kwargs[constants.KEYWORD_GSD]
+        else:
+            self.log.warning("The GSD keyword is not specified for the image set with {}. Using default.".format(constants.KEYWORD_GSD))
+            self._gsd = 0.5
+
+        self._currentImage = 0
+        self._image = None
+        self._capturing = False
+        self._metadata = None
+        self._mmPerPixel = 0.0
+        self._flist = []
         return
 
     def connect(self) -> bool:
@@ -276,11 +291,28 @@ class _CameraFile(_Camera):
         """
         self._connected = os.path.isdir(self.directory)
         # Find all the files in the directory.
-        # TODO: find only the images.
         if self._connected:
-            self._flist = [p for p in pathlib.Path(self.directory).iterdir() if p.is_file()]
+            self._flist = glob.glob(self.directory + '/*' + constants.EXTENSION_IMAGE)
+            #self._flist = [p for p in pathlib.Path(self.directory).iterdir() if p.is_file()]
         else:
             self.log.error("Unable to connect to directory: {}".format(self.directory))
+
+        metadataFile = glob.glob(self.directory + '/*' + constants.EXTENSION_META)
+
+        if len(metadataFile) == 1:
+            # Load the metadata for the imageset
+            self._metadata = OptionsFile(metadataFile[0])
+            if self._metadata.load():
+                try:
+                    self._mmPerPixel = float(self._metadata.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_PIXELS_PER_MM))
+                    self.log.debug("Image set mm per pixel: {}".format(self._mmPerPixel))
+                except KeyError as key:
+                    self.log.error("Could not find pixel to mm mapping in metadata")
+            else:
+                self.log.error("Unable to load metadata file {}".format(metadataFile[0]))
+        else:
+            self.log.warning("Expected one metadata file. Found {}".format(len(metadataFile)))
+
         return self._connected
 
     def disconnect(self):
@@ -304,9 +336,9 @@ class _CameraFile(_Camera):
         """
         if self._currentImage < len(self._flist):
             imageName = str(self._flist[self._currentImage])
-            image = cv.imread(imageName,cv.IMREAD_COLOR)
+            self._image = cv.imread(imageName, cv.IMREAD_COLOR)
             self._currentImage = self._currentImage + 1
-            processed = ProcessedImage(image, 0)
+            processed = ProcessedImage(self._image, 0)
             return processed
         # Raise an EOFError  when we get through the sequence of images
         else:
@@ -322,12 +354,14 @@ class _CameraFile(_Camera):
             time.sleep(10)
 
     def getResolution(self) -> ():
-        # TODO: Get the first image and return the image size
-        #return self._flist[self._currentImage].shape()
-        return (0,0)
+        # The camera resolution is the shape of the current image
+        self.log.debug("Getting resolution of current image")
+        return self._image.shape
 
     def getMMPerPixel(self) -> float:
-        return 0.5
+        #
+        # TODO: The mm per pixel is something that should be read from the metadata for the image set
+        return self._mmPerPixel
 
 class _CameraPhysical(_Camera):
     def __init__(self, **kwargs):
@@ -428,14 +462,20 @@ class _CameraBasler(_Camera):
         self._images = deque(maxlen=constants.IMAGE_QUEUE_LEN)
         self._camera = pylon.InstantCamera()
 
+        if constants.KEYWORD_GSD in kwargs:
+            self._gsd = kwargs[constants.KEYWORD_GSD]
+        else:
+            self.log.info("The GSD keyword is not specified with {}. Calculated instead.".format( constants.KEYWORD_GSD))
+            # This is just a placeholder
+            self._gsd = 0.5
+
         # Assume a GigE camera for now
-        self._ip = kwargs[constants.KEYWORD_IP]
+        if constants.KEYWORD_IP in kwargs:
+            self._ip = kwargs[constants.KEYWORD_IP]
+        else:
+            self.log.fatal("The IP address of the camera must be specified with the keyword {}".format(constants.KEYWORD_IP))
 
         super().__init__(**kwargs)
-
-
-
-        return
 
     @classmethod
     def convert(cls, grabResult):
@@ -642,7 +682,7 @@ class _CameraBasler(_Camera):
         while self._capturing:
             try:
                 if self.camera.WaitForFrameTriggerReady(400, pylon.TimeoutHandling_ThrowException):
-                    self.camera.ExecuteSoftwareTrigger();
+                    self.camera.ExecuteSoftwareTrigger()
             except _genicam.TimeoutException as e:
                 self.log.fatal("Timeout from camera")
             except _genicam.RuntimeException as e:
@@ -754,7 +794,7 @@ class _CameraBasler(_Camera):
     def getResolution(self) -> ():
         w = self._camera.get(cv.CAP_PROP_FRAME_WIDTH)
         h = self._camera.get(cv.CAP_PROP_FRAME_HEIGHT)
-        return (w, h)
+        return w, h
 
     # This should be part of the calibration procedure
     def getMMPerPixel(self) -> float:
@@ -947,6 +987,7 @@ def startupDepthCamera(options: OptionsFile) -> CameraDepth:
     sensors = RealSense()
     sensors.query()
     markSensorAsFailed = False
+    cameraForDepth = None
 
     if sensors.count() < 1:
         log.error("Detected {} depth/IMU sensors. Expected at least 1.".format(sensors.count()))
@@ -956,14 +997,13 @@ def startupDepthCamera(options: OptionsFile) -> CameraDepth:
     # Start the Depth Cameras
     try:
         cameraForDepth = CameraDepth(constants.Capture.DEPTH)
-                                     #serial=options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_SERIAL_LEFT))
         if markSensorAsFailed:
             cameraForDepth.state.toMissing()
         else:
             cameraForDepth.state.toIdle()
     except KeyError:
         log.error("Unable to find serial number for depth camera: {}/{} & {}".format(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_SERIAL_LEFT, constants.PROPERTY_SERIAL_RIGHT))
-        cameraForDepth = None
+        cameraForDepth.state.toMissing()
 
     return cameraForDepth
 
@@ -978,16 +1018,6 @@ def startupCamera(options: OptionsFile):
         theCamera = _CameraBasler(ip=cameraIP)
         # Set the ground sampling distance, so we know when to take a picture
         theCamera.gsd = int(options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_IMAGE_WIDTH))
-
-    # Load the camera with the settings we want, otherwise save what is there
-    # camera.connect()
-    # filename = camera.camera.GetDeviceInfo().GetModelName() + ".pfs"
-    # camera.camera.Open()
-    # if not camera.load(filename):
-    #     # If we don't have a configuration, save what was used
-    #     filename = "default-" + filename
-    #     camera.save(filename)
-    # camera.camera.Close()
 
     # Test the camera
     diagnosticResult, diagnosticText = theCamera.diagnostics()
@@ -1242,7 +1272,8 @@ if constants.NAME_ALL in arguments.decorations:
                       constants.NAME_ROUNDNESS,
                       constants.NAME_CONVEXITY,
                       constants.NAME_ECCENTRICITY,
-                      constants.NAME_I_YIQ]
+                      constants.NAME_I_YIQ,
+                      constants.NAME_DIST_TO_LEADING_EDGE]
 elif constants.NAME_NONE in arguments.decorations:
     featuresToShow = []
 else:
@@ -1278,7 +1309,7 @@ def storeImage(contextForImage: Context) -> bool:
     performance.stopAndRecord(constants.PERF_ACQUIRE)
 
     # The depth image
-    if depthCamera is not None:
+    if depthCamera.connected:
         try:
             depthArray = depthCamera.capture()
             imageName = "depth-{}-{:05d}".format(options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_POSITION), imageNumber)
@@ -1447,7 +1478,7 @@ def processImage(contextForImage: Context) -> bool:
         # The test should probably be if we did not find any blobs
         if largest == "unknown":
             logger.logImage("error", manipulated.image)
-            return
+            return False
 
         performance.start()
         manipulated.identifyOverlappingVegetation()
@@ -1483,6 +1514,10 @@ def processImage(contextForImage: Context) -> bool:
         classifier.classifyByPosition(size=manipulated.image.shape)
 
 
+        # Determine the distance from the object to the emitters, given the pixel size of the camera
+        performance.start()
+        manipulated.computeDistancesToEmitter(camera.getMMPerPixel(), camera.getResolution())
+        performance.stopAndRecord(constants.PERF_DISTANCE)
 
         classifiedBlobs = classifier.blobs
 
@@ -1499,9 +1534,9 @@ def processImage(contextForImage: Context) -> bool:
         performance.start()
 
         # Compute the mean of the hue across the plant
-        manipulated.extractImagesFrom(manipulated.hsi,0, constants.NAME_HUE, np.nanmean)
+        manipulated.extractImagesFrom(manipulated.hsi, 0, constants.NAME_HUE, np.nanmean)
         performance.stopAndRecord(constants.PERF_MEAN)
-        manipulated.extractImagesFrom(manipulated.hsv,1, constants.NAME_SATURATION, np.nanmean)
+        manipulated.extractImagesFrom(manipulated.hsv, 1, constants.NAME_SATURATION, np.nanmean)
 
         # Discussion of YIQ can be found here
         # Sabzi, Sajad, Yousef Abbaspour-Gilandeh, and Juan Ignacio Arribas. 2020.
@@ -1512,12 +1547,12 @@ def processImage(contextForImage: Context) -> bool:
 
         # Compute the standard deviation of the I portion of the YIQ color space
         performance.start()
-        manipulated.extractImagesFrom(manipulated.yiq,1, constants.NAME_I_YIQ, np.nanstd)
+        manipulated.extractImagesFrom(manipulated.yiq, 1, constants.NAME_I_YIQ, np.nanstd)
         performance.stopAndRecord(constants.PERF_STDDEV)
 
         # Compute the mean of the blue difference in the ycc color space
         performance.start()
-        manipulated.extractImagesFrom(manipulated.ycbcr,1, constants.NAME_BLUE_DIFFERENCE, np.nanmean)
+        manipulated.extractImagesFrom(manipulated.ycbcr, 1, constants.NAME_BLUE_DIFFERENCE, np.nanmean)
         performance.stopAndRecord(constants.PERF_MEAN)
 
         #Use either heuristics or logistic regression
@@ -1544,6 +1579,8 @@ def processImage(contextForImage: Context) -> bool:
         if arguments.contours:
             manipulated.drawContours()
 
+        # Everything in the image is classified, so decorate the image with distances
+        manipulated.drawDistances()
 
         # Just a test of stitching. This needs some more thought
         # we can't stitch things where there is nothing in common between the two images
@@ -1639,11 +1676,13 @@ def postWeedingCleanup():
         log.critical("Unable to move {} to {}".format(source, destination))
         log.critical(oserr)
 
+    # Write session data out as an INI file
     finished = os.path.join(logger.directory, options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_FILENAME_FINISHED))
     log.debug("Writing session statistics to: {}".format(finished))
     try:
         with open(finished, 'w') as fp:
-            fp.write("Session complete")
+            fp.write("[CAMERA]")
+            fp.write("{} = {}".format(constants.PROPERTY_PIXELS_PER_MM, camera.getMMPerPixel()))
     except IOError as e:
         log.error("Unable to write out end of run data to file: {}".format(finished))
         log.error("{}".format(e))
@@ -1669,7 +1708,7 @@ def runDiagnostics(systemRoom: MUCCommunicator, camera: _Camera):
     """
     systemMessage = SystemMessage()
     systemMessage.action = constants.Action.DIAG_REPORT.name
-    systemMessage.diagnostics =  camera.status.name
+    systemMessage.diagnostics = camera.status.name
     systemMessage.gsdCamera = camera.gsd
     try:
         position = options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_POSITION)
@@ -1686,11 +1725,12 @@ movementSinceLastProcessing = 0.0
 
 def messageIsCurrent(timestamp: int) -> bool:
     """
-    Determine if a message is old or curret
+    Determine if a message is old or current
     :param timestamp: Timestamp the message was sent
     :return: True if message is current, False otherwise
     """
     timeDelta = (time.time() * 1000) - timestamp
+    log.debug("Time delta of message: {} ns".format(timeDelta))
     return timeDelta < constants.OLD_MESSAGE
 
 #
@@ -1708,9 +1748,10 @@ def messageSystemCB(conn,msg: xmpp.protocol.Message):
         body = msg.getBody()
         # Check if this is a real message and not just an empty keep-alive message
         if body is not None:
-            log.debug("system message from {}: [{}]".format(msg.getFrom(), msg.getBody()))
+            log.debug("system message from {}".format(msg.getFrom()))
             systemMessage = SystemMessage(raw=msg.getBody())
             if messageIsCurrent(systemMessage.timestamp):
+                log.debug("Processing [{}]".format(msg.getBody()))
                 if systemMessage.action == constants.Action.START.name:
                     processing = True
                     currentSessionName = systemMessage.name
@@ -1733,7 +1774,7 @@ def messageSystemCB(conn,msg: xmpp.protocol.Message):
                 log.info("Old message seen -- ignored")
 
     elif msg.getType() == "chat":
-            print("private: " + str(msg.getFrom()) +  ":" +str(msg.getBody()))
+        log.info("private: " + str(msg.getFrom()) + ":" + str(msg.getBody()))
     else:
         log.error("Unknown message type {}".format(msg.getType()))
 
@@ -1751,40 +1792,42 @@ def messageOdometryCB(conn, msg: xmpp.protocol.Message):
         body = msg.getBody()
         # Check if this is a real message and not just an empty keep-alive message
         if body is not None:
-            log.debug("Distance message from {}: [{}]".format(msg.getFrom(), msg.getBody()))
+            log.debug("Distance message from {}".format(msg.getFrom()))
             odometryMessage = OdometryMessage(raw=body)
-            log.debug("Message: {}".format(odometryMessage.data))
-            totalMovement += odometryMessage.distance
-            movementSinceLastProcessing += odometryMessage.distance
-            # The time of the observation
-            timeRead = odometryMessage.timestamp
-            # Determine how old the observation is
-            # The version of python on the jetson does not support time_ns, so this a bit of a workaround until I
-            # get that sorted out.  Just convert the reading to milliseconds for now
-            #timeDelta = (time.time() * 1000) - (timeRead / 1000000)
-            timeDelta = (time.time() * 1000) - timeRead
-            log.debug("Total movement: {} at time: {}. Movement since last acquisition: {} Time now is {} delta from now {} ms".
-                      format(totalMovement, timeRead, movementSinceLastProcessing, time.time() * 1000, timeDelta))
 
-            if timeDelta > 5000:
-                log.debug("Old message seen.  Ignored")
+            if messageIsCurrent(odometryMessage.timestamp):
+                log.debug("Message: {}".format(odometryMessage.data))
+                totalMovement += odometryMessage.distance
+                movementSinceLastProcessing += odometryMessage.distance
+                # The time of the observation
+                timeRead = odometryMessage.timestamp
+                # Determine how old the observation is
+                # The version of python on the jetson does not support time_ns, so this a bit of a workaround until I
+                # get that sorted out.  Just convert the reading to milliseconds for now
+                #timeDelta = (time.time() * 1000) - (timeRead / 1000000)
+                timeDelta = (time.time() * 1000) - timeRead
+                log.debug("Total movement: {} at time: {}. Movement since last acquisition: {} Time now is {} delta from now {} ms".
+                          format(totalMovement, timeRead, movementSinceLastProcessing, time.time() * 1000, timeDelta))
 
-            # If the movement is equal to the size of the image, take a picture
-            # We need to allow for some overlap so the images can be stitched together.
-            # So reduce this by the overlap factor
-            elif movementSinceLastProcessing > ((1 - float(options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_OVERLAP_FACTOR))) * camera.gsd):
-                gsd = (1 - float( options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_OVERLAP_FACTOR))) * camera.gsd
-                log.info("Acquiring image.  Movement since last processing {} GSD {}".format(movementSinceLastProcessing,gsd))
-                movementSinceLastProcessing = 0
 
-                # Record the context under which this photo was taken
-                contextForImage = Context()
-                contextForImage.latitude = odometryMessage.latitude
-                contextForImage.longitude = odometryMessage.longitude
-                # Convert to kilometers
-                contextForImage.speed = odometryMessage.speed / 1e+6
-                # contextForPhoto.model
-                processor(contextForImage)
+                # If the movement is equal to the size of the image, take a picture
+                # We need to allow for some overlap so the images can be stitched together.
+                # So reduce this by the overlap factor
+                if movementSinceLastProcessing > ((1 - float(options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_OVERLAP_FACTOR))) * camera.gsd):
+                    gsd = (1 - float( options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_OVERLAP_FACTOR))) * camera.gsd
+                    log.info("Acquiring image.  Movement since last processing {} GSD {}".format(movementSinceLastProcessing,gsd))
+                    movementSinceLastProcessing = 0
+
+                    # Record the context under which this photo was taken
+                    contextForImage = Context()
+                    contextForImage.latitude = odometryMessage.latitude
+                    contextForImage.longitude = odometryMessage.longitude
+                    # Convert to kilometers
+                    contextForImage.speed = odometryMessage.speed / 1e+6
+                    # contextForPhoto.model
+                    processor(contextForImage)
+            else:
+                log.info("Old message seen -- ignored")
         else:
             # There's not much to do here for keepalive messages
             keepAliveMessages += 1
@@ -1800,10 +1843,10 @@ def messageOdometryCB(conn, msg: xmpp.protocol.Message):
 def messageTreatmentCB(conn,msg: xmpp.protocol.Message):
     # Make sure this is a message sent to the room, not directly to us
     if msg.getType() == "groupchat":
-            body = msg.getBody()
-            # Check if this is a real message and not just an empty keep-alive message
-            if body is not None:
-                log.debug("treatment message from {}: [{}]".format(msg.getFrom(), msg.getBody()))
+        body = msg.getBody()
+        # Check if this is a real message and not just an empty keep-alive message
+        # if body is not None:
+        #     log.debug("treatment message from {}: [{}]".format(msg.getFrom(), msg.getBody()))
     elif msg.getType() == "chat":
             print("private: " + str(msg.getFrom()) +  ":" +str(msg.getBody()))
     else:
@@ -1991,10 +2034,10 @@ log.debug("RGB camera started")
 
 depthCamera = startupDepthCamera(options)
 
-if depthCamera is not None:
-    log.info("Depth camera started")
-else:
-    log.error("Unable to start depth camera")
+if depthCamera.state.is_idle:
+    log.info("Depth camera started and is idle")
+elif depthCamera.state.is_missing:
+    log.error("Depth camera is missing")
 
 (roomOdometry, roomSystem, roomTreatment) = startupCommunications(options, messageOdometryCB, messageSystemCB, messageTreatmentCB)
 log.debug("Communications started")
