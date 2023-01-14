@@ -14,12 +14,15 @@ from abc import ABC, abstractmethod
 import threading
 import nidaqmx as ni
 from nidaqmx import DaqError, DaqWarning
-import threading, queue
+import threading
+import queue
 
 # Pieces for how NI names their ports
 import constants
 
 from collections import deque
+
+from OptionsFile import OptionsFile
 
 class Treatments:
     def __init__(self):
@@ -103,7 +106,7 @@ class Treatment:
 # End warning/test code
 
 class Emitter(ABC):
-    def __init__(self, module: str):
+    def __init__(self, module: str, options: OptionsFile):
         """
         An emitter that can be controlled from a specific module.
         This will currently not correspond to a specific set of pins within the module
@@ -114,6 +117,14 @@ class Emitter(ABC):
         self._module = module
         self._log = logging.getLogger(__name__)
 
+        try:
+            self._x_offset = options.option(constants.PROPERTY_SECTION_EMITTER, constants.PROPERTY_OFFSET_X)
+            self._y_offset = options.option(constants.PROPERTY_SECTION_EMITTER, constants.PROPERTY_OFFSET_Y)
+            self._distanceBetweenTiers = options.option(constants.PROPERTY_SECTION_EMITTER, constants.PROPERTY_DISTANCE_TIER)
+            self._distanceBetweenEmitters = options.option(constants.PROPERTY_SECTION_EMITTER, constants.PROPERTY_DISTANCE_EMITTERS)
+        except KeyError as key:
+            self._log.critical("Unable to find descriptions of emitter plate distances in ini file")
+            
         return
 
     @property
