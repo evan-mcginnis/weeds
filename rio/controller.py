@@ -16,7 +16,6 @@ import os
 import threading
 import time
 import sys
-from typing import Callable
 
 import gpsd
 
@@ -37,12 +36,12 @@ from statemachine.exceptions import TransitionNotAllowed
 import constants
 from Odometer import Odometer, VirtualOdometer
 from PhysicalOdometer import PhysicalOdometer
-from Emitter import Emitter, PhysicalEmitter, VirtualEmitter
+from Emitter import PhysicalEmitter, VirtualEmitter
 from MUCCommunicator import MUCCommunicator
-from Messages import MUCMessage, OdometryMessage, SystemMessage, TreatmentMessage
+from Messages import OdometryMessage, SystemMessage, TreatmentMessage
 from GPSClient import GPS
 from CameraDepth import CameraDepth
-from NationalInstruments import NationalInstruments, VirtualNationalInstruments, PhysicalNationalInstruments
+from NationalInstruments import VirtualNationalInstruments, PhysicalNationalInstruments
 from WeedExceptions import XMPPServerAuthFailure, XMPPServerUnreachable, DAQError
 from RealSense import RealSense
 
@@ -276,8 +275,20 @@ def startupSystem(options: OptionsFile):
         rightEmitter = PhysicalEmitter(rightModuleName)
         leftEmitter = PhysicalEmitter(leftModuleName)
 
-    diagnosticResultRightEmitter, diagnosticTextRightEmitter = rightEmitter.diagnostics()
-    diagnosticResultLeftEmitter, diagnosticTextLeftEmitter = leftEmitter.diagnostics()
+    try:
+        emitterDiagnosticType = options.option(constants.PROPERTY_SECTION_EMITTER, constants.PROPERTY_EMITTER_DIAG)
+        if emitterDiagnosticType == constants.EMITTER_DIAGNOSTIC_WET:
+            enableEmitterInDiagnostics = True
+        else:
+            enableEmitterInDiagnostics = False
+
+    except KeyError as key:
+        log.error("Unable to find emitter diagnostic type. Assuming default of dry")
+        enableEmitterInDiagnostics = False
+
+
+    diagnosticResultRightEmitter, diagnosticTextRightEmitter = rightEmitter.diagnostics(enableEmitterInDiagnostics)
+    diagnosticResultLeftEmitter, diagnosticTextLeftEmitter = leftEmitter.diagnostics(enableEmitterInDiagnostics)
 
     if not diagnosticResultRightEmitter:
         log.warning(diagnosticTextRightEmitter)
@@ -520,18 +531,23 @@ def startupCommunications(options: OptionsFile) -> ():
 #
 def startupGPS() -> GPS:
     theGPS = GPS()
-    try:
-        theGPS.connect()
-    except gpsd.NoFixError:
-        log.error("The GPS does not yet have a 2D fix")
+    if not theGPS.connect():
+        log.error("Unable to connect to the GPS")
 
     if theGPS.isAvailable():
-        try:
-            packet = theGPS.getCurrentPosition()
-            log.debug("GPS Position: {}".format(packet.position()))
-            log.debug("GPS Error: {}".format(packet.position_precision()))
-            log.debug("GPS Fix: {}".format(packet.mode))
-        except gpsd.NoFixError:
+        packet = theGPS.getCurrentPosition()
+
+        # The GPS in my office is a bit intermittent -- sometimes it reports that it does not
+        # have at least a 2D fix, so we see errors.  But, a call moments later will succeed.
+
+        if packet is not None:
+            try:
+                log.debug("GPS Position: {}".format(packet.position()))
+                log.debug("GPS Error: {}".format(packet.position_precision()))
+                log.debug("GPS Fix: {}".format(packet.mode))
+            except gpsd.NoFixError as fix:
+                log.error("Unable to start GPS client: {}".format(fix))
+        else:
             log.error("The GPS does not yet have a 2D fix")
 
     else:
@@ -736,9 +752,9 @@ def serviceQueue(odometer : PhysicalOdometer, odometryRoom: MUCCommunicator, ann
                 position = packet.position()
             except gpsd.NoFixError as fix:
                 log.error("Unable to obtain a 2D fix to determine location")
-                position = (0.0,0.0)
+                position = (0.0, 0.0)
         else:
-            position = (0.0,0.0)
+            position = (0.0, 0.0)
 
         if cameraForIMU.connected:
             gyro = np.array2string(cameraForIMU.gyro, formatter={'float_kind': lambda x: "%.2f" % x})
@@ -758,8 +774,8 @@ def serviceQueue(odometer : PhysicalOdometer, odometryRoom: MUCCommunicator, ann
             message = OdometryMessage()
 
             # Include GPS data if available
-            # if gps.connected:
-            #     (message.latitude, message.longitude) = position
+            if gps.connected:
+                 (message.latitude, message.longitude) = position
 
             # Include gyro information if available
 
@@ -840,7 +856,7 @@ def takeIMUReadings(camera: CameraDepth):
 
         # This is the case where we could not detect the camera at startup
 
-        if camera is None:
+        if camera.state.is_missing:
             log.warning("Unable to detect IMU. Sleeping for now")
             time.sleep(5)
         else:

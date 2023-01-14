@@ -106,7 +106,7 @@ class Treatment:
 # End warning/test code
 
 class Emitter(ABC):
-    def __init__(self, module: str, options: OptionsFile):
+    def __init__(self, module: str):
         """
         An emitter that can be controlled from a specific module.
         This will currently not correspond to a specific set of pins within the module
@@ -117,14 +117,8 @@ class Emitter(ABC):
         self._module = module
         self._log = logging.getLogger(__name__)
 
-        try:
-            self._x_offset = options.option(constants.PROPERTY_SECTION_EMITTER, constants.PROPERTY_OFFSET_X)
-            self._y_offset = options.option(constants.PROPERTY_SECTION_EMITTER, constants.PROPERTY_OFFSET_Y)
-            self._distanceBetweenTiers = options.option(constants.PROPERTY_SECTION_EMITTER, constants.PROPERTY_DISTANCE_TIER)
-            self._distanceBetweenEmitters = options.option(constants.PROPERTY_SECTION_EMITTER, constants.PROPERTY_DISTANCE_EMITTERS)
-        except KeyError as key:
-            self._log.critical("Unable to find descriptions of emitter plate distances in ini file")
-            
+
+
         return
 
     @property
@@ -140,7 +134,7 @@ class Emitter(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def diagnostics(self) -> (bool, str):
+    def diagnostics(self, turnOnEmitter: bool) -> (bool, str):
         """
         Run diagnostics on the emitter array.
         """
@@ -175,12 +169,13 @@ class Emitter(ABC):
 #
 
 class VirtualEmitter(Emitter):
-
+    def __init__(self, module: str):
+        super().__init__(module)
     def applyTreatment(self, distanceTraveled: int) -> bool:
         print("Apply treatment")
         return True
 
-    def diagnostics(self) -> (bool, str):
+    def diagnostics(self, turnOnEmitter: bool) -> (bool, str):
 
         return True, "Emitter passed diagnostics"
 
@@ -189,6 +184,9 @@ class VirtualEmitter(Emitter):
 # A physical emitter expects a NI 9403
 #
 class PhysicalEmitter(Emitter):
+
+    def __init__(self, module: str):
+        super().__init__(module)
 
     #
     # A P P L Y  T R E A T M E N T
@@ -360,7 +358,12 @@ class PhysicalEmitter(Emitter):
             except DaqError as daq:
                 self._log.error("Unable to turn off emitter {} {} {}".format(side, tier, position))
 
-    def diagnostics(self) -> (bool, str):
+    def diagnostics(self, turnOnSprayer: bool) -> (bool, str):
+        """
+        Perform diagnostics on the emitters
+        :param turnOnSprayer: TRUE if this is to be a wet test, FALSE otherwise
+        :return: (bool to indicate diagnostic pass, str to provide details)
+        """
         diagnosticResult = True
         diagnosticText = "Diagnostic test passed"
         try:
@@ -372,10 +375,18 @@ class PhysicalEmitter(Emitter):
                             #channel = self.channelNameUsingLineNumber(self.module, 0, line)
                             channel = "{}/port{}/{}".format(self.module, 0, line)
                             self._log.debug("Add channel: {}".format(channel))
-                            task.do_channels.add_do_chan(channel)
-                            task.write(True)
-                            time.sleep(0.5)
-                            task.write(False)
+                            try:
+                                task.do_channels.add_do_chan(channel)
+                            except DaqError as daq:
+                                diagnosticText = "Unable to add channel: {}".format(daq)
+                                self._log.fatal(diagnosticText)
+                                diagnosticResult = False
+                                diagnosticText = diagnosticText
+                            # Don't turn on the emitters in the diagnostics in the field
+                            if turnOnSprayer:
+                                task.write(True)
+                                time.sleep(0.5)
+                                task.write(False)
         except DaqError as daq:
             self._log.fatal("Unable to write to emitters for diagnostics")
             diagnosticText = "Unable to write to the emitters for diagnostics"
