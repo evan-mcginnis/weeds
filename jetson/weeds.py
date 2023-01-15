@@ -1342,7 +1342,8 @@ def storeImage(contextForImage: Context) -> bool:
 
     messageText = message.formMessage()
     log.debug("Sending: {}".format(messageText))
-    roomTreatment.sendMessage(messageText)
+    messageID = roomTreatment.sendMessage(messageText)
+    log.debug("Sent message with ID: {}".format(messageID))
 
     # Set the context and enqueue the image
     processed.make = contextForImage.make
@@ -1350,9 +1351,10 @@ def storeImage(contextForImage: Context) -> bool:
     processed.exposure = contextForImage.exposure
     processed.latitude = contextForImage.latitude
     processed.longitude = contextForImage.longitude
-    processed.filename = fileName
+    processed.filename = outputDirectory + "/" + fileName
     # Enqueue the image to be written out later
-    #rawImages.enqueue(processed)
+    log.debug("Enqueue processed image for enrichment")
+    rawImages.enqueue(processed)
 
     imageNumber += 1
     return True
@@ -1514,9 +1516,9 @@ def processImage(contextForImage: Context) -> bool:
         classifier.classifyByPosition(size=manipulated.image.shape)
 
 
-        # Determine the distance from the object to the emitters, given the pixel size of the camera
+        # Determine the distance from the object to the edge of the image given  the pixel size of the camera
         performance.start()
-        manipulated.computeDistancesToEmitter(camera.getMMPerPixel(), camera.getResolution())
+        manipulated.computeDistancesToImageEdge(camera.getMMPerPixel(), camera.getResolution())
         performance.stopAndRecord(constants.PERF_DISTANCE)
 
         classifiedBlobs = classifier.blobs
@@ -2012,6 +2014,9 @@ def enrichImages():
     """
     enricher = Enrich()
     while True:
+        if len(rawImages) == 0:
+            log.debug("Processed image queue is empty. Sleeping a bit")
+            time.sleep(10)
         while len(rawImages):
             rawImage = rawImages.dequeue()
             log.info("Enrich image on disk with EXIF: {}".format(rawImage.filename))

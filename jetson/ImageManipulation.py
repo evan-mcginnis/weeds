@@ -562,9 +562,9 @@ class ImageManipulation:
             self._shapeIndices.append(shapeIndex)
         return
 
-    def computeDistancesToEmitter(self, pixelSize: float, resolution: ()):
+    def computeDistancesToImageEdge(self, pixelSize: float, resolution: ()):
         """
-        Compute the distance to the emitter edge for all items
+        Compute the distance to the image edge for all items
         """
         maxY, maxX, bands = resolution
         for blobName, blobAttributes in self._blobs.items():

@@ -12,6 +12,7 @@ import math
 from pathlib import Path
 
 from ProcessedImage import ProcessedImage
+import constants
 
 class Enrich:
     def __init__(self, **kwargs):
