@@ -45,5 +45,7 @@ plt.text(30, 62, "Max value = {} at ({},{})".format(np.max(transect), arguments.
 plt.grid(True)
 plt.show()
 
+sys.exit(0)
+
 
 

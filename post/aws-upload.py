@@ -41,8 +41,10 @@ PREFIX = 'yuma-' + timeStamp
 
 PATTERN_IMAGES = '*' + constants.EXTENSION_IMAGE
 PATTERN_DEPTH = '*' + constants.EXTENSION_NPY
+PATTERN_CSV = "*" + constants.EXTENSION_CSV
 KEY_IMAGES = 'images'
 KEY_DEPTH = 'depth'
+KEY_IMU = "imu"
 TAR_IMAGES = 'images.tar'
 TAR_DEPTH = 'depth.tar'
 
@@ -67,10 +69,13 @@ def createBucket(bucket_prefix, s3_connection):
     current_region = session.region_name
     #bucketName = createBucketName(bucket_prefix)
     bucketName = bucket_prefix
-    print("Bucket: {}".format(bucketName))
-    bucketResponse = s3_connection.create_bucket(Bucket=bucketName,
-                                                 CreateBucketConfiguration={ 'LocationConstraint': current_region})
-    print(bucketName, current_region)
+    log.debug("Creating bucket {} in region {}".format(bucketName, current_region))
+    try:
+        bucketResponse = s3_connection.create_bucket(Bucket=bucketName,
+                                                     CreateBucketConfiguration={'LocationConstraint': current_region})
+    except botocore.exceptions.ParamValidationError as params:
+        log.fatal("S3 interface validation error: {}".format(params))
+
     return bucketName, bucketResponse
 
 def findFiles(directory: str):
@@ -93,7 +98,7 @@ def prepareImagesTAR(options: OptionsFile, pattern: str, name: str) -> str:
 
     # This is so we can call the images left and right
     theTAR = options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_JETSON) + "-" + name
-    tar = tarfile.open(name=theTAR,mode="w|")
+    tar = tarfile.open(name=theTAR, mode="w|")
     for image in images:
         try:
             tar.add(image)
@@ -107,7 +112,7 @@ def prepareImagesTAR(options: OptionsFile, pattern: str, name: str) -> str:
     tar.close()
     return theTAR
 
-def upload(bucket : str, options: OptionsFile) -> bool:
+def upload(bucket: str, options: OptionsFile) -> bool:
     """
     Upload a session's data to AWS
     :param bucket: Name of the S3 Bucket
@@ -281,7 +286,7 @@ if arguments.watch or arguments.upload:
         directories = glob.glob(options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_PREFIX) + "*")
         for directory in directories:
             if os.path.isdir(directory):
-                log.debug("Operating on: {}".format(directory))
+                log.info("Operating on: {}".format(directory))
                 os.chdir(directory)
             else:
                 syslog.syslog(syslog.LOG_WARNING, "File found in output directory: " + directory)
@@ -297,7 +302,7 @@ if arguments.watch or arguments.upload:
 
                 uploaded = upload(directory, options)
 
-                syslog.syslog(syslog.LOG_INFO,"Using S3 bucket: {}".format(directory))
+                syslog.syslog(syslog.LOG_INFO, "Using S3 bucket: {}".format(directory))
 
                 # Cleanup
                 if uploaded:
