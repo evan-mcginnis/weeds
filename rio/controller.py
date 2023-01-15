@@ -44,6 +44,7 @@ from CameraDepth import CameraDepth
 from NationalInstruments import VirtualNationalInstruments, PhysicalNationalInstruments
 from WeedExceptions import XMPPServerAuthFailure, XMPPServerUnreachable, DAQError
 from RealSense import RealSense
+from Diagnostics import DiagnosticsDAQ
 
 
 parser = argparse.ArgumentParser("RIO Controller")
@@ -184,9 +185,11 @@ def endSession(options: OptionsFile, name: str) -> bool:
 #
 # N I  D I A G N O S T I C S
 #
-def diagnostics():
+def diagnostics() -> DiagnosticsDAQ:
     # TODO: NI Diagnostics
-    return True, "No diagnostics implemented"
+    diagnosticResults = DiagnosticsDAQ()
+
+    return diagnosticResults
 
 #
 # Start up system components and run diagnostics
@@ -248,10 +251,7 @@ def startupSystem(options: OptionsFile):
     # print(channels)
 
     # Run diagnostics on the NI system
-    diagnosticResult, diagnosticText = diagnostics()
-    if not diagnosticResult:
-        print(diagnosticText)
-        sys.exit(1)
+    diagnosticResult = diagnostics()
 
     # Connect to the emitter and run diagnostics
 
