@@ -103,7 +103,7 @@ class Housekeeping(QRunnable):
                 log.debug("Waiting for {} room connection.".format(chatroom.muc))
                 time.sleep(2)
             # Slow things down a bit so we can read the messages.  Not really needed
-            time.sleep(1)
+            time.sleep(2)
             log.debug("Connected to {}".format(chatroom.muc))
             chatroom.getOccupants()
             self._signals.progress.emit(100)
