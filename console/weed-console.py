@@ -105,7 +105,12 @@ class Housekeeping(QRunnable):
             # Slow things down a bit so we can read the messages.  Not really needed
             time.sleep(2)
             log.debug("Connected to {}".format(chatroom.muc))
-            chatroom.getOccupants()
+            retries = 3
+            while retries and len(chatroom.occupants) == 0:
+                retries -= 1
+                log.debug("Fetching occupants")
+                chatroom.getOccupants()
+
             self._signals.progress.emit(100)
 
         # Have everyone run diagnostics
@@ -643,7 +648,16 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def breakdownMUCJID(self, room: str) -> ():
 
         components = self._regularExpression.split(room)
-        return (components[0], components[1], components[2], components[3], components[4])
+
+        if len(components) == 4:
+            log.error("Likely no nickname for occupant: {}".format(room))
+            breakdown = (components[0], components[1], components[2], components[3], "UNKNOWN")
+        elif len(components) == 5:
+            breakdown = (components[0], components[1], components[2], components[3], components[4])
+        else:
+            raise ValueError(room)
+
+        return breakdown
 
     def setInitialState(self):
         """
