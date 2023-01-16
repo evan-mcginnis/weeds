@@ -35,6 +35,8 @@ from RealSense import RealSense
 
 import constants
 
+# Two consecutive readings should be within this percentage of each other
+DEPTH_THRESHOLD = 0.75
 
 parser = argparse.ArgumentParser("Weed system supervisor")
 
@@ -369,10 +371,20 @@ def supervisor(camera: CameraDepth):
 
     while True:
         if camera.connected:
+            # This is a hack until I can determine what is happening here. Occasionally there is an odd reading
+            # where the depth is off by an order of magnitude.  The second reading is fine.
             depthImage = camera.capture()
             averageAGL = float(np.average(depthImage))
-            log.debug("Average height: {}".format(averageAGL))
-            if averageAGL > aglUp:
+            depthImage2 = camera.capture()
+            averageAGL2 = float(np.average(depthImage2))
+
+            #log.debug("Average height: {}".format(averageAGL))
+            # If the two numbers are more than X % apart, pass on this reading.
+            # As soon as we get readings that are pretty close to each other, accept them as legitimate
+
+            if (averageAGL != 0 and averageAGL2 != 0) and ((min(averageAGL, averageAGL2) / max(averageAGL, averageAGL2)) < DEPTH_THRESHOLD):
+                log.debug("Depth readings not within threshold ({}): {} and {}".format(DEPTH_THRESHOLD, averageAGL, averageAGL2))
+            elif averageAGL > aglUp:
                 # Down-UP
                 if weederPreviousPosition == constants.Orientation.DOWN:
                     if weederPreviousOperation != constants.Operation.QUIESCENT:
@@ -398,6 +410,18 @@ def supervisor(camera: CameraDepth):
 
         time.sleep(0.5)
 
+# This writes out the status into an HTML file
+# TODO: Make this a bit more elegant and process the GET operations
+def statusDaemon():
+
+    processing = True
+
+    while processing:
+        with open("index.html", "w") as statusFile:
+            statusFile.write("<html>\n<head>\n<title> \nOutput Data in an HTML file \
+            </title>\n</head> <body><h1>Welcome to <u>GeeksforGeeks</u></h1>\
+            \n<h2>A <u>CS</u> Portal for Everyone</h2> \n</body></html>")
+        time.sleep(5)
 
 #
 # Start up various subsystems
