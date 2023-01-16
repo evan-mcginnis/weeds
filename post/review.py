@@ -8,6 +8,8 @@ import sys
 import os
 import glob
 from exif import Image
+
+from GPSUtilities import GPSUtilities
 from OptionsFile import OptionsFile
 
 import numpy as np
@@ -33,6 +35,10 @@ from review_ui import Ui_MainWindow
 FILE_PROGRESS = "progress.ini"
 ATTRIBUTE_CURRENT = "CURRENT"
 SECTION_EDIT = "EDIT"
+
+UNKNOWN_LONG = -999
+NOT_SET = "-----"
+UNKNOWN_STR = NOT_SET
 
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def __init__(self, *args, **kwargs):
@@ -109,6 +115,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         return confirmed
 
     def saveProgress(self):
+        """
+        Save the current image number to the INI file
+        """
         if self._currentFileNumber == self._maxFileNumber:
             try:
                 os.remove(FILE_PROGRESS)
@@ -124,16 +133,32 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 f.write("{} =  {}".format(ATTRIBUTE_CURRENT, self._currentFileNumber))
 
     def loadProgress(self) -> bool:
-
+        """
+        Load the current image number from the INI file
+        :return: True on successful read
+        """
         rc = True
         progressINI = OptionsFile(FILE_PROGRESS)
         progressINI.load()
         try:
             self._lastFileReviewed = int(progressINI.option(SECTION_EDIT, ATTRIBUTE_CURRENT))
         except KeyError:
+            # TODO: This should be a popup
             print("Unable to find last reviewed image number in progress file")
             rc = False
         return rc
+
+    @staticmethod
+    def valueOrUnknown(value: float) -> str:
+        """
+        Utility function to return a string form of the float, using '----' for the UNKNOWN_LONG value
+        :param value: value or UNKNOWN_LONG
+        :return: string representation of value
+        """
+        if value == UNKNOWN_LONG:
+            return NOT_SET
+        else:
+            return str(value)
 
     def updateFileNumber(self):
         """
@@ -142,18 +167,29 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.image_number.setText(str(self._currentFileNumber) + '/' + str(self._maxFileNumber))
 
     def updateCaptureDate(self, date: str):
+        """
+        Update the date the image was captured
+        :param date:
+        """
         self.image_acquired.setText(date)
 
-    def updateLatitude(self, latitude: str):
-        self.image_latitude.setText(latitude)
+    def updateLatitude(self, latitude: float):
+        self.image_latitude.setText(self.valueOrUnknown(latitude))
 
-    def updateLongitude(self, longitude: str):
-        self.image_latitude.setText(longitude)
+    def updateLongitude(self, longitude: float):
+        self.image_longitude.setText(self.valueOrUnknown(longitude))
+
+    def updateSpeed(self, speed: float):
+        self.image_speed.setText(self.valueOrUnknown(speed))
 
     def updateInformationForCurrentImage(self):
+        """
+        Updates the display for the current image using the EXIF data contained within it
+        """
 
         with open(self._fileNames[self._currentFileNumber], 'rb') as rawImage:
             theImage = Image(rawImage)
+            # Get the current EXIF
             if theImage.has_exif:
                 exif = theImage.list_all()
                 #print("EXIF Parameters: {}".format(theImage.list_all()))
@@ -164,11 +200,24 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             # if "datetime" in exif:
             #     self.updateCaptureDate(theImage.datetime)
 
-            # Image may not have lat/long information
+            # Image may not have the exif information
+
             if "gps_latitude" in exif:
-                self.updateLatitude(theImage.gps_latitude)
+                reference = theImage.gps_latitude_ref
+                self.updateLatitude(GPSUtilities.dms2decdeg(theImage.gps_latitude, reference))
+            else:
+                self.updateLatitude(UNKNOWN_LONG)
+
             if "gps_longitude" in exif:
-                self.updateLongitude(theImage.gps_longitude)
+                reference = theImage.gps_longitude_ref
+                self.updateLongitude(GPSUtilities.dms2decdeg(theImage.gps_longitude, reference))
+            else:
+                self.updateLongitude(UNKNOWN_LONG)
+
+            if "gps_speed" in exif:
+                self.updateSpeed(theImage.gps_speed)
+            else:
+                self.updateSpeed(UNKNOWN_LONG)
 
         self.updateFileNumber()
 
@@ -179,9 +228,11 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         """
         width = self.image.width()
         height = self.image.height()
+        print("Image is {}x{}".format(width, height))
         pixmap = QPixmap(imageName)
-        scaled = pixmap.scaled(width, height, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-        self.image.setPixmap(pixmap)
+        #scaled = pixmap.scaled(width, height, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        scaled = pixmap.scaled(height, height, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        self.image.setPixmap(scaled)
 
 
     def setup(self):
@@ -250,6 +301,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         rc = True
         try:
             self._fileNames = sorted(glob.glob(directory + "/" + '*.jpg'), key=os.path.getmtime)
+            print("Found files {}".format(self._fileNames))
             self._maxFileNumber = len(self._fileNames) - 1
             rc = True
         except Exception as e:
@@ -265,7 +317,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 parser = argparse.ArgumentParser("Image Reviewer")
 
 parser.add_argument('-i', '--input', action="store", required=True,  help="Input directory")
-parser.add_argument('-a', '--attributes', action="store", required=True,  help="Attributes")
+parser.add_argument('-a', '--attributes', action="store", required=False,  help="Attributes")
 parser.add_argument('-o', '--output', action="store", required=False,  default="classifications.csv", help="Output CSV")
 
 arguments = parser.parse_args()
@@ -283,7 +335,10 @@ window.setWindowTitle("University of Arizona")
 app.aboutToQuit.connect(window.exitHandler)
 
 window.loadImagesFromDirectory(arguments.input)
-window.loadAttributesFromCSV(arguments.attributes)
+
+if arguments.attributes:
+    window.loadAttributesFromCSV(arguments.attributes)
+
 window.setup()
 
 window.show()
