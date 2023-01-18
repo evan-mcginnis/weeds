@@ -275,7 +275,11 @@ class MUCCommunicator():
         #         self._connected = True
 
     def getOccupants(self):
-        self._occupants = xmpp.features.discoverItems(self._connection, self._muc)
+        try:
+            self._occupants = xmpp.features.discoverItems(self._connection, self._muc)
+        except UnicodeDecodeError as unicode:
+            self._log.error("Unable to fetch occupants")
+            self._log.error(unicode)
 
     def connectToChatroom(self):
         """

@@ -101,16 +101,22 @@ class Housekeeping(QRunnable):
             self._signals.result.emit("Connecting to {}".format(chatroom.muc))
             while not chatroom.connected:
                 log.debug("Waiting for {} room connection.".format(chatroom.muc))
-                time.sleep(0.5)
+                time.sleep(2)
             # Slow things down a bit so we can read the messages.  Not really needed
-            time.sleep(1)
+            time.sleep(2)
             log.debug("Connected to {}".format(chatroom.muc))
-            chatroom.getOccupants()
+            retries = 3
+            while retries and len(chatroom.occupants) == 0:
+                retries -= 1
+                log.debug("Fetching occupants")
+                chatroom.getOccupants()
+
             self._signals.progress.emit(100)
 
         # Have everyone run diagnostics
         systemMessage = SystemMessage()
         systemMessage.action = constants.Action.START_DIAG.name
+        systemMessage.timestamp = time.time() * 1000
         self._systemRoom.sendMessage(systemMessage.formMessage())
 
         # Indicate to waiting threads that we are good to go
@@ -248,6 +254,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.purge_left.clicked.connect(self.purgeAllHandler)
         self.purge_right.clicked.connect(self.purgeAllHandler)
 
+        self.runDiagnostics.clicked.connect(self.startDiagnostics)
+
         # Set the initial button states
         self.button_start.setEnabled(False)
         self.button_start_imaging.setEnabled(False)
@@ -317,6 +325,20 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         """
         for buttonEntry in self._emitterButtons:
             buttonEntry['button'].setEnabled(enabled)
+
+    def startDiagnostics(self):
+        """
+        Requests entities run diagnostics
+        """
+        # avoid the user pressing the button twice
+        self.runDiagnostics.setEnabled(False)
+
+        # Have everyone run diagnostics
+        systemMessage = SystemMessage()
+        systemMessage.action = constants.Action.START_DIAG.name
+        self._systemRoom.sendMessage(systemMessage.formMessage())
+
+        self.runDiagnostics.setEnabled(True)
 
     def purgeAllHandler(self):
         sending = self.sender()
@@ -551,7 +573,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.statusTable.horizontalHeader().setVisible(True)
         self.statusTable.verticalHeader().setVisible(True)
 
-        nNumRows = 6
+        nNumRows = 7
         nRowHeight = self.statusTable.rowHeight(0)
         nTableHeight = (nNumRows * nRowHeight) + self.statusTable.horizontalHeader().height() + 2 * self.statusTable.frameWidth();
         self.statusTable.setMinimumHeight(nTableHeight)
@@ -571,58 +593,71 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self._requiredOccupants = [
             {"room": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_ODOMETRY),
              "name": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_ODOMETRY),
-             "status": [0,1]},
+             "status": [0, 1]},
 
             {"room": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_ODOMETRY),
              "name": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_JETSON_1),
-             "status": [1,1]},
+             "status": [1, 1]},
 
             {"room": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_ODOMETRY),
              "name": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_JETSON_2),
-             "status": [2,1]},
+             "status": [2, 1]},
 
             {"room": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_SYSTEM),
              "name": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_ODOMETRY),
-             "status": [0,2]},
+             "status": [0, 2]},
 
             {"room": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_SYSTEM),
              "name": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_JETSON_1),
-             "status": [1,2]},
+             "status": [1, 2]},
 
             {"room": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_SYSTEM),
              "name": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_JETSON_2),
-             "status": [2,2]},
+             "status": [2, 2]},
 
             {"room": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_SYSTEM),
              "name": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_CLOUD_LEFT),
-             "status": [3,2]},
+             "status": [3, 2]},
 
             {"room": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_SYSTEM),
              "name": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_CLOUD_MIDDLE),
-             "status": [4,2]},
+             "status": [4, 2]},
 
             {"room": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_SYSTEM),
              "name": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_CLOUD_RIGHT),
-             "status": [5,2]},
+             "status": [5, 2]},
+
+            {"room": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_SYSTEM),
+             "name": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_CONTROL),
+             "status": [6, 2]},
 
             {"room": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_TREATMENT),
              "name": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_ODOMETRY),
-             "status": [0,0]},
+             "status": [0, 0]},
 
             {"room": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_TREATMENT),
              "name": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_JETSON_1),
-             "status": [1,0]},
+             "status": [1, 0]},
 
             {"room": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_TREATMENT),
              "name": options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_JETSON_2),
-             "status": [2,0]}
+             "status": [2, 0]}
         ]
         self._regularExpression = re.compile(r'\.|@|/')
 
     def breakdownMUCJID(self, room: str) -> ():
 
         components = self._regularExpression.split(room)
-        return (components[0], components[1], components[2], components[3], components[4])
+
+        if len(components) == 4:
+            log.error("Likely no nickname for occupant: {}".format(room))
+            breakdown = (components[0], components[1], components[2], components[3], "UNKNOWN")
+        elif len(components) == 5:
+            breakdown = (components[0], components[1], components[2], components[3], components[4])
+        else:
+            raise ValueError(room)
+
+        return breakdown
 
     def setInitialState(self):
         """
@@ -776,10 +811,11 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         except urllib.error.URLError as urlerror:
             log.error("Unable to fetch from URL: {}".format(url))
 
-    def setStatus(self, occupant: str, roomName: str, presence: str): #presence: Presence):
+    def setStatus(self, occupant: str, roomName: str, presence: Presence):
         """
         Sets the status for an occupant based on the list of required occupants.
         Only those occupants required to be in the room will have status updated.
+        :param roomName: The name of the MUC
         :param occupant: The name of the occupant without the room name
         :param presence: Presence.JOINED or Presence.LEFT
         """
