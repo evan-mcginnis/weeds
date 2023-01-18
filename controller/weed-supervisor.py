@@ -371,6 +371,7 @@ def supervisor(camera: CameraDepth):
 
     while True:
         if camera.connected:
+            time.sleep(5)
             # This is a hack until I can determine what is happening here. Occasionally there is an odd reading
             # where the depth is off by an order of magnitude.  The second reading is fine.
             depthImage = camera.capture()
@@ -379,6 +380,9 @@ def supervisor(camera: CameraDepth):
             averageAGL2 = float(np.average(depthImage2))
 
             #log.debug("Average height: {}".format(averageAGL))
+            with open('height.csv', 'a') as the_file:
+                the_file.write("{}".format(averageAGL))
+
             # If the two numbers are more than X % apart, pass on this reading.
             # As soon as we get readings that are pretty close to each other, accept them as legitimate
 
