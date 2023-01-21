@@ -689,7 +689,7 @@ def reportProgress():
     return
 
 def nanoseconds() -> float:
-    ns = time.time() * 1000
+    ns = time.time() * 1e9
     # ns = time.time_ns()
     return ns
 
@@ -716,6 +716,7 @@ def serviceQueue(odometer : PhysicalOdometer, odometryRoom: MUCCommunicator, ann
     while not odometryRoom.connected:
         log.debug("Waiting for odometry room connection")
         time.sleep(5)
+    log.debug("Connected to odometry room")
 
     # if odometryRoom.diagnostics():
     #     odometryRoom.sendMessage("Connection OK")
@@ -742,6 +743,7 @@ def serviceQueue(odometer : PhysicalOdometer, odometryRoom: MUCCommunicator, ann
 
         kph = 0
         try:
+            log.debug("Travelled: {} mm  in {} seconds".format(mmTraveled, elapsedSeconds))
             kph = (mmTraveled / 1e6) / (elapsedSeconds / 3600)
         except ZeroDivisionError as zero:
             log.warning("Elapsed time was 0.  Something is wrong")
@@ -865,7 +867,7 @@ def takeIMUReadings(camera: CameraDepth):
                 time.sleep(.5)
 
             # Connect to the camera and take an image
-            log.debug("Connecting to camera for capture type: {}".format(camera.captureType))
+            log.debug("Connecting to IMU for capture type: {}".format(camera.captureType))
             camera.connect()
             camera.initialize()
             camera.start()
