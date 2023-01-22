@@ -24,6 +24,8 @@ EXTENSION_CSV = ".csv"
 
 FILENAME_RAW = "raw"
 FILENAME_FINISHED = "img"
+FILENAME_INTEL_RGB = "rgb"
+FILENAME_INTEL_DEPTH = "depth"
 
 # This is just the text that will be placed on the visible treatment plan
 SPRAYER_NAME = ""
@@ -32,6 +34,7 @@ THREAD_NAME_ODOMETRY = "odometry"
 THREAD_NAME_SYSTEM = "system"
 THREAD_NAME_TREATMENT = "treatment"
 THREAD_NAME_ACQUIRE = "acquire"
+THREAD_NAME_ACQUIRE_RGB = "aquireRGB"
 THREAD_NAME_SERVICE = "service"
 THREAD_NAME_HOUSEKEEPING = "housekeeping"
 THREAD_NAME_IMU = "imu"
@@ -170,6 +173,13 @@ PARAM_FILE_ACCELERATION = "acceleration.csv"
 DEPTH_MAX_HORIZONTAL = 1280
 DEPTH_MAX_VERTICAL = 720
 DEPTH_MAX_FRAMES = 6
+
+#
+# I N T E L  R G B
+# TODO: This should be 1920x1080x8, but that does not work
+INTEL_RGB_MAX_HORIZONTAL = 1280
+INTEL_RGB_MAX_VERTICAL = 720
+INTEL_RGB_MAX_FRAMES = 6
 
 #
 # I M U
@@ -496,7 +506,7 @@ class Status(Enum):
     EXIT_FATAL = 3
 
 class Capture(Enum):
-    DEPTH = 0
+    DEPTH_RGB = 0
     IMU = 1
     RGB = 2
 

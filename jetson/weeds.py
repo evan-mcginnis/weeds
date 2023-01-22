@@ -50,6 +50,7 @@ from RealSense import RealSense
 from ProcessedImage import ProcessedImage, Images
 from Enrich import Enrich
 from Context import Context
+from TimestampedImage import TimestampedImage
 
 #from Selection import Selection
 
@@ -77,6 +78,8 @@ from abc import ABC, abstractmethod
 
 import pypylon.pylon
 from pypylon import _genicam
+
+from PIL import Image
 
 import constants
 from Performance import Performance
@@ -979,7 +982,7 @@ if (arguments.logistic or arguments.knn or arguments.tree or arguments.forest) a
 #
 # D E P T H  C A M E R A
 #
-def startupDepthCamera(options: OptionsFile) -> CameraDepth:
+def startupRGBDepthCamera(options: OptionsFile) -> CameraDepth:
     """
     Starts the attached depth camera
     :return: The depth camera instance or None if the camera cannot be found.
@@ -996,7 +999,7 @@ def startupDepthCamera(options: OptionsFile) -> CameraDepth:
 
     # Start the Depth Cameras
     try:
-        cameraForDepth = CameraDepth(constants.Capture.DEPTH)
+        cameraForDepth = CameraDepth(constants.Capture.DEPTH_RGB)
         if markSensorAsFailed:
             cameraForDepth.state.toMissing()
         else:
@@ -1308,16 +1311,39 @@ def storeImage(contextForImage: Context) -> bool:
 
     performance.stopAndRecord(constants.PERF_ACQUIRE)
 
-    # The depth image
-    if depthCamera.connected:
+
+    # The RGB image from the Intel camera
+    if rgbDepthCamera.connected:
         try:
-            depthArray = depthCamera.capture()
-            imageName = "depth-{}-{:05d}".format(options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_POSITION), imageNumber)
+            rgbDepth = rgbDepthCamera.capture()
+
+            imageName = "{}-{}-{:05d}".format(constants.FILENAME_INTEL_DEPTH, options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_POSITION), imageNumber)
             depthPath = os.path.join(logger.directory, imageName)
             log.debug("Saving depth image {}".format(depthPath))
-            np.save(depthPath,depthArray)
+            np.save(depthPath, rgbDepth.depth)
+
+            # Save the raw numpy data
+            imageName = "{}-{}-{:05d}".format(constants.FILENAME_INTEL_RGB, options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_POSITION), imageNumber)
+            rgbPath = os.path.join(logger.directory, imageName)
+            log.debug("Saving RGB data {}".format(rgbPath))
+            np.save(rgbPath, rgbDepth.rgb)
+
+            # Convert it to JPG format and save as an image
+            jpgName = imageName + constants.EXTENSION_IMAGE
+            imagePath = os.path.join(logger.directory, jpgName)
+            log.debug("Saving RGB data image {}".format(rgbPath))
+
+            # Save the image as JPG
+            image = Image.fromarray(rgbDepth.rgb)
+            if image.mode != 'RGB':
+                image = image.convert('RGB')
+            image.save(imagePath)
+            # This uses the opencv libs -- not sure why this doesn't work
+            # TODO: Convert the image save routine back to use opencv
+            #ImageManipulation.write(rgb.image, imagePath)
+
         except IOError as e:
-            log.fatal("Cannot capture depth data ({})".format(e))
+            log.fatal("Cannot capture RGB data ({})".format(e))
     else:
         depthData = None
 
@@ -1910,7 +1936,9 @@ def takeDepthImages(camera: CameraDepth):
 
     if cameraConnected:
         if isinstance(camera, CameraDepth):
+            camera._state.toClaim()
             camera.initialize()
+            camera.start()
 
             if camera.initializeCapture():
                 try:
@@ -1921,8 +1949,7 @@ def takeDepthImages(camera: CameraDepth):
             else:
                 rc = -1
         else:
-            log.debug("Not a depth camera")
-            camera.startCapturing()
+            log.error("Not a depth camera")
     else:
         log.error("Unable to connect to depth camera")
 
@@ -2037,12 +2064,15 @@ currentOperation = constants.Operation.QUIESCENT.name
 camera = startupCamera(options)
 log.debug("RGB camera started")
 
-depthCamera = startupDepthCamera(options)
+# This is confusing -- there are TWO rgb streams available: Basler and Intel.
+# This is for the latter
+rgbDepthCamera = startupRGBDepthCamera(options)
 
-if depthCamera.state.is_idle:
-    log.info("Depth camera started and is idle")
-elif depthCamera.state.is_missing:
-    log.error("Depth camera is missing")
+
+# if depthCamera.state.is_idle:
+#     log.info("Depth camera started and is idle")
+# elif depthCamera.state.is_missing:
+#     log.error("Depth camera is missing")
 
 (roomOdometry, roomSystem, roomTreatment) = startupCommunications(options, messageOdometryCB, messageSystemCB, messageTreatmentCB)
 log.debug("Communications started")
@@ -2070,11 +2100,16 @@ if not arguments.standalone:
     threads.append(acquire)
     acquire.start()
 
-    log.debug("Start depth data acquisition")
-    acquire = threading.Thread(name=constants.THREAD_NAME_ACQUIRE, target=takeDepthImages, args=(depthCamera,))
-    threads.append(acquire)
-    acquire.start()
+    # Unfortunately: looks like I can't create two cameras for depth and RGB streams -- just one.
+    # log.debug("Start depth data acquisition")
+    # acquire = threading.Thread(name=constants.THREAD_NAME_ACQUIRE, target=takeDepthImages, args=(depthCamera,))
+    # threads.append(acquire)
+    # acquire.start()
 
+    log.debug("Start Intel RGB image acquisition")
+    acquireRGB = threading.Thread(name=constants.THREAD_NAME_ACQUIRE_RGB, target=takeDepthImages, args=(rgbDepthCamera,))
+    threads.append(acquireRGB)
+    acquireRGB.start()
 
     log.debug("Starting odometry receiver")
     #generator = threading.Thread(name=constants.THREAD_NAME_ODOMETRY, target=processMessages, args=(roomOdometry,))

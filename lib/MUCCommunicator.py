@@ -278,6 +278,7 @@ class MUCCommunicator():
         try:
             self._occupants = xmpp.features.discoverItems(self._connection, self._muc)
         except UnicodeDecodeError as unicode:
+            self._occupants = []
             self._log.error("Unable to fetch occupants")
             self._log.error(unicode)
 
