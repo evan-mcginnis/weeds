@@ -793,6 +793,7 @@ def serviceQueue(odometer : PhysicalOdometer, odometryRoom: MUCCommunicator, ann
             #message.timestamp = time.time() * 1000
             message.timestamp = nanoseconds()
             message.source = odometer.source
+            message.type = constants.OdometryMessageType.DISTANCE
             messageText = message.formMessage()
             #log.debug("Sending: {}".format(message.formMessage()))
 

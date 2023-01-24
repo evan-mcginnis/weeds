@@ -60,7 +60,7 @@ def startupDepthCamera(options: OptionsFile) -> CameraDepth:
 
     # Start the Depth Cameras
     try:
-        cameraForDepth = CameraDepth(constants.Capture.DEPTH)
+        cameraForDepth = CameraDepth(constants.Capture.DEPTH_RGB)
                                      #serial=options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_SERIAL_LEFT))
         if markSensorAsFailed:
             cameraForDepth.state.toMissing()
@@ -350,6 +350,18 @@ def stopOperation():
     systemMessage.timestamp = time.time() * 1000
     roomSystem.sendMessage(systemMessage.formMessage())
 
+def sendPosition(heightAGL: float):
+    """
+    Send position information to the odometry room.
+    :param heightAGL: The average height AGL of the camera plate
+    """
+    log.debug("Send current status information")
+    odometryMessage = OdometryMessage()
+    odometryMessage.type = constants.OdometryMessageType.POSITION
+    odometryMessage.depth = heightAGL
+    odometryMessage.timestamp = time.time() * 1000
+    roomOdometry.sendMessage(odometryMessage.formMessage())
+
 def supervisor(camera: CameraDepth):
     log.debug("Beginning supervision")
 
@@ -375,9 +387,9 @@ def supervisor(camera: CameraDepth):
             # This is a hack until I can determine what is happening here. Occasionally there is an odd reading
             # where the depth is off by an order of magnitude.  The second reading is fine.
             depthImage = camera.capture()
-            averageAGL = float(np.average(depthImage))
+            averageAGL = float(np.average(depthImage.depth))
             depthImage2 = camera.capture()
-            averageAGL2 = float(np.average(depthImage2))
+            averageAGL2 = float(np.average(depthImage2.depth))
 
             #log.debug("Average height: {}".format(averageAGL))
             with open('height.csv', 'a') as the_file:
@@ -388,7 +400,11 @@ def supervisor(camera: CameraDepth):
 
             if (averageAGL != 0 and averageAGL2 != 0) and ((min(averageAGL, averageAGL2) / max(averageAGL, averageAGL2)) < DEPTH_THRESHOLD):
                 log.debug("Depth readings not within threshold ({}): {} and {}".format(DEPTH_THRESHOLD, averageAGL, averageAGL2))
-            elif averageAGL > aglUp:
+                continue
+
+            sendPosition(averageAGL)
+
+            if averageAGL > aglUp:
                 # Down-UP
                 if weederPreviousPosition == constants.Orientation.DOWN:
                     if weederPreviousOperation != constants.Operation.QUIESCENT:

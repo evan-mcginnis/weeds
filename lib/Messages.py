@@ -214,6 +214,11 @@ class OdometryMessage(MUCMessage):
         """
         super().__init__(**kwargs)
 
+        if constants.JSON_TYPE in self._data:
+            self._type = self._data[constants.JSON_TYPE]
+        else:
+            self._type = constants.OdometryMessageType.UNKNOWN.name
+
         # If the init parameters contained the distance, set it here.
         if constants.JSON_DISTANCE in self._data:
             self._distance = self._data[constants.JSON_DISTANCE]
@@ -264,6 +269,50 @@ class OdometryMessage(MUCMessage):
             self._acceleration = self._data[constants.JSON_ACCELERATION]
         else:
             self._acceleration = ""
+
+        if constants.JSON_GYRO in self._data:
+            self._gyro = self._data[constants.JSON_GYRO]
+        else:
+            self._gyro = ""
+
+        if constants.JSON_DEPTH in self._data:
+            self._depth = self._data[constants.JSON_DEPTH]
+        else:
+            self._depth = 0.0
+
+    @property
+    def type(self) -> str:
+        """
+        The type of message (distance or position)
+        :return:
+        """
+        return self._type
+
+    @type.setter
+    def type(self, theType: constants.OdometryMessageType):
+        """
+        Set the type of the message
+        :param theType:
+        """
+        self._type = theType.name
+        self._data[constants.JSON_TYPE] = theType.name
+
+    @property
+    def depth(self) -> float:
+        """
+        The average depth AGL of the camera
+        :return: depth as float
+        """
+        return self._depth
+
+    @depth.setter
+    def depth(self, theDepth: float):
+        """
+        Set the average depth AGL oc the camera
+        :param theDepth:
+        """
+        self._depth = theDepth
+        self._data[constants.JSON_DEPTH] = self._depth
 
     @property
     def gyro(self) -> str:

@@ -14,9 +14,19 @@ class Odometer(ABC):
     def __init__(self, options: str):
         self.options = options
         # This is where the readings go -- this size is way too big
-        self._changeQueue = queue.Queue(maxsize=5000)
+        self._changeQueue = queue.Queue(maxsize=50000)
         self._source = None
         self._processing = False
+        self._reporting = False
+        self._connected = False
+
+    @property
+    def reporting(self) -> bool:
+        return self._reporting
+
+    @reporting.setter
+    def reporting(self, report: bool):
+        self._reporting = report
 
     @property
     def changeQueue(self):
@@ -104,6 +114,7 @@ class VirtualOdometer(Odometer):
         :return: True
         """
         self._connected = True
+        self.reporting = True
         return True
 
     def disconnect(self):
@@ -112,6 +123,7 @@ class VirtualOdometer(Odometer):
         :return: True
         """
         self._connected = False
+        self.reporting = False
         return True
 
     def diagnostics(self):
@@ -145,16 +157,20 @@ class VirtualOdometer(Odometer):
             self._elapsed = datetime.now() - self._start
             self._elapsed_milliseconds = self._elapsed.total_seconds() * 1000
 
-            # put the angular change on the queue
-            angle += (360 / self._encoder_clicks)
-            try:
-                self.changeQueue.put(angle,block=False)
-            except queue.Full as full:
-                self._log.fatal("Odometry queue is full. This should not happen to a double ended queue")
-                self._log.fatal("Current queue size: {}".format(len(self.changeQueue)))
+            if self.reporting:
+                # put the angular change on the queue
+                angle += (360 / self._encoder_clicks)
+                try:
+                    self.changeQueue.put(angle, block=False)
+                    # self._log.info("Queue size: {}".format(self.changeQueue.qsize()))
+                except queue.Full as full:
+                    self._log.fatal("Odometry queue is full. This should not happen to a double ended queue")
+                    self._log.fatal("Current queue size: {}".format(self.changeQueue.qsize()))
 
-            # Call the processing routine every 1cm of travel
-            #self._log.debug("Sleep for {:.5f} seconds".format(timeToMoveOnePulse))
+                # Call the processing routine every 1cm of travel
+                #self._log.debug("Sleep for {:.5f} seconds".format(timeToMoveOnePulse))
+            else:
+                self._log.error("Movement not reported, so will not be enqueued")
             sleep(timeToMoveOnePulse)
             self._start = datetime.now()
 

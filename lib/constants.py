@@ -384,37 +384,40 @@ PROPERTY_EMITTER_DIAG                = "DIAG-TYPE"
 #
 # J S O N  A N D  M E S S A G E S
 #
+JSON_ACCELERATION   = "acceleration"
 JSON_ACTION         = "action"
 JSON_DATA           = "data"
+JSON_DEPTH          = "depth"
 JSON_DIAG_MSG       = "diagnostic"
 JSON_DISTANCE       = "distance"
+JSON_EMITTER_TIER   = "tier"
+JSON_EMITTER_POS    = "position"
+JSON_EMITTER_NUMBER = "number"
+JSON_EMITTER_DURATION = "duration"
+JSON_GYRO           = "gyro"
 JSON_IMAGE_NO       = "image_no"
+JSON_NAME           = "name"
+JSON_PLAN           = "plan"
 JSON_SPEED          = "speed"
 JSON_TIME           = "timestamp"
 JSON_TOTAL_DISTANCE = "total_distance"
-JSON_NAME           = "name"
-JSON_PLAN           = "plan"
+JSON_URL            = "url"
 JSON_DIAG_RSLT      = "result"
 JSON_DIAG_DETAIL    = "detail"
 JSON_SOURCE         = "source"
 JSON_LATITUDE       = "latitude"
 JSON_LONGITUDE      = "longitude"
-JSON_URL            = "url"
+JSON_OPERATION      = "operation"
+JSON_PARAM_GSD      = "param-gsd"
 JSON_POSITION       = "position"
 JSON_PULSES         = "pulses"
-JSON_OPERATION      = "operation"
-JSON_STATUS_CAMERA  = "status-camera"
-JSON_GYRO           = "gyro"
-JSON_ACCELERATION   = "acceleration"
-JSON_PARAM_GSD      = "param-gsd"
 JSON_PULSE_START    = "pulse_start"
 JSON_PULSE_STOP     = "pulse_stop"
-JSON_EMITTER_TIER   = "tier"
-JSON_EMITTER_POS    = "position"
-JSON_EMITTER_NUMBER = "number"
-JSON_EMITTER_DURATION = "duration"
+JSON_STATUS_CAMERA  = "status-camera"
 JSON_TARGET_LOCATION    = "location"
 JSON_TARGET_DISTANCE    = "distance"
+JSON_TYPE           = "type"
+
 
 ENTITY_CAMERA       = "camera"
 ENTITY_EMITTERS     = "emitters"
@@ -467,6 +470,11 @@ class SubsystemType(Enum):
 class ImageType(Enum):
     RGB = 0
     DEPTH = 1
+
+class OdometryMessageType(Enum):
+    DISTANCE = 0
+    POSITION = 1
+    UNKNOWN = 2
 
 class Action(Enum):
     START = 0

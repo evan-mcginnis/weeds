@@ -185,16 +185,16 @@ class MUCCommunicator():
     def messageCB(self,conn,msg: xmpp.protocol.Message):
         #print(msg.getType())
         if msg.getType() == "groupchat":
-                #print(str(msg.getFrom()) +": "+  str(msg.getBody()))
-                body = msg.getBody()
-                # Check if this is a real message and not just an empty keep-alive message
-                if body is not None:
-                    self._log.debug("From: {} Message [{}]".format(msg.getFrom(), msg.getBody()))
-                else:
-                    self._log.debug("Keepalive message from chatroom")
-                #self.sendMessage("Response")
+            #print(str(msg.getFrom()) +": "+  str(msg.getBody()))
+            body = msg.getBody()
+            # Check if this is a real message and not just an empty keep-alive message
+            if body is not None:
+                self._log.debug("From: {} Message [{}]".format(msg.getFrom(), msg.getBody()))
+            else:
+                self._log.debug("Keepalive message from chatroom")
+            #self.sendMessage("Response")
         if msg.getType() == "chat":
-                self._log.error("Unexpected private message: " + str(msg.getFrom()) +  ":" +str(msg.getBody()))
+            self._log.error("Unexpected private message: " + str(msg.getFrom()) + ":" + str(msg.getBody()))
 
     def _presenceCB(self, conn, presence):
         self._log.debug("Presence: {}".format(presence.getFrom().getStripped()))
@@ -449,10 +449,10 @@ class MUCCommunicator():
             except IOError as io:
                 self._log.error("I/O Error encountered. Typically this means that the server kicked us out of the MUC")
                 # Reconnect to the chatroom, as the disconnect handler scheme seems not to work as I want it to
-
-                #self.connectToChatroom()
+                time.sleep(.5)
+                self._log.error("Attempting to recover with reconnect")
+                self.connectToChatroom()
                 #self._log.debug("Connected to chatroom")
-                time.sleep(2)
                 if self._currentOperation == constants.Status.EXIT_FATAL:
                     self._log.error("XMPP connection cannot be recovered. -- E X I T I N G --")
                     sys.exit(-1)

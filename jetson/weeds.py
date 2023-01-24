@@ -1295,7 +1295,7 @@ def storeImage(contextForImage: Context) -> bool:
     global imageNumber
 
     if not processing:
-        log.info("Not collecting images (This is normal if the weeding has not started")
+        log.debug("Not collecting images (This is normal if the weeding has not started")
         return False
 
     if arguments.verbose:
@@ -1825,35 +1825,38 @@ def messageOdometryCB(conn, msg: xmpp.protocol.Message):
 
             if messageIsCurrent(odometryMessage.timestamp):
                 log.debug("Message: {}".format(odometryMessage.data))
-                totalMovement += odometryMessage.distance
-                movementSinceLastProcessing += odometryMessage.distance
-                # The time of the observation
-                timeRead = odometryMessage.timestamp
-                # Determine how old the observation is
-                # The version of python on the jetson does not support time_ns, so this a bit of a workaround until I
-                # get that sorted out.  Just convert the reading to milliseconds for now
-                #timeDelta = (time.time() * 1000) - (timeRead / 1000000)
-                timeDelta = (time.time() * 1000) - timeRead
-                log.debug("Total movement: {} at time: {}. Movement since last acquisition: {} Time now is {} delta from now {} ms".
-                          format(totalMovement, timeRead, movementSinceLastProcessing, time.time() * 1000, timeDelta))
+
+                # We are only concerned with distance messages here
+                if odometryMessage.type == constants.OdometryMessageType.DISTANCE:
+                    totalMovement += odometryMessage.distance
+                    movementSinceLastProcessing += odometryMessage.distance
+                    # The time of the observation
+                    timeRead = odometryMessage.timestamp
+                    # Determine how old the observation is
+                    # The version of python on the jetson does not support time_ns, so this a bit of a workaround until I
+                    # get that sorted out.  Just convert the reading to milliseconds for now
+                    #timeDelta = (time.time() * 1000) - (timeRead / 1000000)
+                    timeDelta = (time.time() * 1000) - timeRead
+                    log.debug("Total movement: {} at time: {}. Movement since last acquisition: {} Time now is {} delta from now {} ms".
+                              format(totalMovement, timeRead, movementSinceLastProcessing, time.time() * 1000, timeDelta))
 
 
-                # If the movement is equal to the size of the image, take a picture
-                # We need to allow for some overlap so the images can be stitched together.
-                # So reduce this by the overlap factor
-                if movementSinceLastProcessing > ((1 - float(options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_OVERLAP_FACTOR))) * camera.gsd):
-                    gsd = (1 - float( options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_OVERLAP_FACTOR))) * camera.gsd
-                    log.info("Acquiring image.  Movement since last processing {} GSD {}".format(movementSinceLastProcessing,gsd))
-                    movementSinceLastProcessing = 0
+                    # If the movement is equal to the size of the image, take a picture
+                    # We need to allow for some overlap so the images can be stitched together.
+                    # So reduce this by the overlap factor
+                    if movementSinceLastProcessing > ((1 - float(options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_OVERLAP_FACTOR))) * camera.gsd):
+                        gsd = (1 - float( options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_OVERLAP_FACTOR))) * camera.gsd
+                        log.debug("Acquiring image.  Movement since last processing {} GSD {}".format(movementSinceLastProcessing,gsd))
+                        movementSinceLastProcessing = 0
 
-                    # Record the context under which this photo was taken
-                    contextForImage = Context()
-                    contextForImage.latitude = odometryMessage.latitude
-                    contextForImage.longitude = odometryMessage.longitude
-                    # Convert to kilometers
-                    contextForImage.speed = odometryMessage.speed / 1e+6
-                    # contextForPhoto.model
-                    processor(contextForImage)
+                        # Record the context under which this photo was taken
+                        contextForImage = Context()
+                        contextForImage.latitude = odometryMessage.latitude
+                        contextForImage.longitude = odometryMessage.longitude
+                        # Convert to kilometers
+                        contextForImage.speed = odometryMessage.speed / 1e+6
+                        # contextForPhoto.model
+                        processor(contextForImage)
             else:
                 log.info("Old message seen -- ignored")
         else:
