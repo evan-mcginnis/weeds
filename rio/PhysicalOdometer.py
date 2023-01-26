@@ -181,7 +181,7 @@ class PhysicalOdometer(Odometer):
     def start(self) -> bool:
         """
         Treat the encoder as an angular encoder, putting new readings on the change queue
-        If an error is encoutered in starting the readings, return False.  Transient errors will not stop processing.
+        If an error is encountered in starting the readings, return False.  Transient errors will not stop processing.
         """
         global running
         total = 0.0
@@ -241,6 +241,7 @@ class PhysicalOdometer(Odometer):
             previous = 0.0
             self._processing = True
             running = True
+            errorsEncountered = 0
 
             # This loop will run until things are gracefully shut down by another thread
             # setting running to False.
@@ -250,7 +251,13 @@ class PhysicalOdometer(Odometer):
                     #print("Current register is {}".format(channelA.ci_count))
                 except nidaqmx.errors.DaqError:
                     self.log.error("Read error encountered")
-                    continue
+                    daqErrorEncountered = True
+                    errorsEncountered += 1
+                    # Tolerate at most 100 read errors
+                    if errorsEncountered > 100:
+                        break
+                    else:
+                        continue
 
                 # If the current reading has changed from the previous reading, the wheel has moved
                 if ang[0] != 0 and ang[0] != previous:

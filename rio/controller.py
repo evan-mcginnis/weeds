@@ -195,6 +195,7 @@ def diagnostics() -> DiagnosticsDAQ:
 # Start up system components and run diagnostics
 #
 def startupSystem(options: OptionsFile):
+    global daqStatus
 
     # The system is running in a mode where a physical RIO is expected
 
@@ -298,7 +299,39 @@ def startupSystem(options: OptionsFile):
         log.warning(diagnosticTextLeftEmitter)
         leftEmitter = None
 
+    daqStatus = constants.OperationalStatus.OK
+
     return attachedDAQ, rightEmitter, leftEmitter
+
+def runDiagnostics(systemRoom: MUCCommunicator):
+    """
+    Run diagnostics for this subsystem, collecting information about the camera connectivity.
+    :param systemRoom: The room to send the results
+    """
+
+    # This doesn't run anything, just sends the current status
+
+    systemMessage = SystemMessage()
+    systemMessage.action = constants.Action.DIAG_REPORT.name
+    try:
+        position = options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_POSITION)
+        systemMessage.position = position
+    except KeyError:
+        log.error("Can't find {}/{} in ini file".format(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_POSITION))
+
+    # Include the status of system components in the report
+    systemMessage.statusSystem = systemStatus.name
+    systemMessage.statusIntel = intel435Status.name
+    systemMessage.statusDAQ = daqStatus.name
+    systemMessage.statusGPS = gpsStatus.name
+    # Technically not needed, but send the overall status as well
+    overall = (systemStatus == constants.OperationalStatus.OK
+                and intel435Status == constants.OperationalStatus.OK
+                and daqStatus == constants.OperationalStatus.OK
+                and gpsStatus == constants.OperationalStatus.OK)
+    systemMessage.diagnostics = constants.OperationalStatus.OK.name if overall else constants.OperationalStatus.FAIL.name
+
+    systemRoom.sendMessage(systemMessage.formMessage())
 
 #
 # P R O C E S S
@@ -349,6 +382,9 @@ def process(conn, msg: xmpp.protocol.Message):
                 if systemMsg.action == constants.Action.CURRENT.name:
                     log.debug("Query for current operation")
                     sendSessionInformation(options)
+                if systemMsg.action == constants.Action.START_DIAG.name:
+                    log.debug("Request for diagnostics")
+                    runDiagnostics(systemRoom)
             else:
                 log.debug("Old system message. Sent: {} Now: {} Delta: {}".format(timeMessageSent, time.time() * 1000, timeDelta))
 
@@ -885,6 +921,12 @@ def takeIMUReadings(camera: CameraDepth):
             else:
                 log.critical("Unable to initialize camera")
                 rc = -1
+
+# Set the status of all components to failed initially
+systemStatus = constants.OperationalStatus.FAIL
+intel435Status = constants.OperationalStatus.FAIL
+daqStatus = constants.OperationalStatus.FAIL
+gpsStatus = constants.OperationalStatus.FAIL
 
 # Start the NI system and run diagnostics
 log.debug("Starting system")

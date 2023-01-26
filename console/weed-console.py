@@ -69,10 +69,11 @@ class OdometrySignals(WeedsSignals):
     latitude = pyqtSignal(float, name="latitude")
     longitude = pyqtSignal(float, name="longitude")
     progress = pyqtSignal(float, name="progress")
+    agl = pyqtSignal(float, name="agl")
     virtual = pyqtSignal()
 
 class SystemSignals(WeedsSignals):
-    diagnostics = pyqtSignal(str, str, name="diagnostics")
+    diagnostics = pyqtSignal(SystemMessage, name="diagnostics")
     camera = pyqtSignal(str, str, name="camera")
     operation = pyqtSignal(str, str, name="operation")
     occupant = pyqtSignal(str, str, str, name="occupant")
@@ -163,11 +164,14 @@ class WorkerOdometry(Worker):
         if msg.getFrom().getStripped() == options.option(constants.PROPERTY_SECTION_XMPP,
                                                          constants.PROPERTY_ROOM_ODOMETRY):
             odometryMessage = OdometryMessage(raw=msg.getBody())
-            self._signals.pulses.emit(odometryMessage.source, float(odometryMessage.pulses))
-            self._signals.distance.emit(odometryMessage.source, float(odometryMessage.speed))
-            # window.setSpeed(odometryMessage.speed)
-            self._signals.speed.emit(odometryMessage.source, float(odometryMessage.speed))
-            # window.setDistance(odometryMessage.totalDistance)
+            if odometryMessage.type == constants.OdometryMessageType.DISTANCE.name:
+                self._signals.pulses.emit(odometryMessage.source, float(odometryMessage.pulses))
+                self._signals.distance.emit(odometryMessage.source, float(odometryMessage.speed))
+                # window.setSpeed(odometryMessage.speed)
+                self._signals.speed.emit(odometryMessage.source, float(odometryMessage.speed))
+                # window.setDistance(odometryMessage.totalDistance)
+            elif odometryMessage.type == constants.OdometryMessageType.POSITION.name:
+                self._signals.agl.emit(odometryMessage.depth)
         else:
             log.error("Processed message that was not for odometry")
 
@@ -284,6 +288,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         self.statusTable.setUpdatesEnabled(True)
 
+        # Wire up the combo boxes to display the images
+        self.images_left.activated[str].connect(self.onImageSelectedLeft)
+        self.images_right.activated[str].connect(self.onImageSelectedRight)
+
         # Dialogs
         self._dialogDisconnected = QMessageBox()
 
@@ -317,6 +325,16 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         self.setEmitterButtonsState(True)
         self.setEmitterButtonHandler()
+
+    def onImageSelectedLeft(self, imageName: str):
+        url = self.images_left.itemData(self.images_left.currentIndex())
+        log.debug("Display: {}".format(url))
+        self.showImage(constants.Position.LEFT, url)
+
+    def onImageSelectedRight(self, imageName: str):
+        url = self.images_right.itemData(self.images_right.currentIndex())
+        self.showImage(constants.Position.RIGHT, url)
+        log.debug("Display: {}".format(url))
 
     def setEmitterButtonsState(self, enabled: bool):
         """
@@ -444,6 +462,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def treatmentSignals(self) -> pyqtSignal:
         return self._treatmentSignals
 
+    def updateAGL(self, agl: float):
+        self.agl.display(agl)
+
     def updateLatitude(self, latitude: float):
         if latitude != 0.0:
             self.latitude.display(latitude)
@@ -531,8 +552,6 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
             self.status_current_operation.setText(constants.UI_OPERATION_NONE)
 
-    def updateDiagnostics(self, position: str, result: str):
-        self.diagnostic_rio.setText(result)
 
     def updateCamera(self, position: str, result: str):
         """
@@ -578,6 +597,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         nTableHeight = (nNumRows * nRowHeight) + self.statusTable.horizontalHeader().height() + 2 * self.statusTable.frameWidth();
         self.statusTable.setMinimumHeight(nTableHeight)
         self.statusTable.setMaximumHeight(nTableHeight)
+
 
     def setupRooms(self, odometryRoom: MUCCommunicator, systemRoom: MUCCommunicator, treatmentRoom: MUCCommunicator):
         """
@@ -659,6 +679,51 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         return breakdown
 
+    @staticmethod
+    def _statusToBool(status: str) -> bool:
+        """
+        Utility routine to convert status to boolean
+        :param status: 'FAIL' or 'OK"
+        :return: boolean
+        """
+        if status == constants.OperationalStatus.FAIL.name:
+            return False
+        else:
+            return True
+
+    def updateStatusOfSystem(self, systemMsg: SystemMessage):
+        """
+        Update the presentation of the status of a system
+        :param position: left, middle, or right
+        :param status: array of booleans (true == OK, false == NOT OK)
+        """
+
+        log.debug("Update status for position: {}".format(systemMsg.position))
+
+        if systemMsg.diagnostics == constants.OperationalStatus.FAIL.name:
+            stylesheet = "color: white; background-color: red; font-size: 20pt"
+        elif systemMsg.diagnostics == constants.OperationalStatus.OK.name:
+            stylesheet = "color: white; background-color: green; font-size: 20pt"
+        else:
+            stylesheet = "color: white; background-color: grey; font-size: 20pt"
+
+        if systemMsg.position == constants.Position.LEFT.name.lower():
+            self.left_checkbox_system.setChecked(self._statusToBool(systemMsg.statusSystem))
+            self.left_checkbox_basler.setChecked(self._statusToBool(systemMsg.statusCamera))
+            self.left_checkbox_intel.setChecked(self._statusToBool(systemMsg.statusIntel))
+            self.groupLeft.setStyleSheet(stylesheet)
+        if systemMsg.position == constants.Position.MIDDLE.name.lower():
+            self.middle_checkbox_system.setChecked(self._statusToBool(systemMsg.statusSystem))
+            self.middle_checkbox_daq.setChecked(self._statusToBool(systemMsg.statusDAQ))
+            self.middle_checkbox_intel.setChecked(self._statusToBool(systemMsg.statusIntel))
+            self.middle_checkbox_gps.setChecked(self._statusToBool(systemMsg.statusGPS))
+            self.groupMiddle.setStyleSheet(stylesheet)
+        if systemMsg.position == constants.Position.RIGHT.name.lower():
+            self.right_checkbox_system.setChecked(self._statusToBool(systemMsg.statusSystem))
+            self.right_checkbox_basler.setChecked(self._statusToBool(systemMsg.statusCamera))
+            self.right_checkbox_intel.setChecked(self._statusToBool(systemMsg.statusIntel))
+            self.groupRight.setStyleSheet(stylesheet)
+
     def setInitialState(self):
         """
         Initialize values on the screen
@@ -704,6 +769,12 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.noteMissingEntities()
 
         self.getCurrentOperation()
+
+        # Indicate that the status is not yet known
+        stylesheet = "color: white; background-color: grey; font-size: 20pt"
+        self.groupLeft.setStyleSheet(stylesheet)
+        self.groupMiddle.setStyleSheet(stylesheet)
+        self.groupRight.setStyleSheet(stylesheet)
 
         # Indicate that initialization is complete
         self._initializing.release()
@@ -789,7 +860,15 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def setTreatments(self, treatments: int):
         self.count_images.display(treatments)
 
-    def setImage(self, position: str, url: str):
+    def addImage(self, position: str, url: str):
+        # Add the item to the list so it can be shown later
+        log.debug("Add image to list for position {}: {}".format(position, url))
+        if position == constants.Position.LEFT.name.lower():
+            self.images_left.addItem("Image {}".format(treatments), url)
+        elif position == constants.Position.RIGHT.name.lower():
+            self.images_right.addItem("Image {}".format(treatments), url)
+
+    def showImage(self, position: constants.Position, url: str):
         try:
             request = urllib.request.urlopen(url)
             data = request.read()
@@ -799,17 +878,19 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             pixmap = QPixmap()
             pixmap.loadFromData(data)
             scaled = pixmap.scaled(width, height, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-            if position == constants.Position.LEFT.name.lower():
+            if position == constants.Position.LEFT:
                 #self.image_camera_left.setMaximumSize(pixmap.size())
                 self.image_camera_left.setPixmap(pixmap)
                 #self.image_camera_left.setMaximumSize(QtCore.QSize(3990,3000))
-            elif position == constants.Position.RIGHT.name.lower():
+            elif position == constants.Position.RIGHT:
                 self.image_camera_right.setPixmap(pixmap)
 
         except urllib.error.HTTPError as httperror:
             log.error("Unable to fetch from URL: {}".format(url))
+            log.error(httperror)
         except urllib.error.URLError as urlerror:
             log.error("Unable to fetch from URL: {}".format(url))
+            log.error(urlerror)
 
     def setStatus(self, occupant: str, roomName: str, presence: Presence):
         """
@@ -836,8 +917,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                     #requiredOccupant.get("status").setText(constants.UI_STATUS_NOT_OK)
                     #requiredOccupant.get("status").setStyleSheet("color: white; background-color: red")
                 else:
-                    self.statusTable.setItem(x,y,QtWidgets.QTableWidgetItem(constants.UI_STATUS_OK))
-                    item = self.statusTable.item(x,y)
+                    self.statusTable.setItem(x, y, QtWidgets.QTableWidgetItem(constants.UI_STATUS_OK))
+                    item = self.statusTable.item(x, y)
                     if item is not None:
                         item.setBackground(QtGui.QColor("green"))
                         item.setForeground(QtGui.QColor("black"))
@@ -853,9 +934,6 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         # Note in the tabs if someone is missing who should be there
         self.noteMissingEntities()
 
-
-    def addImage(self):
-        return
 
     def startOperation(self, operation: str, operationDescription: str):
         # Disable the start button and enable the stop
@@ -1057,7 +1135,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self._treatmentSignals = self._taskTreatment.signals
 
         self._treatmentSignals.plan.connect(self.setTreatments)
-        self._treatmentSignals.image.connect(self.setImage)
+        self._treatmentSignals.image.connect(self.addImage)
         self._treatmentSignals.xmppStatus.connect(self.xmppError)
 
         self._odometrySignals.progress.connect(self.updateProgress)
@@ -1066,10 +1144,11 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self._odometrySignals.speed.connect(self.updateCurrentSpeed)
         self._odometrySignals.latitude.connect(self.updateLatitude)
         self._odometrySignals.longitude.connect(self.updateLongitude)
+        self._odometrySignals.agl.connect(self.updateAGL)
         self._odometrySignals.xmppStatus.connect(self.xmppError)
 
         self._systemSignals.operation.connect(self.updateOperation)
-        self._systemSignals.diagnostics.connect(self.updateDiagnostics)
+        self._systemSignals.diagnostics.connect(self.updateStatusOfSystem)
         self._systemSignals.camera.connect(self.updateCamera)
         self._systemSignals.occupant.connect(self.setStatus)
         self._systemSignals.xmppStatus.connect(self.xmppError)
@@ -1100,20 +1179,31 @@ def process(conn, msg: xmpp.protocol.Message):
         log.debug("Processing Odometry message")
         odometryMessage = OdometryMessage(raw=msg.getBody())
         signals = window.taskOdometry.signals
-        signals.distance.emit(odometryMessage.source, float(odometryMessage.totalDistance))
-        signals.speed.emit(odometryMessage.source, float(odometryMessage.speed))
-        signals.pulses.emit(odometryMessage.source, float(odometryMessage.pulses))
-        signals.progress.emit(float(odometryMessage.distance))
 
-        # See if we have lat/long.  Bad form here, as 0,0 is a legit value
-        if odometryMessage.latitude != 0:
-            signals.latitude.emit(float(odometryMessage.latitude))
-            signals.longitude.emit(float(odometryMessage.longitude))
+        # The distance message
+        if odometryMessage.type == constants.OdometryMessageType.DISTANCE.name:
+            signals.distance.emit(odometryMessage.source, float(odometryMessage.totalDistance))
+            signals.speed.emit(odometryMessage.source, float(odometryMessage.speed))
+            signals.pulses.emit(odometryMessage.source, float(odometryMessage.pulses))
+            signals.progress.emit(float(odometryMessage.distance))
+            # See if we have lat/long.  Bad form here, as 0,0 is a legit value
+            if odometryMessage.latitude != 0:
+                signals.latitude.emit(float(odometryMessage.latitude))
+                signals.longitude.emit(float(odometryMessage.longitude))
+            else:
+                signals.latitude.emit(0.0)
+                signals.longitude.emit(0.0)
+
+            log.debug("Speed: {:.02f}".format(odometryMessage.speed))
+
+        # The position message
+        elif odometryMessage.type == constants.OdometryMessageType.POSITION.name:
+            signals.agl.emit(odometryMessage.depth)
+
         else:
-            signals.latitude.emit(0.0)
-            signals.longitude.emit(0.0)
+            log.warning("Ignoring odometry message {}".format(msg.getBody()))
 
-        log.debug("Speed: {:.02f}".format(odometryMessage.speed))
+
     elif msg.getFrom().getStripped() == options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_TREATMENT):
         treatmentMessage = TreatmentMessage(raw=msg.getBody())
         # Just the raw image from the camera
@@ -1143,7 +1233,8 @@ def process(conn, msg: xmpp.protocol.Message):
         if systemMessage.action == constants.Action.DIAG_REPORT.name:
             log.debug("Diagnostic report received for position {}".format(systemMessage.position))
             signals = window.taskSystem.signals
-            signals.diagnostics.emit(systemMessage.position, systemMessage.diagnostics)
+            signals.diagnostics.emit(systemMessage)
+            # signals.diagnostics.emit(systemMessage.position, systemMessage.diagnostics)
             signals.camera.emit(systemMessage.position, systemMessage.statusCamera)
     else:
         print("skipped message {}".format(messageNumber))

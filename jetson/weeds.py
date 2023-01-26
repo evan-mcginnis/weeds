@@ -987,6 +987,7 @@ def startupRGBDepthCamera(options: OptionsFile) -> CameraDepth:
     Starts the attached depth camera
     :return: The depth camera instance or None if the camera cannot be found.
     """
+    global intel435Status
     sensors = RealSense()
     sensors.query()
     markSensorAsFailed = False
@@ -996,6 +997,7 @@ def startupRGBDepthCamera(options: OptionsFile) -> CameraDepth:
         log.error("Detected {} depth/IMU sensors. Expected at least 1.".format(sensors.count()))
         log.error("No sensor will be used.")
         markSensorAsFailed = True
+        intel435Status = constants.OperationalStatus.FAIL
 
     # Start the Depth Cameras
     try:
@@ -1004,6 +1006,7 @@ def startupRGBDepthCamera(options: OptionsFile) -> CameraDepth:
             cameraForDepth.state.toMissing()
         else:
             cameraForDepth.state.toIdle()
+            intel435Status = constants.OperationalStatus.OK
     except KeyError:
         log.error("Unable to find serial number for depth camera: {}/{} & {}".format(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_SERIAL_LEFT, constants.PROPERTY_SERIAL_RIGHT))
         cameraForDepth.state.toMissing()
@@ -1743,7 +1746,11 @@ def runDiagnostics(systemRoom: MUCCommunicator, camera: _Camera):
         systemMessage.position = position
     except KeyError:
         log.error("Can't find {}/{} in ini file".format(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_POSITION))
+
+    # Include the status of system components in the report
     systemMessage.statusCamera = camera.status.name
+    systemMessage.statusSystem = systemStatus.name
+    systemMessage.statusIntel = intel435Status.name
 
     systemRoom.sendMessage(systemMessage.formMessage())
 
@@ -1926,7 +1933,12 @@ def processMessages(communicator: MUCCommunicator):
     #         rc = -1
 
 def takeDepthImages(camera: CameraDepth):
-
+    """
+    Take depth images from the Intel 435 camera
+    :param camera: CameraDepth instance
+    :return:
+    """
+    global intel435Status
     cameraConnected = False
 
     if camera is None:
@@ -1953,8 +1965,10 @@ def takeDepthImages(camera: CameraDepth):
                 rc = -1
         else:
             log.error("Not a depth camera")
+            intel435Status = constants.OperationalStatus.FAIL
     else:
         log.error("Unable to connect to depth camera")
+        intel435Status = constants.OperationalStatus.FAIL
 
 #
 # Take the images -- this method will not return, only add new images to the queue
@@ -2057,6 +2071,10 @@ def enrichImages():
 # Start up various subsystems
 #
 options = readINI()
+
+# Set the status of all components to failed initially
+systemStatus = constants.OperationalStatus.FAIL
+intel435Status = constants.OperationalStatus.FAIL
 
 currentSessionName = ""
 currentOperation = constants.Operation.QUIESCENT.name

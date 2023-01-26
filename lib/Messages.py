@@ -99,6 +99,22 @@ class SystemMessage(MUCMessage):
             self._status_camera = self._data[constants.JSON_STATUS_CAMERA]
         else:
             self._status_camera = ""
+        if constants.JSON_STATUS_GPS in self._data:
+            self._status_gps = self._data[constants.JSON_STATUS_GPS]
+        else:
+            self._status_gps = ""
+        if constants.JSON_STATUS_SYSTEM in self._data:
+            self._status_system = self._data[constants.JSON_STATUS_SYSTEM]
+        else:
+            self._status_system = ""
+        if constants.JSON_STATUS_INTEL in self._data:
+            self._status_intel = self._data[constants.JSON_STATUS_INTEL]
+        else:
+            self._status_intel = ""
+        if constants.JSON_STATUS_DAQ in self._data:
+            self._status_daq = self._data[constants.JSON_STATUS_DAQ]
+        else:
+            self._status_camera = ""
         if constants.JSON_PARAM_GSD in self._data:
             self._param_gsd = self._data[constants.JSON_PARAM_GSD]
         else:
@@ -135,6 +151,40 @@ class SystemMessage(MUCMessage):
         self._status_camera = theStatus
         self._data[constants.JSON_STATUS_CAMERA] = theStatus
 
+    @property
+    def statusSystem(self) -> str:
+        return self._status_system
+
+    @statusSystem.setter
+    def statusSystem(self, theStatus):
+        self._status_camera = theStatus
+        self._data[constants.JSON_STATUS_SYSTEM] = theStatus
+
+    @property
+    def statusGPS(self) -> str:
+        return self._status_gps
+
+    @statusGPS.setter
+    def statusGPS(self, theStatus):
+        self._status_gps = theStatus
+        self._data[constants.JSON_STATUS_GPS] = theStatus
+
+    @property
+    def statusIntel(self) -> str:
+        return self._status_intel
+
+    @statusIntel.setter
+    def statusIntel(self, theStatus):
+        self._status_intel = theStatus
+        self._data[constants.JSON_STATUS_INTEL] = theStatus
+    @property
+    def statusDAQ(self) -> str:
+        return self._status_daq
+
+    @statusDAQ.setter
+    def statusDAQ(self, theStatus):
+        self._status_daq = theStatus
+        self._data[constants.JSON_STATUS_DAQ] = theStatus
     @property
     def diagnostics(self) -> str:
         return self._diagnostics
