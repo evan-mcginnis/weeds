@@ -265,6 +265,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         self.runDiagnostics.clicked.connect(self.startDiagnostics)
 
+        # Thw sliders selecting the purge time for the emitters
+        self.slider_left.valueChanged.connect(self.sliderValueChanged)
+        self.slider_right.valueChanged.connect(self.sliderValueChanged)
+
         # Set the initial button states
         self.button_start.setEnabled(False)
         self.button_start_imaging.setEnabled(False)
@@ -355,6 +359,19 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             {self.KEY_DIAGNOSTIC_TIME: 0, self.KEY_GROUP: self.groupRight, self.KEY_GROUP_NAME: constants.Position.RIGHT.name}
         ]
 
+    def sliderValueChanged(self):
+        sending = self.sender()
+        # The name of the slider is slider_<side>
+        sliderName = sending.objectName().split('_')
+        side = sliderName[1]
+
+        if side == constants.Side.LEFT.name.lower():
+            self.purge_time_left.display(self.slider_left.value())
+        elif side == constants.Side.RIGHT.name.lower():
+            self.purge_time_right.display(self.slider_right.value())
+        else:
+            log.error("Unable to determine position of emitter for {}".format(sending.objectName()))
+
     def markSystemsAsFailed(self):
         """
         Mark system as failed if diagnostic report has not been received recently
@@ -411,9 +428,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         treatmentMessage = TreatmentMessage()
 
         if side.upper() == constants.Side.RIGHT.name:
-            treatmentMessage.duration = self.purgeTimeRight.value()
+            treatmentMessage.duration = self.purge_time_right.value()
         elif side.upper() == constants.Side.LEFT.name:
-            treatmentMessage.duration = self.purgeTimeLeft.value()
+            treatmentMessage.duration = self.purge_time_left.value()
         else:
             log.error("Unable to determine which side the emitter is on: {}".format(side))
             return
@@ -445,9 +462,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         treatmentMessage.plan = constants.Treatment.EMITTER_INSTRUCTIONS
 
         if treatmentMessage.side == constants.Side.RIGHT.value:
-            treatmentMessage.duration = self.purgeTimeRight.value()
+            treatmentMessage.duration = self.purge_time_right.value()
         elif treatmentMessage.side == constants.Side.LEFT.value:
-            treatmentMessage.duration = self.purgeTimeLeft.value()
+            treatmentMessage.duration = self.purge_time_left.value()
         else:
             log.error("Unable to determine which side the emitter is on: [{}]".format(side.upper()))
             return
@@ -1028,7 +1045,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         # Construct the name for this session that is legal for AWS
         timeStamp = now.strftime('%Y-%m-%d-%H-%M-%S-')
         sessionName = timeStamp + shortuuid.uuid()
-        systemMessage.name = options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_PREFIX) + sessionName
+        if arguments.location is not None:
+            systemMessage.name = arguments.location + "-" + sessionName
+        else:
+            systemMessage.name = options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_PREFIX) + sessionName
         systemMessage.operation = operation
         # TODO: move this to time_ns
         systemMessage.timestamp = time.time() * 1000
@@ -1434,6 +1454,8 @@ parser = argparse.ArgumentParser("Weeding Console")
 parser.add_argument('-ini', '--ini', action="store", required=False, default=constants.PROPERTY_FILENAME, help="Options INI")
 parser.add_argument('-l', '--log', action="store", required=False, default="logging.ini", help="Logging INI")
 parser.add_argument('-d', '--dns', action="store", required=False, help="DNS server address")
+parser.add_argument('-loc', '--location', action="store", required=False, help="The location")
+
 
 arguments = parser.parse_args()
 options = OptionsFile(arguments.ini)
