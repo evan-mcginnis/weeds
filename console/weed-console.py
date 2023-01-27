@@ -38,6 +38,11 @@ from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 
+#from PyQt5.QtWidgets import *
+from PyQt5 import QtCore, QtGui
+from PyQt5.QtGui import *
+from PyQt5.QtCore import *
+
 from console import Ui_MainWindow
 from dialog_init import Ui_initProgress
 
@@ -326,6 +331,44 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.setEmitterButtonsState(True)
         self.setEmitterButtonHandler()
 
+        # Run diagnostics every 5 seconds
+        self.diagnosticTimer = QTimer()
+        self.diagnosticTimer.timeout.connect(self.startDiagnostics)
+        self.diagnosticTimer.start(5000)
+
+        # Run another timer to mark things as failed it we haven't heard from them in a while
+        self.unresponsiveTimer = QTimer()
+        self.diagnosticTimer.timeout.connect(self.markSystemsAsFailed)
+        self.diagnosticTimer.start(8000)
+
+        self.diagnosticsReceivedFromLeft = 0
+        self.diagnosticsReceivedFromRight = 0
+        self.diagnosticsReceivedFromMiddle = 0
+
+        self.KEY_DIAGNOSTIC_TIME = 'diagnostic'
+        self.KEY_GROUP = 'group'
+        self.KEY_GROUP_NAME = 'name'
+
+        self._systems = [
+            {self.KEY_DIAGNOSTIC_TIME: 0, self.KEY_GROUP: self.groupLeft, self.KEY_GROUP_NAME: constants.Position.LEFT.name},
+            {self.KEY_DIAGNOSTIC_TIME: 0, self.KEY_GROUP: self.groupMiddle, self.KEY_GROUP_NAME: constants.Position.MIDDLE.name},
+            {self.KEY_DIAGNOSTIC_TIME: 0, self.KEY_GROUP: self.groupRight, self.KEY_GROUP_NAME: constants.Position.RIGHT.name}
+        ]
+
+    def markSystemsAsFailed(self):
+        """
+        Mark system as failed if diagnostic report has not been received recently
+        """
+        # Go through all the systems, and mark them as failed if diagnostic reports have not been received in the last
+        # 5 seconds
+        stylesheet = "color: white; background-color: grey; font-size: 20pt"
+        for group in self._systems:
+            log.debug(f"Last diagnostic received for {group[self.KEY_GROUP_NAME]}: {time.time() - group[self.KEY_DIAGNOSTIC_TIME]} s ago")
+            if (float(group[self.KEY_DIAGNOSTIC_TIME]) + 9.0) < time.time():
+                log.debug("Diagnostics have not been received for position: {}".format(group[self.KEY_GROUP_NAME]))
+                group[self.KEY_GROUP].setStyleSheet(stylesheet)
+
+
     def onImageSelectedLeft(self, imageName: str):
         url = self.images_left.itemData(self.images_left.currentIndex())
         log.debug("Display: {}".format(url))
@@ -463,7 +506,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         return self._treatmentSignals
 
     def updateAGL(self, agl: float):
-        self.agl.display(agl)
+        if agl != 0:
+            self.agl.display(agl)
+        else:
+            self.agl.display("------------")
 
     def updateLatitude(self, latitude: float):
         if latitude != 0.0:
@@ -691,6 +737,15 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         else:
             return True
 
+    def _diagnosticReceived(self, position: constants.Position):
+        """
+        Update the entry for the group to reflect diagnostics were received
+        :param position: The position received
+        """
+        for group in self._systems:
+            if group[self.KEY_GROUP_NAME] == position.name:
+                group[self.KEY_DIAGNOSTIC_TIME] = time.time()
+
     def updateStatusOfSystem(self, systemMsg: SystemMessage):
         """
         Update the presentation of the status of a system
@@ -711,17 +766,20 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.left_checkbox_system.setChecked(self._statusToBool(systemMsg.statusSystem))
             self.left_checkbox_basler.setChecked(self._statusToBool(systemMsg.statusCamera))
             self.left_checkbox_intel.setChecked(self._statusToBool(systemMsg.statusIntel))
+            self._diagnosticReceived(constants.Position.LEFT)
             self.groupLeft.setStyleSheet(stylesheet)
         if systemMsg.position == constants.Position.MIDDLE.name.lower():
             self.middle_checkbox_system.setChecked(self._statusToBool(systemMsg.statusSystem))
             self.middle_checkbox_daq.setChecked(self._statusToBool(systemMsg.statusDAQ))
             self.middle_checkbox_intel.setChecked(self._statusToBool(systemMsg.statusIntel))
             self.middle_checkbox_gps.setChecked(self._statusToBool(systemMsg.statusGPS))
+            self._diagnosticReceived(constants.Position.MIDDLE)
             self.groupMiddle.setStyleSheet(stylesheet)
         if systemMsg.position == constants.Position.RIGHT.name.lower():
             self.right_checkbox_system.setChecked(self._statusToBool(systemMsg.statusSystem))
             self.right_checkbox_basler.setChecked(self._statusToBool(systemMsg.statusCamera))
             self.right_checkbox_intel.setChecked(self._statusToBool(systemMsg.statusIntel))
+            self._diagnosticReceived(constants.Position.RIGHT)
             self.groupRight.setStyleSheet(stylesheet)
 
     def setInitialState(self):
@@ -775,6 +833,18 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.groupLeft.setStyleSheet(stylesheet)
         self.groupMiddle.setStyleSheet(stylesheet)
         self.groupRight.setStyleSheet(stylesheet)
+
+        # Redo the status table sizing
+        self.statusTable.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
+
+        self.statusTable.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.statusTable.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+
+        self.statusTable.resizeColumnsToContents()
+        self.statusTable.setFixedSize(
+            self.statusTable.horizontalHeader().length() + self.statusTable.verticalHeader().width(),
+            self.statusTable.verticalHeader().length() + self.statusTable.horizontalHeader().height())
+
 
         # Indicate that initialization is complete
         self._initializing.release()
