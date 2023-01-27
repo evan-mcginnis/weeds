@@ -196,6 +196,7 @@ def diagnostics() -> DiagnosticsDAQ:
 #
 def startupSystem(options: OptionsFile):
     global daqStatus
+    global systemStatus
 
     # The system is running in a mode where a physical RIO is expected
 
@@ -300,14 +301,46 @@ def startupSystem(options: OptionsFile):
         leftEmitter = None
 
     daqStatus = constants.OperationalStatus.OK
+    systemStatus = constants.OperationalStatus.OK
 
     return attachedDAQ, rightEmitter, leftEmitter
+
+def runGPSChecks():
+    """
+    Check the GPS for current location and set the current status
+    """
+    global gpsStatus
+
+    if gps.isAvailable():
+        # The GPS position should already have been called, so this should work after the system has come up.
+        # I still need to test the behavior of how it respond when it loses fix during operation
+        packet = gps.getCurrentPosition()
+
+        if packet is not None:
+            try:
+                log.debug("GPS Position: {}".format(packet.position()))
+                log.debug("GPS Error: {}".format(packet.position_precision()))
+                log.debug("GPS Fix: {}".format(packet.mode))
+                # Set the operational status to OK
+                gpsStatus = constants.OperationalStatus.OK
+            except gpsd.NoFixError as fix:
+                log.error("GPS Failed: {}".format(fix))
+                gpsStatus = constants.OperationalStatus.FAIL
+        else:
+            log.error("Unable to get current GPS location")
+            gpsStatus = constants.OperationalStatus.FAIL
+    else:
+        log.error("GPS is not available")
+        gpsStatus = constants.OperationalStatus.FAIL
+
 
 def runDiagnostics(systemRoom: MUCCommunicator):
     """
     Run diagnostics for this subsystem, collecting information about the camera connectivity.
     :param systemRoom: The room to send the results
     """
+
+    runGPSChecks()
 
     # This doesn't run anything, just sends the current status
 
@@ -566,11 +599,14 @@ def startupCommunications(options: OptionsFile) -> ():
 # G P S
 #
 def startupGPS() -> GPS:
+    global gpsStatus
     theGPS = GPS()
     if not theGPS.connect():
         log.error("Unable to connect to the GPS")
 
     if theGPS.isAvailable():
+        # This is intentional -- seems like the first time gps daemon is read it always returns none, so read it twice
+        packet = theGPS.getCurrentPosition()
         packet = theGPS.getCurrentPosition()
 
         # The GPS in my office is a bit intermittent -- sometimes it reports that it does not
@@ -581,6 +617,8 @@ def startupGPS() -> GPS:
                 log.debug("GPS Position: {}".format(packet.position()))
                 log.debug("GPS Error: {}".format(packet.position_precision()))
                 log.debug("GPS Fix: {}".format(packet.mode))
+                # Set the operational status to OK
+                gpsStatus = constants.OperationalStatus.OK
             except gpsd.NoFixError as fix:
                 log.error("Unable to start GPS client: {}".format(fix))
         else:
@@ -594,6 +632,7 @@ def startupGPS() -> GPS:
 # D E P T H  C A M E R A
 #
 def startupDepthCamera() -> CameraDepth:
+    global intel435Status
 
     sensors = RealSense()
     markSensorAsFailed = False
@@ -618,6 +657,7 @@ def startupDepthCamera() -> CameraDepth:
             intelIMU.state.toMissing()
         else:
             intelIMU.state.toIdle()
+            gpsStatus = constants.OperationalStatus.OK
     except KeyError:
         log.error("Unable to find serial number for depth camera: {}/{} & {}".format(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_SERIAL_LEFT, constants.PROPERTY_SERIAL_RIGHT))
         intelIMU = None
@@ -625,6 +665,7 @@ def startupDepthCamera() -> CameraDepth:
         log.error("Camera construction failed: {}".format(val))
         intelIMU = None
 
+    intel435Status = constants.OperationalStatus.OK
     return intelIMU
 
 #
