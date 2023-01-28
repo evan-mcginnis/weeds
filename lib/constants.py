@@ -153,7 +153,7 @@ STRATEGY_SYNC = 1
 
 # The number of images to keep
 IMAGE_QUEUE_LEN = 50
-DEPTH_QUEUE_LEN =5
+DEPTH_QUEUE_LEN = 5
 # Probably way too long 5000 ms for camera to acquire image
 TIMEOUT_CAMERA = 5000
 
@@ -176,7 +176,10 @@ DEPTH_MAX_FRAMES = 6
 
 #
 # I N T E L  R G B
-# TODO: This should be 1920x1080x8, but that does not work
+# Max for camera is 1920x1080x8
+# The higher stream value does work, but when it streams both depth and rgb, the resolution must match so the images
+# can be aligned, presumably.
+# So if we decide not to use the depth data, this can go to 1920x1080x8
 INTEL_RGB_MAX_HORIZONTAL = 1280
 INTEL_RGB_MAX_VERTICAL = 720
 INTEL_RGB_MAX_FRAMES = 6

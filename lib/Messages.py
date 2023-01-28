@@ -502,6 +502,11 @@ class TreatmentMessage(MUCMessage):
         super().__init__(**kwargs)
         self._name = ""
 
+        if constants.JSON_SOURCE in self._data:
+            self._source = self._data[constants.JSON_SOURCE]
+        else:
+            self._source = ""
+
         if constants.JSON_PLAN in self._data:
             try:
                 self._plan = constants.Treatment[self._data[constants.JSON_PLAN]]
@@ -556,6 +561,23 @@ class TreatmentMessage(MUCMessage):
             self._emitter_duration = self._data[constants.JSON_EMITTER_DURATION]
         else:
             self._emitter_duration = constants.EMITTER_NOT_SET
+
+    @property
+    def source(self) -> str:
+        """
+        The source of the capture
+        :return: Name from Capture enum
+        """
+        return self._source
+
+    @source.setter
+    def source(self, theSource: constants.Capture):
+        """
+        Set the name of the source of capture
+        :param theSource:
+        """
+        self._source = theSource.name
+        self._data[constants.JSON_SOURCE] = theSource.name
 
     @property
     def position(self) -> str:

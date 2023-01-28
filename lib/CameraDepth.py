@@ -158,7 +158,7 @@ class CameraDepth(Camera):
                 self._configDepthRGB.enable_device(self._serial)
 
             self._configDepthRGB.enable_stream(rs.stream.depth, constants.DEPTH_MAX_HORIZONTAL, constants.DEPTH_MAX_VERTICAL, rs.format.z16, constants.DEPTH_MAX_FRAMES)
-            self._configDepthRGB.enable_stream(rs.stream.color, constants.INTEL_RGB_MAX_HORIZONTAL, constants.INTEL_RGB_MAX_VERTICAL, rs.format.bgr8, constants.INTEL_RGB_MAX_FRAMES)
+            self._configDepthRGB.enable_stream(rs.stream.color, constants.INTEL_RGB_MAX_HORIZONTAL, constants.INTEL_RGB_MAX_VERTICAL, rs.format.rgb8, constants.INTEL_RGB_MAX_FRAMES)
             # self._configDepthRGB.enable_stream(rs.stream.depth, 1280, 720, rs.format.z16, 6)
             # self._configDepthRGB.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8, 6)
 
