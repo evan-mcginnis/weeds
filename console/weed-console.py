@@ -85,7 +85,7 @@ class SystemSignals(WeedsSignals):
 
 class TreatmentSignals(WeedsSignals):
     plan = pyqtSignal(int, name="plan")
-    image = pyqtSignal(str, str, name="image")
+    image = pyqtSignal(str, str, str, name="image")
 
 
 class Housekeeping(QRunnable):
@@ -118,6 +118,7 @@ class Housekeeping(QRunnable):
                 chatroom.getOccupants()
 
             self._signals.progress.emit(100)
+            log.debug("Occupant list for {} retrieved: {} occupants".format(chatroom.muc, len(chatroom.occupants)))
 
         # Have everyone run diagnostics
         systemMessage = SystemMessage()
@@ -301,6 +302,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.images_left.activated[str].connect(self.onImageSelectedLeft)
         self.images_right.activated[str].connect(self.onImageSelectedRight)
 
+        self.images_left_intel.activated[str].connect(self.onImageSelectedLeft)
+        self.images_right_intel.activated[str].connect(self.onImageSelectedRight)
+
         # Dialogs
         self._dialogDisconnected = QMessageBox()
 
@@ -359,6 +363,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             {self.KEY_DIAGNOSTIC_TIME: 0, self.KEY_GROUP: self.groupRight, self.KEY_GROUP_NAME: constants.Position.RIGHT.name}
         ]
 
+        # These are for the image selection combo boxes
+        self.stylesheetCurrent = "background-color: green; font-size: 20pt"
+        self.stylesheetNotSelected = "background-color: light grey; font-size: 20pt"
+
     def sliderValueChanged(self):
         sending = self.sender()
         # The name of the slider is slider_<side>
@@ -385,14 +393,31 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 log.debug("Diagnostics have not been received for position: {}".format(group[self.KEY_GROUP_NAME]))
                 group[self.KEY_GROUP].setStyleSheet(stylesheet)
 
+    def indicateSourceOfImage(self, object: QObject):
+        name = object.objectName()
+
+        pass
 
     def onImageSelectedLeft(self, imageName: str):
-        url = self.images_left.itemData(self.images_left.currentIndex())
+        sending = self.sender()
+
+        url = sending.itemData(self.images_left.currentIndex())
+
+        # Get the original stylesheet so we can use this to indicate that something is not selected
+        self.stylesheetOriginal = sending.styleSheet()
+        self.images_left.setStyleSheet(self.stylesheetNotSelected)
+        self.images_left_intel.setStyleSheet(self.stylesheetNotSelected)
+        sending.setStyleSheet(self.stylesheetCurrent)
         log.debug("Display: {}".format(url))
         self.showImage(constants.Position.LEFT, url)
 
     def onImageSelectedRight(self, imageName: str):
-        url = self.images_right.itemData(self.images_right.currentIndex())
+        sending = self.sender()
+
+        url = sending.itemData(self.images_right.currentIndex())
+        self.images_right.setStyleSheet(self.stylesheetNotSelected)
+        self.images_right_intel.setStyleSheet(self.stylesheetNotSelected)
+        sending.setStyleSheet(self.stylesheetCurrent)
         self.showImage(constants.Position.RIGHT, url)
         log.debug("Display: {}".format(url))
 
@@ -862,7 +887,6 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.statusTable.horizontalHeader().length() + self.statusTable.verticalHeader().width(),
             self.statusTable.verticalHeader().length() + self.statusTable.horizontalHeader().height())
 
-
         # Indicate that initialization is complete
         self._initializing.release()
 
@@ -898,6 +922,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         if missingEntities:
             log.error("All occupants are not in the rooms")
             self.tabWidget.setIconSize(QtCore.QSize(32, 32))
+            # TODO: This causes an error on the console, as the color space has not been assigned
             self.tabWidget.setTabIcon(1, QtGui.QIcon('exclamation.png'))
             # Indicate if the user is to be warned about starting the imaging process
             self.OKtoImage = False
@@ -947,14 +972,31 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def setTreatments(self, treatments: int):
         self.count_images.display(treatments)
 
-    def addImage(self, position: str, url: str):
+    def addImage(self, position: str, source: str, url: str):
+        """
+        Add the image to the list of images that can be selected
+        :param position: RIGHT or LEFT
+        :param source: RGB (basler) or DEPTH_RGB (Intel)
+        :param url:  URL of the image
+        """
         # Add the item to the list so it can be shown later
-        log.debug("Add image to list for position {}: {}".format(position, url))
+        log.debug("Add image to list for position {} source {}: {}".format(position, source, url))
         if position == constants.Position.LEFT.name.lower():
-            self.images_left.addItem("Image {}".format(treatments), url)
+            if source == constants.Capture.RGB.name:
+                self.images_left.addItem("Image {:02d}".format(treatments), url)
+            elif source == constants.Capture.DEPTH_RGB.name:
+                self.images_left_intel.addItem("Image {:02d}".format(treatments), url)
+            else:
+                log.error("Unknown source for image: {}".format(source))
         elif position == constants.Position.RIGHT.name.lower():
-            self.images_right.addItem("Image {}".format(treatments), url)
-
+            if source == constants.Capture.RGB.name:
+                self.images_right.addItem("Image {:02d}".format(treatments), url)
+            elif source == constants.Capture.DEPTH_RGB.name:
+                self.images_right_intel.addItem("Image {:02d}".format(treatments), url)
+            else:
+                log.error("Unknown source for image: {}".format(source))
+        else:
+            log.error("Unknown position: {}".format(position))
     def showImage(self, position: constants.Position, url: str):
         try:
             request = urllib.request.urlopen(url)
@@ -1032,6 +1074,12 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.reset_kph.setEnabled(True)
             self.reset_distance.setEnabled(True)
             self.reset_images_taken.setEnabled(True)
+
+            # Clear the image lists for the cameras
+            self.images_right_intel.clear()
+            self.images_right.clear()
+            self.images_left_intel.clear()
+            self.images_left.clear()
 
             self.status_current_operation.setText(operationDescription)
         except Exception as e:
@@ -1133,7 +1181,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.tabWidget.setTabIcon(0, QtGui.QIcon())
         self.resetImageCount()
         self.resetProgress()
-        log.debug("Stop Weeding")
+        log.debug("Stop Operation")
 
     def xmppError(self, state: str):
         log.debug("Informing user of XMPP state")
@@ -1302,9 +1350,10 @@ def process(conn, msg: xmpp.protocol.Message):
             signals = window.taskTreatment.signals
             signals.plan.emit(treatments)
             position = treatmentMessage.position
+            source = treatmentMessage.source
             if len(treatmentMessage.url) > 0 and len(treatmentMessage.position) > 0:
-                log.debug("Image is at: {}".format(treatmentMessage.url))
-                signals.image.emit(position, treatmentMessage.url)
+                log.debug("Image from {} is at: {}".format(treatmentMessage.source, treatmentMessage.url))
+                signals.image.emit(position, source, treatmentMessage.url)
         #window.Right(treatments)
         log.debug("Treatments: {:.02f}".format(treatments))
     elif msg.getFrom().getStripped() == options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_SYSTEM):
