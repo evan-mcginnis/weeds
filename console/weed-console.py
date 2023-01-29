@@ -115,7 +115,10 @@ class Housekeeping(QRunnable):
             while retries and len(chatroom.occupants) == 0:
                 retries -= 1
                 log.debug("Fetching occupants")
-                chatroom.getOccupants()
+
+                # If we can't get the occupants, sleep for a bit to let the server settle
+                if not chatroom.getOccupants():
+                    time.sleep(2)
 
             self._signals.progress.emit(100)
             log.debug("Occupant list for {} retrieved: {} occupants".format(chatroom.muc, len(chatroom.occupants)))
@@ -401,20 +404,19 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def onImageSelectedLeft(self, imageName: str):
         sending = self.sender()
 
-        url = sending.itemData(self.images_left.currentIndex())
+        url = sending.itemData(sending.currentIndex())
 
         # Get the original stylesheet so we can use this to indicate that something is not selected
         self.stylesheetOriginal = sending.styleSheet()
         self.images_left.setStyleSheet(self.stylesheetNotSelected)
         self.images_left_intel.setStyleSheet(self.stylesheetNotSelected)
         sending.setStyleSheet(self.stylesheetCurrent)
-        log.debug("Display: {}".format(url))
         self.showImage(constants.Position.LEFT, url)
 
     def onImageSelectedRight(self, imageName: str):
         sending = self.sender()
 
-        url = sending.itemData(self.images_right.currentIndex())
+        url = sending.itemData(sending.currentIndex())
         self.images_right.setStyleSheet(self.stylesheetNotSelected)
         self.images_right_intel.setStyleSheet(self.stylesheetNotSelected)
         sending.setStyleSheet(self.stylesheetCurrent)
@@ -603,8 +605,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.count_distance.setStyleSheet("color: black; background-color: white")
 
     def updatePulses(self, source: str, pulses: float):
-        log.debug("Update pulse count")
-        self._currentPulses += pulses
+        log.debug("Update pulse count: {} Absolute Pulses Base: {}".format(pulses, self.absolutePulses))
+        self._currentPulses = pulses
 
         # The distance in the message is in mm -- display is in cm
         self.count_pulses.display(pulses - self.absolutePulses)
@@ -959,10 +961,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def setSpeed(self, speed: float):
         self.average_kph.display(round(speed,1))
 
-    def setPulses(self, pulses: float):
-        self._currentPulses = pulses
-        # If the user has reset the distance to 0, use the offset
-        self.count_pulses.display(pulses - self.absolutePulses)
+    # def setPulses(self, pulses: float):
+    #     self._currentPulses = pulses
+    #     # If the user has reset the distance to 0, use the offset
+    #     self.count_pulses.display(pulses - self.absolutePulses)
 
     def setDistance(self, distance: float):
         self.currentDistance = distance
