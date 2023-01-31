@@ -68,6 +68,9 @@ class CameraDepth(Camera):
 
         self._initialized = False
 
+        # The GSD -- calculated to 620.0
+        self._gsd = 620.0
+
         # Indicates that the capturing is complete
         self._capturingComplete = False
 
@@ -96,6 +99,10 @@ class CameraDepth(Camera):
         super().__init__(**kwargs)
 
         return
+
+    @property
+    def gsd(self) -> float:
+        return self._gsd
 
     @property
     def imageNumber(self) -> int:

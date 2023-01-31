@@ -13,7 +13,7 @@ class Logger:
 
     @property
     def directory(self) -> str:
-        return(self.rootDirectory)
+        return self.rootDirectory
 
     def connect(self, directoryName: str):
         try:
