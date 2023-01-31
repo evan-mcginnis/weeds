@@ -921,6 +921,7 @@ def processOdometer(odometer: Odometer):
             # This allows the type of odometry to be changed
             odometer = startupOdometer(typeOfOdometry)
         else:
+            log.info("Odometer read completed with an error.  This is not normal.")
             break
 
 #
