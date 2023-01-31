@@ -247,7 +247,7 @@ class PhysicalOdometer(Odometer):
             # setting running to False.
             while self._processing:
                 try:
-                    ang =task.read(number_of_samples_per_channel = 1) #nidaqmx.constants.READ_ALL_AVAILABLE)
+                    ang = task.read(number_of_samples_per_channel=1) #nidaqmx.constants.READ_ALL_AVAILABLE)
                     #print("Current register is {}".format(channelA.ci_count))
                 except nidaqmx.errors.DaqError:
                     self.log.error("Read error encountered")
@@ -255,6 +255,7 @@ class PhysicalOdometer(Odometer):
                     errorsEncountered += 1
                     # Tolerate at most 100 read errors
                     if errorsEncountered > 100:
+                        self.log.fatal("Encountered more than 100 read errors from DAQ")
                         break
                     else:
                         continue
@@ -267,7 +268,10 @@ class PhysicalOdometer(Odometer):
                     except queue.Full:
                         self.log.error("Distance queue is full. Reading is lost.")
                     previous = ang[0]
+                elif ang[0] == 0:
+                    self.log.error("Read the angle as 0.")
 
+            self.log.info("Reading of odometer stopped")
             task.stop()
 
         return not daqErrorEncountered
