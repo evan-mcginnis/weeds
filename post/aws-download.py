@@ -61,6 +61,12 @@ def expandTARs(outputDirectory: str) -> bool:
             print("Raw: {}".format(err))
             return False
 
+    try:
+        os.chdir("..")
+    except Exception as ex:
+        print("Unable to change directory to ..")
+        return False
+
     return True
 
 
@@ -109,6 +115,7 @@ def downloadS3Bucket(bucket: str, outputDirectory: str) -> bool:
     except Exception as ex:
         print("Unable to change directory to [..]")
         return False
+
 
     return True
 
