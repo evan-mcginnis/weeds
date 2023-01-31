@@ -5,6 +5,7 @@
 	"camera_address": "169.254.212.51",
 	"location" : "yuma",
 	"name": "jetson-left",
+	"position": "left",
 	"nickname": "jetson-left",
 	"server": "169.254.212.35"
 }
