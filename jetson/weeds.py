@@ -1294,96 +1294,130 @@ if arguments.contours:
 imageNumber = 0
 processing = False
 
-def storeImage(contextForImage: Context) -> bool:
+def storeImage(contextForImage: Context, captureType: constants.Capture) -> bool:
     global imageNumber
 
     if not processing:
         log.debug("Not collecting images (This is normal if the weeding has not started")
         return False
 
-    if arguments.verbose:
-        print("Storing image " + str(imageNumber))
-    log.info("Storing image " + str(imageNumber))
-    performance.start()
-    try:
-        processed = camera.capture()
-        rawImage = processed.image
-    except IOError as e:
-        log.fatal("Cannot capture image. ({})".format(e))
-        return False
+    log.info("Storing image {} type {}".format(imageNumber, captureType))
 
-    performance.stopAndRecord(constants.PERF_ACQUIRE)
+    if captureType == constants.Capture.DEPTH_RGB:
+        # The RGB image from the Intel camera
+        if rgbDepthCamera.connected:
+            try:
+                rgbDepth = rgbDepthCamera.capture()
 
+                imageName = "{}-{}-{:05d}".format(constants.FILENAME_INTEL_DEPTH, options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_POSITION), imageNumber)
+                depthPath = os.path.join(logger.directory, imageName)
+                log.debug("Saving depth image {}".format(depthPath))
+                np.save(depthPath, rgbDepth.depth)
 
-    # The RGB image from the Intel camera
-    if rgbDepthCamera.connected:
+                # Save the raw numpy data
+                imageName = "{}-{}-{:05d}".format(constants.FILENAME_RAW, options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_POSITION), imageNumber)
+                rgbPath = os.path.join(logger.directory, imageName)
+                log.debug("Saving RGB data {}".format(rgbPath))
+                np.save(rgbPath, rgbDepth.rgb)
+
+                # Convert it to JPG format and save as an image
+                jpgName = imageName + constants.EXTENSION_IMAGE
+                imagePath = os.path.join(logger.directory, jpgName)
+                log.debug("Saving RGB data image {}".format(rgbPath))
+
+                # Save the image as JPG
+                image = Image.fromarray(rgbDepth.rgb)
+                if image.mode != 'RGB':
+                    image = image.convert('RGB')
+                image.save(imagePath)
+                # This uses the opencv libs -- not sure why this doesn't work
+                # TODO: Convert the image save routine back to use opencv
+                #ImageManipulation.write(rgb.image, imagePath)
+
+                # Send out a message to the treatment channel that an image has been taken
+                message = TreatmentMessage()
+                message.plan = constants.Treatment.RAW_IMAGE
+                message.source = constants.Capture.DEPTH_RGB
+                message.name = "original"
+                message.url = "http://" + platform.node() + "/" + currentSessionName + "/" + jpgName
+                message.timestamp = time.time() * 1000
+
+                try:
+                    position = options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_POSITION)
+                    message.position = position
+                except KeyError:
+                    log.error(
+                        "Can't find {}/{} in ini file".format(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_POSITION))
+
+                messageText = message.formMessage()
+                log.debug("Sending: {}".format(messageText))
+                messageID = roomTreatment.sendMessage(messageText)
+                log.debug("Sent message with ID: {}".format(messageID))
+
+                processed = ProcessedImage(rgbDepth.rgb, 0)
+                fileName = "../output/" + currentSessionName + "/" + jpgName
+
+                processed.make = "intel"
+                processed.model = "435"
+                processed.exposure = contextForImage.exposure
+                processed.latitude = contextForImage.latitude
+                processed.longitude = contextForImage.longitude
+                processed.filename = fileName
+                # Enqueue the image to be written out later
+                log.debug("Enqueue processed image {} from {} for enrichment".format(processed.filename, processed.make))
+                rawImages.enqueue(processed)
+
+            except IOError as e:
+                log.fatal("Cannot capture RGB data ({})".format(e))
+        else:
+            depthData = None
+
+    elif captureType == constants.Capture.RGB:
+        performance.start()
         try:
-            rgbDepth = rgbDepthCamera.capture()
-
-            imageName = "{}-{}-{:05d}".format(constants.FILENAME_INTEL_DEPTH, options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_POSITION), imageNumber)
-            depthPath = os.path.join(logger.directory, imageName)
-            log.debug("Saving depth image {}".format(depthPath))
-            np.save(depthPath, rgbDepth.depth)
-
-            # Save the raw numpy data
-            imageName = "{}-{}-{:05d}".format(constants.FILENAME_INTEL_RGB, options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_POSITION), imageNumber)
-            rgbPath = os.path.join(logger.directory, imageName)
-            log.debug("Saving RGB data {}".format(rgbPath))
-            np.save(rgbPath, rgbDepth.rgb)
-
-            # Convert it to JPG format and save as an image
-            jpgName = imageName + constants.EXTENSION_IMAGE
-            imagePath = os.path.join(logger.directory, jpgName)
-            log.debug("Saving RGB data image {}".format(rgbPath))
-
-            # Save the image as JPG
-            image = Image.fromarray(rgbDepth.rgb)
-            if image.mode != 'RGB':
-                image = image.convert('RGB')
-            image.save(imagePath)
-            # This uses the opencv libs -- not sure why this doesn't work
-            # TODO: Convert the image save routine back to use opencv
-            #ImageManipulation.write(rgb.image, imagePath)
-
+            processed = camera.capture()
+            rawImage = processed.image
         except IOError as e:
-            log.fatal("Cannot capture RGB data ({})".format(e))
-    else:
-        depthData = None
+            log.fatal("Cannot capture image. ({})".format(e))
+            return False
 
-    # ImageManipulation.show("Source",image)
-    veg.SetImage(rawImage)
+        performance.stopAndRecord(constants.PERF_ACQUIRE)
 
-    manipulated = ImageManipulation(rawImage, imageNumber, logger)
-    fileName = logger.logImage(constants.FILENAME_RAW, manipulated.image)
+        # ImageManipulation.show("Source",image)
+        veg.SetImage(rawImage)
 
-    # Send out a message to the treatment channel that an image has been taken
-    message = TreatmentMessage()
-    message.plan = constants.Treatment.RAW_IMAGE
-    message.name = "original"
-    message.url = "http://" + platform.node() + "/" + currentSessionName + "/" + fileName
-    message.timestamp = time.time() * 1000
+        manipulated = ImageManipulation(rawImage, imageNumber, logger)
+        fileName = logger.logImage(constants.FILENAME_RAW, manipulated.image)
 
-    try:
-        position = options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_POSITION)
-        message.position = position
-    except KeyError:
-        log.error("Can't find {}/{} in ini file".format(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_POSITION))
+        # Send out a message to the treatment channel that an image has been taken
+        message = TreatmentMessage()
+        message.plan = constants.Treatment.RAW_IMAGE
+        message.source = constants.Capture.RGB
+        message.name = "original"
+        message.url = "http://" + platform.node() + "/" + currentSessionName + "/" + fileName
+        message.timestamp = time.time() * 1000
 
-    messageText = message.formMessage()
-    log.debug("Sending: {}".format(messageText))
-    messageID = roomTreatment.sendMessage(messageText)
-    log.debug("Sent message with ID: {}".format(messageID))
+        try:
+            position = options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_POSITION)
+            message.position = position
+        except KeyError:
+            log.error("Can't find {}/{} in ini file".format(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_POSITION))
 
-    # Set the context and enqueue the image
-    processed.make = contextForImage.make
-    processed.model = contextForImage.model
-    processed.exposure = contextForImage.exposure
-    processed.latitude = contextForImage.latitude
-    processed.longitude = contextForImage.longitude
-    processed.filename = outputDirectory + "/" + fileName
-    # Enqueue the image to be written out later
-    log.debug("Enqueue processed image for enrichment")
-    rawImages.enqueue(processed)
+        messageText = message.formMessage()
+        log.debug("Sending: {}".format(messageText))
+        messageID = roomTreatment.sendMessage(messageText)
+        log.debug("Sent message with ID: {}".format(messageID))
+
+        # Set the context and enqueue the image
+        processed.make = contextForImage.make
+        processed.model = contextForImage.model
+        processed.exposure = contextForImage.exposure
+        processed.latitude = contextForImage.latitude
+        processed.longitude = contextForImage.longitude
+        processed.filename = outputDirectory + "/" + fileName
+        # Enqueue the image to be written out later
+        log.debug("Enqueue processed image {} from {} for enrichment".format(processed.filename, processed.make))
+        rawImages.enqueue(processed)
 
     imageNumber += 1
     return True
@@ -1421,9 +1455,9 @@ def processImage(contextForImage: Context) -> bool:
         veg.SetImage(rawImage)
 
         # Attempt to capture the depth data if connected
-        if depthCamera.connected:
+        if rgbDepthCamera.connected:
             try:
-                depthData = depthCamera.capture()
+                depthData = rgbDepthCamera.capture()
             except EOFError as eof:
                 # This case is where we just hit the end of an image set from disk
                 log.info("Encountered end of image set")
@@ -1757,6 +1791,7 @@ def runDiagnostics(systemRoom: MUCCommunicator, camera: _Camera):
 totalMovement = 0.0
 keepAliveMessages = 0
 movementSinceLastProcessing = 0.0
+movementSinceLastProcessingForIntel = 0.0
 
 def messageIsCurrent(timestamp: int) -> bool:
     """
@@ -1822,6 +1857,7 @@ def messageOdometryCB(conn, msg: xmpp.protocol.Message):
     global totalMovement
     global keepAliveMessages
     global movementSinceLastProcessing
+    global movementSinceLastProcessingForIntel
     # Make sure this is a message sent to the room, not directly to us
     if msg.getType() == "groupchat":
         body = msg.getBody()
@@ -1834,9 +1870,10 @@ def messageOdometryCB(conn, msg: xmpp.protocol.Message):
                 log.debug("Message: {}".format(odometryMessage.data))
 
                 # We are only concerned with distance messages here
-                if odometryMessage.type == constants.OdometryMessageType.DISTANCE:
+                if odometryMessage.type == constants.OdometryMessageType.DISTANCE.name:
                     totalMovement += odometryMessage.distance
                     movementSinceLastProcessing += odometryMessage.distance
+                    movementSinceLastProcessingForIntel += odometryMessage.distance
                     # The time of the observation
                     timeRead = odometryMessage.timestamp
                     # Determine how old the observation is
@@ -1844,16 +1881,19 @@ def messageOdometryCB(conn, msg: xmpp.protocol.Message):
                     # get that sorted out.  Just convert the reading to milliseconds for now
                     #timeDelta = (time.time() * 1000) - (timeRead / 1000000)
                     timeDelta = (time.time() * 1000) - timeRead
-                    log.debug("Total movement: {} at time: {}. Movement since last acquisition: {} Time now is {} delta from now {} ms".
-                              format(totalMovement, timeRead, movementSinceLastProcessing, time.time() * 1000, timeDelta))
-
 
                     # If the movement is equal to the size of the image, take a picture
                     # We need to allow for some overlap so the images can be stitched together.
                     # So reduce this by the overlap factor
-                    if movementSinceLastProcessing > ((1 - float(options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_OVERLAP_FACTOR))) * camera.gsd):
-                        gsd = (1 - float( options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_OVERLAP_FACTOR))) * camera.gsd
-                        log.debug("Acquiring image.  Movement since last processing {} GSD {}".format(movementSinceLastProcessing,gsd))
+                    gsdBasler = (1 - float(options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_OVERLAP_FACTOR))) * camera.gsd
+                    gsdIntel = (1 - float(options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_OVERLAP_FACTOR))) * rgbDepthCamera.gsd
+                    #
+                    # log.debug("Total movement: {} at time: {}. Movement: {} GSD [Basler: {} Intel: {}] Time now is {} delta from now {} ms".
+                    #           format(totalMovement, timeRead, movementSinceLastProcessing, gsdBasler, gsdIntel, time.time() * 1000, timeDelta))
+
+                    # The Basler camera
+                    if movementSinceLastProcessing > gsdBasler:
+                        log.debug("Acquiring image from Basler.  Movement since last processing {} GSD {}".format(movementSinceLastProcessing, gsdBasler))
                         movementSinceLastProcessing = 0
 
                         # Record the context under which this photo was taken
@@ -1863,7 +1903,22 @@ def messageOdometryCB(conn, msg: xmpp.protocol.Message):
                         # Convert to kilometers
                         contextForImage.speed = odometryMessage.speed / 1e+6
                         # contextForPhoto.model
-                        processor(contextForImage)
+                        processor(contextForImage, constants.Capture.RGB)
+                    # The intel RGB camera
+                    elif movementSinceLastProcessingForIntel > gsdIntel:
+                        log.debug("Acquiring image from Intel Camera.  Movement since last processing {} GSD {}".format(movementSinceLastProcessing, gsdIntel))
+                        movementSinceLastProcessingForIntel = 0
+
+                        # Record the context under which this photo was taken
+                        contextForImage = Context()
+                        contextForImage.latitude = odometryMessage.latitude
+                        contextForImage.longitude = odometryMessage.longitude
+                        # Convert to kilometers
+                        contextForImage.speed = odometryMessage.speed / 1e+6
+                        # contextForPhoto.model
+                        processor(contextForImage, constants.Capture.DEPTH_RGB)
+                else:
+                    log.debug("Message type is not distance. Ignored")
             else:
                 log.info("Old message seen -- ignored")
         else:
@@ -1871,7 +1926,7 @@ def messageOdometryCB(conn, msg: xmpp.protocol.Message):
             keepAliveMessages += 1
             #print("weeds: keepalive message from chatroom")
     elif msg.getType() == "chat":
-            print("private: " + str(msg.getFrom()) +  ":" +str(msg.getBody()))
+        log.error("Private Message from {}: {} ".format(str(msg.getFrom()), str(msg.getBody())))
     else:
         log.error("Unknown message type {}".format(msg.getType()))
 
@@ -1913,24 +1968,6 @@ def processMessages(communicator: MUCCommunicator):
         except XMPPServerAuthFailure:
             log.fatal("Unable to authenticate using parameters")
             processing = False
-
-    # Sample code -- safe to delete
-    # def takeImages(camera: CameraDepth):
-    #
-    #     # Connect to the camera and take an image
-    #     log.debug("Connecting to camera")
-    #     camera.connect()
-    #     camera.initialize()
-    #     camera.start()
-    #
-    #     if camera.initializeCapture():
-    #         try:
-    #             camera.startCapturing()
-    #         except IOError as io:
-    #             camera.log.error(io)
-    #         rc = 0
-    #     else:
-    #         rc = -1
 
 def takeDepthImages(camera: CameraDepth):
     """

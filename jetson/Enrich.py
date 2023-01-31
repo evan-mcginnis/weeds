@@ -51,7 +51,7 @@ class Enrich:
         filename = image.filename
         self._log.debug("Enriching {} with EXIF data".format(filename))
         with open(filename, 'rb') as image_file:
-            self._log.debug("Reading image")
+            self._log.debug("Reading image: {}".format(filename))
             image_bytes = image_file.read()
             img = Image(image_bytes)
             self._log.debug("Assigning EXIF data to image")
@@ -69,9 +69,12 @@ class Enrich:
             img.gps_longitude = (degrees, minutes, seconds)
             img.gps_longitude_ref = "W"
 
-            newFilename = filename.replace(constants.FILENAME_RAW, constants.FILENAME_FINISHED)
+            #basename = os.path.basename(filename)
 
-            self._log.debug("Write out enriched file {}".format(newFilename))
+            newFilename = filename.replace(constants.FILENAME_RAW, img.make.lower())
+            #newFilename = os.path.dirname(filename) + "/" + image.make + '-' + basename
+
+            self._log.debug("Write out enriched file: {}".format(newFilename))
             with open(newFilename, 'wb') as new_image_file:
                 new_image_file.write(img.get_file())
 
@@ -117,8 +120,8 @@ class Enrich:
             my_image = Image(image_file)
             if my_image.has_exif:
                 print("{}".format(my_image.list_all()))
-                print(my_image.gps_latitude)
-                print(my_image.gps_speed)
+                # print(my_image.gps_latitude)
+                # print(my_image.gps_speed)
             else:
                 print("Image contains no EXIF data")
 

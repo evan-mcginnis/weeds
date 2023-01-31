@@ -81,11 +81,11 @@ class ProcessedImage:
 
     @property
     def model(self) -> str:
-        return self._make
+        return self._model
 
     @model.setter
     def model(self, theModel: str):
-        self._make = theModel
+        self._model = theModel
 
     def addEXIF(self, **kwargs):
         self._exif = kwargs
