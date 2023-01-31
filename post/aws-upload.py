@@ -28,6 +28,7 @@ import dns.resolver
 
 from OptionsFile import OptionsFile
 from MUCCommunicator import MUCCommunicator
+from WeedExceptions import XMPPServerUnreachable, XMPPServerAuthFailure
 
 # TODO: This causes problems on the left jetson.  Not sure why
 # This does not show up up the program os run from the command line, but only if it is a service
@@ -36,8 +37,6 @@ from MUCCommunicator import MUCCommunicator
 
 now = datetime.datetime.now()
 timeStamp = now.strftime('%Y-%m-%d-%H-%M-%S-')
-
-PREFIX = 'yuma-' + timeStamp
 
 PATTERN_IMAGES = '*' + constants.EXTENSION_IMAGE
 PATTERN_DEPTH = '*' + constants.EXTENSION_NPY
@@ -188,12 +187,14 @@ def upload(bucket: str, options: OptionsFile) -> bool:
 def callbackSystem(conn,msg: xmpp.protocol.Message):
     # Make sure this is a message sent to the room, not directly to us
     if msg.getType() == "groupchat":
-            body = msg.getBody()
-            # Check if this is a real message and not just an empty keep-alive message
-            if body is not None:
-                log.debug("system message from {}: [{}]".format(msg.getFrom(), msg.getBody()))
+        body = msg.getBody()
+        # Check if this is a real message and not just an empty keep-alive message
+        if body is not None:
+            pass
+            # Too much noise in the log for this with regular diagnostic messages
+            # log.debug("system message from {}: [{}]".format(msg.getFrom(), msg.getBody()))
     elif msg.getType() == "chat":
-            print("private: " + str(msg.getFrom()) +  ":" +str(msg.getBody()))
+        print("private: " + str(msg.getFrom()) + ":" + str(msg.getBody()))
     else:
         log.error("Unknown message type {}".format(msg.getType()))
 
@@ -216,7 +217,19 @@ def processMessages(communicator: MUCCommunicator):
     :param communicator: The chatroom communicator
     """
     log.info("Connecting to chatroom")
-    communicator.connect(True)
+    processing = True
+
+    while processing:
+        try:
+            communicator.connect(True)
+            log.debug("Connected and processed messages")
+        except XMPPServerUnreachable:
+            log.warning("Unable to connect and process messages.  Will retry.")
+            time.sleep(5)
+            processing = True
+        except XMPPServerAuthFailure:
+            log.fatal("Unable to authenticate using parameters")
+            processing = False
 
 parser = argparse.ArgumentParser("AWS Upload")
 parser.add_argument("-d", "--directory", action="store", required=True, help="Run data directory")
@@ -283,7 +296,10 @@ if arguments.watch or arguments.upload:
             time.sleep(30)
             continue
 
-        directories = glob.glob(options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_PREFIX) + "*")
+        # This is a bit picky about the upload, only selecting directories with prefix like yuma-
+        # directories = glob.glob(options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_PREFIX) + "*")
+        # Any directory that appears
+        directories = glob.glob("*")
         for directory in directories:
             if os.path.isdir(directory):
                 log.info("Operating on: {}".format(directory))
@@ -312,6 +328,10 @@ if arguments.watch or arguments.upload:
                         shutil.rmtree(directory)
                     except OSError as e:
                         syslog.syslog(syslog.LOG_ERR, "Could not remove directory: {}".format(e.strerror))
+                else:
+                    log.error("Upload failed. Will retry after sleeping.")
+                    os.chdir("..")
+                    time.sleep(10)
             else:
                 log.debug("No metadata file ({}) found, so skipping directory".format(metadataFile))
                 os.chdir("..")
