@@ -1,1 +1,4 @@
 work/
+*.log
+*.log.*
+__pycache__/
