@@ -454,6 +454,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         treatmentMessage = TreatmentMessage()
 
+        # Put a default here in case the reading fails
+        treatmentMessage.duration = 5.0
+
         if side.upper() == constants.Side.RIGHT.name:
             treatmentMessage.duration = self.purge_time_right.value()
         elif side.upper() == constants.Side.LEFT.name:
@@ -461,6 +464,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         else:
             log.error("Unable to determine which side the emitter is on: {}".format(side))
             return
+
+        log.debug("Purge all on side: {} for {} seconds".format(side.upper(), treatmentMessage.duration))
 
         treatmentMessage.side = side.upper()
         treatmentMessage.tier = constants.EMITTER_ALL
