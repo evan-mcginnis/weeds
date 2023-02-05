@@ -1,3 +1,4 @@
+#! /bin/env python
 #
 # Visualize the depth data from the realsense camera
 #
@@ -25,9 +26,9 @@ except FileNotFoundError:
 
 
 if depth is not None:
-    print("Max X is: {}".format(depth.max()))
+    print("Min/Max: {}/{}".format(depth.min(), depth.max()))
     print("Shape is: {}".format(np.shape(depth)))
-    plt.imshow(depth, interpolation='none', vmin=430, vmax=470)
+    plt.imshow(depth, interpolation='none', vmin=250, vmax=340)
     plt.show()
     matplotlib.image.imsave("depth.png", depth)
 
