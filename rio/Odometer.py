@@ -139,12 +139,14 @@ class VirtualOdometer(Odometer):
 
     def start(self):
 
+        self._log.debug("Begin virtual odometry")
         self._start = datetime.now()
 
         self._processing = True
         angle = 0.0
         # Determine how many wheel rotations we will have in an hour at that pace
-        rotationsInTargetSpeed = (self._speed * 100000) / self._wheel_size
+        # Convert the speed (KM) per hour to MM per hour, as the wheel size is stated in mm
+        rotationsInTargetSpeed = (self._speed * 1e6) / self._wheel_size
         # Determine how many pulses we will have in an hour at that pace
         pulsesAtTargetSpeed = self._encoder_clicks * rotationsInTargetSpeed
 
@@ -162,7 +164,7 @@ class VirtualOdometer(Odometer):
                 angle += (360 / self._encoder_clicks)
                 try:
                     self.changeQueue.put(angle, block=False)
-                    # self._log.info("Queue size: {}".format(self.changeQueue.qsize()))
+                    self._log.info("Queue size: {} Angle: {}".format(self.changeQueue.qsize(), angle))
                 except queue.Full as full:
                     self._log.fatal("Odometry queue is full. This should not happen to a double ended queue")
                     self._log.fatal("Current queue size: {}".format(self.changeQueue.qsize()))
@@ -171,6 +173,7 @@ class VirtualOdometer(Odometer):
                 #self._log.debug("Sleep for {:.5f} seconds".format(timeToMoveOnePulse))
             else:
                 self._log.error("Movement not reported, so will not be enqueued")
+            self._log.debug("Sleep: {}".format(timeToMoveOnePulse))
             sleep(timeToMoveOnePulse)
             self._start = datetime.now()
 
