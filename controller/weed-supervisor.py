@@ -12,6 +12,7 @@ import sys
 import threading
 import time
 from typing import Callable
+from dateutil import tz
 
 import logging
 import logging.config
@@ -335,6 +336,7 @@ def startOperation(operation: str, operationDescription: str):
 
     # Construct the name for this session that is legal for AWS
     timeStamp = now.strftime('%Y-%m-%d-%H-%M-%S-')
+
     sessionName = timeStamp + shortuuid.uuid()
     systemMessage.name = options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_PREFIX) + sessionName
     systemMessage.operation = operation
