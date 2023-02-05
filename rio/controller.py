@@ -58,6 +58,8 @@ parser.add_argument('-r', '--rio', action="store_true", required=False, default=
 parser.add_argument('-s', '--speed', action="store", required=False, default=4, type=float, help="Virtual odometry speed (cm/s)")
 parser.add_argument('-ini', '--ini', action="store", required=False, default=constants.PROPERTY_FILENAME, help="Options INI")
 parser.add_argument('-l', '--log', action="store", required=False, default="logging.ini", help="Logging INI")
+parser.add_argument('-d', '--diameter', action="store", required=False, default=0.0, type=float, help="Diameter of wheel")
+parser.add_argument('-c', '--clicks', action="store", required=False, default=0, type=int, help="Clicks per rotation")
 
 arguments = parser.parse_args()
 
@@ -692,8 +694,17 @@ def startupOdometer(typeOfOdometer: constants.SubsystemType) -> Odometer:
         # call the treatment controller at set intervals
         if typeOfOdometer == constants.SubsystemType.VIRTUAL:
             log.debug("Using virtual odometry")
-            pulsesPerRotation = int(options.option(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_PPR))
-            wheelSize = float(options.option(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_WHEEL_CIRCUMFERENCE))
+            # Don't try to simulate the physical wheel attached
+            if arguments.clicks == 0:
+                pulsesPerRotation = int(options.option(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_PPR))
+            else:
+                pulsesPerRotation = arguments.clicks
+
+            if arguments.diameter == 0:
+                wheelSize = float(options.option(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_WHEEL_CIRCUMFERENCE))
+            else:
+                wheelSize = arguments.diameter
+
             odometer = VirtualOdometer(WHEEL_SIZE=wheelSize, PULSES=pulsesPerRotation, SPEED=arguments.speed)
         else:
             # Get the A & B lines -- either from the INI file or on the command line

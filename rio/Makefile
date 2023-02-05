@@ -3,6 +3,8 @@
 #
 
 SPEED?=1
+PPR?=1200
+DIAMETER?=920
 
 clean:
 	rm rio.log*
@@ -19,5 +21,5 @@ import-daq-config:
 # Runs in virtual mode where the odometer is virtual and is at a constant speed
 
 run-all-virtual:
-	 python3 controller.py -o -e -r -s $(SPEED) -i virtual.ini
+	 python3 controller.py -o -e -r -s $(SPEED) -i virtual.ini -d $(DIAMETER) -c $(PPR)
 
