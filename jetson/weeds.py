@@ -10,6 +10,7 @@ import threading
 import time
 from typing import Callable
 
+import configparser
 import numpy as np
 import cv2 as cv
 try:
@@ -30,6 +31,7 @@ import shutil
 
 import xmpp
 # from xmpp import protocol
+from datetime import datetime
 
 # This does not work
 # from CameraFile import CameraFile, CameraBasler
@@ -782,16 +784,16 @@ class _CameraBasler(_Camera):
             raise IOError("Camera is not connected")
 
         # If there are no images in the queue, just wait for one.
-        if len(self._images) == 0:
-            self.log.error("Image queue is empty.")
-            os.kill(os.getpid(), signal.SIGINT)
-            #img = self._grab()
-        else:
-            self.log.debug("Serving image from queue")
-            processed = self._images.popleft()
-            img = processed.image
-            timestamp = processed.timestamp
-            self.log.debug("Image captured at " + str(timestamp))
+        while len(self._images) == 0:
+            self.log.error("Image queue is empty. Wait for a new image to appear")
+            time.sleep(0.1)
+
+        # The image we want is the one closest to the current time. The queue may contain a bunch of older images
+        processed = self._images.popleft()
+        img = processed.image
+        # The timestamp is in milliseconds
+        timestamp = processed.timestamp / 1000
+        self.log.debug("Image captured at UTC: {}".format(datetime.utcfromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')))
         return processed
 
     def getResolution(self) -> ():
@@ -1315,7 +1317,7 @@ def storeImage(contextForImage: Context, captureType: constants.Capture) -> bool
                 np.save(depthPath, rgbDepth.depth)
 
                 # Save the raw numpy data
-                imageName = "{}-{}-{:05d}".format(constants.FILENAME_RAW, options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_POSITION), imageNumber)
+                imageName = "{}-intel-{}-{:05d}".format(constants.FILENAME_RAW, options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_POSITION), imageNumber)
                 rgbPath = os.path.join(logger.directory, imageName)
                 log.debug("Saving RGB data {}".format(rgbPath))
                 np.save(rgbPath, rgbDepth.rgb)
@@ -1387,7 +1389,8 @@ def storeImage(contextForImage: Context, captureType: constants.Capture) -> bool
         veg.SetImage(rawImage)
 
         manipulated = ImageManipulation(rawImage, imageNumber, logger)
-        fileName = logger.logImage(constants.FILENAME_RAW, manipulated.image)
+        imageName = constants.FILENAME_RAW + "-" + "basler" + "-" + options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_POSITION)
+        fileName = logger.logImage(imageName, manipulated.image)
 
         # Send out a message to the treatment channel that an image has been taken
         message = TreatmentMessage()
@@ -1744,10 +1747,11 @@ def postWeedingCleanup():
     # Write session data out as an INI file
     finished = os.path.join(logger.directory, options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_FILENAME_FINISHED))
     log.debug("Writing session statistics to: {}".format(finished))
+    sessionInfo = configparser.ConfigParser()
+    sessionInfo[constants.PROPERTY_SECTION_GENERAL] = {'ACQUIRED': 'imageNumber'}
     try:
         with open(finished, 'w') as fp:
-            fp.write("[CAMERA]")
-            fp.write("{} = {}".format(constants.PROPERTY_PIXELS_PER_MM, camera.getMMPerPixel()))
+            sessionInfo.write(fp)
     except IOError as e:
         log.error("Unable to write out end of run data to file: {}".format(finished))
         log.error("{}".format(e))
@@ -1818,10 +1822,10 @@ def messageSystemCB(conn,msg: xmpp.protocol.Message):
         body = msg.getBody()
         # Check if this is a real message and not just an empty keep-alive message
         if body is not None:
-            log.debug("system message from {}".format(msg.getFrom()))
+            # log.debug("system message from {}".format(msg.getFrom()))
             systemMessage = SystemMessage(raw=msg.getBody())
             if messageIsCurrent(systemMessage.timestamp):
-                log.debug("Processing [{}]".format(msg.getBody()))
+                # log.debug("Processing [{}]".format(msg.getBody()))
                 if systemMessage.action == constants.Action.START.name:
                     processing = True
                     currentSessionName = systemMessage.name
@@ -1838,7 +1842,7 @@ def messageSystemCB(conn,msg: xmpp.protocol.Message):
                 if systemMessage.action == constants.Action.CURRENT.name:
                     sendCurrentOperation(roomSystem)
                 if systemMessage.action == constants.Action.START_DIAG.name:
-                    log.debug("Request for diagnostics")
+                    # log.debug("Request for diagnostics")
                     runDiagnostics(roomSystem, camera)
             else:
                 log.info("Old message seen -- ignored")
@@ -1858,16 +1862,20 @@ def messageOdometryCB(conn, msg: xmpp.protocol.Message):
     global keepAliveMessages
     global movementSinceLastProcessing
     global movementSinceLastProcessingForIntel
+
+    # Record how long this take
+    performance.start()
+
     # Make sure this is a message sent to the room, not directly to us
     if msg.getType() == "groupchat":
         body = msg.getBody()
         # Check if this is a real message and not just an empty keep-alive message
         if body is not None:
-            log.debug("Distance message from {}".format(msg.getFrom()))
+            # log.debug("Distance message from {}".format(msg.getFrom()))
             odometryMessage = OdometryMessage(raw=body)
 
             if messageIsCurrent(odometryMessage.timestamp):
-                log.debug("Message: {}".format(odometryMessage.data))
+                # log.debug("Message: {}".format(odometryMessage.data))
 
                 # We are only concerned with distance messages here
                 if odometryMessage.type == constants.OdometryMessageType.DISTANCE.name:
@@ -1885,6 +1893,7 @@ def messageOdometryCB(conn, msg: xmpp.protocol.Message):
                     # If the movement is equal to the size of the image, take a picture
                     # We need to allow for some overlap so the images can be stitched together.
                     # So reduce this by the overlap factor
+                    # TODO: Optimize by moving this calculation out
                     gsdBasler = (1 - float(options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_OVERLAP_FACTOR))) * camera.gsd
                     gsdIntel = (1 - float(options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_OVERLAP_FACTOR))) * rgbDepthCamera.gsd
                     #
@@ -1906,7 +1915,7 @@ def messageOdometryCB(conn, msg: xmpp.protocol.Message):
                         processor(contextForImage, constants.Capture.RGB)
                     # The intel RGB camera
                     elif movementSinceLastProcessingForIntel > gsdIntel:
-                        log.debug("Acquiring image from Intel Camera.  Movement since last processing {} GSD {}".format(movementSinceLastProcessing, gsdIntel))
+                        log.debug("Acquiring image from Intel Camera.  Movement since last processing {} GSD {}".format(movementSinceLastProcessingForIntel, gsdIntel))
                         movementSinceLastProcessingForIntel = 0
 
                         # Record the context under which this photo was taken
@@ -1918,7 +1927,8 @@ def messageOdometryCB(conn, msg: xmpp.protocol.Message):
                         # contextForPhoto.model
                         processor(contextForImage, constants.Capture.DEPTH_RGB)
                 else:
-                    log.debug("Message type is not distance. Ignored")
+                    pass
+                    # log.debug("Message type is not distance. Ignored")
             else:
                 log.info("Old message seen -- ignored")
         else:
@@ -1929,6 +1939,8 @@ def messageOdometryCB(conn, msg: xmpp.protocol.Message):
         log.error("Private Message from {}: {} ".format(str(msg.getFrom()), str(msg.getBody())))
     else:
         log.error("Unknown message type {}".format(msg.getType()))
+
+    log.debug("Processed odometry message: {} ms".format(performance.stop()))
 
 # The callback for messages received in the system room.
 # When the total distance is the width of the image, grab an image and process it.
@@ -2096,7 +2108,7 @@ def enrichImages():
     enricher = Enrich()
     while True:
         if len(rawImages) == 0:
-            log.debug("Processed image queue is empty. Sleeping a bit")
+            # log.debug("Processed image queue is empty. Sleeping a bit")
             time.sleep(10)
         while len(rawImages):
             rawImage = rawImages.dequeue()

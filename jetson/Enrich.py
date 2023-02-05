@@ -71,7 +71,7 @@ class Enrich:
 
             #basename = os.path.basename(filename)
 
-            newFilename = filename.replace(constants.FILENAME_RAW, img.make.lower())
+            newFilename = filename.replace(constants.FILENAME_RAW, constants.FILENAME_FINISHED)
             #newFilename = os.path.dirname(filename) + "/" + image.make + '-' + basename
 
             self._log.debug("Write out enriched file: {}".format(newFilename))
