@@ -1,0 +1,5 @@
+#!/bin/sh
+
+scp -r weeds@jetson-left.weeds.com:output .
+scp -r weeds@jetson-right.weeds.com:output .
+
