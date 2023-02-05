@@ -17,6 +17,8 @@ from threading import Semaphore
 from typing import Callable
 
 import dns.resolver
+from dateutil import tz
+
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QDialogButtonBox
 from PyQt5 import QtGui, QtCore
@@ -32,6 +34,8 @@ from Messages import MUCMessage, OdometryMessage, SystemMessage, TreatmentMessag
 from WeedExceptions import XMPPServerUnreachable, XMPPServerAuthFailure
 
 import shortuuid
+
+from lorem_text import lorem
 
 from PyQt5 import QtWidgets
 from PyQt5.QtGui import *
@@ -50,6 +54,8 @@ shuttingDown = False
 
 messageNumber = 0
 treatments = 0
+treatmentsBasler = 0
+treatmentsIntel = 0
 
 class Presence(Enum):
     JOINED = 0
@@ -84,7 +90,7 @@ class SystemSignals(WeedsSignals):
     occupant = pyqtSignal(str, str, str, name="occupant")
 
 class TreatmentSignals(WeedsSignals):
-    plan = pyqtSignal(int, name="plan")
+    plan = pyqtSignal(int, str, name="plan")
     image = pyqtSignal(str, str, str, name="image")
 
 
@@ -267,8 +273,6 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.purge_left.clicked.connect(self.purgeAllHandler)
         self.purge_right.clicked.connect(self.purgeAllHandler)
 
-        self.runDiagnostics.clicked.connect(self.startDiagnostics)
-
         # Thw sliders selecting the purge time for the emitters
         self.slider_left.valueChanged.connect(self.sliderValueChanged)
         self.slider_right.valueChanged.connect(self.sliderValueChanged)
@@ -434,16 +438,17 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def startDiagnostics(self):
         """
         Requests entities run diagnostics
+        TODO: Move command to run diagnostics to the controller
         """
-        # avoid the user pressing the button twice
-        self.runDiagnostics.setEnabled(False)
+        # # avoid the user pressing the button twice
+        # self.runDiagnostics.setEnabled(False)
 
         # Have everyone run diagnostics
         systemMessage = SystemMessage()
         systemMessage.action = constants.Action.START_DIAG.name
         self._systemRoom.sendMessage(systemMessage.formMessage())
 
-        self.runDiagnostics.setEnabled(True)
+        # self.runDiagnostics.setEnabled(True)
 
     def purgeAllHandler(self):
         sending = self.sender()
@@ -587,8 +592,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         if percentage > 100:
             percentage = 100
             self._distanceOverCapturedLength = 0
-        self.tractor_progress_left.setValue(percentage)
-        self.tractor_progress_right.setValue(percentage)
+
+        # These may come back later, but this allows more room for the images
+        # self.tractor_progress_left.setValue(percentage)
+        # self.tractor_progress_right.setValue(percentage)
 
     def updateCurrentSpeed(self, source, speed: float):
         log.debug("Update current {} speed to {}".format(source, speed))
@@ -817,6 +824,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.left_checkbox_intel.setChecked(self._statusToBool(systemMsg.statusIntel))
             self._diagnosticReceived(constants.Position.LEFT)
             self.groupLeft.setStyleSheet(stylesheet)
+            # Temporary -- this should retrieve the details from the URL provided in the report
+            self.diagnostic_details_left.setText(lorem.paragraphs(2))
         if systemMsg.position == constants.Position.MIDDLE.name.lower():
             self.middle_checkbox_system.setChecked(self._statusToBool(systemMsg.statusSystem))
             self.middle_checkbox_daq.setChecked(self._statusToBool(systemMsg.statusDAQ))
@@ -824,12 +833,16 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.middle_checkbox_gps.setChecked(self._statusToBool(systemMsg.statusGPS))
             self._diagnosticReceived(constants.Position.MIDDLE)
             self.groupMiddle.setStyleSheet(stylesheet)
+            # Temporary -- this should retrieve the details from the URL provided in the report
+            self.diagnostic_details_middle.setText(lorem.paragraphs(2))
         if systemMsg.position == constants.Position.RIGHT.name.lower():
             self.right_checkbox_system.setChecked(self._statusToBool(systemMsg.statusSystem))
             self.right_checkbox_basler.setChecked(self._statusToBool(systemMsg.statusCamera))
             self.right_checkbox_intel.setChecked(self._statusToBool(systemMsg.statusIntel))
             self._diagnosticReceived(constants.Position.RIGHT)
             self.groupRight.setStyleSheet(stylesheet)
+            # Temporary -- this should retrieve the details from the URL provided in the report
+            self.diagnostic_details_right.setText(lorem.paragraphs(2))
 
     def setInitialState(self):
         """
@@ -868,10 +881,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         #self.updateCamera(constants.Position.LEFT.name, constants.OperationalStatus.UNKNOWN.name)
         #self.updateCamera(constants.Position.RIGHT.name, constants.OperationalStatus.UNKNOWN.name)
 
-        self.tractor_progress_left.setStyleSheet("color: white; background-color: green")
-        self.tractor_progress_left.setValue(0)
-        self.tractor_progress_right.setStyleSheet("color: white; background-color: green")
-        self.tractor_progress_right.setValue(0)
+        # self.tractor_progress_left.setStyleSheet("color: white; background-color: green")
+        # self.tractor_progress_left.setValue(0)
+        # self.tractor_progress_right.setStyleSheet("color: white; background-color: green")
+        # self.tractor_progress_right.setValue(0)
 
         self.noteMissingEntities()
 
@@ -976,8 +989,13 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         # If the user has reset the distance to 0, use the offset
         self.count_distance.display(distance - self.absoluteDistance)
 
-    def setTreatments(self, treatments: int):
-        self.count_images.display(treatments)
+    def setTreatments(self, treatments: int, source: str):
+        if source == constants.Capture.RGB.name:
+            self.count_images_basler.display(treatments)
+        elif source == constants.Capture.DEPTH_RGB.name:
+            self.count_images_intel.display(treatments)
+        else:
+            log.error("Unknown source for image: {}".format(source))
 
     def addImage(self, position: str, source: str, url: str):
         """
@@ -1098,6 +1116,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         now = datetime.datetime.now()
 
         # Construct the name for this session that is legal for AWS
+        now -= datetime.timedelta(hours=7, minutes=0)
+
         timeStamp = now.strftime('%Y-%m-%d-%H-%M-%S-')
         sessionName = timeStamp + shortuuid.uuid()
         if arguments.location is not None:
@@ -1125,16 +1145,21 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def resetProgress(self):
         self._distanceOverCapturedLength = 0
-        self.tractor_progress_left.setValue(0)
-        self.tractor_progress_right.setValue(0)
+        # self.tractor_progress_left.setValue(0)
+        # self.tractor_progress_right.setValue(0)
 
     def resetKPH(self):
         self.setSpeed(0.0)
 
     def resetImageCount(self):
         global treatments
+        global treatmentsIntel
+        global treatmentsBasler
         treatments = 0
-        self.setTreatments(0)
+        treatmentsBasler = 0
+        treatmentsIntel = 0
+        self.setTreatments(0, constants.Capture.RGB.name)
+        self.setTreatments(0, constants.Capture.DEPTH_RGB.name)
 
     def resetDistance(self):
         self.absoluteDistance = self.currentDistance
@@ -1310,6 +1335,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 def process(conn, msg: xmpp.protocol.Message):
     global messageNumber
     global treatments
+    global treatmentsIntel
+    global treatmentsBasler
 
     msgText = msg.getBody()
     if msgText is not None:
@@ -1355,9 +1382,17 @@ def process(conn, msg: xmpp.protocol.Message):
         if treatmentMessage.plan == constants.Treatment.RAW_IMAGE:
             treatments += 1
             signals = window.taskTreatment.signals
-            signals.plan.emit(treatments)
             position = treatmentMessage.position
             source = treatmentMessage.source
+            if source == constants.Capture.RGB.name:
+                treatmentsBasler += 1
+                signals.plan.emit(treatmentsBasler, treatmentMessage.source)
+            elif source == constants.Capture.DEPTH_RGB.name:
+                treatmentsIntel += 1
+                signals.plan.emit(treatmentsIntel, treatmentMessage.source)
+            else:
+                log.error("Unknown source for capture: {}".format(source))
+
             if len(treatmentMessage.url) > 0 and len(treatmentMessage.position) > 0:
                 log.debug("Image from {} is at: {}".format(treatmentMessage.source, treatmentMessage.url))
                 signals.image.emit(position, source, treatmentMessage.url)
