@@ -129,6 +129,8 @@
 
 \usepackage{color}  % http://en.wikibooks.org/wiki/LaTeX/Colors
 
+
+
 \long\def\todo#1{{\color{red}{\bf TODO: #1}}}
 
 \long\def\ans#1{{\color{blue}{\em #1}}}
@@ -141,6 +143,11 @@
 \usepackage{listings}  % http://en.wikibooks.org/wiki/LaTeX/Packages/Listings
 \usepackage{textcomp}
 
+\usepackage{datetime2} % Enhanced date and time.
+
+
+% This causes problems with other packages
+%\usepackage{subfig}
 
 %%% The following lines set up using the listings package
 \renewcommand{\lstlistlistingname}{Code Listings}
@@ -221,7 +228,7 @@ contents={\begin{tikzpicture}[remember picture,overlay]
     PhD Student \\
     Student ID\#  23633780\\
     Biosystems Analytics \\
-    \today \\
+    \today{} \\
     \texttt{evanmc@arizona.edu}\vspace{40pt} \\
     }
 
@@ -233,7 +240,7 @@ contents={\begin{tikzpicture}[remember picture,overlay]
 \vspace*{1cm}
 \noindent
 %%\vspace*{0.4\textheight}
-\textcolor{white}{\Huge\textbf{\textsf{Field Activities for Precision Treatment \\System for Weeds in Lettuce Crop}}}
+\textcolor{white}{\Large\textbf{\textsf{Field Activities and System Characterization \\for Precision Treatment System of Weeds in Lettuce}}}
 \vspace*{2.5cm}\par
 \noindent
 \begin{minipage}{0.35\linewidth}
@@ -250,7 +257,7 @@ contents={\begin{tikzpicture}[remember picture,overlay]
 \vspace{5pt}
     \begin{abstract} 
 \setstretch{1.0}
-This paper details the field activities for the automated weeding project. While portions of this document repeat some details of the document referred to as \textit{the proposal}, this document assumes that readers are familiar with details covered there.
+This paper details the field activities for the automated weeding project. While portions of this document repeat some details of the document referred to as \textit{the proposal}, this document assumes that readers are familiar with details covered there.  Detailed descriptions of the communication mechanisms or architecture of the system are beyond the scope of this document.
     \end{abstract}
 \end{minipage}
 \end{titlepage}
@@ -269,62 +276,153 @@ This paper details the field activities for the automated weeding project. While
 {
 \setstretch{1.0}
 \begin{versionhistory}
-  \vhEntry{1.0}{27 July 2022}{EM}{Initial revision}
+  \vhEntry{1.0}{22 Dec 2022}{EM}{Initial revision}
 \end{versionhistory}
 \newpage
 }
 
 
-\section{Overview}
-This phase will have two activities: installation of the physical hardware in the field enclosure, and field testing of the system. This phase will encompass these activities:
-\begin{itemize}
-	\item{Modify the existing enclosure and install components discussed in the proposal}
-	\item{Field test the integrated system}
-\end{itemize}
-\subsection{Field Tests}
-Field tests will be conducted at the Yuma Agricultural Center of the University of Arizona with the integrates system in two phases: data collection, and wet-runs. Prior to the execution of the data collection phase, however, two calibration activities will be carried out. Once executed, repeating this calibrations will not be required unless there there is a change in any physical equipment (this applies primarily to the vision and odometry subsystems).
-\subsubsection{Sensor+Lens Calibration}
-The objective of this phase is to determine the pixel to ground distance measurement when the weeding system is in a planting bed deemed 'typical'. This relationship is determined by the following steps\footnote{This calibration may not be required, as the relationship can be determined with some relatively simple equations. The ground sampling distance (GSD) will be $\approx$ \SI{0.02} {\centi\meter} per pixel, a figure that will not vary significantly even when the height of the planting bed varies by a few cm. As this figure far exceeds the precision of the emitter subsystem, it is not anticipated that even a small variation in this figure will have a negative impact on the system.}:
-\begin{enumerate}
-	\item{A calibration sheet with two green dots centered 4 cm apart is positioned directly beneath one camera}
-	\item{Execute a script that will take the image, find the dots, determine the center-to-center distance in pixels. This script will write out a calibration file used by the weeding system}
-\end{enumerate}
-No forward motion of the weeding system will be required for this stage of the calibration. Calculations or laboratory tests to determine this relationship can be done, of course, but as the distance from the bed to the sensor will likely differ from measurements in the laboratory or used in calculations, this relationship will be determined by this field procedure.  A somewhat related procedure, but one that will be performed under laboratory conditions is the characterization of the distortion introduced by the lens in images of a checkerboard test target. A detailed description of that calibration is beyond the scope of this proposal, but is well documented elsewhere and supported by the OpenCV library set used for various imaging functions.
-\subsubsection{Odometry Verification}
-The odometry system will be verified on a level, hard, dry surface, under controlled (i.e., enclosed shed or equivalent) using this procedure:
-\begin{enumerate}
-	\item{A tape measure is placed on the ground along the cropline and extended the length of a planting bed.}
-	\item{The weeding system is towed over the entire length at varying speeds including stops an backwards motion.}
-\end{enumerate}
-This test will compare actual ground distance to the values reported by the system.  As mentioned in Section~\ref{sec:odometry}, it is important that the odometry subsystem be accurate over the distance from the leading edge of the image captured to the emitter line, not accurate over the entire length of the planting bed.
+\section{System Overview}
+The physical system components discussed in this document consist of two duplicated detection and treatment systems and a single odometry system. Overall, the system is targeted at a single bed with two seedlines. While this document avoids the use of references to position, the term \textit{left} or \textit{right} refers to the left or right of the tractor relative to the direction of travel. The detection systems are composed of downward facing RGB and depth cameras and a GPU system dedicated to each.  The treatment system is composed of a depth camera that can supply IMU data and a CPU based system.
+
 \begin{figure}[H]
 	\centering
-	\includegraphics[width=0.75\linewidth]{./figures/odometry-accuracy.jpg}
-	\caption[Accuracy required from odometry subsystem]{The odometery subsystem requires accuracy over only a portion of a planting bed, indicated by the red line in this diagram.  The accuracy over this distance must be +/- .5cm, twice the accuracy of the treatment subsystem.}
-	\label{fig:uml-system}
+	\begin{subfigure}[t]{.38\textwidth}
+		\centering
+		\includegraphics[width=1\linewidth]{./figures/physical-system-overhead.jpg}
+		\caption{An overhead view of the system}
+		\label{fig:system-overhead}
+	\end{subfigure}
+	\hspace{1em}%
+	\begin{subfigure}[t]{.38\textwidth}
+		\centering
+		\includegraphics[width=1\linewidth]{./figures/physical-system-elevation.jpg}
+		\caption{An elevation view of the system}
+		\label{fig:system-elevation}
+	\end{subfigure}
+	\caption[Overhead and elevation views of the system]{Overhead and Elevation views of the system --- Responsibilities within the system fall into two subsystems: classification and treatment. Very roughly speaking, the classification system operates on images streamed to it from the RGB cameras, and the treatment system uses the emitters to apply chemical treatment to undesired vegetation.}
+	\label{fig:system}
 \end{figure}
-An odometry verification mode of the system software will capture and annotate images, noting every 1cm in forward motion to allow manual verification of accuracy.  Annotated images of the tape are used to verify two things:
+
+While it is beyond the scope of this document to provide operational details of system operation, it is sufficient for this document to view the system as a targeting treatment of a two-seedline single bed with three subsystems: \textit{odometry}, \textit{classification}, and \textit{treatment}.   
+
+\section{Physical System Characterization}
+There are a few measurements that establish the relationship of system components with each other. These measurements will be used to determine the position of the treatment subsystem as the overall system moves along a planting bed.
+
+
+\subsubsection{Sensor+Lens Position, Capture, and Distortion}
+\label{sec:sensor}
+The objective of this phase is to determine two values, the pixel to ground distance relationship and the height of the optical sensor, as well as the amount of optical distortion introduced by the lens.  The height of the sensor will vary with the depth to which the entire weeding system sinks into the bed.
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.25\linewidth]{./figures/sensor-calibration.jpg}
+	\caption[Sensor measurements and ground capture]{The ground capture distance and sensor-to-ground measurements will vary based on the distance the entire system sinks into the planting bed. The distance to the ground can be obtained using the subset of the depth camera measurements that are unobstructed.}
+	\label{fig:sensor-dimensions}
+\end{figure}
+
+No forward motion of the weeding system will be required for this stage of measurements. Measurements can be taken while the system is at rest on a hard surface, but the distance from the bed to the sensor will likely differ from measurements in the laboratory or used in calculations.  The sensor to ground distance is 431.8 mm.
+
+The specifics of the sensor associated with classification:
 \begin{enumerate}
-	\item{Image capture accuracy --- Every increment on the tape should be captured, factoring in 20\% overlap at the leading and trailing edges of the image. To correctly classify vegetation that is not fully shown in a single image it will be necessary to stitch adjacent images together.}
-	\item{Emitter distance accuracy --- The annotations in the images are not simply markers every 1cm. Rather, the image will be marked with the distance to the leading edge of the image captured by the odometry system.}
+	\item{Basler 2500-14c}
+	\item{Onsemi MT9P031 sensor}
+	\item{Edmund Optics 6mm Lens \#33301}
 \end{enumerate}
+
+The ground capture details of this configuration show a 41 cm x 31 cm image with 0.01 cm per pixel \footnote{Calculations provided by the Pix4D spreadsheet found here: https://support.pix4d.com/hc/en-us/articles/202560249-TOOLS-GSD-calculator}
+
+A somewhat related procedure, but one that will be performed under laboratory conditions is the characterization of the distortion introduced by the lens in images of a checkerboard test target. 
+\subsubsection{Odometry Characterization}
+The odometry system is used to determine the distance traveled by the weeding system. It consists of a mechanical wheel, 920 mm in diameter, with an attached 1200 pulse per revolution encoder. Under ideal, friction-free conditions, therefore, the system will produce pulses according to this formula:
+\begin{align}
+\frac {wheel\ circumference}  {rotational\ pulses},\  or\  \frac {\SI{920}{\milli\meter}} {1200\ pulses} = 0.7667\ pulses\ per\ mm
+\end{align}
+
+Under field conditions, however, the odometry subsystem will not maintain this rate of pulse production, as soil conditions will lead to lower pulse counts per mm of travel. An additional complication is false pulses introduced by electrical noise and mechanical vibration.  It is, for instance, possible to induce an encoder pulse by striking (forcefully, not a gentle tap) the encoder enclosure, making it seem as if forward motion is taking place in the absence of wheel movement. These false readings affect high pulse rate encoders (the encoder in the author's office is 5000 pulses per rotation (PPR)) more than they affect the lower pulse rate encoder used in the field, so attempts will not be made to separate this effect the effect of soil conditions. False pulses introduced by electrical noise are mitigated by proper grounding and are ignored in these tests.
+
+The number of pulses per millimeter from a standing start will use this procedure:
+\begin{enumerate}
+	\item{The current pulse count is recorded or reset to zero.}
+	\item{The tractor tows the weeding system approximately 3 meters away and halts.}
+	\item{The current pulse count is noted.}
+	\item{A laser distance system will be used to establish the distance traveled.\footnote{A Leica Disto D1, with accuracy +/- 2 mm at 40 meters will be used.  Details here: https://shop.leica-geosystems.com/buy/disto/d1}}
+\end{enumerate}
+This test will establish pulse rate to distance mapping for those conditions. To establish an overall average pulse count it will be necessary to repeat this test for under a variety of soil conditions. While this procedure will characterize the odometry subsystem be accurate over long distances, the key distance for the overall system is  from the leading edge of the image captured to the trailing edge of the emitters.  Additionally, this is a manual process, and as such will suffer from those errors. Consequently, this procedure will be used only in early stages of the project.
+Additionally this will characterize only one of the four movement scenarios that must be characterized: stop-to-stop, stop-to-in-motion, in-motion-to-in-motion, and in-motion-to-stop.  That is, does the pulse-per-mm rate change from the case where the tractor starts, moves, and then stops to the case where the tractor is in motion over the designated distance? The recording of pulse counts and notation of distance is not an activity that is well suited to an in-motion system.   
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.75\linewidth]{./figures/system-in-field.jpg}
+	\caption[Accuracy required from odometry subsystem]{The odometry subsystem requires accuracy over only a portion of a planting bed, indicated by the red line in this diagram, not the longer distances seen in other characterizations. The distance from the center of the camera to the center of the emitter in the leading edge row of the emitter plate based on an average of three measurements was 0.3479 m. While the aforementioned manual procedure can accommodate this shorter distance, it may not be the case that starting and stopping motion over this distance will lead to accurate results.}
+	\label{fig:required-accuracy}
+\end{figure}
+
+To relate PPR to the distance between the camera capture and emitters, forward and rear line sensors will detect lines placed a known distance apart as the system passes overhead.
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.75\linewidth]{./figures/determine-ppr-per-meter.jpg}
+	\caption[Determine PPR per meter]{Lines are placed a known distance apart -- the 1 meter value indicated here is just for illustration and may not be indicative of the final length used -- and are detected as the system passes overhead. This technique will use Seeed Studio Line Finder part 101020172. The pulses over this distance can then be used to calculate the true PPR to ground-distance relationship under those conditions.}
+	\label{fig:ppr-to-meter}
+\end{figure}
+
+This approach will be used to capture the PPR to distance relationship under all four motion conditions. In this scheme, the pulses observed between the starting and ending lines will yield the true pulse rate to distance ratio.
+
+\subsection{Camera to Emitter Orientation}
+The camera has two offsets from the leading edge of the emitter that are of concern: the distance offset along the X axis and the distance offset in the Y axis. That is, how far forward the camera is from the emitters, and how close the center of the camera is to the center of the middle emitter of the leading edge. These offsets are used to answer two questions when applying a treatment to vegetation: which emitter should be used to treat the vegetation (the Y offset) and has the weeding system moved forward enough such that that emitter is directly above the vegetation (the X offset).
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.75\linewidth]{./figures/camera-to-emitter-relationship.jpg}
+	\caption[Determine relationship between camera and emitter]{The relationship between the camera placement and the emitters has two distances that are of of interest: the distance along the X axis between the center of the camera and the center of the emitters occupying the leading edge of the plate and the distance of the center of the camera to the left or right of the center of the middle emitter in occupying the leading row. While every attempt will be made to align the camera and emitters mechanically, they are unlikely to have their centers perfectly aligned.}
+	\label{fig:camera-to-emitter-relationship}
+\end{figure}
+
+The determination of the X offset has already been discussed: 0.3479 m, based on an average of three measurements. To obtain the offset in the Y  axis, a laser will be trained on the center of the middle emitter, and the location of the laser beam captured in the image used to determine the offset.
+
+\begin{figure}[H]
+	\centering
+	\begin{subfigure}[t]{.38\textwidth}
+		\centering
+		\includegraphics[width=1\linewidth]{./figures/camera-to-emitter.jpg}
+		\caption{Determine camera to emitter alignment}
+		\label{fig:camera-to-emitter-alignment}
+	\end{subfigure}
+	\hspace{1em}%
+	\begin{subfigure}[t]{.38\textwidth}
+		\centering
+		\includegraphics[width=1\linewidth]{./figures/transect-for-laser.jpeg}
+		\caption{Transect through acquired image}
+		\label{fig:laser-transect}
+	\end{subfigure}
+	\caption[Determining camera to emitter alignment]{To determine the alignment of the center of the camera to the center of the middle, leading edge emitter, a laser level is used to illuminate the center of the emitter. A transect through the image shows the beam captured in the image.}
+	\label{fig:camera-to-emitter}
+\end{figure}
+Using the pixel width derived in Section~\ref{sec:sensor}, the center of the emitter is (0.01 * 1001) cm, or 10.01 cm from the bottom of the captured image.
+
+\subsection{Overlap verification}
+An odometry verification mode of the system software will capture and annotate images, noting every 1cm in forward motion to allow manual verification of capture accuracy.  In this verification, images of a tape measure are obtained as the weeding system is towed over it. Adjacent images should contain an overlap of 20\%\footnote{The value of 20\% is an arbitrary choice to allow for efficient stitching of adjacent images and may not be the final overlap value used. Successful stitching requires the presence of features common in both images, and as the ground is relatively featureless by itself, this figure may need to be adjusted.} The image capture strategy reflects a need to stitch consecutive images together before classification, avoiding the problem where the lack of a full view of an object prevents classification.
 \begin{figure}[H]
 	\centering
 	\includegraphics[width=0.75\linewidth]{./figures/test-distance.jpg}
-	\caption[Test for distance measurement from emitter]{Note: not to scale. The distance from the center of the emitter to the leading edge of the image captured by the vision system. This figure uses a distance of 100cm only for illustration purposes. The value used will reflect distances in the physical system.}
+	\caption[Test for distance measurement from emitter]{Images captured of a tape measure will be used to assess the overlap of image acquisition in  subsequent images. The accuracy of distance travel assessment will have an effect on overlap of images. It will likely be the case that the overlap will be higher than the target value of 20\% in early phases of this work, as the calculation of distance traveled will differ from the actual distance traveled.}
 	\label{fig:test-distance}
 \end{figure}
 
-While the absolute accuracy of this odometry system is calculated as noted by this equation:
-\begin{align}
-\frac {wheel\ circumference}  {rotational\ pulses},\  or\  \frac {92cm} {1000} = .092cm
-\end{align}
-annotating images with that sort of accuracy would result in too much visual clutter in the resulting image sets.
+\subsection{Post-emitter Cameras}
+The images taken from the cameras at the trailing edge of the emitters will not be stitched together, so a basic image capture will suffice. While overlap of the images is not planned or even important to the task of spray assessment, capture will not be carried out strictly according to the size of the capture area. The post-emitter camera is a Basler 1920-14gc camera equipped with a 4mm focal length lens, position 170mm from the surface. This results in a captured area of 100mm x 180mm. As previously discussed, the determination of travel distance will differ from the actual travel distance in uncalibrated systems. To allow for this error, an overlap value of 10\% will be used in captured images. As with the images captured for use in the classification system, these cameras must capture each portion of the tape.
 
-This procedure will be repeated under field conditions, where wheel slippage is expected to detrimentally affect accurate measurement of distance. Under both conditions, accuracy will be assessed both over the entire distance of a planting bed and over multiples of the distance shown above. These tests will not produce calibration data; their only purpose is to asses and adjust the odometry system.
-\subsubsection{Data Collection}
-While each run of the system will produce usable data, these "dry" runs will involve only the collection of speed, timing, classification, and imagery. There is no need for a complete and integrated treatment subsystem in these tests, but this phase must be preceded by the calibration tests detailed previously.
- In these runs, the system will collect a series of crop row images, each taken with 20\% front overlap. The image capture strategy reflects a need to stitch consecutive images together before classification, avoiding the problem where the lack of a full view of an object prevents classification. The images collected in this phase will be used for training in future runs, so runs early in this phase are unlikely to be acceptably accurate. Accuracy is expected to improve and will gate the transition to the next phase. Accuracy rates for phase exit will be 3\% false identification of crop as weeds, and 95\% correct identification of weeds as weeds.
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.75\linewidth]{./figures/test-of-distance-post-emitter.jpg}
+	\caption[Test of capture for post-emitter cameras]{Images captured of a tape measure will be used to assess the capture accuracy of the post-emitter cameras.}
+	\label{fig:post-emitter}
+\end{figure}
+
+\subsection{Field Tests}
+Field tests will be conducted at the Yuma Agricultural Center of the University of Arizona with the integrates system in two phases: dry-run (data collection), and wet-runs. Prior to the execution of the data collection phase, however, two calibration activities will be carried out. Once executed, repeating this calibrations will not be required unless there there is a change in any physical equipment (this applies primarily to the vision and odometry subsystems).
+\subsubsection{Dry-Run and Data Collection}
+While each run of the system will produce usable data, these dry runs will involve only the collection of speed, timing, classification, and imagery. There is no need for a complete and integrated treatment subsystem in these tests, but this phase must be preceded by the calibration tests detailed previously.
+ In these runs, the system will collect a series of crop row images, each taken with 20\% front overlap. The images collected in this phase will be used for training in future runs, so runs early in this phase are unlikely to result in acceptably accurate classification. Accuracy is expected to improve and will gate the transition to the next phase. Accuracy rates for phase exit will be 3\% false identification of crop as weeds, and 95\% correct identification of weeds as weeds.
 The size of the each image set collected in this run will be dependent on several factors:
 \begin{enumerate}
 	\item{The size of the Region of Interest (ROI) --- the vision system proposed for this project (Basler) supports the notion of an ROI that may be a subset of the full capability of the sensor. Suppose that a strip above and below the crop line can be ignored. Capturing and processing this information may not be worthwhile.}
@@ -346,178 +444,94 @@ The space needed for a single image capture set is:
 229\ images * \frac{\SI{452}{\kilo\byte}} {image} \approx \SI{103.5}{\mega\byte}
 \end{align}
 
-A \SI{64}{\giga\byte} flash drive on the Jetson will provide a minimum of \SI{40}{\giga\byte} of free space, enough for several image collections. It is not anticipated that this space will be used, however, as image sets will be automatically uploaded to CyVerse (for off-line analysis; this activity is not real-time) and deleted from local media upon the completion of a run and IP connectivity to CyVerse can be established.
+A \SI{500}{\giga\byte} SSD drive on the Jetson will provide a minimum of \SI{480}{\giga\byte} of free space, enough for several image collections. It is not anticipated that this space will be used, however, as image sets will be automatically uploaded to Amazon Web Services (AWS) and deleted from local media upon the completion of a run and successful upload to AWS.
+
+\subsubsection{IMU}
+
+Information required by the treatment subsystem is also collected during a dry-run.  As the system is towed down a row the position of the emitter plate (along with the rest of the system) will deviate from perfectly parallel to the ground. Figure~\ref{fig:emitter-level} illustrates the relationship of an emitter array perfectly parallel to the ground, however it will be the case that the plate will occupy a different position -- that is, the roll, pitch, and yaw of the plate will vary as the system is towed down the planting bed.
+
+
+\begin{figure*}[t!]
+	\centering
+	\begin{subfigure}[t]{.38\textwidth}
+		\centering
+		\includegraphics[width=1\linewidth]{./figures/emitter-to-ground-angle.jpg}
+		\caption{Emitter to ground when level}
+		\label{fig:emitter-level}
+	\end{subfigure}
+	\hspace{1em}%
+	\begin{subfigure}[t]{.38\textwidth}
+		\centering
+		\includegraphics[width=1\linewidth]{./figures/emitter-to-ground-angle-rolled.jpg}
+		\caption{Emitter to ground when rolled}
+		\label{fig:emitter-rolled}
+	\end{subfigure}
+	\caption[Emitter plate orientation with respect to ground]{The orientation of the emitter plate will vary as the weeding system is towed down the row.  Figure~\ref{fig:emitter-rolled} illustrates the orientation when the entire assembly is rolled, as would be the case when the wheel on one side of the tractor ran over a object.}
+	\label{fig:emitter-orientation}
+\end{figure*}
+
+
+
+Readings of the entire weeding assembly will be taken with each 1 mm of movement. The orientation of the two emitter assemblies are assumed to reflect the positioning of the weeder as a whole, as they are rigidly mounted. While the roll illustrated by Figure~\ref{fig:emitter-orientation} is not severe enough to require the use of a different emitter for treatment than the one that was directly overhead when the emitter plate was level with the ground, that is the intention of this data. In this case, the emitter plate may be positioned such that a treatment is possible only with an emitter adjacent to the one directly overhead. The timing of the treatment may also be affected by pitch changes (front/back up \& down).
+
 
 \subsubsection{Wet-Run} 
 This phase requires all subsystems to be functionally complete and integrated. During these runs, the identified weeds are treated with a tinted, non-toxic liquid.  Treatment efficacy and accuracy can be assessed in two ways:
 \begin{enumerate}
-	\item{Manually, by assessing the coverage of each plant by the treatment --- a manual assessment has the advantage of detailed inspection of each application, but suffers from the inevitable errors in any manual assessment.}
-	\item{Automatically, by capturing images of post-treatment vegetation --- This approach would processes post-treatment images either by capturing images in real-time after treatment or by performing an additional dry-run immediately after a treatment, collecting an image set that can be used.  Collection of images immediately after treatment would require a new set of cameras immediately after the treatment system, a requirement that may not be mechanically feasible due to physical space constraints. The additional dry-run approach will be used in this project.}
+	\item{Manually, by assessing the coverage of each plant by the treatment --- a manual assessment has the advantage of detailed inspection of each application, but suffers from the inevitable errors in any manual assessment. Each image is inspected by a human looking for a treatment proxy. In this case that proxy is the mark left on the ground by the application of tinted dye.}
+	\item{Automatically, by capturing images of post-treatment vegetation and using those images to assess the treatment of vegetation.}
 \end{enumerate}
-The automatic assessment of spray requires an image segmentation geared toward the hue of the dye, allowing the separation of treated vegetation. Once segmented, each unwanted plant is scored based on the percentage of leaf area treated. Once sufficient accuracy is achieved, treatment will transition from dyed water to dyed herbicide. Until that accuracy in achieved, weeds will be treated by manual remediation. Treatment accuracy should not be conflated with classification accuracy. While the classification of vegetation is an indication of the fate of a plant (treated or not, the intent), treatment accuracy is an indication of what actually happened. In practice, of course, the treatment accuracy will be 100\%, even if the classification is incorrect.
+As noted in Figure~\ref{fig:system}, the system uses cameras after the emitters to capture the state of vegetation after treatment. These images will be used to compare before (images from the classification subsystem) and after (images from the treatment subsystem) of vegetation targeted for treatment. While structural features such as shape will not be altered by a treatment, color features will be affected by the application of tinted dye. These color changes will be used as an indication of treatment efficacy.
+
+\textit{
+An unexplored option for determining treatment efficacy is using textural analysis of before and after images a specific plant. Just as the color attributes of vegetation will differ after the application of dye, so will the texture of an object. Textural analysis using Grey-Level Co-occurrence Matrix (GLCM) provides insight as to the number of times pairs of pixels with a specific relationship occur within an image. The chief problem, however is that the classification system does not generate textural data, so a textural analysis of the post-emitter image is not terribly useful. If the analysis of color changes introduced by the dye does not prove to be effective, textural analysis is the backup plan.
+}
+
+The manual assessment of spray is relatively straight-forward in that it relies on a human to determine if the spray we applied to the vegetation. This assessment does not involve the determination of the application of dye to the vegetation, but relies on a human to determine the application of the dye \textit{to the ground}.  In this scenario, a plant is considered to have been treated if it shows dye in the area directly adjacent to a leaf.
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.45\linewidth]{./figures/dye-on-ground.jpg}
+	\caption[Dye on the ground as a proxy for treatment accuracy]{The dye on the ground can be used as a proxy for treatment efficacy. This image shows dye on either side of the plant that is easily visible. As the dye on the plant is not readily visible, it will not be used to determine if this treatment was correctly applied}
+	\label{fig:dye-on-ground}
+\end{figure}
+
+The automatic assessment of spray requires an image segmentation geared toward the hue of the dye, allowing the separation of treated vegetation. Once segmented, each unwanted plant is scored based on the percentage of leaf area treated. Once sufficient accuracy is achieved, treatment will transition from dyed water to dyed herbicide. Until that accuracy in achieved, weeds will be treated by manual remediation. Treatment accuracy should not be conflated with classification accuracy. While the classification of vegetation is an indication of the fate of a plant (treated or not, the intent), treatment accuracy is an indication of what actually happened. In practice, of course, the treatment accuracy must be 100\%, even if the classification is incorrect.
+
+Manual assessment will be used in early phases as part of the development of treatment algorithms, but automatic assessment will soon follow.  Neither approach is real-time, in that the assessment is carried out after a wet-run. That is, the assessment is carried out as a process well after the treatment is applied.
+
+\subsection{Weed Populations in Different Seasons}
+The tests will be conducted only over the lettuce growing season, September to March. That is, the lettuce crop will be present beside different populations of weeds over the development cycle.
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.75\linewidth]{./figures/broadleaf-calendar.pdf}
+	\caption[Germination schedule for broadleaf weeds]{While the system will be used only within the lettuce growing season, all of the weeds listed here are listed as \textit{likely} or \textit{active} with the exception of \textit{Russian Thistle} during that time.}
+	\label{fig:weed-germination}
+\end{figure}
+
+The
+
+\subsection{Weed/Crop Discrimination over the Growth Cycle}
+There are four factors used to classify vegetation in a previous analysis:
+\begin{enumerate}
+	\item{YIQ In-Phase Mean -- a color attribute of the vegetation}
+	\item{Shape Index -- a shape attribute}
+	\item{Length/Width Ratio -- a shape attribute}
+	\item{Distance from cropline -- a positional attribute}
+\end{enumerate}
+
+While there are many other attributes extracted, these are the ones found to be most significant. Roughly speaking, however, all attributes fall into one of three categories: color, shape, or position. Position, the position of the vegetation relative to the crop line, is the sole factor that will be invariant across development cycles: if vegetation is not close to the cropline, it is likely to be a weed. As for shape attributes, as the leaves of broadleaf weeds expand across the development cycle, it is anticipated that the shape computations will remain significant due to their relative consistency. The shape attributes computed are not affected by size.
+This leaves color attributes as the sole set of factors to be used at various points.\footnote{This is also one of the reasons why the images are captured using a color camera instead of a monochrome. The other reason is that the image segmentation approaches applied as part of the image processing flow are color-based.}
+ The attribute identified as significant in the previous analysis in the YIQ color space encodes the orange-blue information.\footnote{The I in YIQ is orange-blue. The Q value encodes purple-green} Changes where vegetation is perceived as more \textit{green} over the development cycle are not significant in classification.
+
+\subsection{Balanced Learning and Weed Load}
 
 
  \newpage
-%
-% W E A K N E S S E S
-%
-\section{Weaknesses of Study}
-This proposal has weaknesses in four areas: weed/crop discrimination under field conditions, weed/crop discrimination over the growth cycle, system redundancy, and information security.
-
-\subsection{Weed/Crop Discrimination Under Field Conditions}
-While the concepts around this are explored in the proof of concept phase, the image sets used there are obtained under lighting conditions that will  not be encountered in the production phase. The structural features noted previously will probably be invariant to changes based on lighting -- how round an object is does not depend heavily on lighting conditions, for instance. Color features, however, may. Vegetation may exhibit different responses to LED light than to full-spectrum sunlight. If this is encountered, we plan to deal with this by either adjusting the aforementioned thresholds applied to a vegetation index, or to use an index more suited to the spectrum encountered.
-
-%\subsection{Weed/Crop Discrimination over the Grown Cycle}
-
-\subsection{Redundancy}
-The system described in this proposal has multiple single points of failure. In such a system, for instance, the failure of a shared resource -- such as the National Instruments RIO controller -- would render the entire system unusable. The failure of a resource dedicated to a task, but with a peer performing the same task -- such as processing the images along the right side of a row -- will result in the degradation of system, but not a complete failure.
-\begin{figure}[H]
-	\centering
-	\includegraphics[width=0.4\linewidth]{./figures/system-overview-Page-2.jpg}
-	\caption[An overview of a redundant system]{An overview of a redundant system, illustrating that there is no single point of failure}
-	\label{fig:system-overview-redundant}
-\end{figure}
-
-Figure~\ref{fig:system-overview-redundant} illustrates a system without a single point of failure. If a RIO controller fails, for example, the system can use the redundant controller. If an Ethernet switch fails or if a cable fails connecting a component, that component can use the redundant network. In these systems, there are redundancy decisions that can be made locally -- a link to a switch has failed and the other switch must be used --- and redundancy decisions that must be made system-wide -- the failure of a component hosting the messaging server, for instance. That the system shows three NVIDIA devices is indicative of the N+1 redundancy scheme used by such a system. This system can tolerate the loss of only one NVIDIA, as it must have a \textit{quorum} of members to form a redundancy group. It is beyond the scope of this proposal to discuss redundancy schemes in depth, and the overly broad statements here are not meant to be an analysis of failure scenarios. \\
-For the proposed system, we will characterize the risk by computing MTBF of the physical components (these may not be available for components, but are typically supplied by the vendor).  While it does not mitigate the risk, system components will perform extensive self-tests when the system is first brought up, as well as non-invasive self tests during system operation. These self test results will speed the identification of faulty components, leading to higher uptimes and simplifying field deployments.
- 
-\subsection{Information Security}
-This proposal does not address the information security of the system, and a full assessment of that topic is beyond the scope of this document. While this system does not control a high-value target, the opportunities for compromising the subsystems can not be ignored entirely. The final system will take some best-practices approach to system components:
-\begin{itemize}
-	\item{Minimize the attack surface by shutting down unneeded services}
-	\item{Using certificates in lieu of passwords for establishing communication}
-	\item{Encrypting all communications between components}
-	\item{Scanning the system with penetration testing software}
-\end{itemize}
-
-
-%\newpage
-%\section{Public Health Significance}
- 
-%\section{Budget}
-%\label{section:budget}
-%Table~\ref{table:budget} reflects the total expenditures involved in this study. While not broken down by year, it is anticipated that these expenditures will take place over two years. Amounts specified are in US\$.
-%\begin{table}[h]
-%\centering
-%\begin{tabular}{lrlr}
-% 	\toprule
-%	Salaries/Wages    &  & 2670.60 \\
-%	\midrule
-%	& Mechanicals & 1965.00 \\
-%	&Field Operator & 705.60 \\
-%	\midrule
-%	Travel & & 2241.72 \\
-%	\midrule
-%	& In State & 2241.72 \\
-%	\midrule
-%	Supplies & & 6789.00 \\
-%	\midrule
-%	\midrule
-%	Project subtotal & & 11701.32 \\
-%	\midrule
-%	Indirect Costs (53\%)\tablefootnote{This may not be required if separate funding is not obtained. If that is not the case, the project subtotal should be considered the grand total for the project.} & & 6201.70 \\
-%	\toprule
-%	\toprule
-%	\textsc{Total Project}                      & & \underline{18387.92} \\
-%
-%	\bottomrule
-%    \bottomrule                
-%\end{tabular}
-%\caption[Total Budget Breakdown]{A breakdown of expenditures for this study}
-%\label{table:budget}
-%\end{table}
-%
-%%
-%% S A L A R I E S
-%%
-%\subsection{Salaries and Wages}
-%Table~\ref{table:salaries} reflects the salary expenditures for this study.  The components discussed in Section~\ref{section:system} will need to be installed in the existing enclosure. To accommodate these components, mechanical modifications will be required and will be carried out at the Yuma Agricultural Research Center. Once a modified system is ready, an operator qualified to operate a tractor in a field setting will conduct test runs using the system at the Valley Farm site of the Yuma Agricultural Research center.
-%\begin{table}[H] % Force the table to show below the paragraph
-%\centering
-%\begin{tabular}{lrlrlrlrlrlrlr}
-% 	\toprule
-%	Role & Per Hour & Hours Per Week & Weeks & ERE & Subtotal \\
-%	\toprule
-%	Mechanicals & 25.00 & 20 & 3 & 31.0\% & 1965.00 \\
-%	Field Operator & 15.00 & 2 & 20 & 17.6\% & 705.60 \\
-%	\toprule
-%	\toprule
-%	\textsc{Total Salaries} & & & & & \underline{2670.60} \\
-%
-%	\bottomrule
-%    \bottomrule                
-%\end{tabular}
-%\caption[Salary Breakdown]{A breakdown of salaries for this study}
-%\label{table:salaries}
-%\end{table}
-%
-%%
-%% T R A V E L
-%%
-%
-%\subsection{Travel}
-%Travel funds dedicated for in-state travel represent 6 trips to Yuma, Arizona to oversee physical system integration of the automated system and to oversee and collect data from field trials. These activities both take place at the University of Arizona Yuma Agricultural Center.
-%\begin{table}[H] % Force the table to show below the paragraph
-%\centering
-%\begin{tabular}{lrlr}
-% 	\toprule
-%	\toprule
-%	6 Trips to Yuma, AZ & & 2241.72 \\
-%	\midrule
-%	& Vehicle Rental for 2 days per trip @ \$67.31 & 1407.72 \\
-%	& Lodging for 1 day per trip @ \$94.00 & 564.00 \\
-%	& M\&IE for 2 days per trip @ \$45.00 & 270.00 \\
-%	\toprule
-%	\toprule
-%	\textsc{Total Travel}                      & & \underline{2241.72} \\
-%	\bottomrule
-%    \bottomrule                
-%\end{tabular}
-%\caption[Travel Budget Breakdown]{A breakdown of travel expenditures for this study}
-%\label{table:travel}
-%\end{table}
-
-%
-% S U P P L I E S
-%
-\section{Supplies}
-\label{section:supplies}
-Table~\ref{table:supplies} reflects the supply expenditures for this proposal. All of the supplies here represent the Bill of Materials (BOM) of the final system, and will be installed in the existing enclosure. These supplies are required to support the completion of the \textit{deployment} phase detailed in Section~\ref{section:phases}.\\
-
-\begin{table}[H] % Force the table to show below the paragraph
-\centering
-\begin{tabular}{lrlr}
- 	\toprule
- 	Item & Quantity & Price \\
- 	\midrule
-	Heavy Duty TRD-GK Rotary Encoder & 1 & 269.00 \\
-	NVIDIA Jetson & 2 @ 459 &918.00 \\
-	NVIDIA Jetson Enclosure &2 @ 25 & 50.00 \\
-	LED Lamps & 4 @ 150 & 600.00 \\
-	National Instruments CompactRIO&1& 1567.00 \\
-	9411 Module for RIO &1& 372.00 \\
-	9403 Module for RIO &1& 656.00 \\
-	Cables &6+& 75.00 \\
-	Basler ACE2 Machine Vision Camera &2 @ 730& 1460.00  \\
-	Computar C-Mount Lens &2 @ 320& 640.00 \\
-	POE+ Ethernet Switch &1& 50.00 \\
-	WiFi Outdoor Access Point &1& 70.00 \\
-	Encoder Power Supply &1& 12.00 \\
-	NVIDIA Jetson Power Supply &2 @ 25& 50.00 \\
-	\midrule
-	\midrule
-	\textsc{Total Supplies}                      & & \underline{6789.00} \\
-	\bottomrule
-    \bottomrule                
-\end{tabular}
-\caption[Supply Budget Breakdown]{A breakdown of supply expenditures for the deployment stage of this study}
-\label{table:supplies}
-\end{table}
 
 
 
 
-%\end{table}
+
 
 %REFERENCES
 %Use the Vancouver Style of referencing. This is found at this website:

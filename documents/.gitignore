@@ -1,0 +1,9 @@
+*.aux
+*.bcf
+*.hst
+*.lof
+*.lot
+*.xml
+*.gz
+*.toc
+*.ver
