@@ -1,4 +1,6 @@
 work/
 *.log
 *.log.*
+*.tar
+.idea/
 __pycache__/
