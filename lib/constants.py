@@ -23,7 +23,7 @@ EXTENSION_META = ".meta"
 EXTENSION_CSV = ".csv"
 
 FILENAME_RAW = "raw"
-FILENAME_FINISHED = "img"
+FILENAME_FINISHED = "finished"
 FILENAME_INTEL_RGB = "rgb"
 FILENAME_INTEL_DEPTH = "depth"
 
@@ -152,8 +152,8 @@ STRATEGY_ASYNC = 0
 STRATEGY_SYNC = 1
 
 # The number of images to keep
-IMAGE_QUEUE_LEN = 50
-DEPTH_QUEUE_LEN = 5
+IMAGE_QUEUE_LEN = 2
+DEPTH_QUEUE_LEN = 2
 # Probably way too long 5000 ms for camera to acquire image
 TIMEOUT_CAMERA = 5000
 
