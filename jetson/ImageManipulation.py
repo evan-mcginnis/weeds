@@ -157,7 +157,8 @@ class ImageManipulation:
     def addGPS(self, latitude: float, longitude: float):
         pass
 
-    def write(self, image: np.ndarray, name: str):
+    @staticmethod
+    def write(image: np.ndarray, name: str):
         cv.imwrite(name, image)
 
     def toRGB(self) -> np.ndarray:
