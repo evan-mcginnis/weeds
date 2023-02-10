@@ -30,6 +30,7 @@ import xmpp
 import constants
 
 from MUCCommunicator import MUCCommunicator
+from MQCommunicator import ClientMQCommunicator
 from Messages import MUCMessage, OdometryMessage, SystemMessage, TreatmentMessage
 from WeedExceptions import XMPPServerUnreachable, XMPPServerAuthFailure
 
@@ -73,6 +74,16 @@ class InitializationSignals(WeedsSignals):
     result = pyqtSignal(str, name="result")
     progress = pyqtSignal(int)
 
+class MQSignals(WeedsSignals):
+    distance = pyqtSignal(str, float, name="distance")
+    pulses = pyqtSignal(str, float, name="pulses")
+    speed = pyqtSignal(str, float, name="speed")
+    latitude = pyqtSignal(float, name="latitude")
+    longitude = pyqtSignal(float, name="longitude")
+    progress = pyqtSignal(float, name="progress")
+    agl = pyqtSignal(float, name="agl")
+    virtual = pyqtSignal()
+
 class OdometrySignals(WeedsSignals):
     distance = pyqtSignal(str, float, name="distance")
     pulses = pyqtSignal(str, float, name="pulses")
@@ -114,20 +125,18 @@ class Housekeeping(QRunnable):
             while not chatroom.connected:
                 log.debug("Waiting for {} room connection.".format(chatroom.muc))
                 time.sleep(2)
-            # Slow things down a bit so we can read the messages.  Not really needed
-            time.sleep(2)
             log.debug("Connected to {}".format(chatroom.muc))
             retries = 3
-            while retries and len(chatroom.occupants) == 0:
-                retries -= 1
-                log.debug("Fetching occupants")
-
-                # If we can't get the occupants, sleep for a bit to let the server settle
-                if not chatroom.getOccupants():
-                    time.sleep(2)
+            # while retries and len(chatroom.occupants) == 0:
+            #     retries -= 1
+            #     log.debug("Fetching occupants")
+            #
+            #     # If we can't get the occupants, sleep for a bit to let the server settle
+            #     if not chatroom.getOccupants():
+            #         time.sleep(2)
+            # log.debug("Occupant list for {} retrieved: {} occupants".format(chatroom.muc, len(chatroom.occupants)))
 
             self._signals.progress.emit(100)
-            log.debug("Occupant list for {} retrieved: {} occupants".format(chatroom.muc, len(chatroom.occupants)))
 
         # Have everyone run diagnostics
         systemMessage = SystemMessage()
@@ -164,16 +173,115 @@ class WorkerSystem(Worker):
 
 
 class WorkerOdometry(Worker):
-    def __init__(self, room):
+    def __init__(self, room, communicator: ClientMQCommunicator):
         super().__init__(room)
         self._signals = OdometrySignals()
-
+        self._communicator = communicator
+        self._currentOdometrySequence = -1
     @property
     def signals(self) -> OdometrySignals:
         return self._signals
 
     def run(self):
         processMessagesSync(self._room, self._signals)
+    def processOdometryMessage(self, message: str):
+
+        log.debug("Process WorkerOdometry message: {}".format(message))
+        odometryMessage = OdometryMessage(raw=message)
+        if odometryMessage.type == constants.OdometryMessageType.DISTANCE.name:
+            # Ignore this message if already processed
+            if odometryMessage.sequence == self._currentOdometrySequence:
+                log.debug("Sequence {} has already been processed".format(odometryMessage.sequence))
+                return
+            else:
+                self._currentOdometrySequence = odometryMessage.sequence
+
+            self._signals.pulses.emit(odometryMessage.source, float(odometryMessage.pulses))
+            self._signals.distance.emit(odometryMessage.source, float(odometryMessage.totalDistance))
+            self._signals.speed.emit(odometryMessage.source, float(odometryMessage.speed))
+        elif odometryMessage.type == constants.OdometryMessageType.POSITION.name:
+            self._signals.agl.emit(odometryMessage.depth)
+
+    def process(self, conn, msg: xmpp.protocol.Message):
+        log.debug("Process odometry XMPP message: {}".format(msg))
+        if msg.getFrom().getStripped() == options.option(constants.PROPERTY_SECTION_XMPP,
+                                                         constants.PROPERTY_ROOM_ODOMETRY):
+            odometryMessage = OdometryMessage(raw=msg.getBody())
+            if odometryMessage.type == constants.OdometryMessageType.DISTANCE.name:
+                self._signals.pulses.emit(odometryMessage.source, float(odometryMessage.pulses))
+                self._signals.distance.emit(odometryMessage.source, float(odometryMessage.speed))
+                # window.setSpeed(odometryMessage.speed)
+                self._signals.speed.emit(odometryMessage.source, float(odometryMessage.speed))
+                # window.setDistance(odometryMessage.totalDistance)
+            elif odometryMessage.type == constants.OdometryMessageType.POSITION.name:
+                self._signals.agl.emit(odometryMessage.depth)
+        else:
+            log.error("Processed message that was not for odometry")
+class WorkerMQ(Worker):
+    def __init__(self, room, communicator: ClientMQCommunicator):
+        super().__init__(room)
+        self._signals = MQSignals()
+        self._communicator = communicator
+        self._currentOdometrySequence = -1
+        self._processing = False
+    @property
+    def signals(self) -> MQSignals:
+        return self._signals
+
+    @property
+    def processing(self) -> bool:
+        return self._processing
+
+    @processing.setter
+    def processing(self, processingFlag):
+        self._processing = processingFlag
+
+    def connectMQ(self) -> bool:
+        serverResponding = False
+        while not serverResponding:
+            (serverResponding, response) = self._communicator.sendMessageAndWaitForResponse(constants.COMMAND_PING, 10000)
+            if not serverResponding:
+                log.error("Odometry server did not respond within 10 seconds. Will retry.")
+            else:
+                log.debug("Odometry server responded successfully")
+        return serverResponding
+    def run(self):
+        self._processing = True
+        # Wait for the initial connection before proceeding
+        serverResponding = self.connectMQ()
+        while self._processing:
+            (serverResponding, response) = self._communicator.sendMessageAndWaitForResponse(constants.COMMAND_ODOMETERY, 1000)
+            # If the server responds, process the message, otherwise reconnect.
+            if serverResponding:
+                odometryStatus = constants.OperationalStatus.OK
+                self.processOdometryMessage(response)
+            else:
+                odometryStatus = constants.OperationalStatus.FAIL
+                log.debug("The odometry server failed to respond. Reconnecting")
+                self.connectMQ()
+
+        # self._communicator.callback = self.processOdometryMessage
+        # while self._processing:
+        #     self._communicator.start(constants.COMMAND_ODOMETERY)
+        #     self._communicator.messages = 100
+    def processOdometryMessage(self, message: str):
+
+        log.debug("Process MQ message: {}".format(message))
+        odometryMessage = OdometryMessage(raw=message)
+        if odometryMessage.type == constants.OdometryMessageType.DISTANCE.name:
+            # if we have already processed the most current reading, just return
+            if odometryMessage.sequence == self._currentOdometrySequence:
+                return
+            else:
+                self._currentOdometrySequence = odometryMessage.sequence
+
+            self._signals.pulses.emit(odometryMessage.source, float(odometryMessage.pulses))
+            self._signals.distance.emit(odometryMessage.source, float(odometryMessage.totalDistance))
+            self._signals.speed.emit(odometryMessage.source, float(odometryMessage.speed))
+        elif odometryMessage.type == constants.OdometryMessageType.POSITION.name:
+            self._signals.agl.emit(odometryMessage.depth)
+        else:
+            log.error("Bad message type received")
 
     def process(self, conn, msg: xmpp.protocol.Message):
         if msg.getFrom().getStripped() == options.option(constants.PROPERTY_SECTION_XMPP,
@@ -189,6 +297,7 @@ class WorkerOdometry(Worker):
                 self._signals.agl.emit(odometryMessage.depth)
         else:
             log.error("Processed message that was not for odometry")
+
 
 
 class WorkerTreatment(Worker):
@@ -228,7 +337,7 @@ class DialogInit(QtWidgets.QDialog, Ui_initProgress):
         self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
 
     def updateProgress(self, percentComplete: int):
-        log.debug("Update progress: {}".format(percentComplete))
+        # log.debug("Update progress: {}".format(percentComplete))
         self._stepsComplete += 1
         self._percentComplete = int((self._stepsComplete * (100 / self._stepsTotal)))
         self.initiializationProgress.setValue(self._percentComplete)
@@ -290,6 +399,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self._systemRoom = None
         self._treatmentRoom = None
 
+        self._odometryMQCommunicator = None
+
         self._OKtoImage = False
 
         self.currentDistance = 0.0
@@ -302,8 +413,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self._odometrySignals = OdometrySignals()
         self._systemSignals = SystemSignals()
         self._treatmentSignals = TreatmentSignals()
+        self._mqSignals = MQSignals()
 
-        self.statusTable.setUpdatesEnabled(True)
+        # No longer used
+        # self.statusTable.setUpdatesEnabled(True)
 
         # Wire up the combo boxes to display the images
         self.images_left.activated[str].connect(self.onImageSelectedLeft)
@@ -532,6 +645,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         return self._taskHousekeeping
 
     @property
+    def taskMQ(self) -> WorkerMQ:
+        return self._taskMQ
+    @property
     def taskOdometry(self) -> WorkerOdometry:
         return self._taskOdometry
 
@@ -598,7 +714,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         # self.tractor_progress_right.setValue(percentage)
 
     def updateCurrentSpeed(self, source, speed: float):
-        log.debug("Update current {} speed to {}".format(source, speed))
+        # log.debug("Update current {} speed to {}".format(source, speed))
         if source == constants.SOURCE_VIRTUAL:
             self.average_kph.setStyleSheet("color: black; background-color: yellow")
         else:
@@ -606,7 +722,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.setSpeed(speed)
 
     def updateCurrentDistance(self, source: str, distance: float):
-        log.debug("Update current distance")
+        log.debug("Update current distance: {}".format(distance))
         self.currentDistance = distance
 
         # The distance in the message is in mm -- display is in cm
@@ -685,20 +801,22 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         statusItem.update()
 
     def setupWindow(self):
+        pass
+        # TODO: Safe to remove
         # Adjust the table headers.  Can't seem to set this in designer
-        header = self.statusTable.horizontalHeader()
-        header.setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(2, QtWidgets.QHeaderView.ResizeToContents)
-        # This seems like a bug in designer
-        self.statusTable.horizontalHeader().setVisible(True)
-        self.statusTable.verticalHeader().setVisible(True)
-
-        nNumRows = 7
-        nRowHeight = self.statusTable.rowHeight(0)
-        nTableHeight = (nNumRows * nRowHeight) + self.statusTable.horizontalHeader().height() + 2 * self.statusTable.frameWidth();
-        self.statusTable.setMinimumHeight(nTableHeight)
-        self.statusTable.setMaximumHeight(nTableHeight)
+        # header = self.statusTable.horizontalHeader()
+        # header.setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeToContents)
+        # header.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeToContents)
+        # header.setSectionResizeMode(2, QtWidgets.QHeaderView.ResizeToContents)
+        # # This seems like a bug in designer
+        # self.statusTable.horizontalHeader().setVisible(True)
+        # self.statusTable.verticalHeader().setVisible(True)
+        #
+        # nNumRows = 7
+        # nRowHeight = self.statusTable.rowHeight(0)
+        # nTableHeight = (nNumRows * nRowHeight) + self.statusTable.horizontalHeader().height() + 2 * self.statusTable.frameWidth();
+        # self.statusTable.setMinimumHeight(nTableHeight)
+        # self.statusTable.setMaximumHeight(nTableHeight)
 
 
     def setupRooms(self, odometryRoom: MUCCommunicator, systemRoom: MUCCommunicator, treatmentRoom: MUCCommunicator):
@@ -822,6 +940,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.left_checkbox_system.setChecked(self._statusToBool(systemMsg.statusSystem))
             self.left_checkbox_basler.setChecked(self._statusToBool(systemMsg.statusCamera))
             self.left_checkbox_intel.setChecked(self._statusToBool(systemMsg.statusIntel))
+            self.left_checkbox_odometry.setChecked(self._statusToBool(systemMsg.statusOdometry))
             self._diagnosticReceived(constants.Position.LEFT)
             self.groupLeft.setStyleSheet(stylesheet)
             # Temporary -- this should retrieve the details from the URL provided in the report
@@ -839,6 +958,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.right_checkbox_system.setChecked(self._statusToBool(systemMsg.statusSystem))
             self.right_checkbox_basler.setChecked(self._statusToBool(systemMsg.statusCamera))
             self.right_checkbox_intel.setChecked(self._statusToBool(systemMsg.statusIntel))
+            self.right_checkbox_odometry.setChecked(self._statusToBool(systemMsg.statusOdometry))
             self._diagnosticReceived(constants.Position.RIGHT)
             self.groupRight.setStyleSheet(stylesheet)
             # Temporary -- this should retrieve the details from the URL provided in the report
@@ -852,61 +972,64 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self._initializing.acquire()
 
         window.setSpeed(0)
-        stylesheet = "QHeaderView::section{Background-color:rgb(211,211,211); border - radius: 14px;}"
-        self.statusTable.setStyleSheet(stylesheet)
-        # Mark every occupant as missing
-        requiredOccupantCount = len(self._requiredOccupants)
-        for occupant in self._requiredOccupants:
-            x = occupant.get("status")[0]
-            y = occupant.get("status")[1]
-            self.statusTable.setItem(x, y, QtWidgets.QTableWidgetItem(constants.UI_STATUS_NOT_OK))
 
-        # This will split up a JID of the form <room-name>@<conference-name>.<domain>.<domain>/<nickname>
-        log.debug("System room has {} occupants".format(len(self._systemRoom.occupants)))
-        log.debug("Odometry room has {} occupants".format(len(self._odometryRoom.occupants)))
-        log.debug("Treatment room has {} occupants".format(len(self._treatmentRoom.occupants)))
-        allOccupants = self._systemRoom.occupants + self._odometryRoom.occupants + self._treatmentRoom.occupants
-        currentOccupantCount = len(allOccupants)
-        for occupant in allOccupants:
-            #for occupant in roomOccupants:
-                # The room name will be in the form name@<roomname>.conference.<domain>/<nickname>
-                room = occupant.get("jid")
-                #components = regularExpression.split(room)
-                (roomName, conferenceName, machineName, domainName, nickName) = self.breakdownMUCJID(room)
-                #roomName = components[0] + "@" + components[1] + "." + components[2] + "." +components[3]
-                fullRoomName = roomName + "@" + conferenceName + "." + machineName + "." + domainName
-                log.debug("Initial state for occupant: {}".format(occupant.get("name")))
-                self.setStatus(occupant.get("name"), fullRoomName, Presence.JOINED)
-
-        #self.updateCamera(constants.Position.LEFT.name, constants.OperationalStatus.UNKNOWN.name)
-        #self.updateCamera(constants.Position.RIGHT.name, constants.OperationalStatus.UNKNOWN.name)
-
-        # self.tractor_progress_left.setStyleSheet("color: white; background-color: green")
-        # self.tractor_progress_left.setValue(0)
-        # self.tractor_progress_right.setStyleSheet("color: white; background-color: green")
-        # self.tractor_progress_right.setValue(0)
-
-        self.noteMissingEntities()
+        # TODO: Remove references to status table
+        # stylesheet = "QHeaderView::section{Background-color:rgb(211,211,211); border - radius: 14px;}"
+        # self.statusTable.setStyleSheet(stylesheet)
+        # # Mark every occupant as missing
+        # requiredOccupantCount = len(self._requiredOccupants)
+        # for occupant in self._requiredOccupants:
+        #     x = occupant.get("status")[0]
+        #     y = occupant.get("status")[1]
+        #     self.statusTable.setItem(x, y, QtWidgets.QTableWidgetItem(constants.UI_STATUS_NOT_OK))
+        #
+        # # This will split up a JID of the form <room-name>@<conference-name>.<domain>.<domain>/<nickname>
+        # log.debug("System room has {} occupants".format(len(self._systemRoom.occupants)))
+        # log.debug("Odometry room has {} occupants".format(len(self._odometryRoom.occupants)))
+        # log.debug("Treatment room has {} occupants".format(len(self._treatmentRoom.occupants)))
+        # allOccupants = self._systemRoom.occupants + self._odometryRoom.occupants + self._treatmentRoom.occupants
+        # currentOccupantCount = len(allOccupants)
+        # for occupant in allOccupants:
+        #     #for occupant in roomOccupants:
+        #         # The room name will be in the form name@<roomname>.conference.<domain>/<nickname>
+        #         room = occupant.get("jid")
+        #         #components = regularExpression.split(room)
+        #         (roomName, conferenceName, machineName, domainName, nickName) = self.breakdownMUCJID(room)
+        #         #roomName = components[0] + "@" + components[1] + "." + components[2] + "." +components[3]
+        #         fullRoomName = roomName + "@" + conferenceName + "." + machineName + "." + domainName
+        #         log.debug("Initial state for occupant: {}".format(occupant.get("name")))
+        #         self.setStatus(occupant.get("name"), fullRoomName, Presence.JOINED)
+        #
+        # #self.updateCamera(constants.Position.LEFT.name, constants.OperationalStatus.UNKNOWN.name)
+        # #self.updateCamera(constants.Position.RIGHT.name, constants.OperationalStatus.UNKNOWN.name)
+        #
+        # # self.tractor_progress_left.setStyleSheet("color: white; background-color: green")
+        # # self.tractor_progress_left.setValue(0)
+        # # self.tractor_progress_right.setStyleSheet("color: white; background-color: green")
+        # # self.tractor_progress_right.setValue(0)
+        #
+        # self.noteMissingEntities()
+        #
+        #
+        # # Indicate that the status is not yet known
+        # stylesheet = "color: white; background-color: grey; font-size: 20pt"
+        # self.groupLeft.setStyleSheet(stylesheet)
+        # self.groupMiddle.setStyleSheet(stylesheet)
+        # self.groupRight.setStyleSheet(stylesheet)
+        #
+        # # Redo the status table sizing
+        # self.statusTable.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
+        #
+        # self.statusTable.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        # self.statusTable.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        #
+        # self.statusTable.resizeColumnsToContents()
+        # self.statusTable.setFixedSize(
+        #     self.statusTable.horizontalHeader().length() + self.statusTable.verticalHeader().width(),
+        #     self.statusTable.verticalHeader().length() + self.statusTable.horizontalHeader().height())
+        #
 
         self.getCurrentOperation()
-
-        # Indicate that the status is not yet known
-        stylesheet = "color: white; background-color: grey; font-size: 20pt"
-        self.groupLeft.setStyleSheet(stylesheet)
-        self.groupMiddle.setStyleSheet(stylesheet)
-        self.groupRight.setStyleSheet(stylesheet)
-
-        # Redo the status table sizing
-        self.statusTable.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
-
-        self.statusTable.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.statusTable.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-
-        self.statusTable.resizeColumnsToContents()
-        self.statusTable.setFixedSize(
-            self.statusTable.horizontalHeader().length() + self.statusTable.verticalHeader().width(),
-            self.statusTable.verticalHeader().length() + self.statusTable.horizontalHeader().height())
-
         # Indicate that initialization is complete
         self._initializing.release()
 
@@ -924,33 +1047,42 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         """
         Note missing entities by color coding them in the status table and putting an attention icon in the tab
         """
+        # TODO: Safe to remove
         # Iterate over the table and see if any entity is not there
-        missingEntities = 0
-        for row in range(self.statusTable.rowCount()):
-            for column in range(self.statusTable.columnCount()):
-                #self.statusTable.setItem(row, column, QtGui.)
-                _item = self.statusTable.item(row, column)
-                if _item:
-                    text = self.statusTable.item(row, column).text()
-                    if text == constants.UI_STATUS_NOT_OK:
-                        # Highlight the missing entity
-                        _item.setBackground(QtGui.QColor("red"))
-                        _item.setForeground(QtGui.QColor("white"))
-                        missingEntities += 1
+        # missingEntities = 0
+        # for row in range(self.statusTable.rowCount()):
+        #     for column in range(self.statusTable.columnCount()):
+        #         #self.statusTable.setItem(row, column, QtGui.)
+        #         _item = self.statusTable.item(row, column)
+        #         if _item:
+        #             text = self.statusTable.item(row, column).text()
+        #             if text == constants.UI_STATUS_NOT_OK:
+        #                 # Highlight the missing entity
+        #                 _item.setBackground(QtGui.QColor("red"))
+        #                 _item.setForeground(QtGui.QColor("white"))
+        #                 missingEntities += 1
+        #
+        # # Warn if all the occupants are not present
+        # if missingEntities:
+        #     log.error("All occupants are not in the rooms")
+        #     self.tabWidget.setIconSize(QtCore.QSize(32, 32))
+        #     # TODO: This causes an error on the console, as the color space has not been assigned
+        #     self.tabWidget.setTabIcon(1, QtGui.QIcon('exclamation.png'))
+        #     # Indicate if the user is to be warned about starting the imaging process
+        #     self.OKtoImage = False
+        # else:
+        #     self.tabWidget.setIconSize(QtCore.QSize(32, 32))
+        #     self.tabWidget.setTabIcon(1, QtGui.QIcon('checkbox.png'))
+        #     self.OKtoImage = True
 
-        # Warn if all the occupants are not present
-        if missingEntities:
-            log.error("All occupants are not in the rooms")
-            self.tabWidget.setIconSize(QtCore.QSize(32, 32))
-            # TODO: This causes an error on the console, as the color space has not been assigned
-            self.tabWidget.setTabIcon(1, QtGui.QIcon('exclamation.png'))
-            # Indicate if the user is to be warned about starting the imaging process
-            self.OKtoImage = False
-        else:
-            self.tabWidget.setIconSize(QtCore.QSize(32, 32))
-            self.tabWidget.setTabIcon(1, QtGui.QIcon('checkbox.png'))
-            self.OKtoImage = True
 
+    @property
+    def odometryMQ(self) -> ClientMQCommunicator:
+        return self._odometryMQCommunicator
+
+    @odometryMQ.setter
+    def odometryMQ(self, communicator: ClientMQCommunicator):
+        self._odometryMQCommunicator = communicator
 
     @property
     def odometryRoom(self) -> MUCCommunicator:
@@ -1054,39 +1186,40 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         :param occupant: The name of the occupant without the room name
         :param presence: Presence.JOINED or Presence.LEFT
         """
-        log.debug("Set status for {} in room {}".format(occupant, roomName))
-        # Walk through the list of required occupants
-        for requiredOccupant in self._requiredOccupants:
-            # If an occupant is supposed to be there, update the status
-            log.debug("Checking {} in room {} against {} {}".format(occupant, roomName, requiredOccupant.get("name"), requiredOccupant.get("room")))
-            if requiredOccupant.get("name") == occupant and requiredOccupant.get("room") == roomName:
-                # The occupant left or joined
-                x = requiredOccupant.get("status")[0]
-                y = requiredOccupant.get("status")[1]
-                if presence == Presence.LEFT.name:
-                    self.statusTable.setItem(x,y,QtWidgets.QTableWidgetItem(constants.UI_STATUS_NOT_OK))
-                    item = self.statusTable.item(x,y)
-                    item.setBackground(QtGui.QColor("red"))
-                    item.setForeground(QtGui.QColor("white"))
-                    #requiredOccupant.get("status").setText(constants.UI_STATUS_NOT_OK)
-                    #requiredOccupant.get("status").setStyleSheet("color: white; background-color: red")
-                else:
-                    self.statusTable.setItem(x, y, QtWidgets.QTableWidgetItem(constants.UI_STATUS_OK))
-                    item = self.statusTable.item(x, y)
-                    if item is not None:
-                        item.setBackground(QtGui.QColor("green"))
-                        item.setForeground(QtGui.QColor("black"))
-                    #requiredOccupant.get("status").setText(constants.UI_STATUS_OK)
-                    #requiredOccupant.get("status").setStyleSheet("color: white; background-color: green")
-
-        self.statusTable.update()
-
-        # Curious -- this is the only way to get the table to update from NOT OK to OK.  The other way works just fine.
-        self.statusTable.viewport().update()
-        #self.statusTable.repaint()
-
-        # Note in the tabs if someone is missing who should be there
-        self.noteMissingEntities()
+        # TODO: Safe to remove
+        # log.debug("Set status for {} in room {}".format(occupant, roomName))
+        # # Walk through the list of required occupants
+        # for requiredOccupant in self._requiredOccupants:
+        #     # If an occupant is supposed to be there, update the status
+        #     log.debug("Checking {} in room {} against {} {}".format(occupant, roomName, requiredOccupant.get("name"), requiredOccupant.get("room")))
+        #     if requiredOccupant.get("name") == occupant and requiredOccupant.get("room") == roomName:
+        #         # The occupant left or joined
+        #         x = requiredOccupant.get("status")[0]
+        #         y = requiredOccupant.get("status")[1]
+        #         if presence == Presence.LEFT.name:
+        #             self.statusTable.setItem(x,y,QtWidgets.QTableWidgetItem(constants.UI_STATUS_NOT_OK))
+        #             item = self.statusTable.item(x,y)
+        #             item.setBackground(QtGui.QColor("red"))
+        #             item.setForeground(QtGui.QColor("white"))
+        #             #requiredOccupant.get("status").setText(constants.UI_STATUS_NOT_OK)
+        #             #requiredOccupant.get("status").setStyleSheet("color: white; background-color: red")
+        #         else:
+        #             self.statusTable.setItem(x, y, QtWidgets.QTableWidgetItem(constants.UI_STATUS_OK))
+        #             item = self.statusTable.item(x, y)
+        #             if item is not None:
+        #                 item.setBackground(QtGui.QColor("green"))
+        #                 item.setForeground(QtGui.QColor("black"))
+        #             #requiredOccupant.get("status").setText(constants.UI_STATUS_OK)
+        #             #requiredOccupant.get("status").setStyleSheet("color: white; background-color: green")
+        #
+        # self.statusTable.update()
+        #
+        # # Curious -- this is the only way to get the table to update from NOT OK to OK.  The other way works just fine.
+        # self.statusTable.viewport().update()
+        # #self.statusTable.repaint()
+        #
+        # # Note in the tabs if someone is missing who should be there
+        # self.noteMissingEntities()
 
 
     def startOperation(self, operation: str, operationDescription: str):
@@ -1270,6 +1403,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.systemRoom.processing = False
         self.odometryRoom.processing = False
         self.treatmentRoom.processing = False
+        self.taskMQ.processing = False
 
         pool = QThreadPool.globalInstance()
 
@@ -1296,9 +1430,13 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self._taskSystem.setAutoDelete(True)
         self._systemSignals = self._taskSystem.signals
 
-        self._taskOdometry = WorkerOdometry(self._odometryRoom)
+        self._taskOdometry = WorkerOdometry(self._odometryRoom, self._odometryMQCommunicator)
         self._taskOdometry.setAutoDelete(True)
         self._odometrySignals = self._taskOdometry.signals
+
+        self._taskMQ = WorkerMQ(self._odometryRoom, self._odometryMQCommunicator)
+        self._taskMQ.setAutoDelete(True)
+        self._mqSignals = self._taskMQ.signals
 
         self._taskTreatment = WorkerTreatment(self._treatmentRoom)
         self._taskTreatment.setAutoDelete(True)
@@ -1317,6 +1455,15 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self._odometrySignals.agl.connect(self.updateAGL)
         self._odometrySignals.xmppStatus.connect(self.xmppError)
 
+        self._mqSignals.progress.connect(self.updateProgress)
+        self._mqSignals.distance.connect(self.updateCurrentDistance)
+        self._mqSignals.pulses.connect(self.updatePulses)
+        self._mqSignals.speed.connect(self.updateCurrentSpeed)
+        self._mqSignals.latitude.connect(self.updateLatitude)
+        self._mqSignals.longitude.connect(self.updateLongitude)
+        self._mqSignals.agl.connect(self.updateAGL)
+        self._mqSignals.xmppStatus.connect(self.xmppError)
+
         self._systemSignals.operation.connect(self.updateOperation)
         self._systemSignals.diagnostics.connect(self.updateStatusOfSystem)
         self._systemSignals.camera.connect(self.updateCamera)
@@ -1327,6 +1474,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         pool.start(self._taskSystem)
         pool.start(self._taskOdometry)
         pool.start(self._taskTreatment)
+        pool.start(self._taskMQ)
 
 
 
@@ -1348,7 +1496,7 @@ def process(conn, msg: xmpp.protocol.Message):
             return
 
     if msg.getFrom().getStripped() == options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_ODOMETRY):
-        log.debug("Processing Odometry message")
+        log.debug("Processing Odometry XMPP message")
         odometryMessage = OdometryMessage(raw=msg.getBody())
         signals = window.taskOdometry.signals
 
@@ -1413,6 +1561,7 @@ def process(conn, msg: xmpp.protocol.Message):
             signals.operation.emit(systemMessage.operation, systemMessage.name)
         if systemMessage.action == constants.Action.DIAG_REPORT.name:
             log.debug("Diagnostic report received for position {}".format(systemMessage.position))
+            log.debug(systemMessage)
             signals = window.taskSystem.signals
             signals.diagnostics.emit(systemMessage)
             # signals.diagnostics.emit(systemMessage.position, systemMessage.diagnostics)
@@ -1448,6 +1597,21 @@ def presenceCB(conn, presence: xmpp.protocol.Message):
                 log.debug("{} entered the room {}".format(presence.getFrom().getResource(), presence.getFrom()))
                 odometryRoom.occupantEntered(presence.getFrom().getResource(), presence.getFrom().getStripped())
         #window.setStatus()
+
+def startupMQCommunications(options: OptionsFile) -> ClientMQCommunicator:
+    """
+    Startup communications to the MQ server, but do not exchange messages
+    :param options:
+    :return: The client communicator
+    """
+    try:
+        communicator = ClientMQCommunicator(SERVER=options.option(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_SERVER),
+                                            PORT=constants.PORT_ODOMETRY)
+        communicator.connect()
+    except KeyError:
+        log.error("Unable to find {}/{} in ini file".format(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_SERVER))
+        communicator = None
+    return communicator
 
 def startupCommunications(options: OptionsFile):
     # The room that will get the announcements about forward or backward progress
@@ -1578,6 +1742,7 @@ logging.config.fileConfig(arguments.log)
 log = logging.getLogger("console")
 
 (odometryRoom, systemRoom, treatmentRoom) = startupCommunications(options)
+odometryMQ = startupMQCommunications(options)
 
 # Control the initialization with this semaphore
 initializing = Semaphore()
@@ -1592,6 +1757,7 @@ dialogInit = DialogInit(3, window.initializationSignals)
 dialogInit.show()
 
 window.setWindowTitle("University of Arizona")
+window.odometryMQ = odometryMQ
 window.odometryRoom = odometryRoom
 window.systemRoom = systemRoom
 window.treatmentRoom = treatmentRoom

@@ -322,6 +322,19 @@
            </spacer>
           </item>
           <item>
+           <spacer name="horizontalSpacer_19">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+          <item>
            <widget class="Line" name="line_4">
             <property name="minimumSize">
              <size>
@@ -333,6 +346,19 @@
              <enum>Qt::Vertical</enum>
             </property>
            </widget>
+          </item>
+          <item>
+           <spacer name="horizontalSpacer_13">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
           </item>
           <item>
            <layout class="QVBoxLayout" name="camera_right_stack">
@@ -1157,360 +1183,151 @@
        <attribute name="title">
         <string>Status</string>
        </attribute>
-       <layout class="QVBoxLayout" name="verticalLayout_21">
+       <layout class="QHBoxLayout" name="horizontalLayout_9">
         <item>
-         <layout class="QHBoxLayout" name="horizontalLayout_20">
-          <property name="sizeConstraint">
-           <enum>QLayout::SetMaximumSize</enum>
-          </property>
+         <layout class="QHBoxLayout" name="horizontalLayout_8">
           <item>
-           <widget class="QLabel" name="label_17">
-            <property name="maximumSize">
-             <size>
-              <width>16777215</width>
-              <height>50</height>
-             </size>
-            </property>
-            <property name="text">
-             <string>Conference Rooms</string>
-            </property>
-           </widget>
-          </item>
-         </layout>
-        </item>
-        <item>
-         <layout class="QHBoxLayout" name="horizontalLayout_21"/>
-        </item>
-        <item>
-         <layout class="QHBoxLayout" name="horizontalLayout_11">
-          <item>
-           <layout class="QHBoxLayout" name="horizontalLayout_10">
+           <layout class="QVBoxLayout" name="systemsVertical">
             <item>
-             <widget class="QTableWidget" name="statusTable">
-              <property name="enabled">
-               <bool>true</bool>
+             <widget class="QGroupBox" name="groupLeft">
+              <property name="toolTip">
+               <string>Overal status of left sytem</string>
               </property>
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-                <horstretch>1</horstretch>
-                <verstretch>1</verstretch>
-               </sizepolicy>
+              <property name="title">
+               <string>Left</string>
               </property>
-              <property name="minimumSize">
-               <size>
-                <width>750</width>
-                <height>550</height>
-               </size>
-              </property>
-              <property name="maximumSize">
-               <size>
-                <width>750</width>
-                <height>550</height>
-               </size>
-              </property>
-              <property name="font">
-               <font>
-                <pointsize>20</pointsize>
-               </font>
-              </property>
-              <property name="autoFillBackground">
-               <bool>true</bool>
-              </property>
-              <property name="frameShape">
-               <enum>QFrame::NoFrame</enum>
-              </property>
-              <property name="lineWidth">
-               <number>0</number>
-              </property>
-              <property name="showGrid">
-               <bool>true</bool>
-              </property>
-              <property name="cornerButtonEnabled">
-               <bool>true</bool>
-              </property>
-              <property name="rowCount">
-               <number>7</number>
-              </property>
-              <attribute name="horizontalHeaderVisible">
+              <property name="checkable">
                <bool>false</bool>
-              </attribute>
-              <attribute name="horizontalHeaderCascadingSectionResizes">
-               <bool>false</bool>
-              </attribute>
-              <attribute name="horizontalHeaderMinimumSectionSize">
-               <number>150</number>
-              </attribute>
-              <attribute name="horizontalHeaderDefaultSectionSize">
-               <number>150</number>
-              </attribute>
-              <attribute name="horizontalHeaderHighlightSections">
-               <bool>false</bool>
-              </attribute>
-              <attribute name="horizontalHeaderShowSortIndicator" stdset="0">
-               <bool>false</bool>
-              </attribute>
-              <attribute name="horizontalHeaderStretchLastSection">
-               <bool>false</bool>
-              </attribute>
-              <attribute name="verticalHeaderVisible">
-               <bool>false</bool>
-              </attribute>
-              <attribute name="verticalHeaderHighlightSections">
-               <bool>false</bool>
-              </attribute>
-              <row>
-               <property name="text">
-                <string>DAQ</string>
+              </property>
+              <layout class="QVBoxLayout" name="verticalLayout_18">
+               <property name="leftMargin">
+                <number>12</number>
                </property>
-               <property name="font">
-                <font>
-                 <pointsize>20</pointsize>
-                </font>
-               </property>
-              </row>
-              <row>
-               <property name="text">
-                <string>Jetson Left</string>
-               </property>
-               <property name="font">
-                <font>
-                 <pointsize>20</pointsize>
-                </font>
-               </property>
-              </row>
-              <row>
-               <property name="text">
-                <string>Jetson Right</string>
-               </property>
-               <property name="font">
-                <font>
-                 <pointsize>20</pointsize>
-                </font>
-               </property>
-              </row>
-              <row>
-               <property name="text">
-                <string>AWS Left</string>
-               </property>
-               <property name="font">
-                <font>
-                 <pointsize>20</pointsize>
-                </font>
-               </property>
-              </row>
-              <row>
-               <property name="text">
-                <string>AWS Middle</string>
-               </property>
-               <property name="font">
-                <font>
-                 <pointsize>20</pointsize>
-                </font>
-               </property>
-              </row>
-              <row>
-               <property name="text">
-                <string>AWS Right</string>
-               </property>
-               <property name="font">
-                <font>
-                 <pointsize>20</pointsize>
-                </font>
-               </property>
-              </row>
-              <row>
-               <property name="text">
-                <string>Controller</string>
-               </property>
-               <property name="font">
-                <font>
-                 <family>MS Shell Dlg 2</family>
-                 <pointsize>20</pointsize>
-                </font>
-               </property>
-              </row>
-              <column>
-               <property name="text">
-                <string>Treatment</string>
-               </property>
-               <property name="font">
-                <font>
-                 <pointsize>20</pointsize>
-                </font>
-               </property>
-              </column>
-              <column>
-               <property name="text">
-                <string>Odometry</string>
-               </property>
-               <property name="font">
-                <font>
-                 <pointsize>20</pointsize>
-                </font>
-               </property>
-              </column>
-              <column>
-               <property name="text">
-                <string>System</string>
-               </property>
-               <property name="font">
-                <font>
-                 <pointsize>20</pointsize>
-                </font>
-               </property>
-              </column>
-              <item row="0" column="0">
-               <property name="text">
-                <string/>
-               </property>
-               <property name="font">
-                <font>
-                 <pointsize>20</pointsize>
-                </font>
-               </property>
-              </item>
-              <item row="4" column="0">
-               <property name="text">
-                <string/>
-               </property>
-               <property name="font">
-                <font>
-                 <pointsize>20</pointsize>
-                </font>
-               </property>
-              </item>
+               <item>
+                <widget class="QCheckBox" name="left_checkbox_odometry">
+                 <property name="text">
+                  <string>Odometry</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="left_checkbox_system">
+                 <property name="text">
+                  <string>System</string>
+                 </property>
+                 <property name="checkable">
+                  <bool>false</bool>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="left_checkbox_basler">
+                 <property name="text">
+                  <string>Basler Camera</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="left_checkbox_intel">
+                 <property name="text">
+                  <string>Intel Camera</string>
+                 </property>
+                </widget>
+               </item>
+              </layout>
              </widget>
             </item>
             <item>
-             <layout class="QVBoxLayout" name="systemsVertical">
-              <item>
-               <widget class="QGroupBox" name="groupLeft">
-                <property name="toolTip">
-                 <string>Overal status of left sytem</string>
-                </property>
-                <property name="title">
-                 <string>Left</string>
-                </property>
-                <property name="checkable">
-                 <bool>false</bool>
-                </property>
-                <layout class="QVBoxLayout" name="verticalLayout_18">
-                 <property name="leftMargin">
-                  <number>12</number>
+             <widget class="QGroupBox" name="groupMiddle">
+              <property name="toolTip">
+               <string>Overall status of middle system</string>
+              </property>
+              <property name="title">
+               <string>Middle</string>
+              </property>
+              <layout class="QVBoxLayout" name="verticalLayout_15">
+               <property name="leftMargin">
+                <number>12</number>
+               </property>
+               <item>
+                <widget class="QCheckBox" name="middle_checkbox_gps">
+                 <property name="text">
+                  <string>GPS</string>
                  </property>
-                 <item>
-                  <widget class="QCheckBox" name="left_checkbox_system">
-                   <property name="text">
-                    <string>System</string>
-                   </property>
-                   <property name="checkable">
-                    <bool>false</bool>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QCheckBox" name="left_checkbox_basler">
-                   <property name="text">
-                    <string>Basler Camera</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QCheckBox" name="left_checkbox_intel">
-                   <property name="text">
-                    <string>Intel Camera</string>
-                   </property>
-                  </widget>
-                 </item>
-                </layout>
-               </widget>
-              </item>
-              <item>
-               <widget class="QGroupBox" name="groupMiddle">
-                <property name="toolTip">
-                 <string>Overall status of middle system</string>
-                </property>
-                <property name="title">
-                 <string>Middle</string>
-                </property>
-                <layout class="QVBoxLayout" name="verticalLayout_15">
-                 <property name="leftMargin">
-                  <number>12</number>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="middle_checkbox_system">
+                 <property name="text">
+                  <string>System</string>
                  </property>
-                 <item>
-                  <widget class="QCheckBox" name="middle_checkbox_gps">
-                   <property name="text">
-                    <string>GPS</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QCheckBox" name="middle_checkbox_system">
-                   <property name="text">
-                    <string>System</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QCheckBox" name="middle_checkbox_daq">
-                   <property name="text">
-                    <string>DAQ</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QCheckBox" name="middle_checkbox_intel">
-                   <property name="text">
-                    <string>Intel Camera</string>
-                   </property>
-                  </widget>
-                 </item>
-                </layout>
-               </widget>
-              </item>
-              <item>
-               <widget class="QGroupBox" name="groupRight">
-                <property name="toolTip">
-                 <string>Overall status of right system</string>
-                </property>
-                <property name="title">
-                 <string>Right</string>
-                </property>
-                <layout class="QVBoxLayout" name="verticalLayout_12">
-                 <property name="leftMargin">
-                  <number>12</number>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="middle_checkbox_daq">
+                 <property name="text">
+                  <string>DAQ</string>
                  </property>
-                 <item>
-                  <widget class="QCheckBox" name="right_checkbox_system">
-                   <property name="enabled">
-                    <bool>true</bool>
-                   </property>
-                   <property name="text">
-                    <string>System</string>
-                   </property>
-                   <property name="checkable">
-                    <bool>true</bool>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QCheckBox" name="right_checkbox_basler">
-                   <property name="text">
-                    <string>Basler Camera</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QCheckBox" name="right_checkbox_intel">
-                   <property name="text">
-                    <string>Intel Camera</string>
-                   </property>
-                  </widget>
-                 </item>
-                </layout>
-               </widget>
-              </item>
-             </layout>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="middle_checkbox_intel">
+                 <property name="text">
+                  <string>Intel Camera</string>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item>
+             <widget class="QGroupBox" name="groupRight">
+              <property name="toolTip">
+               <string>Overall status of right system</string>
+              </property>
+              <property name="title">
+               <string>Right</string>
+              </property>
+              <layout class="QVBoxLayout" name="verticalLayout_12">
+               <property name="leftMargin">
+                <number>12</number>
+               </property>
+               <item>
+                <widget class="QCheckBox" name="right_checkbox_odometry">
+                 <property name="text">
+                  <string>Odometry</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="right_checkbox_system">
+                 <property name="enabled">
+                  <bool>true</bool>
+                 </property>
+                 <property name="text">
+                  <string>System</string>
+                 </property>
+                 <property name="checkable">
+                  <bool>true</bool>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="right_checkbox_basler">
+                 <property name="text">
+                  <string>Basler Camera</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QCheckBox" name="right_checkbox_intel">
+                 <property name="text">
+                  <string>Intel Camera</string>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </widget>
             </item>
            </layout>
           </item>
@@ -1523,7 +1340,7 @@
              </sizepolicy>
             </property>
             <property name="currentIndex">
-             <number>1</number>
+             <number>0</number>
             </property>
             <widget class="QWidget" name="left">
              <attribute name="title">
@@ -1557,36 +1374,7 @@
             </widget>
            </widget>
           </item>
-          <item>
-           <spacer name="horizontalSpacer_16">
-            <property name="orientation">
-             <enum>Qt::Horizontal</enum>
-            </property>
-            <property name="sizeHint" stdset="0">
-             <size>
-              <width>40</width>
-              <height>20</height>
-             </size>
-            </property>
-           </spacer>
-          </item>
          </layout>
-        </item>
-        <item>
-         <spacer name="verticalSpacer_2">
-          <property name="orientation">
-           <enum>Qt::Vertical</enum>
-          </property>
-          <property name="sizeHint" stdset="0">
-           <size>
-            <width>20</width>
-            <height>40</height>
-           </size>
-          </property>
-         </spacer>
-        </item>
-        <item>
-         <layout class="QHBoxLayout" name="horizontalLayout_23"/>
         </item>
        </layout>
       </widget>

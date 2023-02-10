@@ -45,6 +45,7 @@ from Performance import Performance
 from Reporting import Reporting
 from Treatment import Treatment
 from MUCCommunicator import MUCCommunicator
+from MQCommunicator import ClientMQCommunicator
 from Messages import OdometryMessage, SystemMessage, TreatmentMessage
 from WeedExceptions import XMPPServerUnreachable, XMPPServerAuthFailure
 from CameraDepth import CameraDepth
@@ -1051,6 +1052,29 @@ def startupPerformance() -> Performance:
     return performance
 
 #
+# Z e r o M Q  C O M M U N I C A T I O N S
+#
+def startupMQCommunications(options: OptionsFile, processMessage: Callable) -> ClientMQCommunicator:
+    """
+    Startup communication to the MQ server.  This sets the command to retrieve odometry readings
+
+    :param options:
+    :param processMessage: a callback for each message received
+    :return: ClientMQCommunicator
+    """
+    try:
+        communicator = ClientMQCommunicator(SERVER=options.option(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_SERVER),
+                                            PORT=constants.PORT_ODOMETRY)
+    except KeyError:
+        log.error("Unable to find {}/{} in ini file".format(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_SERVER))
+        communicator = None
+
+    communicator.connect()
+    communicator.callback = processMessage
+
+    return communicator
+
+#
 # X M P P   C O M M U N I C A T I O N S
 #
 # def process(conn,msg):# xmpp.protocol.Message):
@@ -1789,6 +1813,7 @@ def runDiagnostics(systemRoom: MUCCommunicator, camera: _Camera):
     systemMessage.statusCamera = camera.status.name
     systemMessage.statusSystem = systemStatus.name
     systemMessage.statusIntel = intel435Status.name
+    systemMessage.statusOdometry = odometryStatus.name
 
     systemRoom.sendMessage(systemMessage.formMessage())
 
@@ -1796,6 +1821,10 @@ totalMovement = 0.0
 keepAliveMessages = 0
 movementSinceLastProcessing = 0.0
 movementSinceLastProcessingForIntel = 0.0
+
+# This is the current sequence number of the odometry messages.
+# Setting this to -1 means the first message will be processed
+currentSequenceNumberForOdometry = -1
 
 def messageIsCurrent(timestamp: int) -> bool:
     """
@@ -1852,10 +1881,95 @@ def messageSystemCB(conn,msg: xmpp.protocol.Message):
     else:
         log.error("Unknown message type {}".format(msg.getType()))
 
+
+def processOdometryMessage(message: str):
+    """
+    Process the odometry message
+    :param message: A JSON string of the message
+    """
+    global totalMovement
+    global keepAliveMessages
+    global movementSinceLastProcessing
+    global movementSinceLastProcessingForIntel
+    global currentSequenceNumberForOdometry
+    performance.start()
+    odometryMessage = OdometryMessage(raw=message)
+
+
+    # We are only concerned with distance messages here
+    if odometryMessage.type == constants.OdometryMessageType.DISTANCE.name:
+        # If the sequence number is the same as the last one, ignore
+        if odometryMessage.sequence == currentSequenceNumberForOdometry:
+            # log.debug("Sequence number {} already processed.".format(currentSequenceNumberForOdometry))
+            return
+        else:
+            currentSequenceNumberForOdometry = odometryMessage.sequence
+
+        totalMovement += odometryMessage.distance
+        movementSinceLastProcessing += odometryMessage.distance
+        movementSinceLastProcessingForIntel += odometryMessage.distance
+        # The time of the observation
+        timeRead = odometryMessage.timestamp
+        # Determine how old the observation is
+        # The version of python on the jetson does not support time_ns, so this a bit of a workaround until I
+        # get that sorted out.  Just convert the reading to milliseconds for now
+        # timeDelta = (time.time() * 1000) - (timeRead / 1000000)
+        timeDelta = (time.time() * 1000) - timeRead
+
+        # If the movement is equal to the size of the image, take a picture
+        # We need to allow for some overlap so the images can be stitched together.
+        # So reduce this by the overlap factor
+        # TODO: Optimize by moving this calculation out
+        gsdBasler = (1 - float(
+            options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_OVERLAP_FACTOR))) * camera.gsd
+        gsdIntel = (1 - float(
+            options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_OVERLAP_FACTOR))) * rgbDepthCamera.gsd
+        #
+        # log.debug("Total movement: {} at time: {}. Movement: {} GSD [Basler: {} Intel: {}] Time now is {} delta from now {} ms".
+        #           format(totalMovement, timeRead, movementSinceLastProcessing, gsdBasler, gsdIntel, time.time() * 1000, timeDelta))
+
+        # The Basler camera
+        if movementSinceLastProcessing > gsdBasler:
+            log.debug("Acquiring image from Basler.  Movement since last processing {} GSD {}".format(
+                movementSinceLastProcessing, gsdBasler))
+            movementSinceLastProcessing = 0
+
+            # Record the context under which this photo was taken
+            contextForImage = Context()
+            contextForImage.latitude = odometryMessage.latitude
+            contextForImage.longitude = odometryMessage.longitude
+            # Convert to kilometers
+            contextForImage.speed = odometryMessage.speed / 1e+6
+            # contextForPhoto.model
+            processor(contextForImage, constants.Capture.RGB)
+        # The intel RGB camera
+        elif movementSinceLastProcessingForIntel > gsdIntel:
+            log.debug("Acquiring image from Intel Camera.  Movement since last processing {} GSD {}".format(
+                movementSinceLastProcessingForIntel, gsdIntel))
+            movementSinceLastProcessingForIntel = 0
+
+            # Record the context under which this photo was taken
+            contextForImage = Context()
+            contextForImage.latitude = odometryMessage.latitude
+            contextForImage.longitude = odometryMessage.longitude
+            # Convert to kilometers
+            contextForImage.speed = odometryMessage.speed / 1e+6
+            # contextForPhoto.model
+            processor(contextForImage, constants.Capture.DEPTH_RGB)
+    else:
+        pass
+        # log.debug("Message type is not distance. Ignored")
+
+
+    # Too noisy -- less than 0.25 ms on the jetsons.  Good enough
+    #log.debug("Processed odometry message: {} ms".format(performance.stop()))
+
 #
 # The callback for messages received in the odometry room.
 # When the total distance is the width of the image, grab an image and process it.
 #
+
+# This is the MUC style of interaction
 
 def messageOdometryCB(conn, msg: xmpp.protocol.Message):
     global totalMovement
@@ -1956,6 +2070,44 @@ def messageTreatmentCB(conn,msg: xmpp.protocol.Message):
             print("private: " + str(msg.getFrom()) +  ":" +str(msg.getBody()))
     else:
         log.error("Unknown message type {}".format(msg.getType()))
+
+def connectMQ(communicator: ClientMQCommunicator) -> bool:
+    serverResponding = False
+    while not serverResponding:
+        (serverResponding, response) = communicator.sendMessageAndWaitForResponse(constants.COMMAND_PING, 10000)
+        if not serverResponding:
+            log.error("Odometry server did not respond within 10 seconds. Will retry.")
+        else:
+            log.debug("Odometry server responded successfully")
+    return serverResponding
+
+#
+# Process the incoming MQ stream
+#
+def processMQ(communicator: ClientMQCommunicator):
+    """
+    Process the incoming MQ stream.
+    :param communicator:
+    """
+    global odometryStatus
+    global processing
+
+    # Wait for tge initial connection before proceeding
+    serverResponding = connectMQ(communicator)
+
+    processing = True
+    # Continue processing messages until shutdown
+    while processing:
+        (serverResponding, response) = communicator.sendMessageAndWaitForResponse(constants.COMMAND_ODOMETERY, 1000)
+        # If the server responds, process the message, otherwise reconnect.
+        if serverResponding:
+            odometryStatus = constants.OperationalStatus.OK
+            processOdometryMessage(response)
+        else:
+            odometryStatus = constants.OperationalStatus.FAIL
+            log.debug("The odometry server failed to respond. Reconnecting")
+            communicator.disconnect()
+            connectMQ(communicator)
 
 #
 #
@@ -2124,6 +2276,7 @@ options = readINI()
 # Set the status of all components to failed initially
 systemStatus = constants.OperationalStatus.FAIL
 intel435Status = constants.OperationalStatus.FAIL
+odometryStatus = constants.OperationalStatus.FAIL
 
 currentSessionName = ""
 currentOperation = constants.Operation.QUIESCENT.name
@@ -2139,16 +2292,14 @@ log.debug("RGB camera started")
 rgbDepthCamera = startupRGBDepthCamera(options)
 
 
-# if depthCamera.state.is_idle:
-#     log.info("Depth camera started and is idle")
-# elif depthCamera.state.is_missing:
-#     log.error("Depth camera is missing")
-
 (roomOdometry, roomSystem, roomTreatment) = startupCommunications(options, messageOdometryCB, messageSystemCB, messageTreatmentCB)
 log.debug("Communications started")
 
+odometryMQ = startupMQCommunications(options, processOdometryMessage)
+
 performance = startupPerformance()
 log.debug("Performance started")
+
 
 # Start the worker threads, putting them in a list
 threads = list()
@@ -2181,12 +2332,19 @@ if not arguments.standalone:
     threads.append(acquireRGB)
     acquireRGB.start()
 
-    log.debug("Starting odometry receiver")
-    #generator = threading.Thread(name=constants.THREAD_NAME_ODOMETRY, target=processMessages, args=(roomOdometry,))
-    generator = threading.Thread(name=constants.THREAD_NAME_ODOMETRY, target=roomOdometry.processMessages, args=())
-    generator.daemon = True
-    threads.append(generator)
-    generator.start()
+    # TODO: This thread is no longer needed once MQ commmunications is debugged
+    # log.debug("Starting odometry MUC receiver")
+    # #generator = threading.Thread(name=constants.THREAD_NAME_ODOMETRY, target=processMessages, args=(roomOdometry,))
+    # generator = threading.Thread(name=constants.THREAD_NAME_ODOMETRY, target=roomOdometry.processMessages, args=())
+    # generator.daemon = True
+    # threads.append(generator)
+    # generator.start()
+
+    log.debug("Starting odometry MQ receiver")
+    odometryProcessor = threading.Thread(name=constants.THREAD_NAME_REQ_RSP, target=processMQ, args=(odometryMQ,))
+    odometryProcessor.daemon = True
+    threads.append(odometryProcessor)
+    odometryProcessor.start()
 
     log.debug("Starting system receiver")
     #sys = threading.Thread(name=constants.THREAD_NAME_SYSTEM, target=processMessages, args=(roomSystem,))

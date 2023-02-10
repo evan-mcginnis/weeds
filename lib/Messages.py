@@ -36,8 +36,19 @@ class MUCMessage(ABC):
         # If the init parameters contained the time, set it here.
         if constants.JSON_TIME in self._data:
             self._timestamp = self._data[constants.JSON_TIME]
+        if constants.JSON_SEQUENCE in self._data:
+            self._sequence = self._data[constants.JSON_SEQUENCE]
+        else:
+            self._sequence = 0
 
-        return
+    @property
+    def sequence(self) -> int:
+        return self._sequence
+
+    @sequence.setter
+    def sequence(self, theSequence: int):
+        self._sequence = theSequence
+        self._data[constants.JSON_SEQUENCE] = theSequence
 
     @property
     def timestamp(self) -> int:
@@ -111,6 +122,10 @@ class SystemMessage(MUCMessage):
             self._status_intel = self._data[constants.JSON_STATUS_INTEL]
         else:
             self._status_intel = ""
+        if constants.JSON_STATUS_ODOMETRY in self._data:
+            self._status_odometry = self._data[constants.JSON_STATUS_ODOMETRY]
+        else:
+            self._status_odometry = ""
         if constants.JSON_STATUS_DAQ in self._data:
             self._status_daq = self._data[constants.JSON_STATUS_DAQ]
         else:
@@ -123,6 +138,9 @@ class SystemMessage(MUCMessage):
             self._position = self._data[constants.JSON_POSITION]
         else:
             self._position = ""
+
+    def __str__(self):
+        return str(self._data)
 
     @property
     def position(self) -> str:
@@ -159,6 +177,15 @@ class SystemMessage(MUCMessage):
     def statusSystem(self, theStatus):
         self._status_camera = theStatus
         self._data[constants.JSON_STATUS_SYSTEM] = theStatus
+
+    @property
+    def statusOdometry(self) -> str:
+        return self._status_odometry
+
+    @statusOdometry.setter
+    def statusOdometry(self, theStatus: str):
+        self._status_odometry = theStatus
+        self._data[constants.JSON_STATUS_ODOMETRY] = theStatus
 
     @property
     def statusGPS(self) -> str:

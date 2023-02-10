@@ -38,6 +38,7 @@ from Odometer import Odometer, VirtualOdometer
 from PhysicalOdometer import PhysicalOdometer
 from Emitter import PhysicalEmitter, VirtualEmitter
 from MUCCommunicator import MUCCommunicator
+from MQCommunicator import ServerMQCommunicator
 from Messages import OdometryMessage, SystemMessage, TreatmentMessage
 from GPSClient import GPS
 from CameraDepth import CameraDepth
@@ -554,6 +555,26 @@ def processOdometry(conn, msg: xmpp.protocol.Message):
             #     endSession(options)
 
 
+def startupMQCommunications(options: OptionsFile) -> ServerMQCommunicator:
+
+    # Establish the odometry server listening for requests on the odometry port
+    communicator = ServerMQCommunicator(PORT=constants.PORT_ODOMETRY)
+
+    # Set the initial message we will respond with
+    message = OdometryMessage()
+    message.sequence = -1
+    message.speed = 0.0
+    message.pulses = 0
+    message.distance = 0.0
+    message.totalDistance = 0
+    message.timestamp = nanoseconds()
+    message.source = odometer.source
+    message.type = constants.OdometryMessageType.DISTANCE
+
+    communicator.message = message.formMessage()
+
+    return communicator
+
 def startupCommunications(options: OptionsFile) -> ():
     """
     Start communications with three MUCs: odometry, system, and treatment
@@ -800,6 +821,7 @@ def serviceQueue(odometer : PhysicalOdometer, odometryRoom: MUCCommunicator, ann
     mmTotalTravel = 0.0
     distanceTraveledSinceLastMessage = 0.0
     servicing = True
+    sequenceNumber = 0
 
     while not odometryRoom.connected:
         log.debug("Waiting for odometry room connection")
@@ -849,17 +871,19 @@ def serviceQueue(odometer : PhysicalOdometer, odometryRoom: MUCCommunicator, ann
         if cameraForIMU.connected:
             gyro = np.array2string(cameraForIMU.gyro, formatter={'float_kind': lambda x: "%.2f" % x})
             acceleration = np.array2string(cameraForIMU.acceleration, formatter={'float_kind': lambda x: "%.2f" % x})
-            log.debug("{:.4f} mm Total: {:.4f} mm elapsed {:.4f} Speed {:.4f} kph location: {} gyro: {} acceleration {}".
-                      format(mmTraveled, mmTotalTravel, elapsedSeconds, kph, position, gyro, acceleration))
+            # log.debug("{:.4f} mm Total: {:.4f} mm elapsed {:.4f} Speed {:.4f} kph location: {} gyro: {} acceleration {}".
+            #           format(mmTraveled, mmTotalTravel, elapsedSeconds, kph, position, gyro, acceleration))
         else:
-            log.debug("{:.4f} mm Total: {:.4f} mm elapsed {:.4f} Speed {:.4f} kph location: {} ".
-                      format(mmTraveled, mmTotalTravel, elapsedSeconds, kph, position))
+            pass
+            # log.debug("{:.4f} mm Total: {:.4f} mm elapsed {:.4f} Speed {:.4f} kph location: {} ".
+            #           format(mmTraveled, mmTotalTravel, elapsedSeconds, kph, position))
 
         # Send out a message every time the system traverses the distance specified -- forward or backward
 
         distanceTraveledSinceLastMessage += mmTraveled
         if distanceTraveledSinceLastMessage >= announcements or distanceTraveledSinceLastMessage <= -announcements:
 
+            log.debug("Distance travelled since last message: {}".format(distanceTraveledSinceLastMessage))
             # Create a blank odometry message
             message = OdometryMessage()
 
@@ -882,19 +906,42 @@ def serviceQueue(odometer : PhysicalOdometer, odometryRoom: MUCCommunicator, ann
             message.timestamp = nanoseconds()
             message.source = odometer.source
             message.type = constants.OdometryMessageType.DISTANCE
+            # Increment the sequence number so that clients know that this is a new reading
+            sequenceNumber += 1
+            message.sequence = sequenceNumber
             messageText = message.formMessage()
             #log.debug("Sending: {}".format(message.formMessage()))
 
-            odometryRoom.sendMessage(messageText)
-            # try:
-            #     odometryRoom.sendMessage(messageText)
-            # except Exception as e:
-            #     log.fatal("---- Error in sending message ----")
-            #     log.fatal("Raw {}".format(e))
+            # Transition this to zeromq communication
+            # Set the current message to the text -- the client will ask for it when it wants it
+            odometryMQ.message = messageText
+            # Very noisy
+            # log.debug("Current message: {}".format(messageText))
+
+            # This is the style where movement is announced to the room
+            # BUt this seems to have performance limitations, as we are kicked out of the room after 250K messages
+            # odometryRoom.sendMessage(messageText)
+
+
             distanceTraveledSinceLastMessage = 0.0
 
         i += 1
 
+
+def requestResponse(communicator: ServerMQCommunicator):
+    """
+    Process requests from clients
+    :param communicator:
+    """
+    while True:
+        message = communicator.receiveMessage()
+        # log.debug("Received message: {}".format(message))
+        if message == constants.COMMAND_ODOMETERY:
+            # Respond with the current message
+            # log.debug("Send: [{}]".format(communicator.message))
+            communicator.sendMessage()
+        elif message == constants.COMMAND_PING:
+            communicator.sendSpecificMessage(constants.RESPONSE_ACK)
 
 #log.setLevel(logging.INFO)
 def processMessages(odometry: MUCCommunicator):
@@ -1006,6 +1053,10 @@ gps = startupGPS()
 
 # Startup communication to the MUC
 (odometryRoom, odometryRoom2, systemRoom, treatmentRoom) = startupCommunications(options)
+
+# Start communications with the Odometry ZMQ server
+odometryMQ = startupMQCommunications(options)
+
 threads = list()
 
 # log.debug("Start generator thread")
@@ -1044,6 +1095,12 @@ odometry = threading.Thread(name=constants.THREAD_NAME_ODOMETRY, target=processO
 odometry.daemon = True
 threads.append(odometry)
 odometry.start()
+
+log.debug("Start REQ/RSP thread")
+reqRsp = threading.Thread(name=constants.THREAD_NAME_REQ_RSP, target=requestResponse, args=(odometryMQ,))
+reqRsp.daemon = True
+threads.append(reqRsp)
+reqRsp.start()
 
 log.debug("Start IMU thread")
 imu = threading.Thread(name=constants.THREAD_NAME_IMU, target=takeIMUReadings, args=(cameraForIMU,))
