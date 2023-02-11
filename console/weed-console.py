@@ -199,6 +199,13 @@ class WorkerOdometry(Worker):
             self._signals.pulses.emit(odometryMessage.source, float(odometryMessage.pulses))
             self._signals.distance.emit(odometryMessage.source, float(odometryMessage.totalDistance))
             self._signals.speed.emit(odometryMessage.source, float(odometryMessage.speed))
+            # See if we have lat/long.  Bad form here, as 0,0 is a legit value
+            if odometryMessage.latitude != 0:
+                self._signals.latitude.emit(float(odometryMessage.latitude))
+                self._signals.longitude.emit(float(odometryMessage.longitude))
+            else:
+                self._signals.latitude.emit(0.0)
+                self._signals.longitude.emit(0.0)
         elif odometryMessage.type == constants.OdometryMessageType.POSITION.name:
             self._signals.agl.emit(odometryMessage.depth)
 
@@ -238,13 +245,16 @@ class WorkerMQ(Worker):
 
     def connectMQ(self) -> bool:
         serverResponding = False
+        self._communicator.connect()
         while not serverResponding:
             (serverResponding, response) = self._communicator.sendMessageAndWaitForResponse(constants.COMMAND_PING, 10000)
             if not serverResponding:
                 log.error("Odometry server did not respond within 10 seconds. Will retry.")
+                self._communicator.disconnect()
             else:
                 log.debug("Odometry server responded successfully")
         return serverResponding
+
     def run(self):
         self._processing = True
         # Wait for the initial connection before proceeding
@@ -258,6 +268,7 @@ class WorkerMQ(Worker):
             else:
                 odometryStatus = constants.OperationalStatus.FAIL
                 log.debug("The odometry server failed to respond. Reconnecting")
+                self._communicator.disconnect()
                 self.connectMQ()
 
         # self._communicator.callback = self.processOdometryMessage
@@ -266,7 +277,7 @@ class WorkerMQ(Worker):
         #     self._communicator.messages = 100
     def processOdometryMessage(self, message: str):
 
-        log.debug("Process MQ message: {}".format(message))
+        # log.debug("Process MQ message: {}".format(message))
         odometryMessage = OdometryMessage(raw=message)
         if odometryMessage.type == constants.OdometryMessageType.DISTANCE.name:
             # if we have already processed the most current reading, just return
@@ -278,6 +289,13 @@ class WorkerMQ(Worker):
             self._signals.pulses.emit(odometryMessage.source, float(odometryMessage.pulses))
             self._signals.distance.emit(odometryMessage.source, float(odometryMessage.totalDistance))
             self._signals.speed.emit(odometryMessage.source, float(odometryMessage.speed))
+            # See if we have lat/long.  Bad form here, as 0,0 is a legit value
+            if odometryMessage.latitude != 0:
+                self._signals.latitude.emit(float(odometryMessage.latitude))
+                self._signals.longitude.emit(float(odometryMessage.longitude))
+            else:
+                self._signals.latitude.emit(0.0)
+                self._signals.longitude.emit(0.0)
         elif odometryMessage.type == constants.OdometryMessageType.POSITION.name:
             self._signals.agl.emit(odometryMessage.depth)
         else:
@@ -460,14 +478,16 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.setEmitterButtonHandler()
 
         # Run diagnostics every 5 seconds
-        self.diagnosticTimer = QTimer()
-        self.diagnosticTimer.timeout.connect(self.startDiagnostics)
-        self.diagnosticTimer.start(5000)
+        # Move this to the controller subsystem that is on the middle system.  The tablet may not always be in contact
+        # with the weeding system
+        # self.diagnosticTimer = QTimer()
+        # self.diagnosticTimer.timeout.connect(self.startDiagnostics)
+        # self.diagnosticTimer.start(5000)
 
         # Run another timer to mark things as failed it we haven't heard from them in a while
         self.unresponsiveTimer = QTimer()
-        self.diagnosticTimer.timeout.connect(self.markSystemsAsFailed)
-        self.diagnosticTimer.start(8000)
+        self.unresponsiveTimer.timeout.connect(self.markSystemsAsFailed)
+        self.unresponsiveTimer.start(8000)
 
         self.diagnosticsReceivedFromLeft = 0
         self.diagnosticsReceivedFromRight = 0
@@ -529,6 +549,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.images_left_intel.setStyleSheet(self.stylesheetNotSelected)
         sending.setStyleSheet(self.stylesheetCurrent)
         self.showImage(constants.Position.LEFT, url)
+        log.debug("Display: {}".format(url))
 
     def onImageSelectedRight(self, imageName: str):
         sending = self.sender()
@@ -1174,9 +1195,11 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         except urllib.error.HTTPError as httperror:
             log.error("Unable to fetch from URL: {}".format(url))
             log.error(httperror)
+            self.displayError("Unable to fetch image.  The web service may need a restart")
         except urllib.error.URLError as urlerror:
             log.error("Unable to fetch from URL: {}".format(url))
             log.error(urlerror)
+            self.displayError("Unable to fetch image.  The web service may need a restart")
 
     def setStatus(self, occupant: str, roomName: str, presence: Presence):
         """
@@ -1367,6 +1390,14 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self._dialogDisconnected.setText("Connection restored")
         else:
             log.debug("Unknown state: ({})".format(str))
+
+    def displayError(self, text):
+        error_dialog = QtWidgets.QErrorMessage()
+        error_dialog.showMessage(text)
+        choice = QMessageBox.critical(None,
+                                      "Error",
+                                      text,
+                                      QMessageBox.Ok)
 
     def confirmOperation(self, text):
         """
