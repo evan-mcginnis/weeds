@@ -246,7 +246,11 @@ class WorkerMQ(Worker):
     def connectMQ(self) -> bool:
         serverResponding = False
         self._communicator.connect()
+
         while not serverResponding:
+            # This is a bit of a corner case -- if the server is not responding and we are shutting down, just return
+            if not self._processing:
+                return False
             (serverResponding, response) = self._communicator.sendMessageAndWaitForResponse(constants.COMMAND_PING, 10000)
             if not serverResponding:
                 log.error("Odometry server did not respond within 10 seconds. Will retry.")
@@ -386,6 +390,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self._taskTreatment = None
         self._distanceOverCapturedLength = 0.0
         self._currentPulses = 0
+        self._currentSessionName = ""
         self.setupUi(self)
 
         # Wire up the buttons
@@ -496,16 +501,26 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.KEY_DIAGNOSTIC_TIME = 'diagnostic'
         self.KEY_GROUP = 'group'
         self.KEY_GROUP_NAME = 'name'
+        self.KEY_STATUS = 'status'
 
         self._systems = [
-            {self.KEY_DIAGNOSTIC_TIME: 0, self.KEY_GROUP: self.groupLeft, self.KEY_GROUP_NAME: constants.Position.LEFT.name},
-            {self.KEY_DIAGNOSTIC_TIME: 0, self.KEY_GROUP: self.groupMiddle, self.KEY_GROUP_NAME: constants.Position.MIDDLE.name},
-            {self.KEY_DIAGNOSTIC_TIME: 0, self.KEY_GROUP: self.groupRight, self.KEY_GROUP_NAME: constants.Position.RIGHT.name}
+            {self.KEY_DIAGNOSTIC_TIME: 0, self.KEY_GROUP: self.groupLeft, self.KEY_GROUP_NAME: constants.Position.LEFT.name, self.KEY_STATUS: constants.OperationalStatus.FAIL},
+            {self.KEY_DIAGNOSTIC_TIME: 0, self.KEY_GROUP: self.groupMiddle, self.KEY_GROUP_NAME: constants.Position.MIDDLE.name, self.KEY_STATUS: constants.OperationalStatus.FAIL},
+            {self.KEY_DIAGNOSTIC_TIME: 0, self.KEY_GROUP: self.groupRight, self.KEY_GROUP_NAME: constants.Position.RIGHT.name, self.KEY_STATUS: constants.OperationalStatus.FAIL}
         ]
+        self._entitiesHaveFailed = True
 
         # These are for the image selection combo boxes
         self.stylesheetCurrent = "background-color: green; font-size: 20pt"
         self.stylesheetNotSelected = "background-color: light grey; font-size: 20pt"
+
+    @property
+    def currentSessionName(self) -> str:
+        return self._currentSessionName
+
+    @currentSessionName.setter
+    def currentSessionName(self, theSessionName: str):
+        self._currentSessionName = theSessionName
 
     def sliderValueChanged(self):
         sending = self.sender()
@@ -531,6 +546,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             log.debug(f"Last diagnostic received for {group[self.KEY_GROUP_NAME]}: {time.time() - group[self.KEY_DIAGNOSTIC_TIME]} s ago")
             if (float(group[self.KEY_DIAGNOSTIC_TIME]) + 9.0) < time.time():
                 log.debug("Diagnostics have not been received for position: {}".format(group[self.KEY_GROUP_NAME]))
+                group[self.KEY_STATUS] = constants.OperationalStatus.FAIL
+                self._entitiesHaveFailed = True
+                self.noteFailedEntities()
                 group[self.KEY_GROUP].setStyleSheet(stylesheet)
 
     def indicateSourceOfImage(self, object: QObject):
@@ -778,7 +796,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
             self.tabWidget.setIconSize(QtCore.QSize(32, 32))
             self.tabWidget.setTabIcon(0, QtGui.QIcon('camera.png'))
-            self.status_current_operation.setText(constants.UI_OPERATION_IMAGING)
+            # The current session name has a UUID at the end that is not of interest
+            items = self._currentSessionName.split('-')
+            shortName = '-'.join(items[0:7])
+            self.status_current_operation.setText("{}: {}".format(constants.UI_OPERATION_IMAGING, shortName))
         elif operation == constants.Operation.QUIESCENT.name:
             self.button_start.setEnabled(False)
             self.button_start_imaging.setEnabled(True)
@@ -799,7 +820,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         :param result: OK, NOT_OK, or UNKNOWN
         :return:
         """
-        log.debug("Update camera status: {}/{}".format(position,result))
+        log.debug("Update camera status: {}/{}".format(position, result))
         if position.lower() == constants.Position.LEFT.name.lower():
             statusItem = self.status_camera_left
         elif position.lower() == constants.Position.RIGHT.name.lower():
@@ -944,18 +965,31 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def updateStatusOfSystem(self, systemMsg: SystemMessage):
         """
         Update the presentation of the status of a system
-        :param position: left, middle, or right
-        :param status: array of booleans (true == OK, false == NOT OK)
+        :param systemMsg: The system message containing the diagnostic report
         """
 
         log.debug("Update status for position: {}".format(systemMsg.position))
 
+        # Find the system so its status can be updated
+        theSystem = None
+        for system in self._systems:
+            if system[self.KEY_GROUP_NAME].lower() == systemMsg.position:
+                theSystem = system
+
         if systemMsg.diagnostics == constants.OperationalStatus.FAIL.name:
             stylesheet = "color: white; background-color: red; font-size: 20pt"
+            if theSystem is not None:
+                theSystem[self.KEY_STATUS] = constants.OperationalStatus.FAIL
         elif systemMsg.diagnostics == constants.OperationalStatus.OK.name:
             stylesheet = "color: white; background-color: green; font-size: 20pt"
+            if theSystem is not None:
+                theSystem[self.KEY_STATUS] = constants.OperationalStatus.OK
+            self._entitiesHaveFailed = False
         else:
             stylesheet = "color: white; background-color: grey; font-size: 20pt"
+            if theSystem is not None:
+                theSystem[self.KEY_STATUS] = constants.OperationalStatus.FAIL
+            self._entitiesHaveFailed = True
 
         if systemMsg.position == constants.Position.LEFT.name.lower():
             self.left_checkbox_system.setChecked(self._statusToBool(systemMsg.statusSystem))
@@ -984,6 +1018,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.groupRight.setStyleSheet(stylesheet)
             # Temporary -- this should retrieve the details from the URL provided in the report
             self.diagnostic_details_right.setText(lorem.paragraphs(2))
+
+        self.noteFailedEntities()
 
     def setInitialState(self):
         """
@@ -1063,6 +1099,26 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         systemMessage.action = constants.Action.CURRENT.name
         self._systemRoom.sendMessage(systemMessage.formMessage())
+
+    def noteFailedEntities(self):
+
+        failureCount = 0
+        for group in self._systems:
+            status = group[self.KEY_STATUS]
+            if status == constants.OperationalStatus.FAIL:
+                failureCount += 1
+
+        if failureCount > 0:
+            log.error("One or more systems are reporting failures")
+            self.tabWidget.setIconSize(QtCore.QSize(32, 32))
+            # TODO: This causes an error on the console, as the color space has not been assigned
+            self.tabWidget.setTabIcon(1, QtGui.QIcon('exclamation.png'))
+            # Indicate if the user is to be warned about starting the imaging process
+            self.OKtoImage = False
+        else:
+            self.tabWidget.setIconSize(QtCore.QSize(32, 32))
+            self.tabWidget.setTabIcon(1, QtGui.QIcon('checkbox.png'))
+            self.OKtoImage = True
 
     def noteMissingEntities(self):
         """
@@ -1581,13 +1637,16 @@ def process(conn, msg: xmpp.protocol.Message):
         systemMessage = SystemMessage(raw=msg.getBody())
         # Start the operation
         if systemMessage.action == constants.Action.START.name:
+            window.currentSessionName = systemMessage.name
             signals = window.taskSystem.signals
             signals.operation.emit(systemMessage.operation, systemMessage.name)
         # Stop the operation
         if systemMessage.action == constants.Action.STOP.name:
             signals = window.taskSystem.signals
+            window.currentSessionName = ""
             signals.operation.emit(constants.Operation.QUIESCENT.name, systemMessage.name)
         if systemMessage.action == constants.Action.ACK.name:
+            window.currentSessionName = systemMessage.name
             signals = window.taskSystem.signals
             signals.operation.emit(systemMessage.operation, systemMessage.name)
         if systemMessage.action == constants.Action.DIAG_REPORT.name:
