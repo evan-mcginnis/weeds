@@ -31,6 +31,7 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 
 from review_ui import Ui_MainWindow
+from select_image_set import Ui_select_image_set
 
 FILE_PROGRESS = "progress.ini"
 ATTRIBUTE_CURRENT = "CURRENT"
@@ -40,6 +41,63 @@ UNKNOWN_LONG = -999
 NOT_SET = "-----"
 UNKNOWN_STR = NOT_SET
 
+class SelectImageSet(QDialog):
+    def __init__(self, directory: str, parent=None):
+        super().__init__(parent)
+        self._directory = directory
+        # Create an instance of the GUI
+        self.ui = Ui_select_image_set()
+        # Run the .setupUi() method to show the GUI
+        self.ui.setupUi(self)
+        self.ui.imageType.addItem("Basler RGB")
+        self.ui.imageType.addItem("Intel RGB")
+        self.ui.imageType.addItem("Intel Depth")
+        self.ui.image_position.addItem("Left", "left")
+        self.ui.image_position.addItem("Middle", "middle")
+        self.ui.image_position.addItem("Right", "right")
+
+        self.ui.ok.setEnabled(False)
+
+        self.ui.image_sets.clicked.connect(self.imageSetSelected)
+        self.ui.ok.clicked.connect(self.ok)
+
+        self._selectedImageType = 0
+        self._selectedImageSet = ""
+        self._selectedImagePosition = 0
+        self._pattern = ""
+
+        # POSITION is replaced by the actual position of the images, left, middle, right
+        self._patterns = ["finished-basler-POSITION-*.jpg", "finished-intel-POSITION-*.jpg", "depth-POSITION-*.npy"]
+    @property
+    def pattern(self) -> str:
+        return self._pattern
+
+
+    @property
+    def selectedSet(self) -> str:
+        return self._selectedImageSet
+
+    def selectedTypePattern(self, type: int, position: str) -> str:
+        return self._patterns[type].replace("POSITION", position)
+
+    def ok(self):
+        self._selectedImageSet = self.ui.image_sets.currentItem().text()
+        self._selectedImageType = self.ui.imageType.currentIndex()
+        self._selectedImagePosition = self.ui.image_position.currentData()
+
+        self._pattern = self.selectedTypePattern(self._selectedImageType, self._selectedImagePosition)
+        self.close()
+    def imageSetSelected(self):
+        self.ui.ok.setEnabled(True)
+
+    def getImageSets(self):
+        self._fileNames = glob.glob(self._directory + "/*")
+        self._directories = list(filter(os.path.isdir, os.listdir(os.curdir)))
+        # self._fileNames = sorted(glob.glob(self._directory + "/"), key=os.path.getmtime)
+        for directory in self._directories:
+            imageSetName = os.path.basename(directory)
+            #imageComonent imageSetName.split('-')
+            self.ui.image_sets.addItem(imageSetName)
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def __init__(self, *args, **kwargs):
         super(MainWindow, self).__init__(*args, **kwargs)
@@ -86,6 +144,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         pass
 
     def toggleView(self):
+        pass
+
+    def selectImageSet(self):
         pass
 
     def confirmResumeReview(self, text) -> bool:
@@ -289,7 +350,11 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             rc = False
         return rc
 
-    def loadImagesFromDirectory(self, directory: str) -> bool:
+
+    def selectDirectory(self) -> str:
+        return("C:\\tmp\\output\\tucson-2023-02-12-03-24-31-e65r6xv3ni1eeo56o9zv4i3f3")
+
+    def loadImagesFromDirectory(self, directory: str, pattern: str) -> bool:
         """
         Finds the images in the specified directory and sorts them by modification time
         :param directory:
@@ -300,7 +365,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         rc = True
         try:
-            self._fileNames = sorted(glob.glob(directory + "/" + '*.jpg'), key=os.path.getmtime)
+            self._fileNames = sorted(glob.glob(directory + "/" + pattern), key=os.path.getmtime)
             print("Found files {}".format(self._fileNames))
             self._maxFileNumber = len(self._fileNames) - 1
             rc = True
@@ -316,7 +381,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
 parser = argparse.ArgumentParser("Image Reviewer")
 
-parser.add_argument('-i', '--input', action="store", required=True,  help="Input directory")
+parser.add_argument('-i', '--input', action="store", required=False,  help="Input directory")
 parser.add_argument('-a', '--attributes', action="store", required=False,  help="Attributes")
 parser.add_argument('-o', '--output', action="store", required=False,  default="classifications.csv", help="Output CSV")
 
@@ -334,20 +399,34 @@ window.setWindowTitle("University of Arizona")
 
 app.aboutToQuit.connect(window.exitHandler)
 
-window.loadImagesFromDirectory(arguments.input)
+
+if arguments.input is not None:
+    window.loadImagesFromDirectory(arguments.input)
+
 
 if arguments.attributes:
     window.loadAttributesFromCSV(arguments.attributes)
 
 window.setup()
 
+# TODO: Deal with classifications -- hide this for now
+window.scroll_classification_area.setVisible(False)
+
+os.chdir("/tmp/output")
+selection = SelectImageSet(".")
+selection.getImageSets()
+selection.exec_()
+print("Read images {}".format(selection.pattern))
+window.loadImagesFromDirectory(selection.selectedSet, selection.pattern)
+
 window.show()
-if window.loadProgress():
-    if window.confirmResumeReview("Resume editing at image {}?".format(window.lastFileReviewed)):
-        window.setCurrentImage(window.lastFileReviewed)
-        window.currentFileNumber = window.lastFileReviewed
-        window.updateInformationForCurrentImage()
-    else:
-        window.setCurrentImage(0)
+
+# if window.loadProgress():
+#     if window.confirmResumeReview("Resume editing at image {}?".format(window.lastFileReviewed)):
+#         window.setCurrentImage(window.lastFileReviewed)
+#         window.currentFileNumber = window.lastFileReviewed
+#         window.updateInformationForCurrentImage()
+#     else:
+#         window.setCurrentImage(0)
 
 sys.exit(app.exec_())
