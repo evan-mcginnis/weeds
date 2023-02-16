@@ -2,6 +2,7 @@
 # U I
 #
 import datetime
+import os
 import re
 import sys
 from enum import Enum
@@ -13,6 +14,9 @@ import sys
 import urllib.request
 import urllib.error
 from threading import Semaphore
+import shutil
+from subprocess import Popen, PIPE, STDOUT
+from os.path import expandvars
 
 from typing import Callable
 
@@ -33,6 +37,8 @@ from MUCCommunicator import MUCCommunicator
 from MQCommunicator import ClientMQCommunicator
 from Messages import MUCMessage, OdometryMessage, SystemMessage, TreatmentMessage
 from WeedExceptions import XMPPServerUnreachable, XMPPServerAuthFailure
+
+import sync
 
 import shortuuid
 
@@ -96,7 +102,7 @@ class OdometrySignals(WeedsSignals):
 
 class SystemSignals(WeedsSignals):
     diagnostics = pyqtSignal(SystemMessage, name="diagnostics")
-    camera = pyqtSignal(str, str, name="camera")
+    camera = pyqtSignal(str, str, str, name="camera")
     operation = pyqtSignal(str, str, name="operation")
     occupant = pyqtSignal(str, str, str, name="occupant")
 
@@ -813,21 +819,31 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.status_current_operation.setText(constants.UI_OPERATION_NONE)
 
 
-    def updateCamera(self, position: str, result: str):
+    def updateCamera(self, position: str, type: str, result: str):
         """
         Update the camera status object
+        :param type: The camera type
         :param position: LEFT or RIGHT
         :param result: OK, NOT_OK, or UNKNOWN
         :return:
         """
-        log.debug("Update camera status: {}/{}".format(position, result))
-        if position.lower() == constants.Position.LEFT.name.lower():
-            statusItem = self.status_camera_left
-        elif position.lower() == constants.Position.RIGHT.name.lower():
-            statusItem = self.status_camera_right
-        else:
-            log.error("Received status update for unknown camera: {}".format(position))
-            return
+        log.debug("Update camera status: {}/{} type {}".format(position, result, type))
+        if type == constants.Capture.RGB.name:
+            if position.lower() == constants.Position.LEFT.name.lower():
+                statusItem = self.status_camera_left
+            elif position.lower() == constants.Position.RIGHT.name.lower():
+                statusItem = self.status_camera_right
+            else:
+                log.error("Received status update for unknown camera: {}".format(position))
+                return
+        elif type == constants.Capture.DEPTH_RGB.name:
+            if position.lower() == constants.Position.LEFT.name.lower():
+                statusItem = self.status_left_intel
+            elif position.lower() == constants.Position.RIGHT.name.lower():
+                statusItem = self.status_right_intel
+            else:
+                log.error("Received status update for unknown camera: {}".format(position))
+                return
 
         if result.lower() == constants.OperationalStatus.OK.name.lower():
             statusItem.setText(constants.UI_STATUS_OK)
@@ -1563,9 +1579,12 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         pool.start(self._taskTreatment)
         pool.start(self._taskMQ)
 
-
-
-
+def syncImages():
+    """
+    Synchronize the images from the remote systems into the /tmp directory
+    """
+    os.chdir("c:\\tmp")
+    os.system("c:\\uofa\\weeds\\post\\sync-tucson.bat")
 
 def process(conn, msg: xmpp.protocol.Message):
     global messageNumber
@@ -1643,8 +1662,11 @@ def process(conn, msg: xmpp.protocol.Message):
         # Stop the operation
         if systemMessage.action == constants.Action.STOP.name:
             signals = window.taskSystem.signals
-            window.currentSessionName = ""
             signals.operation.emit(constants.Operation.QUIESCENT.name, systemMessage.name)
+            # Start a thread to collect the images from the two systems and store them locally
+            syncImages()
+            window.currentSessionName = ""
+
         if systemMessage.action == constants.Action.ACK.name:
             window.currentSessionName = systemMessage.name
             signals = window.taskSystem.signals
@@ -1655,7 +1677,8 @@ def process(conn, msg: xmpp.protocol.Message):
             signals = window.taskSystem.signals
             signals.diagnostics.emit(systemMessage)
             # signals.diagnostics.emit(systemMessage.position, systemMessage.diagnostics)
-            signals.camera.emit(systemMessage.position, systemMessage.statusCamera)
+            signals.camera.emit(systemMessage.position, constants.Capture.RGB.name, systemMessage.statusCamera)
+            signals.camera.emit(systemMessage.position, constants.Capture.DEPTH_RGB.name, systemMessage.statusIntel)
     else:
         print("skipped message {}".format(messageNumber))
 
