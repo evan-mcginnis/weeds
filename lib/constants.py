@@ -21,31 +21,34 @@ EXTENSION_NPY = ".npy"
 EXTENSION_NPZ = ".npz"
 EXTENSION_META = ".meta"
 EXTENSION_CSV = ".csv"
+EXTENSION_HTML = ".html"
 
 FILENAME_RAW = "raw"
 FILENAME_FINISHED = "finished"
 FILENAME_INTEL_RGB = "rgb"
 FILENAME_INTEL_DEPTH = "depth"
+FILENAME_DUMMY = "dummy"
 
 # This is just the text that will be placed on the visible treatment plan
 SPRAYER_NAME = ""
 
-THREAD_NAME_ODOMETRY = "odometry"
-THREAD_NAME_SYSTEM = "system"
-THREAD_NAME_TREATMENT = "treatment"
-THREAD_NAME_ACQUIRE = "acquire"
-THREAD_NAME_ACQUIRE_RGB = "aquireRGB"
-THREAD_NAME_REQ_RSP = "reqrsp"
-THREAD_NAME_SERVICE = "service"
-THREAD_NAME_HOUSEKEEPING = "housekeeping"
-THREAD_NAME_IMU = "imu"
-THREAD_NAME_DEPTH = "depth"
+THREAD_NAME_ODOMETRY        = "odometry"
+THREAD_NAME_SYSTEM          = "system"
+THREAD_NAME_TREATMENT       = "treatment"
+THREAD_NAME_ACQUIRE         = "acquire"
+THREAD_NAME_ACQUIRE_RGB     = "acquireIntel"
+THREAD_NAME_DIAGNOSTICS     = "diagnostics"
+THREAD_NAME_REQ_RSP         = "reqrsp"
+THREAD_NAME_SERVICE         = "service"
+THREAD_NAME_HOUSEKEEPING    = "housekeeping"
+THREAD_NAME_IMU             = "imu"
+THREAD_NAME_DEPTH           = "depth"
 # These next two are temporary -- not needed when we move the depth cameras to the jetson
-THREAD_NAME_DEPTH_LEFT = "depth_left"
-THREAD_NAME_DEPTH_RIGHT = "depth_right"
-THREAD_NAME_POSITION = "position"
-THREAD_NAME_SUPERVISOR = "supervisor"
-THREAD_NAME_ENRICH = "enrich"
+THREAD_NAME_DEPTH_LEFT      = "depth_left"
+THREAD_NAME_DEPTH_RIGHT     = "depth_right"
+THREAD_NAME_POSITION        = "position"
+THREAD_NAME_SUPERVISOR      = "supervisor"
+THREAD_NAME_ENRICH          = "enrich"
 
 MSG_NOT_CONNECTED = "Not connected"
 MSG_LINES_NOT_SPECIFIED = "The A and B lines for the odometer must be on the command line or in the INI file"
@@ -154,7 +157,7 @@ STRATEGY_SYNC = 1
 
 # The number of images to keep
 IMAGE_QUEUE_LEN = 2
-DEPTH_QUEUE_LEN = 2
+DEPTH_QUEUE_LEN = 8
 # Probably way too long 5000 ms for camera to acquire image
 TIMEOUT_CAMERA = 5000
 
@@ -164,6 +167,10 @@ KEYWORD_FILE_GYRO = "gyro"
 KEYWORD_FILE_ACCELERATION = "acceleration"
 KEYWORD_SERIAL = "serial"
 KEYWORD_CONFIGURATION = "config"
+KEYWORD_CAPTURE_STRATEGY = "capture"
+
+CAPTURE_STRATEGY_QUEUED = "queued"
+CAPTURE_STRATEGY_LIVE = "live"
 
 PARAM_FILE_GYRO = "gyro.csv"
 PARAM_FILE_ACCELERATION = "acceleration.csv"
@@ -220,7 +227,8 @@ TYPES = ["Desired", "Undesired", "Untreated", "Ignored", "Unknown"]
 # Items contained in performance csv for analysis
 
 PERF_ANGLES     = "angles"
-PERF_ACQUIRE    = "acquire"
+PERF_ACQUIRE_BASLER_RGB = "acquire-basler"
+PERF_ACQUIRE_INTEL_RGB  = "acquire-intel-rgb"
 PERF_CLASSIFY   = "classify"
 PERF_CONTOURS   = "contours"
 PERF_DISTANCE   = "distance"
@@ -240,6 +248,12 @@ PERF_STDDEV     = "stddev"
 PERF_COMPACTNESS= "compactness"
 PERF_SHAPES     = "shapes"
 PERF_UNDISTORT  = "undistort"
+
+PERF_SAVE_INTEL_DEPTH       = "save-intel-depth"
+PERF_SAVE_INTEL_RGB         = "save-intel-rgb"
+PERF_SAVE_INTEL_RGB_NPY     = "save-intel-rgb-npy"
+PERF_SAVE_BASLER_RGB        = "save-basler"
+PERF_TREATMENT_MSG          = "treatment-msg"
 
 PERF_TITLE_ACTIVITY = "activity"
 PERF_TITLE_MILLISECONDS = "milliseconds"
@@ -534,8 +548,9 @@ class Status(Enum):
 
 class Capture(Enum):
     DEPTH_RGB = 0
-    IMU = 1
-    RGB = 2
+    DEPTH_DEPTH = 1
+    IMU = 2
+    RGB = 3
 
 class Side(Enum):
     RIGHT = 0
