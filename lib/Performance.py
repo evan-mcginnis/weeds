@@ -8,6 +8,9 @@ class Performance:
     def __init__(self, performanceFile: str):
         self.times = {}
         self._performanceFile = performanceFile
+        self._start = datetime.now()
+        self._elapsed = 0
+        self._elapsed_milliseconds = 0
 
     def initialize(self) -> bool:
         """
@@ -37,7 +40,7 @@ class Performance:
         self._start = datetime.now()
         return self._start
 
-    def stop(self) -> int:
+    def stop(self) -> float:
         self._elapsed = datetime.now() - self._start
         self._elapsed_milliseconds = self._elapsed.total_seconds() * 1000
         return self._elapsed_milliseconds
