@@ -257,9 +257,9 @@ class WorkerMQ(Worker):
             # This is a bit of a corner case -- if the server is not responding and we are shutting down, just return
             if not self._processing:
                 return False
-            (serverResponding, response) = self._communicator.sendMessageAndWaitForResponse(constants.COMMAND_PING, 10000)
+            (serverResponding, response) = self._communicator.sendMessageAndWaitForResponse(constants.COMMAND_PING, 2000)
             if not serverResponding:
-                log.error("Odometry server did not respond within 10 seconds. Will retry.")
+                log.error("Odometry server did not respond within 2 seconds. Will retry.")
                 self._communicator.disconnect()
             else:
                 log.debug("Odometry server responded successfully")
@@ -520,6 +520,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.stylesheetCurrent = "background-color: green; font-size: 20pt"
         self.stylesheetNotSelected = "background-color: light grey; font-size: 20pt"
 
+        self._speeds = []
+
     @property
     def currentSessionName(self) -> str:
         return self._currentSessionName
@@ -764,10 +766,12 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.average_kph.setStyleSheet("color: black; background-color: yellow")
         else:
             self.average_kph.setStyleSheet("color: black; background-color: white")
-        self.setSpeed(speed)
+        self._speeds.append(speed)
+        averageSpeed = sum(self._speeds) / len(self._speeds)
+        self.setSpeed(averageSpeed)
 
     def updateCurrentDistance(self, source: str, distance: float):
-        log.debug("Update current distance: {}".format(distance))
+        #log.debug("Update current distance: {}".format(distance))
         self.currentDistance = distance
 
         # The distance in the message is in mm -- display is in cm
@@ -778,7 +782,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.count_distance.setStyleSheet("color: black; background-color: white")
 
     def updatePulses(self, source: str, pulses: float):
-        log.debug("Update pulse count: {} Absolute Pulses Base: {}".format(pulses, self.absolutePulses))
+        #log.debug("Update pulse count: {} Absolute Pulses Base: {}".format(pulses, self.absolutePulses))
         self._currentPulses = pulses
 
         # The distance in the message is in mm -- display is in cm
@@ -1202,7 +1206,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self._treatmentRoom = room
 
     def setSpeed(self, speed: float):
-        self.average_kph.display(round(speed,1))
+        self.average_kph.display(round(speed, 2))
 
     # def setPulses(self, pulses: float):
     #     self._currentPulses = pulses
@@ -1357,6 +1361,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         systemMessage.timestamp = time.time() * 1000
         self._systemRoom.sendMessage(systemMessage.formMessage())
 
+        self.status_current_operation.setText(operationDescription + ": " + timeStamp)
+
     def startImaging(self):
         if self.OKtoImage:
             text = constants.UI_CONFIRM_IMAGING_ALL_OK
@@ -1377,6 +1383,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         # self.tractor_progress_right.setValue(0)
 
     def resetKPH(self):
+        self._speeds = []
         self.setSpeed(0.0)
 
     def resetImageCount(self):
