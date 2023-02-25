@@ -15,6 +15,7 @@ class ProcessedImage:
         self._indexed = False
         self._exif = None
         self._filename = None
+        self._urlFilename = ""
         self._exposure = 0
         self._latitude = 0.0
         self._longitude = 0.0
@@ -25,6 +26,14 @@ class ProcessedImage:
         self._copyright = "Evan McGinnis"
         self._captureType = captureType
         self._imageNumber = 0
+
+    @property
+    def urlFilename(self) -> str:
+        return self._urlFilename
+
+    @urlFilename.setter
+    def urlFilename(self, filename):
+        self._urlFilename = filename
 
     @property
     def imageNumber(self) -> int:
