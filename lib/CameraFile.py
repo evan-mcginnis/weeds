@@ -12,7 +12,7 @@ import signal
 import numpy as np
 import os
 import cv2 as cv
-from abc import ABC, abstractmethod
+#from abc import ABC, abstractmethod
 
 
 
@@ -97,3 +97,5 @@ class CameraFile(Camera):
     def getMMPerPixel(self) -> float:
         return 0.5
 
+if __name__ == "__main__":
+    print("No test method")
