@@ -129,7 +129,7 @@ class SystemMessage(MUCMessage):
         if constants.JSON_STATUS_DAQ in self._data:
             self._status_daq = self._data[constants.JSON_STATUS_DAQ]
         else:
-            self._status_camera = ""
+            self._status_daq= ""
         if constants.JSON_PARAM_GSD in self._data:
             self._param_gsd = self._data[constants.JSON_PARAM_GSD]
         else:
