@@ -68,7 +68,7 @@ class PhysicalOdometer(Odometer):
         :param kwargs: LINE_A, LINE_B, PULSES, SPEED, WHEEL_SIZE
         """
         # The card on the RIO where the encoder connects
-        super().__init__("")
+        super().__init__(**kwargs)
 
         wheel_size = kwargs[constants.KEYWORD_WHEEL_CIRCUMFERENCE]
         encoder_clicks = kwargs[constants.KEYWORD_PPR]
@@ -200,7 +200,9 @@ class PhysicalOdometer(Odometer):
         if not daqErrorEncountered:
             # Add the channel as an angular encoder without Z index support, as we really don't care about the number of rotations
             try:
+                # Original
                 channelA = task.ci_channels.add_ci_ang_encoder_chan(counter = self._counter, decoding_type = EncoderType.X_1, zidx_enable=False, zidx_val=0, units=AngleUnits.DEGREES, pulses_per_rev=self.encoderClicksPerRevolution, initial_angle=0.0)
+                #channelA = task.ci_channels.add_ci_ang_encoder_chan(counter = self._counter, decoding_type = EncoderType.X_4, zidx_enable=False, zidx_val=0, units=AngleUnits.DEGREES, pulses_per_rev=self.encoderClicksPerRevolution, initial_angle=0.0)
             except nidaqmx.errors.DaqError as daq:
                 self.log.fatal("DAQ setup error encountered")
                 self.log.fatal("Raw: {}".format(daq))
@@ -217,17 +219,22 @@ class PhysicalOdometer(Odometer):
                 daqErrorEncountered = True
 
         if not daqErrorEncountered:
-            channelA.ci_encoder_a_input_dig_fltr_min_pulse_width = 0.0001
-            channelA.ci_encoder_a_input_dig_fltr_enable = True
-            # Test of counter-clockwise/clockwise.  I believe we can just swap the definitions of A & B
-            #channelA.ci_encoder_a_input_term = 'PFI0'
-            channelA.ci_encoder_b_input_dig_fltr_min_pulse_width = 0.0001
-            channelA.ci_encoder_b_input_dig_fltr_enable = True
-            # Clockwise/counterclockwise test
-            #channelA.ci_encoder_b_input_term = 'PFI1'
-            channelA.ci_encoder_z_input_dig_fltr_min_pulse_width = 0.0001
-            channelA.ci_encoder_z_input_dig_fltr_enable = True
-            channelA.ci_encoder_z_input_term = 'PFI2'
+            # The pulse width specified works at low speed, but not at higher speeds
+            # The minimum pulse width is .000006, but also depends on timing.
+            # TODO: Sort through timings and the filter enable
+            # channelA.ci_encoder_a_input_dig_fltr_min_pulse_width = 0.0001
+            # channelA.ci_encoder_a_input_dig_fltr_enable = True
+            # # Test of counter-clockwise/clockwise.  I believe we can just swap the definitions of A & B
+            # #channelA.ci_encoder_a_input_term = 'PFI0'
+            # channelA.ci_encoder_b_input_dig_fltr_min_pulse_width = 0.0001
+            # channelA.ci_encoder_b_input_dig_fltr_enable = True
+            # # Clockwise/counterclockwise test
+            # #channelA.ci_encoder_b_input_term = 'PFI1'
+            # channelA.ci_encoder_z_input_dig_fltr_min_pulse_width = 0.0001
+            # channelA.ci_encoder_z_input_dig_fltr_enable = True
+            # channelA.ci_encoder_z_input_term = 'PFI2'
+
+
 
             #task.timing.samp_clk_overrun_behavior = nidaqmx.constants.OverflowBehavior.TOP_TASK_AND_ERROR
 
@@ -242,13 +249,16 @@ class PhysicalOdometer(Odometer):
             self._processing = True
             running = True
             errorsEncountered = 0
+            angleChangeSeen = False
 
             # This loop will run until things are gracefully shut down by another thread
             # setting running to False.
             while self._processing:
                 try:
-                    ang = task.read(number_of_samples_per_channel=1) #nidaqmx.constants.READ_ALL_AVAILABLE)
-                    #print("Current register is {}".format(channelA.ci_count))
+                    # This works at low speeds
+                    ang = task.read(number_of_samples_per_channel=1)
+                    # ang = task.read(nidaqmx.constants.READ_ALL_AVAILABLE)
+                    # self.log.debug("Angle reading length: {} Angle: {}".format(len(ang), ang))
                 except nidaqmx.errors.DaqError:
                     self.log.error("Read error encountered")
                     daqErrorEncountered = True
@@ -268,11 +278,14 @@ class PhysicalOdometer(Odometer):
                     except queue.Full:
                         self.log.error("Distance queue is full. Reading is lost.")
                     previous = ang[0]
-                elif ang[0] == 0:
-                    self.log.error("Read the angle as 0.")
+                    angleChangeSeen = True
+                if ang[0] == 0 and angleChangeSeen:
+                    self.log.error("Read the angle as 0 after wheel has moved")
 
             self.log.info("Reading of odometer stopped")
+            # Shutdown the task so the resources can be cleaned up
             task.stop()
+            task.close()
 
         return not daqErrorEncountered
 
@@ -300,8 +313,9 @@ if __name__ == "__main__":
         input("Return to stop")
         running = False
 
-    def nanoseconds() -> int:
-        return time.time_ns()
+    def nanoseconds() -> float:
+        #return time.time_ns()
+        return time.time() * 10000
 
     def serviceQueue(odometer : PhysicalOdometer):
         """
@@ -331,11 +345,11 @@ if __name__ == "__main__":
             elapsed = stoptime - starttime
             starttime = nanoseconds()
 
-            print("{:.4f} mm Total: {:.4f} Speed {}".format(distanceTraveled, totalDistanceTraveled, elapsed))
+            print("Travel: {:.4f} mm Total: {:.4f} Speed {}".format(distanceTraveled, totalDistanceTraveled, elapsed))
             i += 1
             # Determine if the wheel has undergone one rotation
             if i % odometer.encoderClicksPerRevolution == 0:
-                print("--- One revolution complete ---")
+                log.debug("--- One revolution complete ---")
 
 
 
@@ -347,7 +361,7 @@ if __name__ == "__main__":
     parser.add_argument('-b', '--odometer_line_b', action="store", default="", required=False, help="Line B")
     parser.add_argument('-w', '--wheel', action="store", default=0, type=int, required=False, help="Wheel circumference in mm")
     parser.add_argument('-e', '--encoder', action="store", default=0, type=int, required=False, help="Number of clicks per revolution")
-    parser.add_argument("-lg", "--logging", action="store", default="info-logging.ini", help="Logging configuration file")
+    parser.add_argument("-lg", "--logging", action="store", default="logging.ini", help="Logging configuration file")
     parser.add_argument('-ini', '--ini', action="store", required=False, default=constants.PROPERTY_FILENAME,
                         help="Options INI")
 
@@ -392,7 +406,7 @@ if __name__ == "__main__":
                 print("Pulses Per Rotation must be specified as command line option or in the INI file.")
         if wheelSize == 0:
             try:
-                wheelSize = int(options.option(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_WHEEL_CIRCUMFERENCE))
+                wheelSize = float(options.option(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_WHEEL_CIRCUMFERENCE))
             except KeyError:
                 print("Wheel Size must be specified as command line option or in the INI file.")
 
@@ -403,12 +417,14 @@ if __name__ == "__main__":
     if wheelSize == 0 or pulsesPerRotation == 0:
         sys.exit(1)
 
-    print("Using lineA: {} lineB: {} Wheel Size: {} Pulses Per Rotation: {}".format(lineA, lineB, wheelSize, pulsesPerRotation))
+    logging.config.fileConfig(arguments.logging)
+    log = logging.getLogger("rio")
+
+    log.debug("Using lineA: {} lineB: {} Wheel Size: {} Pulses Per Rotation: {}".format(lineA, lineB, wheelSize, pulsesPerRotation))
 
     def callback():
         return
 
-    #fileConfig(arguments.logging)
 
     # Needs YAML on rio platform
     # with open(arguments.logging, "rt") as f:
@@ -417,9 +433,18 @@ if __name__ == "__main__":
 
     # Check that the format of the lines is what we expect
     #evalutionText, lines = checkLineNames(arguments.emitter)
+    # Is forward clockwise or counter-clockwise?
+    forward = options.option(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_FORWARD)
 
-    odometer = PhysicalOdometer(lineA, lineB, wheelSize, pulsesPerRotation, 0, callback)
-
+    #odometer = PhysicalOdometer(lineA, lineB, wheelSize, pulsesPerRotation, 0, callback)
+    theCounter = options.option(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_COUNTER)
+    odometer = PhysicalOdometer(LINE_A=lineA,
+                                LINE_B=lineB,
+                                COUNTER=theCounter,
+                                WHEEL_SIZE=wheelSize,
+                                FORWARD=forward,
+                                PULSES=pulsesPerRotation,
+                                SPEED=0)
 
     # Start a thread to service the readings queue
     service = threading.Thread(target = serviceQueue, args=(odometer,))
