@@ -13,6 +13,7 @@ import threading
 import time
 from typing import Callable
 from dateutil import tz
+import sched
 
 import logging
 import logging.config
@@ -326,6 +327,26 @@ def takeDepthImages(camera: CameraDepth):
             camera.startCapturing()
     else:
         log.error("Unable to connect to depth camera")
+def startDiagnostics():
+    """
+    Requests entities run diagnostics
+    """
+
+    systemMessage = SystemMessage()
+    systemMessage.action = constants.Action.START_DIAG.name
+    systemMessage.timestamp = time.time() * 1000
+    roomSystem.sendMessage(systemMessage.formMessage())
+
+def runAndEvaluateDiagnostics():
+    """
+    Run diagnostics every 5 seconds.
+    """
+
+    # Eventually, this will also evaluate diagnostic results.
+
+    while True:
+        time.sleep(5)
+        startDiagnostics()
 
 def startOperation(operation: str, operationDescription: str):
     log.debug("Starting operation")
@@ -505,6 +526,14 @@ sys.start()
 # treat.daemon = True
 # threads.append(treat)
 # treat.start()
+
+log.debug("Starting diagnostic thread")
+diagnostics = threading.Thread(name=constants.THREAD_NAME_DIAGNOSTICS, target=runAndEvaluateDiagnostics, args=())
+diagnostics.daemon = True
+threads.append(diagnostics)
+diagnostics.start()
+
+
 
 # Wait for the workers to finish
 while True:
