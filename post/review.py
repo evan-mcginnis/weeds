@@ -241,7 +241,11 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.image_longitude.setText(self.valueOrUnknown(longitude))
 
     def updateSpeed(self, speed: float):
-        self.image_speed.setText(self.valueOrUnknown(speed))
+        if speed > 0.0:
+            speedText = f"{speed * 1e6:.2f} kph"
+        else:
+            speedText = NOT_SET
+        self.image_speed.setText(speedText)
 
     def updateInformationForCurrentImage(self):
         """
