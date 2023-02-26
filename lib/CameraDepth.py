@@ -40,6 +40,7 @@ class CameraDepth(Camera):
         The depth object.
         :param kwargs: gyro=<name of gryo log file> acceleration=<name of acceleration log file>
         """
+        super().__init__(**kwargs)
         self._accelerationLogFile = TextIOWrapper
         self._gyroLogFile = TextIOWrapper
         self._connected = False
@@ -56,6 +57,7 @@ class CameraDepth(Camera):
         self._currentGryo = np.zeros(3)
         self._currentAcceleration = np.zeros(3)
         self._depth = np.empty([constants.DEPTH_MAX_HORIZONTAL, constants.DEPTH_MAX_VERTICAL])
+        self._RGB = np.empty([constants.INTEL_RGB_MAX_HORIZONTAL, constants.INTEL_RGB_MAX_VERTICAL])
         self._imageNumber = 0
 
         self._pipelineIMU = None
@@ -96,9 +98,11 @@ class CameraDepth(Camera):
         except KeyError as key:
             self.log.warning("The configuration of the device is not specified with keyword: {}. Using defaults.".format(constants.KEYWORD_CONFIGURATION))
 
-        super().__init__(**kwargs)
 
         return
+
+    def __str__(self):
+        return str(self.__dict__)
 
     @property
     def gsd(self) -> float:
@@ -289,7 +293,6 @@ class CameraDepth(Camera):
 
             self.log.debug("IMU Capture complete")
 
-        # The depth capture loop
         elif self._captureType == constants.Capture.DEPTH_RGB:
             self.log.debug("Begin grab of depth/RGB stream")
             try:
@@ -307,28 +310,35 @@ class CameraDepth(Camera):
                 self.state.toFailed()
                 self._capturing = False
 
-
-            self.log.debug("Capturing DEPTH/RGB data")
+            # A dummy loop as a placeholder, as this method should never return.
+            # If the sequence below is reinstated, this should be removed
             while self._capturing:
-                try:
-                    f = self._pipelineDepthRGB.wait_for_frames()
-                    _currentDepth = f.get_depth_frame()
-                    _currentRGB = f.get_color_frame()
-                    if not _currentRGB or not _currentDepth:
-                        self.log.error("Failed to capture both RGB and depth")
-                        break
-                    # Convert the depth data to a numpy array.
-                    self._depth = np.asanyarray(_currentDepth.get_data())
-                    self._RGB = np.asanyarray(_currentRGB.get_data())
+                time.sleep(10)
+                self.log.debug("Dummy capture of Intel RGB")
+            # The RGB capture loop for the Intel Camera
+            # Timing shows that it takes about 1ms to obtain an image. This is probably not needed, so
+            # the capture() method will get an image directly from the camera instead of from the queue.
 
-                    # Put the image and the depth in the queue
-                    # self.log.debug("Appending depth data to queue")
-                    processed = TimestampedImage(self._RGB, self._depth, time.time())
-                    self._images.append(processed)
-                except Exception as e:
-                    self.log.fatal("Failed to capture depth frame")
-                    self.log.fatal(e)
-
+            # self.log.debug("Capturing DEPTH/RGB data")
+            # while self._capturing:
+            #     try:
+            #         f = self._pipelineDepthRGB.wait_for_frames()
+            #         _currentDepth = f.get_depth_frame()
+            #         _currentRGB = f.get_color_frame()
+            #         if not _currentRGB or not _currentDepth:
+            #             self.log.error("Failed to capture both RGB and depth")
+            #             break
+            #         # Convert the depth data to a numpy array.
+            #         self._depth = np.asanyarray(_currentDepth.get_data())
+            #         self._RGB = np.asanyarray(_currentRGB.get_data())
+            #
+            #         # Put the image and the depth in the queue
+            #         # self.log.debug("Appending depth data to queue")
+            #         processed = TimestampedImage(self._RGB, self._depth, time.time())
+            #         self._images.append(processed)
+            #     except Exception as e:
+            #         self.log.fatal("Failed to capture depth frame")
+            #         self.log.fatal(e)
 
 
             # This is a handshake so the stop method knows we have stopped capturing
@@ -336,49 +346,6 @@ class CameraDepth(Camera):
 
             self.log.debug("Depth Capture complete")
 
-        # # The RGB capture loop
-        # elif self._captureType == constants.Capture.RGB:
-        #     self.log.debug("Begin grab of RGB stream")
-        #     try:
-        #         self._pipelineRGB.start(self._configRGB)
-        #         self._capturing = True
-        #         try:
-        #             self._state.toCapture()
-        #         except TransitionNotAllowed as transition:
-        #             self.log.critical("Unable to transition depth camera to capturing")
-        #             self.log.critical(transition)
-        #             self._capturing = False
-        #     except Exception as e:
-        #         self.log.fatal("Failed to open the depth camera {} and start grabbing RGB data.".format(self._serial))
-        #         self.log.fatal("{}".format(e))
-        #         self.state.toFailed()
-        #         self._capturing = False
-        #
-        #
-        #     self.log.debug("Capturing RGB data")
-        #     while self._capturing:
-        #         try:
-        #             f = self._pipelineRGB.wait_for_frames()
-        #             _currentRGB = f.get_color_frame()
-        #         except Exception as e:
-        #             self.log.fatal("Failed to capture RGB frame")
-        #             self.log.fatal(e)
-        #             return
-        #
-        #         # Convert the RGB data to a numpy array.  Probably overkill
-        #         self._RGB = np.asanyarray(_currentRGB.get_data())
-        #
-        #         # Put the image in the queue
-        #         #self.log.debug("Appending depth data to queue")
-        #         processed = TimestampedImage(self._RGB, None, time.time())
-        #         self._images.append(processed)
-
-                # try:
-                #     depthFile = constants.FILE_DEPTH.format(1)
-                #     np.save(depthFile, self._depth)!
-                # except Exception as ex:
-                #     self.log.error("Unexpected exception hit in write of depth data")
-                #     self.log.error("Raw: {}".format(ex))
 
             # This is a handshake so the stop method knows we have stopped capturing
             # Ideally, this would be a state machine, but that's overkill for what we need.
@@ -396,10 +363,7 @@ class CameraDepth(Camera):
 
         if not self._connected:
             raise IOError("Camera is not connected.")
-        # try:
-        #     self.state.toCapture()
-        # except TransitionNotAllowed as transition:
-        #     self.log.critical("Unable to transition camera to capturing")
+
 
 
     def stop(self):
@@ -459,17 +423,32 @@ class CameraDepth(Camera):
         if not self._connected:
             raise IOError("Camera is not connected")
 
-        if len(self._images) == 0:
-            self.log.error("Image queue is empty.")
-            processed = TimestampedImage(np.empty([constants.DEPTH_MAX_HORIZONTAL, constants.DEPTH_MAX_VERTICAL]),
-                                         np.empty([constants.DEPTH_MAX_HORIZONTAL, constants.DEPTH_MAX_VERTICAL]),
-                                         time.time())
-        else:
-            self.log.debug("Serving image from queue")
-            processed = self._images.popleft()
-            #img = processed.image
-            #timestamp = processed.timestamp
-            #self.log.debug("Image captured at " + str(timestamp))
+        # Obtain the RGB and depth images directly from the camera
+        f = self._pipelineDepthRGB.wait_for_frames()
+        _currentDepth = f.get_depth_frame()
+        _currentRGB = f.get_color_frame()
+        if not _currentRGB or not _currentDepth:
+            self.log.fatal("Failed to capture both RGB and depth")
+        # Convert the depth data to a numpy array.
+        self._depth = np.asanyarray(_currentDepth.get_data())
+        self._RGB = np.asanyarray(_currentRGB.get_data())
+        # TODO: Frame metadata
+        # self.log.debug("Frame metadata {}".format(rs.frame.get_frame_metadata()))
+        # rs.frame_metadata_value()
+        processed = TimestampedImage(self._RGB, self._depth, time.time())
+
+        ################
+        # This is the older way of doing things where images are served from a queue, but that seems
+        # unnecessary given that it takes less than 1ms to get an image from the camera
+
+        # There should always be an image waiting in the queue, but if not, sleep and try again
+        # while len(self._images) == 0:
+        #     self.log.error("Image queue is empty.")
+        #     time.sleep(0.01)
+        # self.log.debug("Serving image from queue size: {}".format(len(self._images)))
+        # processed = self._images.popleft()
+        ################
+
         return processed
 
 
@@ -613,7 +592,7 @@ if __name__ == "__main__":
     try:
         performance.start()
         processed = camera.capture()
-        performance.stopAndRecord(constants.PERF_ACQUIRE)
+        performance.stopAndRecord(constants.PERF_ACQUIRE_BASLER_RGB)
         if camera.captureType == constants.Capture.DEPTH_RGB:
             np.save(arguments.single + ".npy", processed.depth)
             image = Image.fromarray(processed.rgb)

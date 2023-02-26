@@ -7,13 +7,15 @@ import constants
 import json
 
 class Diagnostics:
-    def __init__(self):
+    def __init__(self, resultsDirectory: str, resultsFile: str):
         """
         Base class for diagnostics
         """
         self._results = constants.Diagnostic.FAIL
         self._resultText = "Diagnostics not yet run"
         self._allResults = []
+        self._resultsFile = resultsFile
+        self._resultsDirectory = resultsDirectory
 
     @property
     def results(self) -> constants.Diagnostic:
@@ -22,6 +24,21 @@ class Diagnostics:
     @results.setter
     def results(self, theResults: constants.Diagnostic):
         self._results = theResults
+
+    def reset(self):
+        self._results = []
+
+    def addText(self, result: str):
+        self._allResults.append(result)
+
+    @property
+    def resultsFile(self) -> str:
+        return self._resultsFile
+
+    def writeHTML(self):
+        html = open(self._resultsDirectory + "/" + self._resultsFile, "w")
+        html.write(self._resultText)
+        html.close()
 
     def asJSON(self) -> str:
         return json.dumps(self._allResults)
@@ -65,7 +82,7 @@ class DiagnosticsJetson(Diagnostics):
         self._emitters = result
 
 class DiagnosticsDAQ(Diagnostics):
-    def __init__(self):
+    def __init__(self, directory: str, results: str):
         self._camera = constants.Diagnostic.FAIL
         self._cameraText = "Camera not yet tried"
         self._rio = constants.Diagnostic.FAIL
@@ -73,7 +90,7 @@ class DiagnosticsDAQ(Diagnostics):
         self._gps = constants.Diagnostic.FAIL
         self._gpsText = "GPS not yet tried"
 
-        super().__init__()
+        super().__init__(directory, results)
 
     @property
     def camera(self) -> constants.Diagnostic:

@@ -16,6 +16,7 @@ import os
 import threading
 import time
 import sys
+import signal
 
 import gpsd
 
@@ -140,20 +141,21 @@ def startSession(options: OptionsFile, sessionName: str) -> bool:
 
 def endSession(options: OptionsFile, name: str) -> bool:
     global log
-    global imageNumber
+    global imageNumberBasler
     stopped = False
 
     path = options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_ROOT) + "/output/" + name
     root = options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_ROOT)
 
+    # This seems to cause problems.
     # Move the log file over to the output directory
-    try:
-        source = root + "/rio/rio.log"
-        destination = path + "/rio.log"
-        os.rename(source, destination)
-    except OSError as oserr:
-        log.critical("Unable to move {} to {}".format(source, destination))
-        log.critical(oserr)
+    # try:
+    #     source = root + "/rio/rio.log"
+    #     destination = path + "/rio.log"
+    #     os.rename(source, destination)
+    # except OSError as oserr:
+    #     log.critical("Unable to move {} to {}".format(source, destination))
+    #     log.critical(oserr)
 
     # Write out the stats for the session.
     log.debug("End session")
@@ -190,7 +192,7 @@ def endSession(options: OptionsFile, name: str) -> bool:
 #
 def diagnostics() -> DiagnosticsDAQ:
     # TODO: NI Diagnostics
-    diagnosticResults = DiagnosticsDAQ()
+    diagnosticResults = DiagnosticsDAQ("../output", "middle.html")
 
     return diagnosticResults
 
@@ -207,8 +209,6 @@ def startupSystem(options: OptionsFile):
         attachedDAQ = PhysicalNationalInstruments()
         system = ni.system.System.local()
         attachedDAQ.system = system
-
-        #system.driver_version
 
         # This delays system startup until the DAQ is connected to USB and power
 
@@ -367,6 +367,7 @@ def runDiagnostics(systemRoom: MUCCommunicator):
                 and gpsStatus == constants.OperationalStatus.OK)
     systemMessage.diagnostics = constants.OperationalStatus.OK.name if overall else constants.OperationalStatus.FAIL.name
 
+    log.debug("Sending diagnostic report: ".format(systemMessage))
     systemRoom.sendMessage(systemMessage.formMessage())
 
 #
@@ -386,12 +387,17 @@ def process(conn, msg: xmpp.protocol.Message):
         return
 
     # Messages from the system room will be in the form: system@conference.weeds.com/console
+    # Messages from the system room will be in the form: system@conference.weeds.com/controller
 
-    console_in_system = options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_SYSTEM) \
-              +  "/" \
-              + options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_CONSOLE)
+    consoleInSystem = options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_SYSTEM) \
+                      +  "/" \
+                      + options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_CONSOLE)
 
-    if msg.getFrom() == console_in_system:
+    controllerInSystem = options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_SYSTEM) \
+                         +  "/" \
+                         + options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_CONTROL)
+
+    if msg.getFrom() == consoleInSystem or msg.getFrom() == controllerInSystem:
         if msg.getBody() is not None:
             systemMsg = SystemMessage(raw=msg.getBody())
             timeMessageSent = systemMsg.timestamp
@@ -473,7 +479,7 @@ def processTreatment(conn, msg: xmpp.protocol.Message):
 # Processing the odometry messages is required here only because the depth cameras are on the same system that interprets the odometry
 # signals -- this should be moved to the nvidia systems later
 
-imageNumber = 0
+imageNumberBasler = 0
 distanceTravelledSinceLastCapture = 0
 
 def nullProcessor(conn, msg: xmpp.protocol.Message):
@@ -483,7 +489,7 @@ def nullProcessor(conn, msg: xmpp.protocol.Message):
 def processOdometry(conn, msg: xmpp.protocol.Message):
     global typeOfOdometry
     global distanceTravelledSinceLastCapture
-    global imageNumber
+    global imageNumberBasler
 
     depthArray = np.ndarray
     log.debug("Process odometry message from {}".format(msg.getFrom()))
@@ -811,6 +817,7 @@ def serviceQueue(odometer : PhysicalOdometer, odometryRoom: MUCCommunicator, ann
     :param odometryRoom: The MUC room
     :param announcements: Send announcements when this distance is covered (mm)
     """
+    global servicing
     changeQueue = odometer.changeQueue
 
     # The previous angle -- the current reading will definitely be different
@@ -840,10 +847,12 @@ def serviceQueue(odometer : PhysicalOdometer, odometryRoom: MUCCommunicator, ann
     while servicing:
         angle = changeQueue.get(block=True)
         # mm of travel
+        angleChange = angle - previous
         mmTraveled = (angle - previous) * odometer.distancePerDegree
         mmTotalTravel += mmTraveled
+        pulses += (angleChange * (360 / odometer.encoderClicks))
+        # log.debug("Angle change: {} Pulses {}".format(angleChange, pulses))
         previous = angle
-        pulses += 1
         # Record the time of this reading -- not quite correct, as this should be in the observation
         #stoptime = time.time_ns()
         stoptime = nanoseconds()
@@ -853,7 +862,8 @@ def serviceQueue(odometer : PhysicalOdometer, odometryRoom: MUCCommunicator, ann
 
         kph = 0
         try:
-            log.debug("Travelled: {} mm  in {} seconds".format(mmTraveled, elapsedSeconds))
+            # log.debug("Travelled: {} mm  in {} seconds Angle Change {} Distance per degree {}".
+            #           format(mmTraveled, elapsedSeconds, angleChange, odometer.distancePerDegree))
             kph = (mmTraveled / 1e6) / (elapsedSeconds / 3600)
         except ZeroDivisionError as zero:
             log.warning("Elapsed time was 0.  Something is wrong")
@@ -871,11 +881,11 @@ def serviceQueue(odometer : PhysicalOdometer, odometryRoom: MUCCommunicator, ann
         if cameraForIMU.connected:
             gyro = np.array2string(cameraForIMU.gyro, formatter={'float_kind': lambda x: "%.2f" % x})
             acceleration = np.array2string(cameraForIMU.acceleration, formatter={'float_kind': lambda x: "%.2f" % x})
-            # log.debug("{:.4f} mm Total: {:.4f} mm elapsed {:.4f} Speed {:.4f} kph location: {} gyro: {} acceleration {}".
+            # log.debug("Travelled {:.4f} mm Total: {:.4f} mm elapsed {:.4f} Speed {:.4f} kph location: {} gyro: {} acceleration {}".
             #           format(mmTraveled, mmTotalTravel, elapsedSeconds, kph, position, gyro, acceleration))
         else:
             pass
-            # log.debug("{:.4f} mm Total: {:.4f} mm elapsed {:.4f} Speed {:.4f} kph location: {} ".
+            # log.debug("Travelled {:.4f} mm Total: {:.4f} mm elapsed {:.4f} Speed {:.4f} kph location: {} ".
             #           format(mmTraveled, mmTotalTravel, elapsedSeconds, kph, position))
 
         # Send out a message every time the system traverses the distance specified -- forward or backward
@@ -883,7 +893,7 @@ def serviceQueue(odometer : PhysicalOdometer, odometryRoom: MUCCommunicator, ann
         distanceTraveledSinceLastMessage += mmTraveled
         if distanceTraveledSinceLastMessage >= announcements or distanceTraveledSinceLastMessage <= -announcements:
 
-            log.debug("Distance travelled since last message: {}".format(distanceTraveledSinceLastMessage))
+            # log.debug("Distance travelled since last message: {}".format(distanceTraveledSinceLastMessage))
             # Create a blank odometry message
             message = OdometryMessage()
 
@@ -927,12 +937,16 @@ def serviceQueue(odometer : PhysicalOdometer, odometryRoom: MUCCommunicator, ann
 
         i += 1
 
+    log.info("Graceful shutdown for odometry reading")
+
+
 
 def requestResponse(communicator: ServerMQCommunicator):
     """
     Process requests from clients
     :param communicator:
     """
+    log.info("Start responding to odometry requests")
     while True:
         message = communicator.receiveMessage()
         # log.debug("Received message: {}".format(message))
@@ -970,16 +984,22 @@ def processMessagesSync(communicator: MUCCommunicator):
     #odometry.connect(True)
 
 def processOdometer(odometer: Odometer):
+    global exiting
     log.debug("Connect and start odometer")
     # Connect the odometer and start.
     odometer.connect()
     # The start routines never return - this is executed in the main thread
-    while True:
+    processing = True
+    while not exiting:
         if odometer.start():
-            # This allows the type of odometry to be changed
-            odometer = startupOdometer(typeOfOdometry)
+            if not exiting:
+                log.error("Odometer read completed. This is not normal")
+                # This allows the type of odometry to be changed
+                # odometer = startupOdometer(typeOfOdometry)
+            else:
+                log.debug("Normal shutdown of odometer processing")
         else:
-            log.info("Odometer read completed with an error.  This is not normal.")
+            log.error("Odometer read completed with an error.  This is not normal.")
             break
 
 #
@@ -1022,6 +1042,45 @@ def takeIMUReadings(camera: CameraDepth):
                 log.critical("Unable to initialize camera")
                 rc = -1
 
+# These are the globals used to allow for graceful shutdown
+servicing = False
+exiting = False
+def signalHandler(signum, frame):
+    """
+    Handle the signal for a more graceful shutdown
+    :param signum:
+    :param frame:
+    """
+    global servicing
+    global odometer
+    global exiting
+
+    signame = signal.Signals(signum).name
+    log.error(f'Signal handler called with signal {signame} ({signum})')
+
+    exiting = True
+
+    # Stop servicing the queue -- although it is blocked, so this probably has no effect
+    servicing = False
+
+    # Stop the odometer
+    odometer.stop()
+
+    # Stop the odomentry server
+    odometryMQ.stop()
+
+    log.info("Sleeping to allow threads to gracefully exit")
+    time.sleep(5)
+
+    sys.exit(-1)
+
+#
+# Handle signals
+#
+
+signal.signal(signal.SIGINT, signalHandler)
+signal.signal(signal.SIGTERM, signalHandler)
+
 # Set the status of all components to failed initially
 systemStatus = constants.OperationalStatus.FAIL
 intel435Status = constants.OperationalStatus.FAIL
@@ -1059,6 +1118,8 @@ odometryMQ = startupMQCommunications(options)
 
 threads = list()
 
+
+
 # log.debug("Start generator thread")
 # generator = threading.Thread(name=constants.THREAD_NAME_ODOMETRY,target=processMessagesSync:, args=(odometryRoom,))
 # threads.append(generator)
@@ -1066,7 +1127,7 @@ threads = list()
 odometryRoom.connect(False)
 
 log.debug("Start system thread")
-sysThread = threading.Thread(name=constants.THREAD_NAME_SYSTEM,target=processMessagesSync,args=(systemRoom,))
+sysThread = threading.Thread(name=constants.THREAD_NAME_SYSTEM,target=processMessagesSync, args=(systemRoom,))
 sysThread.daemon = True
 threads.append(sysThread)
 sysThread.start()
@@ -1079,7 +1140,7 @@ except KeyError as key:
     sys.exit(1)
 
 log.debug("Start service thread")
-service = threading.Thread(name=constants.THREAD_NAME_SERVICE,target=serviceQueue, args=(odometer,odometryRoom,announcementInterval))
+service = threading.Thread(name=constants.THREAD_NAME_SERVICE, target=serviceQueue, args=(odometer, odometryRoom, announcementInterval))
 service.daemon = True
 threads.append(service)
 service.start()

@@ -6,19 +6,29 @@ from abc import ABC, abstractmethod
 from typing import Callable
 import logging
 from time import sleep
+import time
 from datetime import datetime
 import queue
 import constants
 
 class Odometer(ABC):
-    def __init__(self, options: str):
-        self.options = options
+    def __init__(self, **kwargs):
+        #self.options = options
         # This is where the readings go -- this size is way too big
         self._changeQueue = queue.Queue(maxsize=50000)
         self._source = None
         self._processing = False
         self._reporting = False
         self._connected = False
+        self._encoder_clicks = kwargs[constants.KEYWORD_PPR]
+
+    def encoderClicksPerDegree(self) -> float:
+        pulsesPerDegree = 360 / self._encoder_clicks
+        return pulsesPerDegree
+
+    @property
+    def encoderClicks(self) -> int:
+        return self._encoder_clicks
 
     @property
     def reporting(self) -> bool:
@@ -74,17 +84,20 @@ class VirtualOdometer(Odometer):
         An odometer that behaves as if the system is moving at a constant speed.
         :param kwargs: SPEED -- the speed expressed in KPH
         """
-        super().__init__("")
+        super().__init__(**kwargs)
         self._wheel_size = kwargs[constants.KEYWORD_WHEEL_CIRCUMFERENCE]
-        self._encoder_clicks = kwargs[constants.KEYWORD_PPR]
         self._speed = kwargs[constants.KEYWORD_SPEED]
 
         self._speedInMMPerSecond = self._speed * 1000
         self._log = logging.getLogger(__name__)
-        # For example, it takes 0.00224 seconds to travel 1cm at 44.704 cm per second/1mph
-        self._timeToTravel1CM = 1 / self._speed
+        # 1KPH is 27.7778cm per second
+        cps = self._speed * 27.7778
+        self._secondsToTravel1CM = 1 / cps
 
         self._distancePerDegree = self._wheel_size / 360
+
+        # The number of encoder clicks we can expect in 1 cm.
+        self._pulsesPerCM = self._encoder_clicks / (self._wheel_size / 10)
 
         self._start = 0
         self._elapsed_milliseconds = 0
@@ -107,6 +120,14 @@ class VirtualOdometer(Odometer):
         :return:
         """
         return self._encoder_clicks
+
+    @property
+    def pulsesPerCM(self) -> float:
+        return self._pulsesPerCM
+
+    @property
+    def secondsToTravel1CM(self) -> float:
+        return self._secondsToTravel1CM
 
     def connect(self) -> bool:
         """
@@ -161,20 +182,27 @@ class VirtualOdometer(Odometer):
 
             if self.reporting:
                 # put the angular change on the queue
-                angle += (360 / self._encoder_clicks)
+                # The amount of pulses in one degree of change
+                pulsesPerDegree = 360 / self._encoder_clicks
+                distancePerDegree = (self._wheel_size / 10) / 360
+                # The angular change required for a 1CM movement
+                angleRequiredIn1CM = 360 / (self._wheel_size / 10)
+
+                angle += angleRequiredIn1CM
                 try:
                     self.changeQueue.put(angle, block=False)
-                    self._log.info("Queue size: {} Angle: {}".format(self.changeQueue.qsize(), angle))
+                    # self._log.info("Queue size: {} Angle: {}".format(self.changeQueue.qsize(), angle))
                 except queue.Full as full:
                     self._log.fatal("Odometry queue is full. This should not happen to a double ended queue")
                     self._log.fatal("Current queue size: {}".format(self.changeQueue.qsize()))
 
-                # Call the processing routine every 1cm of travel
-                #self._log.debug("Sleep for {:.5f} seconds".format(timeToMoveOnePulse))
+
             else:
                 self._log.error("Movement not reported, so will not be enqueued")
-            self._log.debug("Sleep: {}".format(timeToMoveOnePulse))
-            sleep(timeToMoveOnePulse)
+
+            # Sleep for the duration to move 1 CM
+            # self._log.debug("Sleeping for {} seconds to simulate {} cm movement at {} kph." .format(self._secondsToTravel1CM, 1, self._speed))
+            time.sleep(self._secondsToTravel1CM)
             self._start = datetime.now()
 
 if __name__ == "__main__":

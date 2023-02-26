@@ -4,24 +4,26 @@
 # Enrich the image or image set by inserting GPS info and other data into the exif.
 #
 
-import exif
 from exif import Image
 import logging
 import logging.config
 import math
-from pathlib import Path
+import os
 
 from ProcessedImage import ProcessedImage
 import constants
 
+
 class Enrich:
-    def __init__(self, **kwargs):
+    def __init__(self, directory: str, **kwargs):
         """
         Enrich an image or a set of images
         :param kwargs: LAT, LONG, EXPOSURE, PULSES, SPEED
         """
 
         self._log = logging.getLogger(__name__)
+        self._directory = directory
+        self._log.debug("Directory: {}".format(self._directory))
 
     # TODO: Move this to a GPS utility
     def decdeg2dms(self, degs: float) -> ():
@@ -43,13 +45,35 @@ class Enrich:
         for key, value in kwargs.items():
             self._log.debug("Keyword: {}/{}".format(key, value))
 
+    def writeImageAndEnrich(self, image: ProcessedImage):
+
+        captureType = image.captureType
+
+        if captureType == constants.Capture.DEPTH_RGB:
+            pass
+        elif captureType == constants.Capture.RGB:
+            pass
+        elif captureType == constants.Capture.DEPTH_DEPTH:
+            pass
+        else:
+            self._log.error("Unknown image type: {}".format(captureType))
+
+    def addMetadataToImageAndWriteToDisk(self, image: ProcessedImage):
+        pass
+
     def addEXIFToImageAndWriteToDisk(self, image: ProcessedImage):
         """
         Adds the EXIF data to the image and writes out the result.
         :param image: the target image, already on disk without EXIF
         """
-        filename = image.filename
+        # filename = self._directory + image.filename + constants.EXTENSION_IMAGE
+        filename = image.filename + constants.EXTENSION_IMAGE
         self._log.debug("Enriching {} with EXIF data".format(filename))
+
+        if not os.path.isfile(filename):
+            self._log.error("Unable to access file {}".format(filename))
+            return
+
         with open(filename, 'rb') as image_file:
             self._log.debug("Reading image: {}".format(filename))
             image_bytes = image_file.read()
@@ -160,7 +184,7 @@ if __name__ == "__main__":
         if arguments.show:
             enricher.printEXIF(arguments.input)
         else:
-            processed = ProcessedImage(None, 0)
+            processed = ProcessedImage(constants.Capture.RGB, None, 0)
             processed.filename = arguments.input
             processed.model = "2500"
             processed.make = "basler"

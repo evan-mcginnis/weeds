@@ -854,7 +854,7 @@ if __name__ == "__main__":
     try:
         performance.start()
         img = camera.capture()
-        performance.stopAndRecord(constants.PERF_ACQUIRE)
+        performance.stopAndRecord(constants.PERF_ACQUIRE_BASLER_RGB)
         cv.imwrite(arguments.single, img)
     except IOError as io:
         camera.log.error("Failed to capture image: {0}".format(io))

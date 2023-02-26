@@ -3,17 +3,19 @@
 #
 
 import numpy as np
-from collections import deque
+import queue
+from constants import Capture
 
 
 
 class ProcessedImage:
-    def __init__(self, image, timestamp: int):
+    def __init__(self, captureType: Capture, image, timestamp: int):
         self._image = image
         self._timestamp = timestamp
         self._indexed = False
         self._exif = None
         self._filename = None
+        self._urlFilename = ""
         self._exposure = 0
         self._latitude = 0.0
         self._longitude = 0.0
@@ -22,6 +24,24 @@ class ProcessedImage:
         self._model = "2500-14gc"
         self._software = "UofA Weed Imaging"
         self._copyright = "Evan McGinnis"
+        self._captureType = captureType
+        self._imageNumber = 0
+
+    @property
+    def urlFilename(self) -> str:
+        return self._urlFilename
+
+    @urlFilename.setter
+    def urlFilename(self, filename):
+        self._urlFilename = filename
+
+    @property
+    def imageNumber(self) -> int:
+        return self._imageNumber
+
+    @property
+    def captureType(self) -> Capture:
+        return self._captureType
 
     @property
     def copyright(self) -> str:
@@ -116,21 +136,23 @@ class ProcessedImage:
 
 class Images:
     def __init__(self):
-        self._elements = deque()
+        self._elements = queue.Queue()
+
+    @property
+    def queue(self):
+        return self._elements
 
     def enqueue(self, element: ProcessedImage):
-        self._elements.append(element)
+        """
+        Add the processed image to the queue
+        :param element:
+        """
+        self._elements.put(element)
 
     def dequeue(self) -> ProcessedImage:
-        image = None
-        try:
-            image = self._elements.popleft()
-        except IndexError:
-            pass
+        """
+        Get the next image from the queue. This operation will block if the queue is empty.
+        :return:
+        """
+        image = self._elements.get(block=True)
         return image
-
-    def __len__(self) -> int:
-        return len(self._elements)
-
-    def __iter__(self):
-        yield from self._elements

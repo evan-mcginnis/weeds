@@ -6,6 +6,8 @@ from abc import ABC, abstractmethod
 from statemachine import StateMachine, State
 from statemachine.exceptions import TransitionNotAllowed
 
+import constants
+
 class CameraState(StateMachine):
     new = State('New', initial=True)
     capturing = State('Capturing')
@@ -23,10 +25,25 @@ class CameraState(StateMachine):
 
 
 class Camera(ABC):
+    cameras = list()
+    cameraCount = 0
     def __init__(self, **kwargs):
         super().__init__()
         self._state = CameraState()
 
+        # Register the camera on the global list so we can keep track of them
+        # Even though there will probably be only one
+        self.cameraID = Camera.cameraCount
+        Camera.cameraCount += 1
+        Camera.cameras.append(self)
+
+        self._status = constants.OperationalStatus.UNKNOWN
+
+        self._gsd = 0
+
+    @property
+    def status(self) -> constants.OperationalStatus:
+        return self._status
 
     @property
     def state(self) -> CameraState:
