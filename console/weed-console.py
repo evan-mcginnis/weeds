@@ -1590,7 +1590,7 @@ def syncImages():
     Synchronize the images from the remote systems into the /tmp directory
     """
     os.chdir("c:\\tmp")
-    os.system("c:\\uofa\\weeds\\post\\sync-tucson.bat")
+    os.system("sync-weeds.bat")
 
 def process(conn, msg: xmpp.protocol.Message):
     global messageNumber
