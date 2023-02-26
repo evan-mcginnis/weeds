@@ -38,7 +38,6 @@ from MQCommunicator import ClientMQCommunicator
 from Messages import MUCMessage, OdometryMessage, SystemMessage, TreatmentMessage
 from WeedExceptions import XMPPServerUnreachable, XMPPServerAuthFailure
 
-import sync
 
 import shortuuid
 
