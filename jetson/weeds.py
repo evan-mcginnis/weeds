@@ -923,7 +923,12 @@ def startupRGBDepthCamera(options: OptionsFile) -> CameraDepth:
 
     # Start the Depth Cameras
     try:
-        cameraForDepth = CameraDepth(constants.Capture.DEPTH_RGB)
+        requiredExposure=options.option(constants.PROPERTY_SECTION_INTEL, constants.PROPERTY_EXPOSURE)
+    except KeyError:
+        log.error("Exposure not found. Using defaults")
+        requiredExposure = constants.DEFAULT_EXPOSURE
+    try:
+        cameraForDepth = CameraDepth(constants.Capture.DEPTH_RGB, EXPOSURE=requiredExposure)
         if markSensorAsFailed:
             cameraForDepth.state.toMissing()
         else:

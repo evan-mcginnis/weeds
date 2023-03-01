@@ -97,7 +97,12 @@ class CameraDepth(Camera):
             self._config = kwargs[constants.KEYWORD_CONFIGURATION]
         except KeyError as key:
             self.log.warning("The configuration of the device is not specified with keyword: {}. Using defaults.".format(constants.KEYWORD_CONFIGURATION))
-
+        # The exposure
+        try:
+            self._exposure = float(kwargs[constants.KEYWORD_EXPOSURE])
+        except KeyError as key:
+            self.log.warning("The exposureis not specified with keyword: {}. Using defaults.".format(constants.KEYWORD_EXPOSURE))
+            self._exposure = constants.DEFAULT_EXPOSURE
 
         return
 
@@ -162,6 +167,7 @@ class CameraDepth(Camera):
             # Enable depth stream to capture 1280x720, 6 FPS
             self._pipelineDepthRGB = rs.pipeline()
             self._configDepthRGB = rs.config()
+                
 
             if self._serial is not None:
                 # Choose the device based on serial number
@@ -297,6 +303,10 @@ class CameraDepth(Camera):
             self.log.debug("Begin grab of depth/RGB stream")
             try:
                 self._pipelineDepthRGB.start(self._configDepthRGB)
+                self._sensor = self._pipelineDepthRGB.get_active_profile().get_device().query_sensors()[1]
+                exposure = self._sensor.get_option(rs.option.exposure)
+                self._sensor.set_option(rs.option.exposure, self._exposure)
+                self.log.debug("Set intel exposure to {}. Currently {}".format(self._exposure, exposure))
                 self._capturing = True
                 try:
                     self._state.toCapture()
