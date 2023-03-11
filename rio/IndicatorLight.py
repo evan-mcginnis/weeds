@@ -1,6 +1,7 @@
 """
-Example for Adafruit USB tower light w/alarm
-don't forge to `pip install pyserial` or `pip3 install pyserial`
+Indicator light
+
+Adopted from the adafruit example
 """
 
 import serial
@@ -22,8 +23,15 @@ GREEN_ON = 0x14
 GREEN_OFF = 0x24
 GREEN_BLINK = 0x44
 
+def sendCommand(serialport, cmd):
+    serialport.write(bytes([cmd]))
+
 class IndicatorLight:
     def __init__(self, portName: str):
+        """
+        An indicator light with three colors and blink mode for each
+        :param portName: Name of the tty, typically something like /dev/ttyUSB0
+        """
         self._serialPort = portName #'/dev/ttyUSB0'
         self._connected = False
 
@@ -41,7 +49,10 @@ class IndicatorLight:
             sendCommand(self._mSerial, GREEN_OFF)
 
     def diagnostics(self):
-
+        """
+        If connected, run through diagnostics that will run through all colors and blink them
+        :return:
+        """
         if not self._connected:
             return
 
@@ -93,8 +104,6 @@ class IndicatorLight:
     def signalError(self):
         pass
 
-def sendCommand(serialport, cmd):
-    serialport.write(bytes([cmd]))
 
 if __name__ == '__main__':
 
