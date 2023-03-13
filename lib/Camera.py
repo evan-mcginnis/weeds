@@ -5,6 +5,7 @@ import numpy as np
 from abc import ABC, abstractmethod
 from statemachine import StateMachine, State
 from statemachine.exceptions import TransitionNotAllowed
+from ProcessedImage import ProcessedImage
 
 import constants
 
@@ -66,7 +67,7 @@ class Camera(ABC):
         return 0
 
     @abstractmethod
-    def capture(self) -> np.ndarray:
+    def capture(self) -> ProcessedImage:
         self._connected = False
         return
 

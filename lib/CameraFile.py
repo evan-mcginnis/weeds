@@ -17,6 +17,7 @@ import cv2 as cv
 
 
 import constants
+from ProcessedImage import ProcessedImage
 from Performance import Performance
 from Camera import Camera
 
@@ -24,7 +25,7 @@ from Camera import Camera
 class CameraFile(Camera):
     def __init__(self, **kwargs):
         self._connected = False
-        self.directory =  kwargs[constants.KEYWORD_DIRECTORY]
+        self.directory = kwargs[constants.KEYWORD_DIRECTORY]
         self._type = kwargs[constants.KEYWORD_TYPE]
         self._currentImage = 0
         super().__init__(**kwargs)
@@ -49,7 +50,8 @@ class CameraFile(Camera):
             # Depth data are .npy files
             elif self._type == constants.ImageType.DEPTH.name:
                 pattern = "/*" + constants.EXTENSION_NPY
-
+            else:
+                self.log.error("Can't process type: {}".format(self._type))
             files = self.directory + pattern
             self._flist = glob.glob(files)
             #self._flist = [p for p in pathlib.Path(self.directory).iterdir() if p.is_file()]
@@ -68,7 +70,7 @@ class CameraFile(Camera):
     def start(self):
         return
 
-    def capture(self) -> np.ndarray:
+    def capture(self) -> ProcessedImage:
         """
         Each time capture() is called, the next image in the directory is returned
         :return:
@@ -78,13 +80,17 @@ class CameraFile(Camera):
             image = None
             if self._type == constants.ImageType.RGB.name:
                 imageName = str(self._flist[self._currentImage])
-                image = cv.imread(imageName,cv.IMREAD_COLOR)
+                image = cv.imread(imageName, cv.IMREAD_COLOR)
                 self._currentImage = self._currentImage + 1
             elif self._type == constants.ImageType.DEPTH.name:
                 imageName = str(self._flist[self._currentImage])
                 image = np.load(imageName)
+            else:
+                self.log.error("Can't process type: {}".format(self._type))
 
-            return(image)
+            processed = ProcessedImage(constants.ImageType.RGB, image, 0)
+
+            return processed
         # Raise an EOFError  when we get through the sequence of images
         else:
             raise EOFError

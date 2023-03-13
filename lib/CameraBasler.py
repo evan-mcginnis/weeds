@@ -1,3 +1,9 @@
+# W A R N I N G
+#
+# The Basler logic is just copied to the weeds.py file
+# This works just fine here, but not when that file imports the class
+#
+
 from Camera import Camera
 from pypylon import pylon
 from pypylon import genicam
@@ -91,9 +97,12 @@ class ImageEvents(pypylon.pylon.ImageEventHandler):
 
         # Image grabbed successfully?
         if grabResult.GrabSucceeded():
-            log.debug("Image grabbed")
+            log.debug("Image grabbed successfully")
+            start = time.time()
             # Convert the image grabbed to something we like
-            image = CameraBasler.convert(grabResult)
+            # image = CameraBasler(grabResult)
+            # self.log.debug(f"Basler image converted time: {time.time() - start} s")
+            image = DebugCameraBasler.convert(grabResult)
             img = image.GetArray()
             # The 1920 and 2500 cameras do not support PTP, so the timestamp is just the ticks since startup.
             # We will mark the images based on when we got them -- ideally, this should be:
@@ -110,6 +119,7 @@ class ImageEvents(pypylon.pylon.ImageEventHandler):
             # img = grabResult.GetArray()
             # print("Gray values of first row: ", img[0])
             # print()
+            grabResult.Release()
         else:
             log.error("Image Grab error code: {} {}".format(grabResult.GetErrorCode(), grabResult.GetErrorDescription()))
 
@@ -120,7 +130,7 @@ class SampleImageEventHandler(pypylon.pylon.ImageEventHandler):
         print()
         print()
 
-class CameraBasler(Camera):
+class DebugCameraBasler(Camera):
     # Initialize the converter for images
     # The images stream of in YUV color space.  An optimization here might be to make
     # both formats available, as YUV is something we will use later
@@ -129,7 +139,11 @@ class CameraBasler(Camera):
 
     # converting to opencv bgr format
     _converter.OutputPixelFormat = pylon.PixelType_BGR8packed
-    _converter.OutputBitAlignment = pylon.OutputBitAlignment_MsbAligned
+    # Temporary -- the setting is already in place on the camera
+    #_converter.OutputBitAlignment = pylon.OutputBitAlignment_MsbAligned
+
+    _configurationEvents = ConfigurationEventPrinter()
+    _imageEvents = ImageEvents()
 
     def __init__(self, **kwargs):
         """
@@ -169,11 +183,32 @@ class CameraBasler(Camera):
             self._captureType = constants.CAPTURE_STRATEGY_QUEUED
             self.log.debug("Default Capture type: {}".format(self._captureType))
 
+        # if constants.KEYWORD_CONFIGURATION_EVENTS in kwargs:
+        #     self.log.debug("Using supplied configuration event printer")
+        #     self._configurationEvents = kwargs[constants.KEYWORD_CONFIGURATION_EVENTS]
+        # else:
+        #     self.log.debug("Creating configuration event printer")
+        #     self._configurationEvents = ConfigurationEventPrinter()
+        #
+        # if constants.KEYWORD_IMAGE_EVENTS in kwargs:
+        #     self.log.debug("Using supplied image event printer")
+        #     self._imageEvents = kwargs[constants.KEYWORD_IMAGE_EVENTS]
+        # else:
+        #     self.log.debug("Creating Image Event printer")
+        #     self._imageEvents = ImageEvents()
+
         super().__init__(**kwargs)
 
     @classmethod
     def convert(cls, grabResult):
-        image = CameraBasler._converter.Convert(grabResult)
+        """
+        Converts the grab result into the format expected by the rest of the system
+        :param grabResult: A grab from the basler camera
+        :return:
+        """
+        start = time.time()
+        image = DebugCameraBasler._converter.Convert(grabResult)
+        print(f"Image conversion took: {time.time() - start} seconds")
         return image
 
     def connect(self) -> bool:
@@ -194,11 +229,12 @@ class CameraBasler(Camera):
                     self.log.fatal("Error encountered in attaching camera")
                     self.log.fatal("{}".format(e))
                     self._status = constants.OperationalStatus.FAIL
-                # self._camera.MaxNumBuffer = 100
+                self._camera.MaxNumBuffer = 100
                 try:
                     self._camera.Open()
                     self.log.info("Using device {} at {}".format(self._camera.GetDeviceInfo().GetModelName(),
                                                                  dev_info.GetIpAddress()))
+                    self._camera.AcquisitionMode.SetValue('Continuous')
                     self._connected = True
                     self._status = constants.OperationalStatus.OK
                 except Exception as e:
@@ -223,7 +259,7 @@ class CameraBasler(Camera):
 
         return self._connected
 
-    def initializeCapture(self):
+    def initializeCapture(self, configCallbacks, imageCallbacks):
 
         initialized = False
         try:
@@ -234,16 +270,24 @@ class CameraBasler(Camera):
                                                pylon.RegistrationMode_ReplaceAll,
                                                pylon.Cleanup_Delete)
 
-            # For demonstration purposes only, add a sample configuration event handler to print out information
-            # about camera use.t
-            self._camera.RegisterConfiguration(ConfigurationEventPrinter(),
+            # Originally
+            # self._camera.RegisterConfiguration(ConfigurationEventPrinter(),
+            #                                    pylon.RegistrationMode_Append,
+            #                                    pylon.Cleanup_Delete)
+
+            self._camera.RegisterConfiguration(configCallbacks,
                                                pylon.RegistrationMode_Append,
                                                pylon.Cleanup_Delete)
 
             # The image event printer serves as sample image processing.
             # When using the grab loop thread provided by the Instant Camera object, an image event handler processing the grab
             # results must be created and registered.
-            self._camera.RegisterImageEventHandler(ImageEvents(),
+            # Originally
+            # self._camera.RegisterImageEventHandler(ImageEvents(),
+            #                                        pylon.RegistrationMode_Append,
+            #                                        pylon.Cleanup_Delete)
+
+            self._camera.RegisterImageEventHandler(imageCallbacks,
                                                    pylon.RegistrationMode_Append,
                                                    pylon.Cleanup_Delete)
 
@@ -251,7 +295,6 @@ class CameraBasler(Camera):
             # self._camera.RegisterImageEventHandler(SampleImageEventHandler(),
             #                                        pylon.RegistrationMode_Append,
             #                                        pylon.Cleanup_Delete)
-
             self._camera.SetCameraContext(self.cameraID)
             initialized = True
 
@@ -271,16 +314,17 @@ class CameraBasler(Camera):
         if not self._connected:
             raise IOError("Camera is not connected.")
 
+
         self.log.debug("Camera initialized")
 
     def startCapturing(self):
         # Start the grabbing using the grab loop thread, by setting the grabLoopType parameter
         # to GrabLoop_ProvidedByInstantCamera. The grab results are delivered to the image event handlers.
         # The GrabStrategy_OneByOne default grab strategy is used.
-        self.log.debug("Start Capturing with OneByOne Strategy")
         try:
-            # self.camera.Open()
+            #self.camera.Open()
             self.camera.StartGrabbing(pylon.GrabStrategy_OneByOne, pylon.GrabLoop_ProvidedByInstantCamera)
+            self.log.debug("Start Capturing with OneByOne Strategy")
         except _genicam.RuntimeException as e:
             self.log.fatal("Failed to open the camera and start grabbing.")
             self.log.fatal("{}".format(e))
@@ -288,55 +332,129 @@ class CameraBasler(Camera):
         # If we immediately start waiting for the trigger, we get an error
         time.sleep(3)
         self._capturing = True
-        while self._capturing:
-            time.sleep(10)
-            self.log.debug("Dummy capture of Basler RGB")
 
+        # This is for a dummy capture
         # while self._capturing:
-        #     try:
-        #         if self.camera.WaitForFrameTriggerReady(800, pylon.TimeoutHandling_ThrowException):
-        #             self.camera.ExecuteSoftwareTrigger()
-        #     except _genicam.TimeoutException as e:
-        #         self.log.fatal("Timeout from camera")
-        #     except _genicam.RuntimeException as e:
-        #         if not self._capturing:
-        #             self.log.warning("Errors encountered in shutdown.  This is normal")
-        #         else:
-        #             self.log.error("Unexpected errors in capture")
-        #             self.log.error("Device: {}".format(self._camera.GetDeviceInfo().GetModelName()))
-        #             self.log.error("{}".format(e))
-        #     except Exception as e:
-        #         self.log.error("Unable to execute wait for trigger")
-        #         self.log.error(e)
+        #     time.sleep(10)
+        #     self.log.debug("Dummy capture of Basler RGB")
+
+        while self._capturing:
+            try:
+                for i in range(5):
+                    if self.camera.WaitForFrameTriggerReady(2000, pylon.TimeoutHandling_ThrowException):
+                        self.camera.ExecuteSoftwareTrigger()
+            except _genicam.TimeoutException as e:
+                self.log.fatal("Timeout from camera in WaitForFrameTrigger ready")
+                time.sleep(1)
+                self.log.fatal(e)
+            except _genicam.RuntimeException as e:
+                if not self._capturing:
+                    self.log.warning("Errors encountered in shutdown.  This is normal")
+                else:
+                    self.log.error("Unexpected errors in capture")
+                    self.log.error("Device: {}".format(self._camera.GetDeviceInfo().GetModelName()))
+                    self.log.error("{}".format(e))
+            except Exception as e:
+                self.log.error("Unable to execute wait for trigger")
+                self.log.error(e)
 
     def start(self):
         """
             Begin capturing images and store them in a queue for later retrieval.
             """
 
+        # Use the startCapturing() method for the loop
+        return
+
+        #######################
+        # This is based ob a basler example
+        #######################
+
         self._camera.Open()
+        self._camera.MaxNumBuffer = 40
         self._camera.StartGrabbing(pylon.GrabStrategy_OneByOne)
         i = 0
         self.log.debug('Starting to acquire')
-        t0 = time.time()
         while self._camera.IsGrabbing():
-            grab = self._camera.RetrieveResult(500, pylon.TimeoutHandling_ThrowException)
-            # if grab.GrabSucceeded():
-            #     self.log.debug(f'Acquired {i} frames in {time.time() - t0:.0f} seconds')
-            #     i += 1
+            for i in range(3):
+                self.log.debug("Waiting for FrameTriggerReady")
+                if self._camera.WaitForFrameTriggerReady(2000, pylon.TimeoutHandling_ThrowException):
+                    self._camera.ExecuteSoftwareTrigger()
+            time.sleep(0.2)
+            # Check that grab results are waiting.
+
+            if self._camera.GetGrabResultWaitObject().Wait(0):
+                self.log.debug("Grab results wait in the output queue.")
+            else:
+                self.log.error("No results are waiting")
+
+            # All triggered images are still waiting in the output queue
+            # and are now retrieved.
+            # The grabbing continues in the background, e.g. when using hardware trigger mode,
+            # as long as the grab engine does not run out of buffers.
+            start = time.time()
+            grab = self._camera.RetrieveResult(0, pylon.TimeoutHandling_Return)
+            img = grab.Array
+            grab.Release()
+            # timestamped = ProcessedImage(constants.Capture.RGB, grab, round(time.time() * 1000))
+            # Temporary -- attach the image, not the grab
+            timestamped = ProcessedImage(constants.Capture.RGB, img, round(time.time() * 1000))
+            timestamped.type = constants.ImageType.BASLER_RAW
+
+            cameraNumber = self._camera.GetCameraContext()
+            # self._camera = Camera.cameras[cameraNumber]
+            # log.debug("Camera context is {} Queue is {}".format(cameraNumber, len(camera._images)))
+            self.log.debug(f"Grabbed image processed and enqueued in {time.time() - start:.8f} seconds")
+            self._images.append(timestamped)
+
+        ###############################
+        # This is the original logic
+        ###############################
+
+        self._camera.Open()
+        self._camera.MaxNumBuffer = 40
+        self._camera.StartGrabbing(pylon.GrabStrategy_OneByOne)
+        i = 0
+        self.log.debug('Starting to acquire')
+        while self._camera.IsGrabbing():
+            try:
+                t0 = time.time()
+                grab = self._camera.RetrieveResult(900, pylon.TimeoutHandling_ThrowException)
+            except _genicam.TimeoutException:
+                self.log.error("Basler camera timeout seen")
+                continue
+            if grab.GrabSucceeded():
+                self.log.debug(f'Acquired frames in {time.time() - t0} seconds')
+                i += 1
             if grab.GrabSucceeded():
                 # self.log.debug("Basler Image grabbed")
                 # Convert the image grabbed to something we like
-                image = CameraBasler.convert(grab)
-                img = image.GetArray()
+                start = time.time()
+
+                #image = CameraBasler.convert(grab)
+                #self.log.debug(f"Basler image converted time: {time.time() - start} s")
+                #img = image.GetArray()
+
                 # The 1920 and 2500 cameras do not support PTP, so the timestamp is just the ticks since startup.
                 # We will mark the images based on when we got them -- ideally, this should be:
                 # timestamped = ProcessedImage(img, grabResult.TimeStamp)
+                # Orignally
+                #timestamped = ProcessedImage(constants.Capture.RGB, img, round(time.time() * 1000))
+                # Create a processed image that has not yet been converted
+                # Use the pylon methods for everything
+                # img = pylon.PylonImage()
+                # img.AttachGrabResultBuffer(grab)
+                img = grab.Array
+                grab.Release()
+                #timestamped = ProcessedImage(constants.Capture.RGB, grab, round(time.time() * 1000))
+                # Temporary -- attach the image, not the grab
                 timestamped = ProcessedImage(constants.Capture.RGB, img, round(time.time() * 1000))
+                timestamped.type = constants.ImageType.BASLER_RAW
 
                 cameraNumber = self._camera.GetCameraContext()
                 #self._camera = Camera.cameras[cameraNumber]
                 #log.debug("Camera context is {} Queue is {}".format(cameraNumber, len(camera._images)))
+                self.log.debug(f"Grabbed image processed and enqueued in {time.time() - start:.8f} seconds")
                 self._images.append(timestamped)
 
                 # print("SizeX: ", grabResult.GetWidth())
@@ -437,10 +555,17 @@ class CameraBasler(Camera):
 
             # The image we want is the one closest to the current time. The queue may contain a bunch of older images
             processed = self._images.popleft()
-            img = processed.image
+
+            # The image is not yet converted to a form we can process
+            # grab = processed.image
+            # start = time.time()
+            # image = CameraBasler.convert(grab)
+            # self.log.debug(f'Basler image conversion took {time.time() - start} seconds')
+            # processed.image = image.GetArray()
+
             # The timestamp is in milliseconds
             timestamp = processed.timestamp / 1000
-            self.log.debug( "Image captured at UTC: {}".format(datetime.utcfromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')))
+            self.log.debug("Image captured at UTC: {}".format(datetime.utcfromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')))
 
         return processed
 
@@ -531,9 +656,11 @@ class CameraBasler(Camera):
 if __name__ == "__main__":
     import argparse
     import threading
+    from PIL import Image
+
     parser = argparse.ArgumentParser("Basler Camera Utility")
 
-    parser.add_argument('-s', '--single', action="store", required=False, default=True, help="Take a single picture")
+    parser.add_argument('-s', '--single', action="store", required=False, default="single.jpg", help="Take a single picture")
     parser.add_argument('-c', '--camera', action="store", required=True, help="IP Address of camera")
     parser.add_argument('-l', '--logging', action="store", required=False, default="logging.ini", help="Log file configuration")
     parser.add_argument('-p', '--performance', action="store", required=False, default="camera.csv", help="Performance file")
@@ -545,13 +672,16 @@ if __name__ == "__main__":
     logging.config.fileConfig(arguments.logging)
     log = logging.getLogger("iron-chef")
 
-    def takeRGBImages(cam: CameraBasler):
+    def takeRGBImages(cam: DebugCameraBasler):
         log.debug("Taking images")
         cam.connect()
-        cam.initializeCapture()
+        cam.initializeCapture(configurationEvents, imageEvents)
         cam.startCapturing()
 
-    camera = CameraBasler(ip=arguments.camera, capture=arguments.type)
+    configurationEvents = ConfigurationEventPrinter()
+    imageEvents = ImageEvents()
+    camera = DebugCameraBasler(ip=arguments.camera, capture=constants.CAPTURE_STRATEGY_QUEUED, configuration=configurationEvents, image=imageEvents)
+    #camera = CameraBasler(ip=arguments.camera, capture=arguments.type)
     if arguments.type == 'live':
         camera.connect()
         start = time.time()
@@ -563,7 +693,11 @@ if __name__ == "__main__":
         acquire.start()
 
         log.debug("Sleeping to allow queue buildup")
-        time.sleep(5)
+        time.sleep(20)
         start = time.time()
         processed = camera.capture()
         log.debug(f'Captured image in {time.time() - start} s')
+        image = Image.fromarray(processed.image)
+        if image.mode != 'RGB':
+            image = image.convert('RGB')
+        image.save(arguments.single)

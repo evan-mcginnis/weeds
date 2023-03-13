@@ -19,7 +19,7 @@ import constants
 from Performance import Performance
 
 from Camera import Camera
-from WeedExceptions import DepthUnknownStream
+from WeedExceptions import DepthUnknownStream, CameraError
 from TimestampedImage import TimestampedImage
 from DepthImage import DepthImage
 
@@ -48,7 +48,7 @@ class CameraDepth(Camera):
         self._camera = None
         self.log = logging.getLogger(__name__)
         self._capturing = False
-        self._images = deque(maxlen=constants.DEPTH_QUEUE_LEN)
+        self._images = deque(maxlen=constants.IMAGE_QUEUE_LEN)
 
         self._serial = None
         self._pipeline = None
@@ -434,9 +434,15 @@ class CameraDepth(Camera):
             raise IOError("Camera is not connected")
 
         # Obtain the RGB and depth images directly from the camera
-        f = self._pipelineDepthRGB.wait_for_frames()
-        _currentDepth = f.get_depth_frame()
-        _currentRGB = f.get_color_frame()
+        try:
+            f = self._pipelineDepthRGB.wait_for_frames()
+            _currentDepth = f.get_depth_frame()
+            _currentRGB = f.get_color_frame()
+        except RuntimeError as runtime:
+            self.log.error("Unable to fetch frames")
+            self.log.error(runtime)
+            raise CameraError("Unable to fetch frames", False)
+
         if not _currentRGB or not _currentDepth:
             self.log.fatal("Failed to capture both RGB and depth")
         # Convert the depth data to a numpy array.

@@ -23,7 +23,7 @@ class XMPPServerAuthFailure(WeedExceptions):
 
 class CameraError(WeedExceptions):
     def __init__(self, message: str, eligible: bool):
-        super().__init__(self._message)
+        super().__init__(message)
         self.eligibleForReconnect = eligible
 
 class DAQError(WeedExceptions):

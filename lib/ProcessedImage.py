@@ -4,6 +4,8 @@
 
 import numpy as np
 import queue
+
+import constants
 from constants import Capture
 
 
@@ -26,6 +28,15 @@ class ProcessedImage:
         self._copyright = "Evan McGinnis"
         self._captureType = captureType
         self._imageNumber = 0
+        self._type = constants.ImageType.RGB
+
+    @property
+    def type(self):
+        return self._type
+
+    @type.setter
+    def type(self, theType: constants.ImageType):
+        self._type = theType
 
     @property
     def urlFilename(self) -> str:
@@ -129,6 +140,10 @@ class ProcessedImage:
     @property
     def image(self) -> np.ndarray:
         return self._image
+
+    @image.setter
+    def image(self, theImage):
+        self._image = theImage
 
     @property
     def timestamp(self) -> int:

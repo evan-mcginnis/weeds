@@ -17,6 +17,7 @@ UI_CONFIRM_IMAGING_WITH_ERRORS = "Not all components are operational. Do you wan
 PREFIX_CAMERA_CONFIGURATION = "camera-configuration-"
 EXTENSION_CAMERA_SETTINGS = ".pfs"
 EXTENSION_IMAGE = ".jpg"
+EXTENSION_PNG = ".png"
 EXTENSION_NPY = ".npy"
 EXTENSION_NPZ = ".npz"
 EXTENSION_META = ".meta"
@@ -156,7 +157,7 @@ STRATEGY_ASYNC = 0
 STRATEGY_SYNC = 1
 
 # The number of images to keep
-IMAGE_QUEUE_LEN = 2
+IMAGE_QUEUE_LEN = 20
 DEPTH_QUEUE_LEN = 8
 # Probably way too long 5000 ms for camera to acquire image
 TIMEOUT_CAMERA = 5000
@@ -168,6 +169,8 @@ KEYWORD_FILE_ACCELERATION = "acceleration"
 KEYWORD_SERIAL = "serial"
 KEYWORD_CONFIGURATION = "config"
 KEYWORD_CAPTURE_STRATEGY = "capture"
+KEYWORD_IMAGE_EVENTS = "image"
+KEYWORD_CONFIGURATION_EVENTS = "configuration"
 
 CAPTURE_STRATEGY_QUEUED = "queued"
 CAPTURE_STRATEGY_LIVE = "live"
@@ -506,6 +509,7 @@ class SubsystemType(Enum):
 class ImageType(Enum):
     RGB = 0
     DEPTH = 1
+    BASLER_RAW = 2
 
 class OdometryMessageType(Enum):
     DISTANCE = 0
@@ -558,5 +562,13 @@ class Capture(Enum):
 class Side(Enum):
     RIGHT = 0
     LEFT = 1
+
+class ProcessResult(Enum):
+    OK = 0
+    EOF = 1
+    NOTHING_FOUND = 2
+    NOT_PROCESSED = 3
+    INTERNAL_ERROR = 4
+
 
 
