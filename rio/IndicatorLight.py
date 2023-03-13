@@ -32,7 +32,7 @@ class IndicatorLight:
         An indicator light with three colors and blink mode for each
         :param portName: Name of the tty, typically something like /dev/ttyUSB0
         """
-        self._serialPort = portName #'/dev/ttyUSB0'
+        self._serialPort = portName
         self._connected = False
 
         try:
@@ -93,10 +93,20 @@ class IndicatorLight:
         return self._connected
 
     def signalReady(self):
-        pass
+        """
+        Indicate the system is ready for operation
+        """
+        if self._connected:
+            self.off()
+            sendCommand(self._mSerial, GREEN_ON)
 
     def signalOperating(self):
-        pass
+        """
+        Indicate the system is operating
+        """
+        if self._connected:
+            self.off()
+            sendCommand(self._mSerial, GREEN_BLINK)
 
     def signalWarning(self):
         pass
@@ -110,6 +120,14 @@ if __name__ == '__main__':
     light = IndicatorLight('/dev/ttyUSB0')
     light.diagnostics()
     light.off()
+    print("Show ready for operation")
+    light.signalReady()
+    time.sleep(5)
+    print("Show normal operation")
+    light.signalOperating()
+    time.sleep(5)
+    light.off()
+
 
 
 
