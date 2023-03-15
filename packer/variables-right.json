@@ -3,6 +3,7 @@
 	"sudo_password": "nvidia-greydog",
 	"user_password": "nvidia-greydog",
 	"camera_address": "169.254.212.41",
+	"camera_post": "NONE",
 	"location": "tucson",
 	"name": "jetson-right",
 	"nickname": "jetson-right",

@@ -14,12 +14,15 @@ JETSON_HOME=~weeds/jetson
 HTTP_HOME=~weeds/http
 SERVICE_DEFINITION_DIR=/etc/systemd/system
 WEEDS_SERVICE_DEFINITION_FILE=weeds.service
+EMITTER_SERVICE_DEFINITION_FILE=emitter.service
 #AWS_SERVICE_DEFINITION_FILE=weeds-uploader.service
 HTTP_SERVICE_DEFINITION_FILE=weeds-http.service
 PATH_TO_SERVICE_DEFINITION_FILE=$JETSON_HOME/$SERVICE_DEFINITION_FILE
+PATH_TO_EMITTER_SERVICE_DEFINITION_FILE=$JETSON_HOME/$EMITTER_SERVICE_DEFINITION_FILE
 #PATH_TO_AWS_SERVICE_DEFINITION_FILE=$JETSON_HOME/$AWS_SERVICE_DEFINITION_FILE
 PATH_TO_HTTP_SERVICE_DEFINITION_FILE=$HTTP_HOME/$HTTP_SERVICE_DEFINITION_FILE
 WEEDS_SERVICE_NAME=weeds
+EMITTER_SERVICE_NAME=emitter
 #AWS_SERVICE_NAME=weeds-uploader
 HTTP_SERVICE_NAME=weeds-http
 
@@ -33,6 +36,7 @@ chgrp -R weeds lib
 chgrp -R weeds http
 #chgrp -R weeds post
 chmod +x jetson/weeds-service
+chmod +x jetson/emitter-service
 
 cd jetson
 sed --in-place "s/\%CAMERAIP\%/$1/" options.ini
@@ -40,8 +44,10 @@ sed --in-place "s/\%JIDJETSON\%/$2/" options.ini
 sed --in-place "s/\%NICKJETSON\%/$3/" options.ini
 sed --in-place "s/\%SERVER\%/$4/" options.ini
 sed --in-place "s/\%NICKJETSON%/$3/" logging.ini
+sed --in-place "s/\%NICKJETSON%/$3/" logging-emitter.ini
 sed --in-place "s/\%POSITION%/$5/" options.ini
 sed --in-place "s/\%LOCATION%/$6/" options.ini
+sed --in-place "s/\%CAMERAIPPOST%/$7/" options.ini
 
 #
 # S E R V I C E S
@@ -70,7 +76,8 @@ enable_if_not() {
   fi
 }
 
-create_service_if_missing $WEEDS_SERVICE_DEFINITION_FILE $PATH_PATH_TO_SERVICE_DEFINITION_FILE
+create_service_if_missing $WEEDS_SERVICE_DEFINITION_FILE $PATH_TO_SERVICE_DEFINITION_FILE
+create_service_if_missing $EMITTER_SERVICE_DEFINITION_FILE $PATH_TO_EMITTER_SERVICE_DEFINITION_FILE
 #create_service_if_missing $AWS_SERVICE_DEFINITION_FILE $PATH_TO_AWS_SERVICE_DEFINITION_FILE
 create_service_if_missing $HTTP_SERVICE_DEFINITION_FILE $PATH_TO_HTTP_SERVICE_DEFINITION_FILE
 
@@ -79,9 +86,11 @@ systemctl daemon-reload
 enable_if_not $WEEDS_SERVICE_NAME
 #enable_if_not $AWS_SERVICE_NAME
 enable_if_not $HTTP_SERVICE_NAME
+enable_if_not $EMITTER_SERVICE_NAME
 
 
 systemctl reload-or-restart $WEEDS_SERVICE_NAME
+systemctl reload-or-restart $EMITTER_SERVICE_NAME
 #systemctl reload-or-restart $AWS_SERVICE_NAME
 systemctl reload-or-restart $HTTP_SERVICE_NAME
 

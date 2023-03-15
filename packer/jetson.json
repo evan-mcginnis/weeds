@@ -33,7 +33,7 @@
       "type": "shell",
       "remote_folder": "~",
       "inline": [
-        "echo nvidia-greydog | sudo -S bash -x ~/install-jetson.sh {{user `camera_address`}} {{user `nickname`}} {{user `name`}} {{user `server`}} {{user `position`}} {{user `location`}}",
+        "echo nvidia-greydog | sudo -S bash -x ~/install-jetson.sh {{user `camera_address`}} {{user `nickname`}} {{user `name`}} {{user `server`}} {{user `position`}} {{user `location`}} {{user `camera_post`}}",
         "echo nvidia-greydog | sudo -S bash -x ~/install-uploader.sh",
         "rm ~/install-uploader.sh"
       ]
