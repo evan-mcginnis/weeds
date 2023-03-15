@@ -52,7 +52,12 @@ daq: daq-software  post-software
 post-software:
 	cd ..; tar cf post.tar post
 
-jetson-software: 
+clean-caches:
+	rm -rf lib/__pycache__
+	rm -rf jetson/__pycache__
+	rm -rf rio/__pycache__
+
+jetson-software: clean-caches
 	cd ..; tar cf jetson.tar jetson lib http
 
 rio-software:
