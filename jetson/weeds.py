@@ -289,6 +289,9 @@ class CameraBasler(Camera):
 
         super().__init__(**kwargs)
 
+    @property
+    def ip(self):
+        return self._ip
     @classmethod
     def convert(cls, grabResult):
         """
@@ -1511,6 +1514,11 @@ parser.add_argument("-a", '--algorithm', action="store", help="Vegetation Index 
                     default="ngrdi")
 parser.add_argument("-c", "--contours", action="store_true", default=False, help="Show contours on images")
 parser.add_argument("-d", "--decorations", action="store", type=str, default="all", help="Decorations on output images (all and none are shortcuts)")
+
+functionGroup = parser.add_mutually_exclusive_group()
+functionGroup.add_argument("-w", "--weeds", action="store_true", default=False, help="Classify and treat weeds")
+functionGroup.add_argument("-e", "--emitter", action="store_true", default=False, help="Assess treatment post emitters")
+
 parser.add_argument("-df", "--data", action="store", help="Name of the data in CSV for use in logistic regression or KNN")
 parser.add_argument("-hg", "--histograms", action="store_true", default=False, help="Show histograms")
 parser.add_argument("-he", "--height", action="store_true", default=False, help="Consider height in scoring")
@@ -1612,24 +1620,53 @@ def startupRGBDepthCamera(options: OptionsFile) -> CameraDepth:
     # log.debug("Using Intel camera: {}".format(cameraForDepth))
     return cameraForDepth
 
-def startupCamera(options: OptionsFile) -> Camera:
-    if arguments.input is not None:
-        # Get the images from a directory
-        theCamera = CameraFile(directory=arguments.input, TYPE=constants.ImageType.RGB.name)
-        theCamera.gsd = int(options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_IMAGE_WIDTH))
-    else:
-        # Get the images from an actual camera
-        cameraIP = options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_CAMERA_IP)
-        # The version of the BaslerCamera defined here
-        #theCamera = _CameraBasler(ip=cameraIP)
-        # Use these when employing a callback method
-        configurationEvents = ConfigurationEventPrinter()
-        imageEvents = ImageEvents()
-        theCamera = CameraBasler(ip=cameraIP,
-                                 capture=constants.CAPTURE_STRATEGY_QUEUED,
-                                 image=imageEvents,
-                                 configuration=configurationEvents)
+def startupCamera(options: OptionsFile, position: constants.PositionWithEmitter) -> Camera:
 
+    theCamera = None
+    # The camera that takes crop images
+    if position == constants.PositionWithEmitter.PRE:
+        if arguments.input is not None:
+            # Get the images from a directory
+            theCamera = CameraFile(directory=arguments.input, TYPE=constants.ImageType.RGB.name)
+            theCamera.gsd = int(options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_IMAGE_WIDTH))
+        else:
+            # Get the images from an actual camera
+            cameraIP = options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_CAMERA_IP)
+            # The version of the BaslerCamera defined here
+            #theCamera = _CameraBasler(ip=cameraIP)
+            # Use these when employing a callback method
+            configurationEvents = ConfigurationEventPrinter()
+            imageEvents = ImageEvents()
+            theCamera = CameraBasler(ip=cameraIP,
+                                     capture=constants.CAPTURE_STRATEGY_QUEUED,
+                                     image=imageEvents,
+                                     configuration=configurationEvents)
+            theCamera.position = position
+
+        # The version that does not use callbacks
+        # theCamera = CameraBasler(ip=cameraIP, capture=constants.CAPTURE_STRATEGY_QUEUED)
+
+        # Set the ground sampling distance, so we know when to take a picture
+        theCamera.gsd = int(options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_IMAGE_WIDTH))
+
+    elif position == constants.PositionWithEmitter.POST:
+        if arguments.input is not None:
+            # Get the images from a directory
+            theCamera = CameraFile(directory=arguments.input, TYPE=constants.ImageType.RGB.name)
+            theCamera.gsd = int(options.option(constants.PROPERTY_SECTION_POST_EMITTER, constants.PROPERTY_IMAGE_HEIGHT))
+        else:
+            # Get the images from an actual camera
+            cameraIP = options.option(constants.PROPERTY_SECTION_POST_EMITTER, constants.PROPERTY_CAMERA_IP)
+            # The version of the BaslerCamera defined here
+            #theCamera = _CameraBasler(ip=cameraIP)
+            # Use these when employing a callback method
+            configurationEvents = ConfigurationEventPrinter()
+            imageEvents = ImageEvents()
+            theCamera = CameraBasler(ip=cameraIP,
+                                     capture=constants.CAPTURE_STRATEGY_QUEUED,
+                                     image=imageEvents,
+                                     configuration=configurationEvents)
+            theCamera.position = position
         # The version that does not use callbacks
         # theCamera = CameraBasler(ip=cameraIP, capture=constants.CAPTURE_STRATEGY_QUEUED)
 
@@ -1930,7 +1967,7 @@ imageNumberIntel = 0
 processing = False
 processingOdometry = False
 
-def nullProcessor(contextForImage: Context, captureType: constants.Capture) -> bool:
+def nullProcessor(contextForImage: Context, captureType: constants.Capture, capturePosition: constants.PositionWithEmitter) -> bool:
     """
     The null processor ignores context.  Just puts an empty file on disk for the capture type.
     :param contextForImage:
@@ -1963,7 +2000,7 @@ def nullProcessor(contextForImage: Context, captureType: constants.Capture) -> b
     imageNumberBasler += 1
     return True
 
-def storeImage(contextForImage: Context, captureType: constants.Capture) -> bool:
+def storeImage(contextForImage: Context, captureType: constants.Capture, capturePosition: constants.PositionWithEmitter) -> bool:
     global imageNumberBasler
     global imageNumberIntel
 
@@ -1971,7 +2008,15 @@ def storeImage(contextForImage: Context, captureType: constants.Capture) -> bool
         #log.debug("Not collecting images (This is normal if the weeding has not started")
         return False
 
-    # log.info("Storing image {} type {}".format(imageNumberBasler, captureType))
+    log.info("Storing image {} type {} position {}".format(imageNumberBasler, captureType, capturePosition))
+
+    # Depending on the position of the camera, assign different names to the images
+    if capturePosition == constants.PositionWithEmitter.PRE:
+        imageNamePrefix = constants.FILENAME_RAW
+    elif capturePosition == constants.PositionWithEmitter.POST:
+        imageNamePrefix = constants.FILENAME_POST_EMITTER
+    else:
+        imageNamePrefix = "unknown-position"
 
     start = time.time()
     if captureType == constants.Capture.DEPTH_RGB:
@@ -2036,7 +2081,7 @@ def storeImage(contextForImage: Context, captureType: constants.Capture) -> bool
         performance.stopAndRecord(constants.PERF_ACQUIRE_BASLER_RGB)
 
         # Set the context and enqueue the image
-        imageName = "{}-basler-{}-{:05d}".format(constants.FILENAME_RAW, options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_POSITION), imageNumberBasler)
+        imageName = "{}-basler-{}-{:05d}".format(imageNamePrefix, options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_POSITION), imageNumberBasler)
         imagePath = os.path.join(logger.directory, imageName)
 
         processed = ProcessedImage(constants.Capture.RGB, rawImage, 0)
@@ -2513,7 +2558,7 @@ def processOdometryMessage(message: str):
     global odometryMessageCount
 
     performance.start()
-    log.debug("RAW message: {}".format(message))
+    #log.debug("RAW message: {}".format(message))
     odometryMessage = OdometryMessage(raw=message)
 
     # We are only concerned with distance messages here
@@ -2587,7 +2632,7 @@ def processOdometryMessage(message: str):
             # Convert to kilometers
             contextForImage.speed = odometryMessage.speed / 1e+6
             contextForImage.model = "2500"
-            processor(contextForImage, constants.Capture.RGB)
+            processor(contextForImage, constants.Capture.RGB, camera.position)
 
         # The intel RGB camera
         if movementSinceLastProcessingForIntel > gsdIntel:
@@ -2602,7 +2647,7 @@ def processOdometryMessage(message: str):
             # Convert to kilometers
             contextForImage.speed = odometryMessage.speed / 1e+6
             # contextForPhoto.model
-            processor(contextForImage, constants.Capture.DEPTH_RGB)
+            processor(contextForImage, constants.Capture.DEPTH_RGB, camera.position)
     else:
         pass
         # log.debug("Message type is not distance. Ignored")
@@ -2835,6 +2880,13 @@ def takeDepthImages(camera: CameraDepth):
 def takeRGBImages(camera: CameraBasler):
 
     cameraConnected = False
+
+    if camera.ip == constants.IP_NONE:
+        log.info("IP Address of post-emitter camera not found.  Using dummy capture loop.")
+        while True:
+            time.sleep(60)
+            log.info("Dummy post-emitter capture loop")
+        return
 
     # Connect to the camera and take an image
     log.debug("Connecting to camera")
@@ -3079,17 +3131,32 @@ currentOperation = constants.Operation.QUIESCENT.name
 (logger, log) = startupLogger(arguments.output)
 #log = logging.getLogger(__name__)
 
-camera = startupCamera(options)
-log.debug("RGB camera started")
+# Is this the pre- or post- emitter camera?
+if arguments.weeds:
+    camera = startupCamera(options, constants.PositionWithEmitter.PRE)
+    log.debug("Basler RGB camera started. Position: {}".format(constants.PositionWithEmitter.PRE))
+else:
+    camera = startupCamera(options, constants.PositionWithEmitter.POST)
+    log.debug("Basler RGB camera started. Position: {}".format(constants.PositionWithEmitter.POST))
 
-# This is confusing -- there are TWO rgb streams available: Basler and Intel.
-# This is for the latter
-rgbDepthCamera = startupRGBDepthCamera(options)
+
+# For analysing weeds, we collect depth images
+gsdIntel = float('inf')
+if arguments.weeds:
+    rgbDepthCamera = startupRGBDepthCamera(options)
+    gsdIntel = (1 - float(options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_OVERLAP_FACTOR))) * rgbDepthCamera.gsd
+    rgbDepthCamera.gsdAdjusted = gsdIntel
+else:
+    rgbDepthCamera = startupRGBDepthCamera(options)
+    # This assures that no amount of movement will result in capturing an image
+    rgbDepthCamera.gsdAdjusted = float('inf')
+
+log.debug("GSD Intel: {}/{}".format(gsdIntel, rgbDepthCamera.gsd))
 
 # This is the GSD of the image that takes into account overlap
 gsdBasler = (1 - float(options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_OVERLAP_FACTOR))) * camera.gsd
-gsdIntel = (1 - float(options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_OVERLAP_FACTOR))) * rgbDepthCamera.gsd
-log.debug("GSD Basler: {}/{} GSD Intel: {}/{}".format(gsdBasler, camera.gsd, gsdIntel, rgbDepthCamera.gsd))
+camera.gsdAdjusted = gsdBasler
+log.debug("GSD Basler: {}/{}".format(gsdBasler, camera.gsd))
 
 (roomOdometry, roomSystem, roomTreatment) = startupCommunications(options, messageOdometryCB, messageSystemCB, messageTreatmentCB)
 log.debug("Communications started")
@@ -3115,31 +3182,25 @@ if not arguments.standalone:
     rawImages = Images()
     processedImages = Images()
 
-    log.debug("Start RGB image acquisition")
+    log.debug("Start camera image acquisition")
     acquire = threading.Thread(name=constants.THREAD_NAME_ACQUIRE, target=takeRGBImages, args=(camera,))
     acquire.daemon = True
     threads.append(acquire)
     acquire.start()
 
-    # Unfortunately: looks like I can't create two cameras for depth and RGB streams -- just one.
-    # log.debug("Start depth data acquisition")
-    # acquire = threading.Thread(name=constants.THREAD_NAME_ACQUIRE, target=takeDepthImages, args=(depthCamera,))
+    # log.debug("Start post-emitter camera image acquisition")
+    # acquire = threading.Thread(name=constants.THREAD_NAME_ACQUIRE_POST, target=takeRGBImages, args=(None,))
+    # acquire.daemon = True
     # threads.append(acquire)
     # acquire.start()
 
-    log.debug("Start Intel RGB image acquisition")
-    acquireRGB = threading.Thread(name=constants.THREAD_NAME_ACQUIRE_RGB, target=takeDepthImages, args=(rgbDepthCamera,))
-    acquireRGB.daemon = True
-    threads.append(acquireRGB)
-    acquireRGB.start()
-
-    # TODO: This thread is no longer needed once MQ commmunications is debugged
-    # log.debug("Starting odometry MUC receiver")
-    # #generator = threading.Thread(name=constants.THREAD_NAME_ODOMETRY, target=processMessages, args=(roomOdometry,))
-    # generator = threading.Thread(name=constants.THREAD_NAME_ODOMETRY, target=roomOdometry.processMessages, args=())
-    # generator.daemon = True
-    # threads.append(generator)
-    # generator.start()
+    # We don't need intel data if what we are doing is looking at the post-emitter camera
+    if arguments.weeds:
+        log.debug("Start Intel RGB image acquisition")
+        acquireRGB = threading.Thread(name=constants.THREAD_NAME_ACQUIRE_RGB, target=takeDepthImages, args=(rgbDepthCamera,))
+        acquireRGB.daemon = True
+        threads.append(acquireRGB)
+        acquireRGB.start()
 
     log.debug("Starting odometry MQ receiver")
     odometryProcessor = threading.Thread(name=constants.THREAD_NAME_REQ_RSP, target=processMQ, args=(odometryMQ,))
@@ -3154,12 +3215,14 @@ if not arguments.standalone:
     threads.append(sys)
     sys.start()
 
-    log.debug("Starting treatment thread")
-    #treat = threading.Thread(name=constants.THREAD_NAME_TREATMENT, target=processMessages, args=(roomTreatment,))
-    treat = threading.Thread(name=constants.THREAD_NAME_TREATMENT, target=roomTreatment.processMessages, args=())
-    treat.daemon = True
-    threads.append(treat)
-    treat.start()
+    # Not needed for post-emitter assessment
+    if arguments.weeds:
+        log.debug("Starting treatment thread")
+        #treat = threading.Thread(name=constants.THREAD_NAME_TREATMENT, target=processMessages, args=(roomTreatment,))
+        treat = threading.Thread(name=constants.THREAD_NAME_TREATMENT, target=roomTreatment.processMessages, args=())
+        treat.daemon = True
+        threads.append(treat)
+        treat.start()
 
     log.debug("Starting enrichment thread")
     enrich = threading.Thread(name=constants.THREAD_NAME_TREATMENT, target=enrichImages, args=())

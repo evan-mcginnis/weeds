@@ -8,7 +8,7 @@ rm -rf /home/weeds/genicam_xml_cache
 # THis is a complete hack to give the cameras time to come up
 sleep 20
 # This will only grab the images, no treatment
-python3 $WEEDSHOME/weeds.py -o $WEEDSHOME/../output --grab --weeds
+python3 $WEEDSHOME/weeds.py -o $WEEDSHOME/../output --logging logging-emitter.ini --grab --emitter
 
 exit $?
 

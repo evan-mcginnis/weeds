@@ -1,0 +1,12 @@
+[Unit]
+Description="Weed Post-Emitter Camera Processing"
+
+[Service]
+Type=simple
+User=weeds
+WorkingDirectory=/home/weeds/jetson
+ExecStart=/home/weeds/jetson/emitter-service
+
+[Install]
+WantedBy=multi-user.target
+
