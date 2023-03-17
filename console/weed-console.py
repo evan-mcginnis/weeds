@@ -13,6 +13,10 @@ import time
 import sys
 import urllib.request
 import urllib.error
+
+import requests
+import io
+
 from threading import Semaphore
 import shutil
 from subprocess import Popen, PIPE, STDOUT
@@ -21,6 +25,7 @@ from os.path import expandvars
 from typing import Callable
 
 import dns.resolver
+import numpy as np
 from dateutil import tz
 
 from PyQt5.QtCore import Qt
@@ -38,6 +43,8 @@ from MQCommunicator import ClientMQCommunicator
 from Messages import MUCMessage, OdometryMessage, SystemMessage, TreatmentMessage
 from WeedExceptions import XMPPServerUnreachable, XMPPServerAuthFailure
 
+import matplotlib.pyplot as plt
+import matplotlib.image
 
 import shortuuid
 
@@ -450,8 +457,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.images_left.activated[str].connect(self.onImageSelectedLeft)
         self.images_right.activated[str].connect(self.onImageSelectedRight)
 
-        self.images_left_intel.activated[str].connect(self.onImageSelectedLeft)
-        self.images_right_intel.activated[str].connect(self.onImageSelectedRight)
+        self.images_left_intel.activated[str].connect(self.onNPYSelectedLeft)
+        self.images_right_intel.activated[str].connect(self.onNPYSelectedRight)
 
         # Dialogs
         self._dialogDisconnected = QMessageBox()
@@ -562,6 +569,33 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         name = object.objectName()
 
         pass
+
+    def onNPYSelectedLeft(self, imageName: str):
+        sending = self.sender()
+
+        url = sending.itemData(sending.currentIndex())
+
+        # Get the original stylesheet so we can use this to indicate that something is not selected
+        self.stylesheetOriginal = sending.styleSheet()
+        self.images_left.setStyleSheet(self.stylesheetNotSelected)
+        self.images_left_intel.setStyleSheet(self.stylesheetNotSelected)
+        sending.setStyleSheet(self.stylesheetCurrent)
+        # TODO: Display the depth data
+        plot = self.savePlot("left", url)
+        self.showLocalImage(constants.Position.LEFT, plot)
+        log.debug("Display: {}".format(url))
+
+    def onNPYSelectedRight(self, imageName: str):
+        sending = self.sender()
+
+        url = sending.itemData(sending.currentIndex())
+        self.images_right.setStyleSheet(self.stylesheetNotSelected)
+        self.images_right_intel.setStyleSheet(self.stylesheetNotSelected)
+        sending.setStyleSheet(self.stylesheetCurrent)
+        # TODO: Display the depth data
+        plot = self.savePlot("right", url)
+        self.showLocalImage(constants.Position.RIGHT, plot)
+        log.debug("Display: {}".format(url))
 
     def onImageSelectedLeft(self, imageName: str):
         sending = self.sender()
@@ -1237,19 +1271,56 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         if position == constants.Position.LEFT.name.lower():
             if source == constants.Capture.RGB.name:
                 self.images_left.addItem("Image {:02d}".format(treatments), url)
-            elif source == constants.Capture.DEPTH_RGB.name:
+            elif source == constants.Capture.DEPTH_DEPTH.name:
                 self.images_left_intel.addItem("Image {:02d}".format(treatments), url)
             else:
                 log.error("Unknown source for image: {}".format(source))
         elif position == constants.Position.RIGHT.name.lower():
             if source == constants.Capture.RGB.name:
                 self.images_right.addItem("Image {:02d}".format(treatments), url)
-            elif source == constants.Capture.DEPTH_RGB.name:
+            elif source == constants.Capture.DEPTH_DEPTH.name:
                 self.images_right_intel.addItem("Image {:02d}".format(treatments), url)
             else:
                 log.error("Unknown source for image: {}".format(source))
         else:
             log.error("Unknown position: {}".format(position))
+
+    def savePlot(self, position: str, url: str) -> str:
+        """
+        Save a matplolib plot using the NPY data in the URL
+        :param position: right or left
+        :param url: The NPY data
+        :return: Name of the saved file
+        """
+        savedImage = ""
+
+        request = urllib.request.urlopen(url)
+        data = request.read()
+        response = requests.get(url)
+        response.raise_for_status()
+
+        try:
+            depth = np.load(io.BytesIO(response.content))
+        except FileNotFoundError:
+            log.error("Unable to find the file: {}".format(arguments.input))
+
+        if depth is not None:
+            savedImage = position + "-depth.png"
+            plt.imsave(savedImage, depth, vmin=250, vmax=340)
+            plt.close()
+        return savedImage
+
+    def showLocalImage(self, position: constants.Position, fileName: str) -> bool:
+        displayed = False
+        pixmap = QPixmap(fileName)
+        if position == constants.Position.LEFT:
+            # self.image_camera_left.setMaximumSize(pixmap.size())
+            self.image_camera_left.setPixmap(pixmap)
+            # self.image_camera_left.setMaximumSize(QtCore.QSize(3990,3000))
+        elif position == constants.Position.RIGHT:
+            self.image_camera_right.setPixmap(pixmap)
+        return displayed
+
     def showImage(self, position: constants.Position, url: str):
         try:
             request = urllib.request.urlopen(url)
