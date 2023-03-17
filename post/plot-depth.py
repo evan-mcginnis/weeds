@@ -1,4 +1,4 @@
-#! /bin/env python
+#!/bin/env python
 #
 # Visualize the depth data from the realsense camera
 #
@@ -15,6 +15,7 @@ from PIL import Image
 
 parser = argparse.ArgumentParser("Visualize Depth Data")
 parser.add_argument("-i", "--input", action="store", required=True, help="Depth data file in npy format")
+parser.add_argument("-o", "--output", action="store", required=False, help="Image to be saved")
 arguments = parser.parse_args()
 
 depth = None
@@ -28,9 +29,11 @@ except FileNotFoundError:
 if depth is not None:
     print("Min/Max: {}/{}".format(depth.min(), depth.max()))
     print("Shape is: {}".format(np.shape(depth)))
-    plt.imshow(depth, interpolation='none', vmin=250, vmax=340)
-    plt.show()
-    matplotlib.image.imsave("depth.png", depth)
+    if arguments.output is not None:
+        plt.imsave(arguments.output, depth, vmin=250, vmax=340)
+    else:
+        plt.imshow(depth, interpolation='none', vmin=250, vmax=340)
+        plt.show()
 
 # if depth is not None:
 #     im = Image.fromarray(depth)
