@@ -1,6 +1,9 @@
 from gps import *
 import threading
 
+import constants
+
+
 #
 # G P S P O L L E R
 #
@@ -14,6 +17,8 @@ class GPSPoller(threading.Thread):
         GPSPoller -- create an instance and execute start.
         """
         threading.Thread.__init__(self)
+        self.setName(constants.THREAD_NAME_GPS)
+        self.setDaemon(True)
         self.session = gps(mode=WATCH_ENABLE)
         self._current_value = None
         self._tpv = None
