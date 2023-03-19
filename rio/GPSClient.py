@@ -74,7 +74,7 @@ class GPS:
         return position
 
 # Example for another library
-
+if __name__ == "__main__":
     # This is another
 
     theGPS = GPS()
