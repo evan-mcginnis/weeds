@@ -24,11 +24,14 @@ EXTENSION_META = ".meta"
 EXTENSION_CSV = ".csv"
 EXTENSION_HTML = ".html"
 
+FILENAME_POST_EMITTER = "post-emitter"
 FILENAME_RAW = "raw"
 FILENAME_FINISHED = "finished"
 FILENAME_INTEL_RGB = "rgb"
 FILENAME_INTEL_DEPTH = "depth"
 FILENAME_DUMMY = "dummy"
+
+IP_NONE = "NONE"
 
 # This is just the text that will be placed on the visible treatment plan
 SPRAYER_NAME = ""
@@ -37,6 +40,7 @@ THREAD_NAME_ODOMETRY        = "odometry"
 THREAD_NAME_SYSTEM          = "system"
 THREAD_NAME_TREATMENT       = "treatment"
 THREAD_NAME_ACQUIRE         = "acquire"
+THREAD_NAME_ACQUIRE_POST    = "acquire_post"
 THREAD_NAME_ACQUIRE_RGB     = "acquireIntel"
 THREAD_NAME_DIAGNOSTICS     = "diagnostics"
 THREAD_NAME_REQ_RSP         = "reqrsp"
@@ -44,6 +48,7 @@ THREAD_NAME_SERVICE         = "service"
 THREAD_NAME_HOUSEKEEPING    = "housekeeping"
 THREAD_NAME_IMU             = "imu"
 THREAD_NAME_DEPTH           = "depth"
+THREAD_NAME_GPS             = "gps"
 # These next two are temporary -- not needed when we move the depth cameras to the jetson
 THREAD_NAME_DEPTH_LEFT      = "depth_left"
 THREAD_NAME_DEPTH_RIGHT     = "depth_right"
@@ -278,8 +283,13 @@ PROPERTY_FILENAME_FINISHED = "FINISHED"
 PROPERTY_PIXELS_PER_MM = "PIXELS-PER-MM"
 PROPERTY_SECTION_CAMERA = "CAMERA"
 PROPERTY_SECTION_INTEL = "INTEL"
+PROPERTY_CAPTURE = "CAPTURE"
 PROPERTY_SECTION_EMITTER = "EMITTERS"
+PROPERTY_SECTION_POST_EMITTER = "POST-EMITTER"
 PROPERTY_CAMERA_IP = "IP" #"169.254.212.41"
+PROPERTY_CAMERA_IP_POST = "POST-EMITTER-IP"
+PROPERTY_DEPTH_WIDTH = "IMAGE_WIDTH"
+PROPERTY_DEPTH_HEIGHT = "IMAGE_HEIGHT"
 PROPERTY_IMAGE_WIDTH = "IMAGE_WIDTH"
 PROPERTY_IMAGE_HEIGHT = "IMAGE_HEIGHT"
 PROPERTY_OFFSET_X = "EMITTER-X-OFFSET"
@@ -559,9 +569,17 @@ class Capture(Enum):
     IMU = 2
     RGB = 3
 
+class IntelCapture(Enum):
+    RGBDEPTH = 0
+    DEPTH = 1
+
 class Side(Enum):
     RIGHT = 0
     LEFT = 1
+
+class PositionWithEmitter(Enum):
+    PRE = 0
+    POST = 1
 
 class ProcessResult(Enum):
     OK = 0

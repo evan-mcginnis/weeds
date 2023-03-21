@@ -101,7 +101,7 @@ class CameraDepth(Camera):
         try:
             self._exposure = float(kwargs[constants.KEYWORD_EXPOSURE])
         except KeyError as key:
-            self.log.warning("The exposureis not specified with keyword: {}. Using defaults.".format(constants.KEYWORD_EXPOSURE))
+            self.log.warning("The exposure is not specified with keyword: {}. Using defaults.".format(constants.KEYWORD_EXPOSURE))
             self._exposure = constants.DEFAULT_EXPOSURE
 
         return
@@ -111,7 +111,15 @@ class CameraDepth(Camera):
 
     @property
     def gsd(self) -> float:
+        """
+        The Ground Sampling Distance of the camera
+        :return:
+        """
         return self._gsd
+
+    @gsd.setter
+    def gsd(self, theGSD: float):
+        self._gsd = theGSD
 
     @property
     def imageNumber(self) -> int:
@@ -277,12 +285,17 @@ class CameraDepth(Camera):
                 f = self._pipelineIMU.wait_for_frames()
                 self._currentAcceleration = self._acceleration(f[0].as_motion_frame().get_motion_data())
                 self._currentGryo = self._gyro(f[1].as_motion_frame().get_motion_data())
+
+                # Get the current speed if the method is set up for that
+                if self._methodToGetSpeed is not None:
+                    self._speed = self._methodToGetSpeed()
+
                 #self._currentDepth = f.get_depth_frame()
 
 
                 try:
-                    self._gyroLogFile.write("{},{},{}\n".format(self._currentGryo[0], self._currentGryo[1], self._currentGryo[2]))
-                    self._accelerationLogFile.write("{},{},{}\n".format(self._currentAcceleration[0], self._currentAcceleration[1], self._currentAcceleration[2]))
+                    self._gyroLogFile.write("{},{},{},{}\n".format(self._currentGryo[0], self._currentGryo[1], self._currentGryo[2], self._speed))
+                    self._accelerationLogFile.write("{},{},{},{}\n".format(self._currentAcceleration[0], self._currentAcceleration[1], self._currentAcceleration[2], self._speed))
                     #epthFile = constants.FILE_DEPTH.format(1)
                     #np.save(depthFile, self._depth)
                 # This is the case where an operation is stopped while data is available.  A bit of a corner-case, but one that can

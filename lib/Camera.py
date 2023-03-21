@@ -2,6 +2,7 @@
 #
 #
 import numpy as np
+from typing import Callable
 from abc import ABC, abstractmethod
 from statemachine import StateMachine, State
 from statemachine.exceptions import TransitionNotAllowed
@@ -41,6 +42,15 @@ class Camera(ABC):
         self._status = constants.OperationalStatus.UNKNOWN
 
         self._gsd = 0
+        self._gsdAdjusted = 0
+
+        # Where the camera is positioned
+        self._position = constants.PositionWithEmitter.PRE
+
+        # The current speed of travel
+        self._speed = 0.0
+
+        self._methodToGetSpeed = None
 
     @property
     def status(self) -> constants.OperationalStatus:
@@ -75,5 +85,34 @@ class Camera(ABC):
     def getResolution(self):
         self._connected = False
         return (0,0)
+
+    @property
+    def position(self):
+        return self._position
+
+    @position.setter
+    def position(self, thePosition: constants.PositionWithEmitter):
+        self._position = thePosition
+
+    @property
+    def gsdAdjusted(self):
+        return self._gsdAdjusted
+
+    @gsdAdjusted.setter
+    def gsdAdjusted(self, _gsdAdjusted):
+        self._gsdAdjusted = _gsdAdjusted
+
+    @property
+    def speed(self) -> float:
+        return self._speed
+
+    @speed.setter
+    def speed(self, theSpeed: float):
+        self._speed = theSpeed
+
+    def methodToGetSpeed(self, speedMethod: Callable):
+        self._methodToGetSpeed = speedMethod
+
+
 
 
