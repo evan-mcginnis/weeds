@@ -277,6 +277,8 @@ This paper details the field activities for the automated weeding project. While
 \setstretch{1.0}
 \begin{versionhistory}
   \vhEntry{1.0}{22 Dec 2022}{EM}{Initial revision}
+  \vhEntry{1.1}{20 Mar 2023}{EM}{Add sections for odometry wheel non-movement --~\ref{section:non-movement} \& using red/green dots for treatment --~\ref{section:wet-run-without-plants}}
+  \vhEntry{1.2}{21 Mar 2023}{EM}{Update graph in Section~\ref{section:non-movement} \& Correct typos in Section~\ref{section:wet-run-without-plants}}
 \end{versionhistory}
 \newpage
 }
@@ -366,6 +368,17 @@ To relate PPR to the distance between the camera capture and emitters, forward a
 \end{figure}
 
 This approach will be used to capture the PPR to distance relationship under all four motion conditions. In this scheme, the pulses observed between the starting and ending lines will yield the true pulse rate to distance ratio.
+
+\subsection{Non-movement of odometry wheel}
+\label{section:non-movement}
+Under certain circumstances, the physical system may show forward movement (e.g., the tractor moves forward), but the odometry wheel does not turn, as mechanical issues interfere with normal rotation. In this instance, the wheel is dragged forwards, but as the system depends on wheel rotation to calculate travel distance both image acquistion and treatment will be adversely affected. In image acquisition, this will appear as gaps on acquired images, a fault that can be identified through manual inspection of images taken of a tape. Depending on the severity of the non-movement, adjacent images will show overlap inconsistent with other images or no overlap whatsoever. The latter case might show adjacent images with "53ft" and "55ft" visible in images where the ground capture distance is 6".
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.75\linewidth]{./figures/imu-readings-in-lab.png}
+	\caption[Detection of system movement]{This chart shows gryoscopic readings obtained in test where the camera was periodically moved back and forth along a sliding rail. The readings above and below zero indicate system movement. Readings of zero indicate that no movement was detected. The graph shows a disconnect between the gyroscopic readings and the lack of movement from the odometry wheel. There is one instance where the wheel does report motion, correlating with the gyroscopic readings.}
+	\label{fig:gyro-readings}
+\end{figure}
+While detecting and notifying the operator of this case during operation may be desirable, as mechanical remediation can then be used, a first step is to show that this situation can be reliably detected. Figure~\ref{fig:gyro-readings} shows the relationship between movement and the gryoscopic readings and movement. In this plot, odometry readings indicate that there is no forward movement where there is movement detected. This relationship will be used to craft a real-time solution where non-movement of the wheel is noted during operation.
 
 \subsection{Camera to Emitter Orientation}
 The camera has two offsets from the leading edge of the emitter that are of concern: the distance offset along the X axis and the distance offset in the Y axis. That is, how far forward the camera is from the emitters, and how close the center of the camera is to the center of the middle emitter of the leading edge. These offsets are used to answer two questions when applying a treatment to vegetation: which emitter should be used to treat the vegetation (the Y offset) and has the weeding system moved forward enough such that that emitter is directly above the vegetation (the X offset).
@@ -499,6 +512,18 @@ The automatic assessment of spray requires an image segmentation geared toward t
 
 Manual assessment will be used in early phases as part of the development of treatment algorithms, but automatic assessment will soon follow.  Neither approach is real-time, in that the assessment is carried out after a wet-run. That is, the assessment is carried out as a process well after the treatment is applied.
 
+\subsection{Wet-Run Without Plants}
+\label{section:wet-run-without-plants}
+While the intent of the system is to categorize plants, the recognition and treatment subsystems can be decoupled such that the treatment subsystem operates on a vegetation proxy, obviating the need to operate on an actual crop during development and early testing. In this case, colored dots stand in for vegetation.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.45\linewidth]{./figures/green-red-dots.jpg}
+	\caption[Red and green dots applied to paper for assessing spray accuracy]{The treatment subsystem can apply tinted dye to a paper target with colored dots indicating crop (green) or weeds (red). This picture is taken in the author's living room and uses a minimally absorbent paper. The concept here is that a paper target capable of absorbing dyed fluid would be used in the field.}
+	\label{fig:green-red-dots}
+\end{figure}
+ In this case, the dots are classified with 100\% accuracy, shifting the focus to the accuracy of the treatment applied to them. Under this scheme, a short (2 or 3 meters -- the length has no impact on this scheme) segment of paper is prepared with green and red dots and affixed to the ground. The weeding apparatus is towed over the paper strip, applying treatments (within constraints of proximity to crop) to the dots classified as weeds. \footnote{There are some mechanical issues to executing on this proposal, as absorbent paper can be obtained, but the colored dots shown in the picture have a slick surface that will resist absorption of the dye. The main substrate can be something like ULINE Bogus paper, as this scheme will not require individual spray targets. Using any product that is dye-resistant will result in a bit of a mess that is not yet fully worked out.}
+
 \subsection{Weed Populations in Different Seasons}
 The tests will be conducted only over the lettuce growing season, September to March. That is, the lettuce crop will be present beside different populations of weeds over the development cycle.
 \begin{figure}[H]
@@ -508,7 +533,7 @@ The tests will be conducted only over the lettuce growing season, September to M
 	\label{fig:weed-germination}
 \end{figure}
 
-The
+
 
 \subsection{Weed/Crop Discrimination over the Growth Cycle}
 There are four factors used to classify vegetation in a previous analysis:
