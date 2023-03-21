@@ -41,7 +41,7 @@ from Emitter import PhysicalEmitter, VirtualEmitter
 from MUCCommunicator import MUCCommunicator
 from MQCommunicator import ServerMQCommunicator
 from Messages import OdometryMessage, SystemMessage, TreatmentMessage
-from GPSClient import GPS
+from GPSPoller import GPSPoller
 from CameraDepth import CameraDepth
 from NationalInstruments import VirtualNationalInstruments, PhysicalNationalInstruments
 from WeedExceptions import XMPPServerAuthFailure, XMPPServerUnreachable, DAQError
@@ -314,27 +314,14 @@ def runGPSChecks():
     """
     global gpsStatus
 
-    if gps.isAvailable():
-        # The GPS position should already have been called, so this should work after the system has come up.
-        # I still need to test the behavior of how it respond when it loses fix during operation
-        packet = gps.getCurrentPosition()
-
-        if packet is not None:
-            try:
-                log.debug("GPS Position: {}".format(packet.position()))
-                log.debug("GPS Error: {}".format(packet.position_precision()))
-                log.debug("GPS Fix: {}".format(packet.mode))
-                # Set the operational status to OK
-                gpsStatus = constants.OperationalStatus.OK
-            except gpsd.NoFixError as fix:
-                log.error("GPS Failed: {}".format(fix))
-                gpsStatus = constants.OperationalStatus.FAIL
-        else:
-            log.error("Unable to get current GPS location")
-            gpsStatus = constants.OperationalStatus.FAIL
-    else:
-        log.error("GPS is not available")
+    position = gps.latLong()
+    if position == (0, 0):
         gpsStatus = constants.OperationalStatus.FAIL
+    else:
+        log.debug("GPS Position: {}".format(position))
+        gpsStatus = constants.OperationalStatus.OK
+
+
 
 
 def runDiagnostics(systemRoom: MUCCommunicator):
@@ -627,34 +614,13 @@ def startupCommunications(options: OptionsFile) -> ():
 #
 # G P S
 #
-def startupGPS() -> GPS:
+def startupGPS() -> GPSPoller:
     global gpsStatus
-    theGPS = GPS()
-    if not theGPS.connect():
-        log.error("Unable to connect to the GPS")
+    gpsStatus = constants.OperationalStatus.OK
 
-    if theGPS.isAvailable():
-        # This is intentional -- seems like the first time gps daemon is read it always returns none, so read it twice
-        packet = theGPS.getCurrentPosition()
-        packet = theGPS.getCurrentPosition()
+    # Update the current position every 5 seconds
+    theGPS = GPSPoller(5)
 
-        # The GPS in my office is a bit intermittent -- sometimes it reports that it does not
-        # have at least a 2D fix, so we see errors.  But, a call moments later will succeed.
-
-        if packet is not None:
-            try:
-                log.debug("GPS Position: {}".format(packet.position()))
-                log.debug("GPS Error: {}".format(packet.position_precision()))
-                log.debug("GPS Fix: {}".format(packet.mode))
-                # Set the operational status to OK
-                gpsStatus = constants.OperationalStatus.OK
-            except gpsd.NoFixError as fix:
-                log.error("Unable to start GPS client: {}".format(fix))
-        else:
-            log.error("The GPS does not yet have a 2D fix")
-
-    else:
-        log.warning("GPS location is not available. Image exif will not include this information")
     return theGPS
 
 #
@@ -682,6 +648,10 @@ def startupDepthCamera() -> CameraDepth:
         intelIMU = CameraDepth(constants.Capture.IMU,
                                gyro=constants.PARAM_FILE_GYRO,
                                acceleration=constants.PARAM_FILE_ACCELERATION)
+
+
+        intelIMU.methodToGetSpeed(currentSpeed)
+
         if markSensorAsFailed:
             intelIMU.state.toMissing()
         else:
@@ -808,6 +778,9 @@ def nanoseconds() -> float:
     # ns = time.time_ns()
     return ns
 
+def currentSpeed() -> float:
+    return kph
+
 def serviceQueue(odometer : PhysicalOdometer, odometryRoom: MUCCommunicator, announcements: int):
     """
     Service the queue of readings from line. This routine will not return.
@@ -818,6 +791,7 @@ def serviceQueue(odometer : PhysicalOdometer, odometryRoom: MUCCommunicator, ann
     :param announcements: Send announcements when this distance is covered (mm)
     """
     global servicing
+    global kph
     changeQueue = odometer.changeQueue
 
     # The previous angle -- the current reading will definitely be different
@@ -851,7 +825,7 @@ def serviceQueue(odometer : PhysicalOdometer, odometryRoom: MUCCommunicator, ann
         mmTraveled = (angle - previous) * odometer.distancePerDegree
         mmTotalTravel += mmTraveled
         pulses += (angleChange * (360 / odometer.encoderClicks))
-        # log.debug("Angle change: {} Pulses {}".format(angleChange, pulses))
+        #log.debug("Angle change: {} Pulses {}".format(angleChange, pulses))
         previous = angle
         # Record the time of this reading -- not quite correct, as this should be in the observation
         #stoptime = time.time_ns()
@@ -862,21 +836,14 @@ def serviceQueue(odometer : PhysicalOdometer, odometryRoom: MUCCommunicator, ann
 
         kph = 0
         try:
-            # log.debug("Travelled: {} mm  in {} seconds Angle Change {} Distance per degree {}".
-            #           format(mmTraveled, elapsedSeconds, angleChange, odometer.distancePerDegree))
+            log.debug("Travelled: {} mm  in {} seconds for total {} Angle Change {} Distance per degree {}".
+                      format(mmTraveled, elapsedSeconds, mmTotalTravel, angleChange, odometer.distancePerDegree))
             kph = (mmTraveled / 1e6) / (elapsedSeconds / 3600)
         except ZeroDivisionError as zero:
             log.warning("Elapsed time was 0.  Something is wrong")
 
-        packet = gps.getCurrentPosition()
-        if packet is not None:
-            try:
-                position = packet.position()
-            except gpsd.NoFixError as fix:
-                log.error("Unable to obtain a 2D fix to determine location")
-                position = (0.0, 0.0)
-        else:
-            position = (0.0, 0.0)
+        position = gps.latLong()
+
 
         if cameraForIMU.connected:
             gyro = np.array2string(cameraForIMU.gyro, formatter={'float_kind': lambda x: "%.2f" % x})
@@ -898,8 +865,7 @@ def serviceQueue(odometer : PhysicalOdometer, odometryRoom: MUCCommunicator, ann
             message = OdometryMessage()
 
             # Include GPS data if available
-            if gps.connected:
-                 (message.latitude, message.longitude) = position
+            (message.latitude, message.longitude) = position
 
             # Include gyro information if available
 
@@ -1103,6 +1069,8 @@ if emitterLeft is None or emitterLeft is None:
 # system is the object representing the RIO
 # emitter is the associated emitter.
 
+# The current speed
+kph = 0
 odometer = startupOdometer(typeOfOdometry)
 
 cameraForIMU = startupDepthCamera()
@@ -1169,7 +1137,10 @@ imu.daemon = True
 threads.append(imu)
 imu.start()
 
-
+# The GPS thread is a bit of an oddball in that it inherits from threading
+log.debug("Start GPS thread")
+threads.append(gps)
+gps.start()
 
 # # The position thread will not be required when the depth cameras are moved to the nvidia systems
 # log.debug("Start position thread")
