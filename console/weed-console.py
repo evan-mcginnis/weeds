@@ -1254,7 +1254,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def setTreatments(self, treatments: int, source: str):
         if source == constants.Capture.RGB.name:
             self.count_images_basler.display(treatments)
-        elif source == constants.Capture.DEPTH_RGB.name:
+        elif source == constants.Capture.DEPTH_DEPTH.name:
             self.count_images_intel.display(treatments)
         else:
             log.error("Unknown source for image: {}".format(source))
@@ -1464,7 +1464,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         treatmentsBasler = 0
         treatmentsIntel = 0
         self.setTreatments(0, constants.Capture.RGB.name)
-        self.setTreatments(0, constants.Capture.DEPTH_RGB.name)
+        self.setTreatments(0, constants.Capture.DEPTH_DEPTH.name)
 
     def resetDistance(self):
         self.absoluteDistance = self.currentDistance
@@ -1718,7 +1718,7 @@ def process(conn, msg: xmpp.protocol.Message):
             if source == constants.Capture.RGB.name:
                 treatmentsBasler += 1
                 signals.plan.emit(treatmentsBasler, treatmentMessage.source)
-            elif source == constants.Capture.DEPTH_RGB.name:
+            elif source == constants.Capture.DEPTH_DEPTH.name:
                 treatmentsIntel += 1
                 signals.plan.emit(treatmentsIntel, treatmentMessage.source)
             else:
