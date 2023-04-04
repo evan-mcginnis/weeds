@@ -4,12 +4,14 @@
 
 import pyrealsense2 as rs
 import constants
+import json
 
-class RealSense():
+class RealSense:
     def __init__(self):
         self.ctx = rs.context()
         self._devices = []
         self._serial = None
+        self._camera = None
 
     @property
     def devices(self):
@@ -33,13 +35,13 @@ class RealSense():
         else:
             self.query()
             if len(self.ctx.devices) > 0:
-                camera = self.ctx.devices[0]
+                self._camera = self.ctx.devices[0]
                 found = True
 
         if not found:
-            camera = None
+            self._camera = None
 
-        return camera
+        return self._camera
 
     def query(self):
         """
@@ -68,6 +70,41 @@ class RealSense():
         """
         camera.hardware_reset()
 
+    def configure(self, configFile: str):
+        # dev = find_device_that_supports_advanced_mode(config)
+        jsonDict = json.load(open(configFile))
+        jsonString = str(jsonDict).replace("'", '\"')
+
+        h_res = 1280
+        v_res = 720
+        framerate = 6
+
+        pipeline = rs.pipeline()
+        config = rs.config()
+
+        # Configure depth and color streams
+        config.enable_stream(rs.stream.depth, h_res, v_res, rs.format.z16, framerate)
+        config.enable_stream(rs.stream.color, h_res, v_res, rs.format.rgb8, framerate)
+
+        cfg = pipeline.start(config)
+        dev = cfg.get_device()
+
+        advnc_mode = rs.rs400_advanced_mode(self._camera)
+        print("Advanced mode is", "enabled" if advnc_mode.is_enabled() else "disabled")
+        current = advnc_mode.serialize_json()
+        advnc_mode.load_json(jsonString)
+        with open(configFile + ".used", "w") as config:
+            config.write(current)
+
+        # ser_dev = rs.serializable_device(self._camera)
+        # ser_dev.load_json(jsonString)
+
+        print("loaded json from {}".format(configFile))
+        # print("Details: {}".format(jsonString))
+        # with open(configFile, 'r') as file:
+        #     json = file.read().strip()
+        #     ser_dev.load_json(json)
+
 if __name__ == "__main__":
 
     import argparse
@@ -79,10 +116,12 @@ if __name__ == "__main__":
     parser.add_argument('-d', '--details', action="store_true", required=False, default=False, help="Camera details")
     parser.add_argument('-c', '--camera', action="store", required=False, help="Serial number of target device")
     parser.add_argument('-r', '--reset', action="store_true", required=False, default=False, help="Reset camera")
+    parser.add_argument('-i', '--input', required=False, help="Load configuration")
     arguments = parser.parse_args()
 
     sensors = RealSense()
     sensors.query()
+
 
     rc = 0
     if arguments.list:
@@ -102,7 +141,8 @@ if __name__ == "__main__":
             sensors.reset(camera)
         if arguments.details:
             print("Camera: {}".format(camera))
-
+        if arguments.input:
+            sensors.configure(arguments.input)
     sys.exit(rc)
 
 
