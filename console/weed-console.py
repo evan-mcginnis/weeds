@@ -394,6 +394,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def __init__(self, initializing: Semaphore, *args, **kwargs):
         super(MainWindow, self).__init__(*args, **kwargs)
 
+        self._pool = QThreadPool()
         self._initializing = initializing
         self._treatmentSignals = None
         self._taskOdometry = None
@@ -1594,17 +1595,17 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def initialize(self):
 
         log.debug("Initializing application")
-        pool = QThreadPool.globalInstance()
-        pool.start(self._taskHousekeeping)
+        # pool = QThreadPool.globalInstance()
+        # pool.start(self._taskHousekeeping)
+        self._pool.start(self._taskHousekeeping)
 
     def runTasks(self, initializing: Semaphore):
         """
         Startup all threads needed for application
         """
-        pool = QThreadPool.globalInstance()
         self._taskHousekeeping = Housekeeping(initializing, self._intializationSignals, self._systemRoom, self._odometryRoom, self._treatmentRoom)
         self._taskHousekeeping.setAutoDelete(True)
-        pool.start(self._taskHousekeeping)
+        self._pool.start(self._taskHousekeeping)
 
         self._taskSystem = WorkerSystem(self._systemRoom)
         self._taskSystem.setAutoDelete(True)
@@ -1651,16 +1652,20 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self._systemSignals.xmppStatus.connect(self.xmppError)
 
 
-        pool.start(self._taskSystem)
-        pool.start(self._taskOdometry)
-        pool.start(self._taskTreatment)
-        pool.start(self._taskMQ)
+        self._pool.start(self._taskSystem)
+        self._pool.start(self._taskOdometry)
+        self._pool.start(self._taskTreatment)
+        self._pool.start(self._taskMQ)
 
 def syncImages():
     """
     Synchronize the images from the remote systems into the /tmp directory
     """
-    os.chdir("c:\\tmp")
+    try:
+        os.chdir("c:\\tmp")
+    except FileNotFoundError:
+        os.mkdir("c:\\tmp")
+        os.chdir("c:\\tmp")
     os.system("sync-weeds.bat")
 
 def process(conn, msg: xmpp.protocol.Message):
