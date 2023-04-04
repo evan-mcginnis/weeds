@@ -76,6 +76,7 @@ class VegetationIndex:
         self.ALG_MEXG="mexg"
         self.ALG_COM2="com2"
         self.ALG_RGD="rgd"
+        self.ALG_SI="si"
 
         self.algorithms = [self.ALG_NDI,
                            self.ALG_TGI,
@@ -89,7 +90,8 @@ class VegetationIndex:
                            self.ALG_MEXG,
                            self.ALG_COM2,
                            self.ALG_TGI,
-                           self.ALG_RGD]
+                           self.ALG_RGD,
+                           self.ALG_SI]
 
         thresholds = {"NDI": 0,
                       "EXG": 200,
@@ -114,7 +116,9 @@ class VegetationIndex:
                              self.ALG_MEXG    : {"description": "Modified Excess Green", "create": self.MExG, "threshold": thresholds["MEXG"]},
                              self.ALG_COM2    : {"description": "Combined Index 2", "create": self.COM2, "threshold": thresholds["COM2"]},
                              self.ALG_TGI     : {"description": "TGI", "create": self.TGI, "threshold": thresholds["TGI"]},
-                             self.ALG_RGD     : {"description": "Red Green Dots", "create": self.redGreenDots, "threshold": 0}}
+                             self.ALG_RGD     : {"description": "Red Green Dots", "create": self.redGreenDots, "threshold": 0},
+                             self.ALG_SI      : {"description": "Blue Spray Indicator", "create": self.SI, "threshold": 0},
+                             }
 
     @property
     def gpuSupported(self) -> bool:
@@ -571,14 +575,52 @@ class VegetationIndex:
         return NDI
         #result = cv.bitwise_and(RGBImage,MaskNDI)
 
+    def SI(self):
+        """
+        Blue spray indicator Index
+        :return:
+        """
+        # Convert the image to HSV
+        # manipulation = ImageManipulation(self.img, 0,)
+        # hsv = manipulation.toHSV()
+        hsv = cv.cvtColor(self.img.astype(np.uint8), cv.COLOR_BGR2HSV)
+
+        # Pure colors
+        lower_blue = np.array([110, 50, 50])
+        upper_blue = np.array([130, 255, 255])
+
+        green = np.uint8([[[0, 255, 0]]])
+        red = np.uint8([[[0, 0, 255]]])
+        blue = np.uint8([[[255, 0, 0]]])
+
+
+        # Get the HSV for the color green
+        hsv_blue = cv.cvtColor(blue, cv.COLOR_BGR2HSV)
+        # Compute the lower and upper bound of what we consider green
+        lowerBlue = np.array([int(hsv_blue[0, 0, 0]) - self.HSV_COLOR_THRESHOLD, 100, 100])
+        upperBlue = np.array([int(hsv_blue[0, 0, 0]) + self.HSV_COLOR_THRESHOLD, 255, 255])
+
+
+        maskGreen = cv.inRange(hsv, lowerBlue, upperBlue)
+        #maskRed = cv.inRange(hsv, lowerRed, upperRed)
+
+
+        mask = maskGreen
+
+        # Bitwise-AND mask and original image
+        #res = cv.bitwise_and(self.img,self.img, mask= mask)
+        return mask
+
+
     #
     # Not really an index for things found in nature, but intended for the colored dots
     # technique where green is for crop and red is for weeds.
     #
     def redGreenDots(self):
         # Convert the image to HSV
-        manipulation = ImageManipulation(self.img)
-        hsv = manipulation.toHSV()
+        # manipulation = ImageManipulation(self.img, 0,)
+        # hsv = manipulation.toHSV()
+        hsv = cv.cvtColor(self.img.astype(np.uint8), cv.COLOR_BGR2HSV)
 
         # Pure colors
         green = np.uint8([[[0,255,0 ]]])

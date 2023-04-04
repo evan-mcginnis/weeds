@@ -567,7 +567,9 @@ class ImageManipulation:
         """
         Compute the distance to the image edge for all items
         """
-        maxY, maxX, bands = resolution
+        # TODO: I forget why 3 values were expected here.
+        #maxY, maxX, bands = resolution
+        maxY, maxX = resolution
         for blobName, blobAttributes in self._blobs.items():
             # The location within the image
             (x, y, w, h) = blobAttributes[constants.NAME_LOCATION]
@@ -841,14 +843,19 @@ class ImageManipulation:
         #         blobAttributes[constants.NAME_CROP_SCORE] = 1
 
         # Find the biggest item closest to the center line
-        for blobName, blobAttributes in self._blobs.items():
-            weightedDistance = blobAttributes[constants.NAME_AREA] * (1 - blobAttributes[constants.NAME_DISTANCE_NORMALIZED])
+        try:
+            for blobName, blobAttributes in self._blobs.items():
+                weightedDistance = blobAttributes[constants.NAME_AREA] * (1 - blobAttributes[constants.NAME_DISTANCE_NORMALIZED])
 
-            self.log.debug("Weighted distance of {}: {}".format(blobName, weightedDistance))
-            if weightedDistance > weightedDistanceMax:
-                weightedDistanceMax = weightedDistance
-                likelyCropLineBlob = blobName
-                likelyCropLineY = blobAttributes[constants.NAME_CENTER][1]
+                self.log.debug("Weighted distance of {}: {}".format(blobName, weightedDistance))
+                if weightedDistance > weightedDistanceMax:
+                    weightedDistanceMax = weightedDistance
+                    likelyCropLineBlob = blobName
+                    likelyCropLineY = blobAttributes[constants.NAME_CENTER][1]
+        except KeyError as key:
+            self.log.error("Normalized distance not found")
+            likelyCropLineY = 0
+            likelyCropLineBlob = "error"
 
         self._cropY = likelyCropLineY
         self.log.debug("Crop line Y: {} for blob {}".format(self._cropY, likelyCropLineBlob))
@@ -856,8 +863,11 @@ class ImageManipulation:
         # Step through and replace the normalized distance to the center line
         # with the normalized distance to the crop line
         for blobName, blobAttributes in self._blobs.items():
-            (x,y) = blobAttributes[constants.NAME_CENTER]
+            (x, y) = blobAttributes[constants.NAME_CENTER]
             blobAttributes[constants.NAME_DISTANCE_NORMALIZED] = self.normalizedDistanceToCropY(y)
+
+            if likelyCropLineY == 0:
+                blobAttributes[constants.NAME_DISTANCE] = 0
 
         return self._cropY
 

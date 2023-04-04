@@ -187,11 +187,11 @@ class ImageEvents(pypylon.pylon.ImageEventHandler):
         :param camera:
         :param grabResult:
         """
-        log.debug("OnImageGrabbed event for device: {}".format(camera.GetDeviceInfo().GetModelName()))
+        #log.debug("OnImageGrabbed event for device: {}".format(camera.GetDeviceInfo().GetModelName()))
 
         # Image grabbed successfully?
         if grabResult.GrabSucceeded():
-            log.debug("Image grabbed successfully")
+            #log.debug("Image grabbed successfully")
             start = time.time()
             # Convert the image grabbed to something we like
             # image = CameraBasler(grabResult)
@@ -205,7 +205,7 @@ class ImageEvents(pypylon.pylon.ImageEventHandler):
 
             cameraNumber = camera.GetCameraContext()
             camera = Camera.cameras[cameraNumber]
-            log.debug("Camera context is {} Queue is {}".format(cameraNumber, len(camera._images)))
+            #log.debug("Camera context is {} Queue is {}".format(cameraNumber, len(camera._images)))
             camera._images.append(timestamped)
 
             # print("SizeX: ", grabResult.GetWidth())
@@ -301,7 +301,7 @@ class CameraBasler(Camera):
         """
         start = time.time()
         image = CameraBasler._converter.Convert(grabResult)
-        print(f"Image conversion took: {time.time() - start} seconds")
+        #self.log.debug(f"Image conversion took: {time.time() - start} seconds")
         return image
 
     def connect(self) -> bool:
@@ -432,32 +432,33 @@ class CameraBasler(Camera):
         time.sleep(3)
         self._capturing = True
 
-        # This is for a dummy capture
-        # while self._capturing:
-        #     time.sleep(10)
-        #     self.log.debug("Dummy capture of Basler RGB")
-
+        # This is for a dummy loop for when we use the capture loop of the camera
         while self._capturing:
-            try:
-                if not self.camera.IsGrabbing():
-                    self.log.error("Camera is not grabbing")
-                else:
-                    for i in range(5):
-                        if self.camera.WaitForFrameTriggerReady(1000, pylon.TimeoutHandling_ThrowException):
-                            self.camera.ExecuteSoftwareTrigger()
-            except _genicam.TimeoutException as e:
-                self.log.fatal("Timeout from camera {}".format(e))
-                time.sleep(0.5)
-            except _genicam.RuntimeException as e:
-                if not self._capturing:
-                    self.log.warning("Errors encountered in shutdown.  This is normal")
-                else:
-                    self.log.error("Unexpected errors in capture")
-                    self.log.error("Device: {}".format(self._camera.GetDeviceInfo().GetModelName()))
-                    self.log.error("{}".format(e))
-            except Exception as e:
-                self.log.error("Unable to execute wait for trigger")
-                self.log.error(e)
+            time.sleep(10)
+            self.log.debug("Dummy capture of Basler RGB")
+
+        # This is the loop for when the code supplies the grab loop
+        # while self._capturing:
+        #     try:
+        #         if not self.camera.IsGrabbing():
+        #             self.log.error("Camera is not grabbing")
+        #         else:
+        #             for i in range(5):
+        #                 if self.camera.WaitForFrameTriggerReady(1000, pylon.TimeoutHandling_ThrowException):
+        #                     self.camera.ExecuteSoftwareTrigger()
+        #     except _genicam.TimeoutException as e:
+        #         self.log.fatal("Timeout from camera {}".format(e))
+        #         time.sleep(0.5)
+        #     except _genicam.RuntimeException as e:
+        #         if not self._capturing:
+        #             self.log.warning("Errors encountered in shutdown.  This is normal")
+        #         else:
+        #             self.log.error("Unexpected errors in capture")
+        #             self.log.error("Device: {}".format(self._camera.GetDeviceInfo().GetModelName()))
+        #             self.log.error("{}".format(e))
+        #     except Exception as e:
+        #         self.log.error("Unable to execute wait for trigger")
+        #         self.log.error(e)
 
     def start(self):
         """
@@ -1602,10 +1603,17 @@ def startupRGBDepthCamera(options: OptionsFile) -> CameraDepth:
 
     # Start the Depth Cameras
     try:
-        requiredExposure=options.option(constants.PROPERTY_SECTION_INTEL, constants.PROPERTY_EXPOSURE)
+        requiredExposure = options.option(constants.PROPERTY_SECTION_INTEL, constants.PROPERTY_EXPOSURE)
     except KeyError:
         log.error("Exposure not found. Using defaults")
         requiredExposure = constants.DEFAULT_EXPOSURE
+
+    try:
+        gsd = options.option(constants.PROPERTY_SECTION_INTEL, constants.PROPERTY_DEPTH_WIDTH)
+    except KeyError:
+        log.error("GSD D not found. Using defaults")
+        requiredExposure = constants.DEFAULT_EXPOSURE
+
     try:
         cameraForDepth = CameraDepth(constants.Capture.DEPTH_RGB, EXPOSURE=requiredExposure)
         if markSensorAsFailed:
@@ -2003,6 +2011,7 @@ def nullProcessor(contextForImage: Context, captureType: constants.Capture, capt
 def storeImage(contextForImage: Context, captureType: constants.Capture, capturePosition: constants.PositionWithEmitter) -> bool:
     global imageNumberBasler
     global imageNumberIntel
+    global intelCaptureType
 
     if not processing:
         #log.debug("Not collecting images (This is normal if the weeding has not started")
@@ -2040,26 +2049,28 @@ def storeImage(contextForImage: Context, captureType: constants.Capture, capture
                 processedImage.exposure = contextForImage.exposure
                 processedImage.latitude = contextForImage.latitude
                 processedImage.longitude = contextForImage.longitude
+                processedImage.urlFilename = currentSessionName + "/" + imageName
                 # Put the image into the queue for further processing
                 rawImages.enqueue(processedImage)
                 log.debug(f"Added Intel depth image to queue in {time.time() - start} seconds")
 
-                # R G B  A S  N U M P Y
-                imageName = "{}-intel-{}-{:05d}".format(constants.FILENAME_RAW, options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_POSITION), imageNumberIntel)
-                #rgbPath = os.path.join(logger.directory, imageName)
-                rgbPath = os.path.join(arguments.output + "/" + currentSessionName + "/", imageName)
+                # Store the RGB images from the intel camera
+                if intelCaptureType == constants.IntelCapture.RGBDEPTH:
+                    imageName = "{}-intel-{}-{:05d}".format(constants.FILENAME_RAW, options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_POSITION), imageNumberIntel)
+                    #rgbPath = os.path.join(logger.directory, imageName)
+                    rgbPath = os.path.join(arguments.output + "/" + currentSessionName + "/", imageName)
 
-                processedImage = ProcessedImage(constants.Capture.DEPTH_RGB, rgbDepth.rgb, 0)
-                processedImage.urlFilename = currentSessionName + "/" + imageName
-                processedImage.filename = rgbPath
-                processedImage.make = "intel"
-                processedImage.model = "435"
-                processedImage.exposure = contextForImage.exposure
-                processedImage.latitude = contextForImage.latitude
-                processedImage.longitude = contextForImage.longitude
-                # Put the image into the queue for further processing
-                rawImages.enqueue(processedImage)
-                log.debug(f"Added Intel RGB image to queue in {time.time() - start} seconds")
+                    processedImage = ProcessedImage(constants.Capture.DEPTH_RGB, rgbDepth.rgb, 0)
+                    processedImage.urlFilename = currentSessionName + "/" + imageName
+                    processedImage.filename = rgbPath
+                    processedImage.make = "intel"
+                    processedImage.model = "435"
+                    processedImage.exposure = contextForImage.exposure
+                    processedImage.latitude = contextForImage.latitude
+                    processedImage.longitude = contextForImage.longitude
+                    # Put the image into the queue for further processing
+                    rawImages.enqueue(processedImage)
+                    log.debug(f"Added Intel RGB image to queue in {time.time() - start} seconds")
 
                 imageNumberIntel += 1
             except IOError as e:
@@ -3044,6 +3055,27 @@ def enrichImages():
             np.save(rawImage.filename, rawImage.image)
             performance.stopAndRecord(constants.PERF_SAVE_INTEL_DEPTH)
 
+            # Send message to note the depth data
+            message = TreatmentMessage()
+            message.plan = constants.Treatment.RAW_IMAGE
+            message.source = constants.Capture.DEPTH_DEPTH
+            message.name = "original"
+            message.url = "http://" + platform.node() + "/" + rawImage.urlFilename + constants.EXTENSION_NPY
+            message.timestamp = time.time() * 1000
+
+            try:
+                position = options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_POSITION)
+                message.position = position
+            except KeyError:
+                log.error(
+                    "Can't find {}/{} in ini file".format(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_POSITION))
+
+            messageText = message.formMessage()
+            log.debug("Sending: {}".format(messageText))
+            messageID = roomTreatment.sendMessage(messageText)
+            log.debug("Sent message with ID: {}".format(messageID))
+            performance.stopAndRecord(constants.PERF_TREATMENT_MSG)
+
         elif rawImage.captureType == constants.Capture.RGB:
             log.debug("Saving Basler RGB: {}".format(rawImage.filename + constants.EXTENSION_IMAGE))
             # ImageManipulation.show("Source",image)
@@ -3152,6 +3184,19 @@ else:
     rgbDepthCamera.gsdAdjusted = float('inf')
 
 log.debug("GSD Intel: {}/{}".format(gsdIntel, rgbDepthCamera.gsd))
+
+# What sort of capture is to be performed with the intel camera?
+
+# By default, this is only depth data
+intelCaptureType = constants.IntelCapture.DEPTH
+captureType = options.option(constants.PROPERTY_SECTION_INTEL, constants.PROPERTY_CAPTURE)
+if captureType == constants.IntelCapture.DEPTH.name:
+    intelCaptureType = constants.IntelCapture.DEPTH
+    log.info("Intel capture limited to depth data only")
+elif captureType == constants.IntelCapture.RGBDEPTH.name:
+    intelCaptureType = constants.IntelCapture.RGBDEPTH
+    log.info("Intel capturing both RGB and depth data")
+
 
 # This is the GSD of the image that takes into account overlap
 gsdBasler = (1 - float(options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_OVERLAP_FACTOR))) * camera.gsd
