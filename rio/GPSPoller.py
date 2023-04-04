@@ -1,5 +1,6 @@
 from gps import *
 import threading
+import logging
 
 import constants
 
@@ -23,6 +24,7 @@ class GPSPoller(threading.Thread):
         self._current_value = None
         self._tpv = None
         self._refreshInterval = refreshInterval
+        self._log = logging.getLogger(__name__)
 
     def current(self):
         """
@@ -48,10 +50,15 @@ class GPSPoller(threading.Thread):
         """
         try:
             while True:
-                self._current_value = self.session.next()
-                if self._current_value['class'] == 'TPV':
-                    self._tpv = self._current_value
-                time.sleep(self._refreshInterval)
+                try:
+                    self._current_value = self.session.next()
+                    if self._current_value['class'] == 'TPV':
+                        self._tpv = self._current_value
+                    time.sleep(self._refreshInterval)
+                except ConnectionResetError:
+                    self._log.error("GPS reset connection -- will retry connection")
+                    time.sleep(5)
+                    self.session = gps(mode=WATCH_ENABLE)
         except StopIteration:
             pass
 
