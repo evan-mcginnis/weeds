@@ -345,10 +345,16 @@ def runAndEvaluateDiagnostics():
     # Eventually, this will also evaluate diagnostic results.
 
     while True:
-        time.sleep(5)
-        startDiagnostics()
+        time.sleep(20)
+        # Run diagnostics only when the system is not executing an operation
+        if currentOperation == constants.Operation.QUIESCENT.name:
+            startDiagnostics()
 
 def startOperation(operation: str, operationDescription: str):
+    global currentOperation
+
+    currentOperation = constants.Operation.IMAGING.name
+
     log.debug("Starting operation")
     systemMessage = SystemMessage()
 
@@ -366,6 +372,9 @@ def startOperation(operation: str, operationDescription: str):
     roomSystem.sendMessage(systemMessage.formMessage())
 
 def stopOperation():
+    global currentOperation
+    currentOperation = constants.Operation.QUIESCENT.name
+
     log.debug("Stopping operation")
     systemMessage = SystemMessage()
 
