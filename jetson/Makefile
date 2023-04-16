@@ -67,10 +67,13 @@ DECORATIONS?=none
 ML?=lr
 # Vegetation index algorithm
 INDEX?=ndi
+# should be one of: ndi tgi exg exr exgexr cive ngrdi veg com1 mexg com2 rgd
+
 # Parameter Selection
 PARAMETERS?=all-parameters.csv
 # Thresholds
 THRESHOLDS?="(130,0)"
+THRESHOLDS-TGI?="(32,0)"
 # Contours
 CONTOURS?=-c
 # Standlone
@@ -111,6 +114,9 @@ TREATMENT?=-sp
 
 weeds:
 	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a $(INDEX) -t $(THRESHOLDS) -df $(TRAINING) $(ALGFLAG) -sc -v -lg $(LOG) -se $(PARAMETERS) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE)
+
+weeds-plot:
+	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a $(INDEX) -t $(THRESHOLDS-TGI) -df $(TRAINING) $(ALGFLAG) -sc -v -lg $(LOG) -se $(PARAMETERS) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE) --plot
 
 treatment:
 	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a $(INDEX) -t $(THRESHOLDS) -df $(TRAINING) $(ALGFLAG) -sc -v -lg $(LOG) -se $(PARAMETERS) -d location $(TREATMENT) -ini $(INI) $(STANDALONE)

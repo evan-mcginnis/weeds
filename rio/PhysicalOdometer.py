@@ -256,9 +256,9 @@ class PhysicalOdometer(Odometer):
             while self._processing:
                 try:
                     # This works at low speeds
-                    ang = task.read(number_of_samples_per_channel=1)
-                    # ang = task.read(nidaqmx.constants.READ_ALL_AVAILABLE)
-                    # self.log.debug("Angle reading length: {} Angle: {}".format(len(ang), ang))
+                    #ang = task.read(number_of_samples_per_channel=1)
+                    ang = task.read(nidaqmx.constants.READ_ALL_AVAILABLE)
+                    self.log.debug("Angle reading length: {} Angle: {}".format(len(ang), ang))
                 except nidaqmx.errors.DaqError:
                     self.log.error("Read error encountered")
                     daqErrorEncountered = True

@@ -339,24 +339,31 @@ class DebugCameraBasler(Camera):
         #     self.log.debug("Dummy capture of Basler RGB")
 
         while self._capturing:
-            try:
-                for i in range(5):
-                    if self.camera.WaitForFrameTriggerReady(2000, pylon.TimeoutHandling_ThrowException):
-                        self.camera.ExecuteSoftwareTrigger()
-            except _genicam.TimeoutException as e:
-                self.log.fatal("Timeout from camera in WaitForFrameTrigger ready")
-                time.sleep(1)
-                self.log.fatal(e)
-            except _genicam.RuntimeException as e:
-                if not self._capturing:
-                    self.log.warning("Errors encountered in shutdown.  This is normal")
-                else:
-                    self.log.error("Unexpected errors in capture")
-                    self.log.error("Device: {}".format(self._camera.GetDeviceInfo().GetModelName()))
-                    self.log.error("{}".format(e))
-            except Exception as e:
-                self.log.error("Unable to execute wait for trigger")
-                self.log.error(e)
+            time.sleep(0.5)
+            # This shows that if we use the grabloop provided by the camera, this is not needed.
+            # Temporary begin
+            # try:
+            #     for i in range(5):
+            #         if self.camera.WaitForFrameTriggerReady(8000, pylon.TimeoutHandling_ThrowException):
+            #             self.log.debug("Executing software trigger")
+            #             self.camera.ExecuteSoftwareTrigger()
+            #         else:
+            #             self.log.debug("Returned from WaitForFrameTriggerReady")
+            # except _genicam.TimeoutException as e:
+            #     self.log.fatal("Timeout from camera in WaitForFrameTrigger ready")
+            #     time.sleep(1)
+            #     self.log.fatal(e)
+            # except _genicam.RuntimeException as e:
+            #     if not self._capturing:
+            #         self.log.warning("Errors encountered in shutdown.  This is normal")
+            #     else:
+            #         self.log.error("Unexpected errors in capture")
+            #         self.log.error("Device: {}".format(self._camera.GetDeviceInfo().GetModelName()))
+            #         self.log.error("{}".format(e))
+            # except Exception as e:
+            #     self.log.error("Unable to execute wait for trigger")
+            #     self.log.error(e)
+            # Temporary end
 
     def start(self):
         """
