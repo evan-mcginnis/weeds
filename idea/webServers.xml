@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="5395f573-7ebc-44e0-bee1-c76c99245d9e" name="jetson-left">
+        <fileTransfer accessType="SFTP" host="jetson-left.weeds.com" port="22" sshConfigId="d1368d31-eabe-4702-bfa0-e306a1519d75" sshConfig="weeds@jetson-left.weeds.com:22 password">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" keepAliveTimeout="0" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+      <webServer id="4c3c0d5a-6056-4095-b381-18b91bc245ee" name="jetson-right">
+        <fileTransfer accessType="SFTP" host="jetson-right.weeds.com" port="22" sshConfigId="f8704eae-99b7-4382-a865-1bef5e8a5f37" sshConfig="weeds@jetson-right.weeds.com:22 password">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" keepAliveTimeout="0" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+    </option>
+    <groups>
+      <group>
+        <name>jetsons</name>
+        <servers>
+          <name value="jetson-left" />
+          <name value="jetson-right" />
+        </servers>
+      </group>
+    </groups>
+  </component>
+</project>

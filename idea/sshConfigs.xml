@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="SshConfigs">
+    <configs>
+      <sshConfig authType="PASSWORD" host="iron-chef.weeds.com" id="251c0b97-6168-4953-955a-cbaac5cd39a3" port="22" nameFormat="DESCRIPTIVE" username="weeds" useOpenSSHConfig="true" />
+      <sshConfig authType="PASSWORD" host="jetson-right.weeds.com" id="f8704eae-99b7-4382-a865-1bef5e8a5f37" port="22" nameFormat="DESCRIPTIVE" username="weeds" useOpenSSHConfig="true" />
+      <sshConfig authType="PASSWORD" host="jetson-left.weeds.com" id="d1368d31-eabe-4702-bfa0-e306a1519d75" port="22" nameFormat="DESCRIPTIVE" username="weeds" useOpenSSHConfig="true" />
+    </configs>
+  </component>
+</project>
