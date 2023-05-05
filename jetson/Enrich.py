@@ -143,7 +143,9 @@ class Enrich:
         with open(image, 'rb') as image_file:
             my_image = Image(image_file)
             if my_image.has_exif:
-                print("{}".format(my_image.list_all()))
+                exifTags = my_image.get_all()
+                for tag in exifTags:
+                    print(f"{tag}: {my_image.get(tag)}")
                 # print(my_image.gps_latitude)
                 # print(my_image.gps_speed)
             else:
@@ -180,7 +182,7 @@ if __name__ == "__main__":
         print("Failed to load options from {}.".format(arguments.ini))
         sys.exit(1)
     else:
-        enricher = Enrich()
+        enricher = Enrich('.')
         if arguments.show:
             enricher.printEXIF(arguments.input)
         else:

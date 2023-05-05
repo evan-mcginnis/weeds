@@ -72,7 +72,9 @@ INDEX?=ndi
 # Parameter Selection
 PARAMETERS?=all-parameters.csv
 # Thresholds
-THRESHOLDS?="(130,0)"
+# Originally
+#THRESHOLDS?="(130,0)"
+THRESHOLDS?="(128,0)"
 THRESHOLDS-TGI?="(32,0)"
 # Contours
 CONTOURS?=-c

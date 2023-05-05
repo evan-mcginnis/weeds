@@ -2270,7 +2270,6 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
         # This only marks items that can't be fully seen (at edges) of image
         classifier.classifyByPosition(size=manipulated.image.shape)
 
-
         # Determine the distance from the object to the edge of the image given  the pixel size of the camera
         performance.start()
         manipulated.computeDistancesToImageEdge(camera.getMMPerPixel(), camera.getResolution())
@@ -2280,7 +2279,7 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
 
 
         performance.start()
-        manipulated.findAngles()
+        #manipulated.findAngles()
         manipulated.findCropLine()
         performance.stopAndRecord(constants.PERF_ANGLES)
 
@@ -2326,6 +2325,9 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
         # Draw boxes around the images we found with decorations for attributes selected
         #manipulated.drawBoundingBoxes(contours)
         manipulated.drawBoxes(manipulated.name, classifiedBlobs, featuresToShow)
+
+        # Eliminate vegetation we would damage
+        classifier.classifyByDamage(classifiedBlobs)
 
         #logger.logImage("cropline", manipulated.croplineImage)
         # This is using the hough transform which we abandoned as a technique
