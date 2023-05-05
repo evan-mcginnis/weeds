@@ -108,6 +108,13 @@ class Classifier:
     def classifyWithinCropRow(self):
         return
 
+    def classifyByDamage(self, rectangles: []):
+        self.log.disabled = False
+        for rectName, rectAttributes in rectangles.items():
+            (x, y, w, h) = rectAttributes[constants.NAME_LOCATION]
+            (cX, cY) = rectAttributes[constants.NAME_CENTER]
+            self.log.debug("Bounding: ({},{}) {}x{} Center ({},{})".format(x, y, w, h, cX, cY))
+
     #
     # The only real purpose here is to mark the items that are at the edge of the image as such
     #

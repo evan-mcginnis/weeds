@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import constants
 import logging
 import numpy as np
+import pandas as pd
 
 class Reporting:
     def __init__(self, filename: str):
@@ -16,6 +17,29 @@ class Reporting:
         self._blobs = {}
         self.log = logging.getLogger(__name__)
         self._filename = filename
+
+        self._columns = [constants.NAME_NAME,
+                         constants.NAME_NUMBER,
+                         constants.NAME_RATIO,
+                         constants.NAME_SHAPE_INDEX,
+                         constants.NAME_DISTANCE,
+                         constants.NAME_DISTANCE_NORMALIZED,
+                         constants.NAME_HUE,
+                         constants.NAME_SATURATION,
+                         constants.NAME_I_YIQ,
+                         constants.NAME_BLUE_DIFFERENCE,
+                         constants.NAME_COMPACTNESS,
+                         constants.NAME_ELONGATION,
+                         constants.NAME_ECCENTRICITY,
+                         constants.NAME_ROUNDNESS,
+                         constants.NAME_SOLIDITY,
+                         constants.NAME_TYPE]
+
+        # Columns to exclude from translations like normalizing values
+        self._exclude = [constants.NAME_NAME, constants.NAME_NUMBER, constants.NAME_TYPE]
+
+        self._blobDF = pd.DataFrame(columns=self._columns)
+
         return
 
     @property
@@ -42,8 +66,30 @@ class Reporting:
         for blobName, blobAttributes in blobs.items():
             newName = "image-" + str(sequence) + "-" + blobName
             self._blobs[newName] = blobAttributes
+            attributes = {}
+            attributes[constants.NAME_NAME] = newName
+            attributes[constants.NAME_NUMBER] = sequence
+            # Add only the columns needed
+            for attributeName, attributeValue in blobAttributes.items():
+                if attributeName in self._columns:
+                    attributes[attributeName] = attributeValue
+            self._blobDF = self._blobDF.append(attributes, ignore_index=True)
+        return
 
-    def writeSummary(self)-> bool:
+    def _normalize(self):
+        """
+        Normalize the data
+        """
+        # apply normalization techniques
+        for column in self._columns:
+            if column not in self._exclude:
+                try:
+                    self._blobDF[column] = (self._blobDF[column] - self._blobDF[column].min()) / (self._blobDF[column].max() - self._blobDF[column].min())
+                except ZeroDivisionError:
+                    self.log.error("Division by zero error for column {}".format(column))
+        return
+
+    def writeSummary(self) -> (bool, str):
         """
         Write the data to the file specified.  We will use this data later for training.
         :param filename:  The fully qualified name of the file.
@@ -54,6 +100,9 @@ class Reporting:
             self.log.error("Permission denied for file: " + self._filename)
             return False, "Unable to write file " + self._filename
 
+        self._normalize()
+        newdf = self._blobDF[(self._blobDF.type == constants.TYPE_DESIRED) | (self._blobDF.type == constants.TYPE_UNDESIRED)]
+        newdf.to_csv("normalized.csv", encoding="UTF-8", index=False)
         blobNumber = 1
         file.write("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n".format(constants.NAME_NAME,
                                                          constants.NAME_NUMBER,

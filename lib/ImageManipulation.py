@@ -828,19 +828,7 @@ class ImageManipulation:
         likelyCropLineY = int(self._maxY / 2)
         weightedDistanceMax = 0
 
-        # for blobName, blobAttributes in self._blobs.items():
-        #     blobAttributes[constants.NAME_CROP_SCORE] = 0
-        #     point1 = blobAttributes[constants.NAME_CENTER]
-        #     for toBlobName, toBlobAttributes in self._blobs.items():
-        #         point2 = toBlobAttributes[constants.NAME_CENTER]
-        #         angle = self.angleOf((point1[0], point1[1]), (point2[0], point2[1]))
-        #         #print("Angle from {} to {} is {}".format(blobName, toBlobName, angle))
-        #         if angle < 5:
-        #             #print("Found a neighbor for {}".format(blobName))
-        #             blobAttributes[constants.NAME_NEIGHBOR_COUNT] = blobAttributes[constants.NAME_NEIGHBOR_COUNT] + 1
-        #     # This is potentially on the crop line if it is the largest thing in the image
-        #     if blobName == self._largestName:
-        #         blobAttributes[constants.NAME_CROP_SCORE] = 1
+
 
         # Find the biggest item closest to the center line
         try:
@@ -858,7 +846,7 @@ class ImageManipulation:
             likelyCropLineBlob = "error"
 
         self._cropY = likelyCropLineY
-        self.log.debug("Crop line Y: {} for blob {}".format(self._cropY, likelyCropLineBlob))
+        #self.log.debug("Crop line Y: {} for blob {}".format(self._cropY, likelyCropLineBlob))
 
         # Step through and replace the normalized distance to the center line
         # with the normalized distance to the crop line
@@ -1011,7 +999,7 @@ class ImageManipulation:
         """
         for blobName, blobAttributes in self._blobs.items():
             contour = blobAttributes[constants.NAME_CONTOUR]
-            cv.drawContours(self._image, contour, contourIdx=-1, color=(255,0,0),thickness=constants.SIZE_CONTOUR_LINE)
+            cv.drawContours(self._image, contour, contourIdx=-1, color=(255, 0, 0), thickness=constants.SIZE_CONTOUR_LINE)
         # self._contours_image = np.zeros(self._image.shape, np.uint8)
         # cv.drawContours(self._contours_image, self._contours, contourIdx=-1, color=(255,0,0),thickness=2)
         # cv.imwrite("contours.jpg", self._contours_image)
