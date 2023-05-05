@@ -1,4 +1,12 @@
 work/
+*.synctex*
+*.toc
+*.ver
+*.hst
+*.lof
+*.lot
+*.bcf
+*.aux
 *.log
 *.log.*
 *.tar

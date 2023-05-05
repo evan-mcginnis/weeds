@@ -4,10 +4,27 @@
 
 library(rgl)
 
-input <- "results-for-plot.csv"
+#input <- "results-for-plot.csv"
+input <- "normalized.csv"
 output <- "figures"
 
 cropPredictions <- read.csv(input)
+
+
+# Gillian's testing zone
+library(dplyr)
+library(scales)
+
+excludedVars <- c("name", "number", "type", "actual")
+
+scaledCropPreds <- cropPredictions %>%
+  mutate_at(
+    vars(-(excludedVars)),
+    ~(rescale(., to=c(0,1)))
+  )
+# end of gillian's testing zone
+
+
 
 # The RGL method
 # plot3d(
@@ -49,6 +66,7 @@ axz <- list(
   zerolinecolor=colorLine
 )
 
+#cropPredictions <- scaledCropPreds
 cropPredictions$cluster = as.factor(cropPredictions$actual)
 # Works
 #p <- plot_ly(cropPredictions, x=~lw_ratio, y=~shape_index, z=~in_phase, color=~normalized_distance, symbol=~I(actual), hovertext=cropPredictions$name, hoverinfo="x+y+z+text") 
@@ -61,4 +79,5 @@ p <- p %>% colorbar(title="Normalized distance from cropline")
 #p <- p %>% add_trace(y = "blah")
 
 p
+
 
