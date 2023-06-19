@@ -29,6 +29,7 @@ class CameraState(StateMachine):
 class Camera(ABC):
     cameras = list()
     cameraCount = 0
+
     def __init__(self, **kwargs):
         super().__init__()
         self._state = CameraState()
@@ -51,6 +52,8 @@ class Camera(ABC):
         self._speed = 0.0
 
         self._methodToGetSpeed = None
+
+        self._mmPerPixel = 0.1
 
     @property
     def status(self) -> constants.OperationalStatus:
@@ -112,6 +115,10 @@ class Camera(ABC):
 
     def methodToGetSpeed(self, speedMethod: Callable):
         self._methodToGetSpeed = speedMethod
+
+    @property
+    def mmPerPixel(self):
+        return self._mmPerPixel
 
 
 
