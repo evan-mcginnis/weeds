@@ -3,6 +3,9 @@
 #
 from enum import Enum
 
+# General things
+DELIMETER = "_"
+
 # UI
 UI_STATUS_OK = "OK"
 UI_STATUS_NOT_OK = "Not OK"
@@ -27,6 +30,8 @@ EXTENSION_HTML = ".html"
 FILENAME_POST_EMITTER = "post-emitter"
 FILENAME_RAW = "raw"
 FILENAME_FINISHED = "finished"
+FILENAME_PROCESSED = "processed"
+FILENAME_ORIGINAL = "original"
 FILENAME_INTEL_RGB = "rgb"
 FILENAME_INTEL_DEPTH = "depth"
 FILENAME_DUMMY = "dummy"
@@ -64,7 +69,7 @@ MSG_NO_PROBLEM_FOUND = "No problem found"
 
 # Names for the attributes
 # Some of these are a bit redundant and are there for backwards compatibility
-
+NAME_BLOB                   = "blob"
 NAME_AREA                   = "area"
 NAME_TYPE                   = "type"
 NAME_LOCATION               = "location"
@@ -73,6 +78,7 @@ NAME_CONTOUR                = "contour"
 NAME_SHAPE_INDEX            = "shape_index"
 NAME_RATIO                  = "lw_ratio"
 NAME_IMAGE                  = "image"
+NAME_GREYSCALE_IMAGE        = "greyscale"
 NAME_REASON                 = "reason"
 NAME_SIZE_RATIO             = "size_ratio"
 NAME_BLUE                   = "blue"
@@ -104,6 +110,30 @@ NAME_ROUNDNESS              = "roundness"
 NAME_CONVEXITY              = "convexity"
 NAME_SOLIDITY               = "solidity"
 NAME_DIST_TO_LEADING_EDGE   = "leading"
+NAME_SQUARES                = "squares"
+
+NAME_IMAGE_GREYSCALE        = "greyscale"
+NAME_IMAGE_YIQ              = "yiq"
+NAME_IMAGE_RGB              = "rgb"
+NAME_IMAGE_HSV              = "hsv"
+
+# Column names in pandas
+COLUMN_NAME_VALUE           = "value"
+COLUMN_NAME_TYPE            = "type"
+COLUMN_NAME_FACTOR          = "factor"
+
+# B A N D S
+# The band names -- used for GLCM computations
+NAME_GREYSCALE              = "greyscale"
+
+# G L C M
+NAME_ENERGY                 = "energy"
+NAME_CORRELATION            = "correlation"
+NAME_DISSIMILARITY          = "dissimilarity"
+NAME_HOMOGENEITY            = "homogeneity"
+NAME_CONTRAST               = "contrast"
+NAME_ASM                    = "ASM"
+
 #
 # X M P P  R O O M S  A N D  J I D S
 #
@@ -256,6 +286,7 @@ PERF_STDDEV     = "stddev"
 PERF_COMPACTNESS= "compactness"
 PERF_SHAPES     = "shapes"
 PERF_UNDISTORT  = "undistort"
+PERF_GLCM       = "glcm"
 
 PERF_SAVE_INTEL_DEPTH       = "save-intel-depth"
 PERF_SAVE_INTEL_RGB         = "save-intel-rgb"
@@ -283,6 +314,7 @@ PROPERTY_FILENAME = "options.ini"
 PROPERTY_FILENAME_FINISHED = "FINISHED"
 PROPERTY_PIXELS_PER_MM = "PIXELS-PER-MM"
 PROPERTY_SECTION_CAMERA = "CAMERA"
+PROPERTY_SECTION_IMAGE_PROCESSING = "IMAGE-PROCESSING"
 PROPERTY_SECTION_INTEL = "INTEL"
 PROPERTY_CAPTURE = "CAPTURE"
 PROPERTY_SECTION_EMITTER = "EMITTERS"
@@ -292,6 +324,7 @@ PROPERTY_CAMERA_IP_POST = "POST-EMITTER-IP"
 PROPERTY_DEPTH_WIDTH = "IMAGE_WIDTH"
 PROPERTY_DEPTH_HEIGHT = "IMAGE_HEIGHT"
 PROPERTY_IMAGE_WIDTH = "IMAGE_WIDTH"
+PROPERTY_FACTORS = "FACTORS"
 PROPERTY_IMAGE_HEIGHT = "IMAGE_HEIGHT"
 PROPERTY_OFFSET_X = "EMITTER-X-OFFSET"
 PROPERTY_OFFSET_Y = "EMITTER-Y-OFFSET"
@@ -303,6 +336,12 @@ PROPERTY_LOCATION = "LOCATION"
 # Temporary until the depth cameras are moved to the NVIDIA systems
 PROPERTY_SERIAL_LEFT = "SERIAL-LEFT"
 PROPERTY_SERIAL_RIGHT = "SERIAL-RIGHT"
+
+# I M A G E  P R O C E S S I N G
+PROPERTY_FACTOR_COLOR = "color"
+PROPERTY_FACTOR_GLCM = "glcm"
+PROPERTY_FACTOR_POSITION = "position"
+PROPERTY_FACTOR_SHAPE = "shape"
 
 # D E P T H
 PROPERTY_SECTION_DEPTH = "DEPTH"
@@ -355,6 +394,8 @@ KEYWORD_PORT = "PORT"
 KEYWORD_COPYRIGHT = "COPYRIGHT"
 KEYWORD_MAKE = "MAKE"
 KEYWORD_MODEL = "MODEL"
+KEYWORD_PREFIX = "PREFIX"
+KEYWORD_BAND = "BAND"
 
 # ZEROMQ COMMANDS
 PORT_ODOMETRY = 6222
@@ -589,5 +630,8 @@ class ProcessResult(Enum):
     NOT_PROCESSED = 3
     INTERNAL_ERROR = 4
 
+class Strategy(Enum):
+    CARTOON = 0
+    PROCESSED = 1
 
 
