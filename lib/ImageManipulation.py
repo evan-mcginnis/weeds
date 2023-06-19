@@ -14,23 +14,24 @@ import math
 import pandas as pd
 import logging
 from math import pi
-#from GPSPhoto import gpsphoto
+# from GPSPhoto import gpsphoto
 
 from collections import namedtuple
 from operator import mul
 
 from skimage.color import rgb2yiq
 
-from Logger import Logger
+from ImageLogger import ImageLogger
 
 import constants
+from GLCM import GLCM
 
 # Colors for the bounding boxes
-COLOR_WEED = (0,0,255)
-COLOR_CROP = (0,255,0)
-COLOR_UNKNOWN = (255,0,0)
-COLOR_UNTREATED = (0,127,0)
-COLOR_IGNORED = (255,255,255)
+COLOR_WEED = (0, 0, 255)
+COLOR_CROP = (0, 255, 0)
+COLOR_UNKNOWN = (255, 0, 0)
+COLOR_UNTREATED = (0, 127, 0)
+COLOR_IGNORED = (255, 255, 255)
 
 # How far outside the midline of the image vegetation should be considered the cropline
 MIDDLE_THRESHOLD = 200
@@ -38,8 +39,9 @@ MIDDLE_THRESHOLD = 200
 # The lines for the enclosing rectangle
 BOUNDING_BOX_THICKNESS = 4
 
+
 class ImageManipulation:
-    def __init__(self, img : np.ndarray, sequenceNumber : int, logger : Logger):
+    def __init__(self, img: np.ndarray, sequenceNumber: int, logger: ImageLogger):
         self._image = img
         self._name = constants.NAME_IMAGE + "-" + str(sequenceNumber)
         self._rectangles = []
@@ -61,12 +63,13 @@ class ImageManipulation:
         self._logger = logger
 
         (self._maxY, self._maxX, self._depth) = img.shape
-        self._centerLineY = int(self._maxY/2)
+        self._centerLineY = int(self._maxY / 2)
 
         self.log = logging.getLogger(__name__)
 
         # The minimum distance to the edge of crop that we will tolerate
         self._minDistanceToContour = 100
+
     # def init(self):
     #     self._cvimage = cv.cvtColor(self._image)
 
@@ -91,7 +94,7 @@ class ImageManipulation:
         return self._blobs
 
     @mmPerPixel.setter
-    def mmPerPixel(self, mm : float):
+    def mmPerPixel(self, mm: float):
         self._mmPerPixel = mm
 
     @property
@@ -138,7 +141,7 @@ class ImageManipulation:
         return self._shapeIndices
 
     @classmethod
-    def show(self, title : str, index : np.ndarray):
+    def show(self, title: str, index: np.ndarray):
         plt.title(title)
         plt.imshow(index, cmap='gray', vmin=0, vmax=255)
         plt.show()
@@ -170,7 +173,6 @@ class ImageManipulation:
             self._imageAsRGB = cv.cvtColor(self._image.astype(np.uint8), cv.COLOR_BGR2RGB)
         return self._imageAsRGB
 
-
     def toYUV(self) -> np.ndarray:
         """
         Converts the current image to YUV from BGR
@@ -193,7 +195,7 @@ class ImageManipulation:
         # Convert to RGB, as scikit-image doesn't take BGR
         self.toRGB()
 
-        #TODO: This is the one and only use for the scikit-image library.
+        # TODO: This is the one and only use for the scikit-image library.
         # This can be done with some matrix multiplication instead, and is something that can
         # be performed on a GPU
         self._imageAsYIQ = rgb2yiq(self._imageAsRGB)
@@ -205,7 +207,7 @@ class ImageManipulation:
         :return:
         The HSV values as a numpy array
         """
-        self._imgAsHSV =  cv.cvtColor(self._image.astype(np.uint8), cv.COLOR_BGR2HSV)
+        self._imgAsHSV = cv.cvtColor(self._image.astype(np.uint8), cv.COLOR_BGR2HSV)
         return self._imgAsHSV
 
     def toYCBCR(self) -> np.ndarray:
@@ -230,7 +232,7 @@ class ImageManipulation:
         # self._imgAsHSI = cv.cvtColor(self._image.astype(np.uint8), cv.CV_RGB2HLS)
         # return self._imgAsHSI
 
- #       with np.errstate(divide='ignore', invalid='ignore'):
+        #       with np.errstate(divide='ignore', invalid='ignore'):
 
         bgr = np.int32(cv.split(self._image))
 
@@ -259,11 +261,11 @@ class ImageManipulation:
         sqrt_calc = np.where(sqrt_calc == 0, 1, sqrt_calc)
 
         if (green >= blue).any():
-            hue = np.arccos((1/2 * ((red-green) + (red - blue)) / sqrt_calc))
+            hue = np.arccos((1 / 2 * ((red - green) + (red - blue)) / sqrt_calc))
         else:
-            hue = 2*pi - np.arccos((1/2 * ((red-green) + (red - blue)) / sqrt_calc))
+            hue = 2 * pi - np.arccos((1 / 2 * ((red - green) + (red - blue)) / sqrt_calc))
 
-        hue = hue*180/pi
+        hue = hue * 180 / pi
 
         self._imgAsHSI = cv.merge((hue, saturation, intensity))
         return self._imgAsHSI
@@ -276,42 +278,42 @@ class ImageManipulation:
              :return: HSI image
         """
         rgb_img = self._image
-        #Save the number of rows and columns of the original image
+        # Save the number of rows and columns of the original image
         row = np.shape(rgb_img)[0]
         col = np.shape(rgb_img)[1]
-        #Copy the original image
+        # Copy the original image
         hsi_img = rgb_img.copy()
-        #Channel splitting the image
-        B,G,R = cv.split(rgb_img)
+        # Channel splitting the image
+        B, G, R = cv.split(rgb_img)
         # Normalize the channel to [0,1]
-        [B,G,R] = [ i/ 255.0 for i in ([B,G,R])]
-        H = np.zeros((row, col))    #Define H channel
-        I = (R + G + B) / 3.0       #Calculate I channel
-        S = np.zeros((row,col))      #Define S channel
+        [B, G, R] = [i / 255.0 for i in ([B, G, R])]
+        H = np.zeros((row, col))  # Define H channel
+        I = (R + G + B) / 3.0  # Calculate I channel
+        S = np.zeros((row, col))  # Define S channel
         for i in range(row):
-            den = np.sqrt((R[i]-G[i])**2+(R[i]-B[i])*(G[i]-B[i]))
-            thetha = np.arccos(0.5*(R[i]-B[i]+R[i]-G[i])/den)   #Calculate the included angle
-            h = np.zeros(col)               #Define temporary array
-            #den>0 and G>=B element h is assigned to thetha
-            h[B[i]<=G[i]] = thetha[B[i]<=G[i]]
-            #den>0 and G<=B element h is assigned to thetha
-            h[G[i]<B[i]] = 2*np.pi-thetha[G[i]<B[i]]
-            #den<0 element h is assigned a value of 0
+            den = np.sqrt((R[i] - G[i]) ** 2 + (R[i] - B[i]) * (G[i] - B[i]))
+            thetha = np.arccos(0.5 * (R[i] - B[i] + R[i] - G[i]) / den)  # Calculate the included angle
+            h = np.zeros(col)  # Define temporary array
+            # den>0 and G>=B element h is assigned to thetha
+            h[B[i] <= G[i]] = thetha[B[i] <= G[i]]
+            # den>0 and G<=B element h is assigned to thetha
+            h[G[i] < B[i]] = 2 * np.pi - thetha[G[i] < B[i]]
+            # den<0 element h is assigned a value of 0
             h[den == 0] = 0
-            H[i] = h/(2*np.pi)      #Assign to the H channel after radiating
-        #Calculate S channel
+            H[i] = h / (2 * np.pi)  # Assign to the H channel after radiating
+        # Calculate S channel
         for i in range(row):
             min = []
-            #Find the minimum value of each group of RGB values
+            # Find the minimum value of each group of RGB values
             for j in range(col):
-                arr = [B[i][j],G[i][j],R[i][j]]
+                arr = [B[i][j], G[i][j], R[i][j]]
                 min.append(np.min(arr))
             min = np.array(min)
-            #Calculate S channel
-            S[i] = 1 - min*3/(R[i]+B[i]+G[i])
-            #I is 0 directly assigned to 0
-            S[i][R[i]+B[i]+G[i] == 0] = 0
-        #Extend to 255 for easy display, generally H component is between [0,2pi], S and I are between [0,1]
+            # Calculate S channel
+            S[i] = 1 - min * 3 / (R[i] + B[i] + G[i])
+            # I is 0 directly assigned to 0
+            S[i][R[i] + B[i] + G[i] == 0] = 0
+        # Extend to 255 for easy display, generally H component is between [0,2pi], S and I are between [0,1]
         # hsi_img[:,:,0] = H*255
         # hsi_img[:,:,1] = S*255
         # hsi_img[:,:,2] = I*255
@@ -325,21 +327,21 @@ class ImageManipulation:
         The greyscale image as a numpy array
         """
         # This method of converting to greyscale is a complete hack.
-        #self.save(self._image, "temporary.jpg")
-        #utility.SaveMaskedImage("mask-applied.jpg")
-        #img_float32 = np.float32(utility.GetMaskedImage())
-        #img = cv.imread("temporary.jpg")
-        #self._imgAsGreyscale = cv.cvtColor(img, cv.COLOR_RGB2GRAY)
+        # self.save(self._image, "temporary.jpg")
+        # utility.SaveMaskedImage("mask-applied.jpg")
+        # img_float32 = np.float32(utility.GetMaskedImage())
+        # img = cv.imread("temporary.jpg")
+        # self._imgAsGreyscale = cv.cvtColor(img, cv.COLOR_RGB2GRAY)
 
-        #self._imgAsGreyscale = self._image.astype(np.uint8)
+        # self._imgAsGreyscale = self._image.astype(np.uint8)
         # If the conversion to uint8 is not there, opencv complains when we try to find the
         # contours.  Strictly speaking this is not required for just the greyscale conversion
 
         # Blurring the image before we start trying to detect objects seems to improve things
         # in that noise is not identified as objects, but this is a very slow method
 
-        #blurred = cv.pyrMeanShiftFiltering(self._image.astype(np.uint8),31,101)
-        #img = cv.cvtColor(blurred, cv.COLOR_BGR2GRAY)
+        # blurred = cv.pyrMeanShiftFiltering(self._image.astype(np.uint8),31,101)
+        # img = cv.cvtColor(blurred, cv.COLOR_BGR2GRAY)
         #
         # Sujith, A., and R. Neethu. 2021. “Classification of Plant Leaf Using Shape and Texture Features.”
         # In 4th International Conference on Inventive Communication and Computational Technologies,
@@ -350,11 +352,10 @@ class ImageManipulation:
         # TODO: Check the grayscale conversion from opencv
 
         img = cv.cvtColor(self._image.astype(np.uint8), cv.COLOR_BGR2GRAY)
-        #cv.imwrite("converted.jpg", img)
+        # cv.imwrite("converted.jpg", img)
         self._imgAsGreyscale = img
 
         return self._imgAsGreyscale
-
 
     def findEdges(self, image: np.ndarray):
         self._edges = cv.Canny(self._imgAsGreyscale, 20, 30)
@@ -380,7 +381,7 @@ class ImageManipulation:
         return distance
 
     @staticmethod
-    def sizeRatio(sizeOfTarget : int, sizeOfLargest: int) -> float:
+    def sizeRatio(sizeOfTarget: int, sizeOfLargest: int) -> float:
         """
         The percentage of the area of the target relative to the largest item.
         :param sizeOfTarget:  The area of blob to be checked
@@ -389,39 +390,42 @@ class ImageManipulation:
         """
         return sizeOfTarget / sizeOfLargest
 
-
-    def findBlobs(self, threshold : int) -> ([], np.ndarray, {}, str):
+    def findBlobs(self, threshold: int, strategy: constants.Strategy) -> ([], np.ndarray, {}, str):
         """
         Find objects within the current image
+        :param threshold: Minimum area of object to be considered a blob
+        :param strategy:
         :return: (contours, hierarchy, bounding rectangles, name of largest object)
         """
         self.toGreyscale()
-        #self.show("grey", self._imgAsGreyscale)
-        #self.write(self._imgAsGreyscale, "greyscale.jpg")
+        # self.show("grey", self._imgAsGreyscale)
+        self.write(self._imgAsGreyscale, "greyscale.jpg")
 
         self.cartoon()
-        #self.show("cartooned", self._cartooned)
-        #self.write(self._image, "original.jpg")
-        #self.write(self._cartooned, "cartooned.jpg")
+        # self.show("cartooned", self._cartooned)
+        # self.write(self._image, "original.jpg")
+        self.write(self._cartooned, "cartooned.jpg")
 
-        #self.write(self._image, "index.jpg")
+        # self.write(self._image, "index.jpg")
 
         # Convert to binary image
         # Works
-        #ret,thresh = cv.threshold(self._cartooned,127,255,0)
-        ret,thresh = cv.threshold(self._imgAsGreyscale, 127,255,cv.THRESH_BINARY+cv.THRESH_OTSU)
+        # ret,thresh = cv.threshold(self._cartooned,127,255,0)
+        #ret, thresh = cv.threshold(self._imgAsGreyscale, 127, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)
+        ret, thresh = cv.threshold(self._imgAsGreyscale, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)
         self.write(thresh, "threshold.jpg")
-        kernel = np.ones((5,5),np.uint8)
-        erosion = cv.erode(self._cartooned, kernel,iterations = 4)
-        #erosion = cv.erode(erosion, kernel,iterations = 3)
-        #self.write(erosion, "erosion.jpg")
-        erosion = cv.dilate(erosion,kernel,iterations = 3) # originally 3
+        kernel = np.ones((5, 5), np.uint8)
+        # Debug -- eliminate erosion
+        # erosion = cv.erode(self._cartooned, kernel, iterations=4)
+        # self.write(erosion, "erosion.jpg")
+        erosion = cv.dilate(thresh, kernel, iterations=1)  # originally 3
+        self.write(erosion, "after-dilation.jpg")
 
         closing = cv.morphologyEx(erosion, cv.MORPH_CLOSE, kernel)
-        #self.write(closing, "closing.jpg")
+        # self.write(closing, "closing.jpg")
         self._logger.logImage("closing", closing)
-        #self.show("binary", erosion)
-        #self.write(erosion, "binary.jpg")
+        # self.show("binary", erosion)
+        # self.write(erosion, "binary.jpg")
         self._logger.logImage("erosion", erosion)
         self._imageAsBinary = erosion
 
@@ -431,13 +435,17 @@ class ImageManipulation:
         largestName = "unknown"
         area = 0
         candidate = closing
-        #self.write(candidate, "candidate.jpg")
+        # self.write(candidate, "candidate.jpg")
         self._logger.logImage("candidate", candidate)
         # find contours in the binary image
-        #im2, contours, hierarchy = cv.findContours(thresh,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
+        # im2, contours, hierarchy = cv.findContours(thresh,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
         # We don't need the hierarchy at this point, so the RETR_EXTERNAL seems faster
-        #contours, hierarchy = cv.findContours(erosion,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
-        contours, hierarchy = cv.findContours(candidate,cv.RETR_TREE,cv.CHAIN_APPROX_NONE)
+        # contours, hierarchy = cv.findContours(erosion,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
+        if strategy == constants.Strategy.PROCESSED:
+            contours, hierarchy = cv.findContours(candidate, cv.RETR_TREE, cv.CHAIN_APPROX_NONE)
+        else:
+            # Find the contours in the threshold instead of the candidate
+            contours, hierarchy = cv.findContours(self._cartooned, cv.RETR_TREE, cv.CHAIN_APPROX_NONE)
 
         self._contours = contours
 
@@ -453,14 +461,131 @@ class ImageManipulation:
             else:
                 cX, cY = 0, 0
 
-            x,y,w,h = cv.boundingRect(c)
+            x, y, w, h = cv.boundingRect(c)
             # The area of the bounding rectangle
-            #area = w*h
+            # area = w*h
             # The area of the vegetation
             area = cv.contourArea(c)
             type = constants.TYPE_UNKNOWN
-            location = (x,y,w,h)
-            center = (cX,cY)
+            location = (x, y, w, h)
+            center = (cX, cY)
+            reason = constants.REASON_UNKNOWN
+            hue = 0.0
+            saturationMean = 0.0
+            yiqStdDeviation = 0.0
+            blueDifferenceMean = 0.0
+
+            infoAboutBlob = {constants.NAME_LOCATION: location,
+                             constants.NAME_CENTER: center,
+                             constants.NAME_AREA: area,
+                             constants.NAME_TYPE: type,
+                             constants.NAME_CONTOUR: c,
+                             constants.NAME_REASON: reason,
+                             constants.NAME_NEIGHBOR_COUNT: 0,
+                             constants.NAME_HUE: hue,
+                             constants.NAME_SATURATION: saturationMean,
+                             constants.NAME_I_YIQ: yiqStdDeviation,
+                             constants.NAME_BLUE_DIFFERENCE: blueDifferenceMean}
+
+            name = "blob" + str(i)
+            # Ignore items in the image that are smaller in area than the
+            # threshold.  Things in shadow and noise will be identified as shapes
+            if area > threshold:
+                self._blobs[name] = infoAboutBlob
+                i = i + 1
+
+            # Determine the largest blob in the image
+            if area > largest:
+                largest = area
+                largestName = name
+
+        self._largestName = largestName
+        self._largestArea = area
+
+        self._hierarchy = hierarchy
+
+        # Insert size ratios.  We can do this only once we have determined the largest item in the image
+        for blobName, blobAttributes in self._blobs.items():
+            blobAttributes[constants.NAME_SIZE_RATIO] = blobAttributes[constants.NAME_AREA] / largest
+
+        return contours, hierarchy, self._blobs, largestName
+
+    # This is the original logic
+    def _findBlobs(self, threshold: int) -> ([], np.ndarray, {}, str):
+        """
+        O R I G I N A L
+        Find objects within the current image
+        :return: (contours, hierarchy, bounding rectangles, name of largest object)
+        """
+        self.toGreyscale()
+        # self.show("grey", self._imgAsGreyscale)
+        # self.write(self._imgAsGreyscale, "greyscale.jpg")
+
+        self.cartoon()
+        # self.show("cartooned", self._cartooned)
+        # self.write(self._image, "original.jpg")
+        self.write(self._cartooned, "cartooned.jpg")
+
+        # self.write(self._image, "index.jpg")
+
+        # Convert to binary image
+        # Works
+        # ret,thresh = cv.threshold(self._cartooned,127,255,0)
+        ret, thresh = cv.threshold(self._imgAsGreyscale, 127, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)
+        ret, thresh = cv.threshold(self._imgAsGreyscale, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)
+        self.write(thresh, "threshold.jpg")
+        kernel = np.ones((5, 5), np.uint8)
+        erosion = cv.erode(self._cartooned, kernel, iterations=4)
+        # self.write(erosion, "erosion.jpg")
+        erosion = cv.dilate(erosion, kernel, iterations=3)  # originally 3
+        self.write(erosion, "after-dilation.jpg")
+
+        closing = cv.morphologyEx(erosion, cv.MORPH_CLOSE, kernel)
+        # self.write(closing, "closing.jpg")
+        self._logger.logImage("closing", closing)
+        # self.show("binary", erosion)
+        # self.write(erosion, "binary.jpg")
+        self._logger.logImage("erosion", erosion)
+        self._imageAsBinary = erosion
+
+        # Originally
+        # candidate = erosion
+
+        largestName = "unknown"
+        area = 0
+        candidate = closing
+        # self.write(candidate, "candidate.jpg")
+        self._logger.logImage("candidate", candidate)
+        # find contours in the binary image
+        # im2, contours, hierarchy = cv.findContours(thresh,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
+        # We don't need the hierarchy at this point, so the RETR_EXTERNAL seems faster
+        # contours, hierarchy = cv.findContours(erosion,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
+        contours, hierarchy = cv.findContours(candidate, cv.RETR_TREE, cv.CHAIN_APPROX_NONE)
+        # Find the contours in the threshold instead of the candidate
+        #contours, hierarchy = cv.findContours(self._cartooned, cv.RETR_TREE, cv.CHAIN_APPROX_NONE)
+
+        self._contours = contours
+
+        # Calculate the area of each box
+        i = 0
+        largest = 0
+        for c in contours:
+            M = cv.moments(c)
+
+            if M["m00"] != 0:
+                cX = int(M["m10"] / M["m00"])
+                cY = int(M["m01"] / M["m00"])
+            else:
+                cX, cY = 0, 0
+
+            x, y, w, h = cv.boundingRect(c)
+            # The area of the bounding rectangle
+            # area = w*h
+            # The area of the vegetation
+            area = cv.contourArea(c)
+            type = constants.TYPE_UNKNOWN
+            location = (x, y, w, h)
+            center = (cX, cY)
             reason = constants.REASON_UNKNOWN
             hue = 0.0
             saturationMean = 0.0
@@ -491,7 +616,6 @@ class ImageManipulation:
                 largest = area
                 largestName = name
 
-
         self._largestName = largestName
         self._largestArea = area
 
@@ -516,14 +640,16 @@ class ImageManipulation:
             # If an object has a parent, that means it is contained within another
             if parent != -1 and name in self._blobs:
                 attributes = self._blobs[name]
-                #print("Find: " + str(attributes[constants.NAME_CENTER]))
+                # print("Find: " + str(attributes[constants.NAME_CENTER]))
                 # Determine if the point is within the blob
-                isInsideContour = cv.pointPolygonTest(attributes[constants.NAME_CONTOUR],attributes[constants.NAME_CENTER], False)
+                isInsideContour = cv.pointPolygonTest(attributes[constants.NAME_CONTOUR],
+                                                      attributes[constants.NAME_CENTER], False)
                 if isInsideContour:
                     attributes[constants.NAME_TYPE] = constants.TYPE_IGNORED
 
                 # Find the distance to the contour
-                distance = cv.pointPolygonTest(attributes[constants.NAME_CONTOUR],attributes[constants.NAME_CENTER], True)
+                distance = cv.pointPolygonTest(attributes[constants.NAME_CONTOUR], attributes[constants.NAME_CENTER],
+                                               True)
                 if distance < self._minDistanceToContour:
                     self.log.debug("Point is {} away from contour".format(distance))
                 # Determine if the blob has has a parent
@@ -532,6 +658,18 @@ class ImageManipulation:
                 #     attributes[constants.NAME_TYPE] = constants.TYPE_UNTREATED
                 #     print("detected overlap")
             i = i + 1
+
+    def computeGLCM(self):
+        """
+        GLCM Computations for all objects in image.
+        """
+        glcm = GLCM(self._blobs, constants.NAME_GREYSCALE_IMAGE)
+        glcm.computeAttributes()
+        self._blobs = glcm.blobs
+
+        glcm = GLCM(self._blobs, constants.NAME_IMAGE_HSV, PREFIX=constants.NAME_I_YIQ, BAND=1)
+        glcm.computeAttributes()
+        self._blobs = glcm.blobs
 
     def computeShapeIndices(self):
         """
@@ -552,11 +690,11 @@ class ImageManipulation:
             (maxY, maxX, depth) = self._image.shape
             # The bounding rectangle of the blob
             (x, y, w, h) = blobAttributes[constants.NAME_LOCATION]
-            if(x == 0 or x+w >= maxX):
+            if (x == 0 or x + w >= maxX):
                 shapeIndex = 0
             else:
                 # The perimeter of the contour of the object
-                perimeter = cv.arcLength(blobAttributes[constants.NAME_CONTOUR],True)
+                perimeter = cv.arcLength(blobAttributes[constants.NAME_CONTOUR], True)
                 shapeIndex = perimeter / (4 * math.sqrt(blobAttributes[constants.NAME_AREA]))
 
             blobAttributes[constants.NAME_SHAPE_INDEX] = shapeIndex
@@ -568,7 +706,7 @@ class ImageManipulation:
         Compute the distance to the image edge for all items
         """
         # TODO: I forget why 3 values were expected here.
-        #maxY, maxX, bands = resolution
+        # maxY, maxX, bands = resolution
         maxY, maxX = resolution
         for blobName, blobAttributes in self._blobs.items():
             # The location within the image
@@ -591,16 +729,16 @@ class ImageManipulation:
         # Sustainability (Switzerland) 9 (8). https://doi.org/10.3390/su9081335.
 
         # The X values of the contour
-        xCoordinates = contour[:,0,0]
+        xCoordinates = contour[:, 0, 0]
         # The Y values of the contour
-        yCoordinates = contour[:,0,1]
+        yCoordinates = contour[:, 0, 1]
 
         varX = np.var(xCoordinates)
         varY = np.var(yCoordinates)
-        covXY = np.cov(xCoordinates, yCoordinates)[0,1]
+        covXY = np.cov(xCoordinates, yCoordinates)[0, 1]
 
         # The covariance matrix shown in Lin 2017 equation 2
-        s = np.array([[varX,covXY],[covXY,varY]])
+        s = np.array([[varX, covXY], [covXY, varY]])
         # The eiginvalue computation
         w, v = np.linalg.eig(s)
         ratio = w.max() / w.min()
@@ -619,7 +757,7 @@ class ImageManipulation:
             (maxY, maxX, depth) = self._image.shape
             # The bounding rectangle of the blob
             (x, y, w, h) = blobAttributes[constants.NAME_LOCATION]
-            if(x == 0 or x+w >= maxX):
+            if (x == 0 or x + w >= maxX):
                 lengthWidthRatio = 0
                 blobAttributes[constants.NAME_RATIO] = 0
             else:
@@ -639,7 +777,7 @@ class ImageManipulation:
             # The permimeter of the contour
             # https://docs.opencv.org/4.x/dd/d49/tutorial_py_contour_features.html
             perimeter = cv.arcLength(blobAttributes[constants.NAME_CONTOUR], True)
-            compactness = (4 * math.pi * blobAttributes[constants.NAME_AREA]) / perimeter**2
+            compactness = (4 * math.pi * blobAttributes[constants.NAME_AREA]) / perimeter ** 2
             blobAttributes[constants.NAME_COMPACTNESS] = compactness
 
     def computeElogation(self):
@@ -677,8 +815,12 @@ class ImageManipulation:
         for blobName, blobAttributes in self._blobs.items():
             # The major and minor axes
             (majorAxis, minorAxis) = ImageManipulation._findMajorMinorAxis(blobAttributes[constants.NAME_CONTOUR])
-            eccentricity = minorAxis / majorAxis
-            blobAttributes[constants.NAME_ECCENTRICITY] = eccentricity
+            try:
+                eccentricity = minorAxis / majorAxis
+                blobAttributes[constants.NAME_ECCENTRICITY] = eccentricity
+            except ZeroDivisionError:
+                self.log.error("Division by zero in computeEccentricity")
+                blobAttributes[constants.NAME_ECCENTRICITY] = 0
 
     def computeRoundness(self):
         """
@@ -692,7 +834,7 @@ class ImageManipulation:
             # The convex hull and its perimeter
             hull = cv.convexHull(blobAttributes[constants.NAME_CONTOUR])
             perimeter = cv.arcLength(hull, True)
-            roundness = (4 * math.pi * blobAttributes[constants.NAME_AREA]) / perimeter**2
+            roundness = (4 * math.pi * blobAttributes[constants.NAME_AREA]) / perimeter ** 2
             blobAttributes[constants.NAME_ROUNDNESS] = roundness
 
     def computeConvexity(self):
@@ -729,8 +871,6 @@ class ImageManipulation:
             solidity = area / hullArea
             blobAttributes[constants.NAME_SOLIDITY] = solidity
 
-
-
     def identifyCloseVegetation(self):
         return
 
@@ -743,13 +883,13 @@ class ImageManipulation:
         (height, width, depth) = self.image.shape
 
         # This is approximately the midline of the image
-        middleY = int(height/2)
+        middleY = int(height / 2)
         for blobName, blobAttributes in self._blobs.items():
             (x, y, w, h) = blobAttributes[constants.NAME_LOCATION]
             (x, y) = blobAttributes[constants.NAME_CENTER]
             # Items near the midline are more likely to be crop
             # ?? Perhaps we should also consider equal spacing?
-            if(y > middleY - MIDDLE_THRESHOLD and y < middleY + MIDDLE_THRESHOLD):
+            if (y > middleY - MIDDLE_THRESHOLD and y < middleY + MIDDLE_THRESHOLD):
                 self._cropRowCandidates[blobName] = blobAttributes
 
     def substituteRectanglesForVegetation(self):
@@ -760,14 +900,14 @@ class ImageManipulation:
         """
         self.cropline_image = np.zeros(self._image.shape, np.uint8)
         for blobName, blobAttributes in self._cropRowCandidates.items():
-            (x,y,w,h) = blobAttributes[constants.NAME_LOCATION]
-            (x,y) = blobAttributes[constants.NAME_CENTER]
-            #cv.circle(self.blank_image,(x,y),1, (255,255,255), -1)
+            (x, y, w, h) = blobAttributes[constants.NAME_LOCATION]
+            (x, y) = blobAttributes[constants.NAME_CENTER]
+            # cv.circle(self.blank_image,(x,y),1, (255,255,255), -1)
             self.cropline_image = cv.rectangle(self.cropline_image, (x, y), (x + 100, y + 30), (255, 255, 255), 2)
 
-        #filename = "candidates-" + str(uuid.uuid4()) + ".jpg"
+        # filename = "candidates-" + str(uuid.uuid4()) + ".jpg"
 
-        #cv.imwrite(filename, self.cropline_image)
+        # cv.imwrite(filename, self.cropline_image)
 
     def detectLines(self):
         """
@@ -775,19 +915,19 @@ class ImageManipulation:
         """
         dst = cv.Canny(self.cropline_image, 50, 200, None, 3)
         cv.imwrite("edges.jpg", dst)
-        #self.linesP = cv.HoughLinesP(dst, 1, np.pi / 180, 50, None, minLineLength=100, maxLineGap=1000)
+        # self.linesP = cv.HoughLinesP(dst, 1, np.pi / 180, 50, None, minLineLength=100, maxLineGap=1000)
         # This allows for some plants in the crop line to be slightly offset from other plants
         # in the same row
         # What is needed is to detect roughly horizontal lines
         self.linesP = cv.HoughLinesP(dst, 1, np.pi / 120, 50, None, minLineLength=100, maxLineGap=1500)
 
-        self.lines = cv.HoughLines(dst, 50, np.pi/2, 200)
+        self.lines = cv.HoughLines(dst, 50, np.pi / 2, 200)
 
         # if self.linesP is not None:
         #     for i in range(0, len(self.linesP)):
         #         l = self.linesP[i][0]
         #         cv.line(self.cropline_image, (l[0], l[1]), (l[2], l[3]), (0, 0, 255), 3, cv.LINE_AA)
-        #cv.imwrite("crop-lines.jpg", self.cropline_image)
+        # cv.imwrite("crop-lines.jpg", self.cropline_image)
 
     def angleOf(self, p1: (), p2: ()) -> float:
         """
@@ -828,12 +968,11 @@ class ImageManipulation:
         likelyCropLineY = int(self._maxY / 2)
         weightedDistanceMax = 0
 
-
-
         # Find the biggest item closest to the center line
         try:
             for blobName, blobAttributes in self._blobs.items():
-                weightedDistance = blobAttributes[constants.NAME_AREA] * (1 - blobAttributes[constants.NAME_DISTANCE_NORMALIZED])
+                weightedDistance = blobAttributes[constants.NAME_AREA] * (
+                            1 - blobAttributes[constants.NAME_DISTANCE_NORMALIZED])
 
                 self.log.debug("Weighted distance of {}: {}".format(blobName, weightedDistance))
                 if weightedDistance > weightedDistanceMax:
@@ -846,7 +985,7 @@ class ImageManipulation:
             likelyCropLineBlob = "error"
 
         self._cropY = likelyCropLineY
-        #self.log.debug("Crop line Y: {} for blob {}".format(self._cropY, likelyCropLineBlob))
+        # self.log.debug("Crop line Y: {} for blob {}".format(self._cropY, likelyCropLineBlob))
 
         # Step through and replace the normalized distance to the center line
         # with the normalized distance to the crop line
@@ -858,7 +997,6 @@ class ImageManipulation:
                 blobAttributes[constants.NAME_DISTANCE] = 0
 
         return self._cropY
-
 
     def findAngles(self):
         """
@@ -875,19 +1013,20 @@ class ImageManipulation:
 
         centerCount = 0
         for blobName, blobAttributes in self._blobs.items():
-            if blobAttributes[constants.NAME_TYPE] != constants.TYPE_UNDESIRED and blobAttributes[constants.NAME_TYPE] != constants.TYPE_IGNORED:
+            if blobAttributes[constants.NAME_TYPE] != constants.TYPE_UNDESIRED and blobAttributes[
+                constants.NAME_TYPE] != constants.TYPE_IGNORED:
                 centerCount = centerCount + 1
-                #print(blobName + ": " + str(blobAttributes[constants.NAME_CENTER]))
+                # print(blobName + ": " + str(blobAttributes[constants.NAME_CENTER]))
                 # Keep the name with the coordinates so we know which blob this refers to
                 self._centersUnsorted.append(blobAttributes[constants.NAME_CENTER] + tuple([blobName]))
-        #print(self._centersUnsorted)
+        # print(self._centersUnsorted)
 
         # Create an array to hold the angles between the blobs
         self._angles = np.zeros((centerCount, centerCount))
 
         # Sort the centers by the X value -- the first
-        #self._centers = sorted(self._centersUnsorted, key=lambda x: x[0])
-        #print(self._centers)
+        # self._centers = sorted(self._centersUnsorted, key=lambda x: x[0])
+        # print(self._centers)
 
         self._centers = self._centersUnsorted
 
@@ -899,10 +1038,10 @@ class ImageManipulation:
                     point2 = self._centers[j]
                     angle = self.angleOf((point1[0], point1[1]), (point2[0], point2[1]))
                     self._angles[i, j] = angle
-                    #print(str(point1) + " to " + str(point2) + " angle " + str(angle))
-                    #cv.line(self._image, (point1[0], point1[1]), (point2[0], point2[1]), (0,255,0), 3, cv.LINE_AA)
+                    # print(str(point1) + " to " + str(point2) + " angle " + str(angle))
+                    # cv.line(self._image, (point1[0], point1[1]), (point2[0], point2[1]), (0,255,0), 3, cv.LINE_AA)
         else:
-            (x,y,name) = self._centers[0]
+            (x, y, name) = self._centers[0]
             self._cropY = y
             return
 
@@ -917,29 +1056,27 @@ class ImageManipulation:
 
         # Find the entry with the smallest number of NaNs
         sums = self._df.isnull().sum().nsmallest(5)
-        #print(sums)
+        # print(sums)
 
         smallestDistanceFromY = 10000
         smallestIndex = 10000
 
         (y, centerX, depth) = self._image.shape
-        centerY = int(y/2)
-
-
+        centerY = int(y / 2)
 
         for index, row in sums.iteritems():
 
             (x, y, blobName) = self._centers[index]
             distanceFromY = abs(centerY - y)
-            #print("Distance from Y: " + str(distanceFromY) + " smallestY: " + str(smallestDistanceFromY))
-            if(distanceFromY < smallestDistanceFromY):
+            # print("Distance from Y: " + str(distanceFromY) + " smallestY: " + str(smallestDistanceFromY))
+            if (distanceFromY < smallestDistanceFromY):
                 smallestIndex = index
                 smallestDistanceFromY = distanceFromY
 
         (cropX, cropY, blobName) = self._centers[smallestIndex]
 
         # This is all we need. The Y location of the crop line in the image
-        #self._cropY = cropY
+        # self._cropY = cropY
         # Treat the centerline of the image as the potential crop line
         self._cropY = self._centerLineY
 
@@ -960,25 +1097,23 @@ class ImageManipulation:
         Draw a cropline on the current image if one has been found and a centerline for reference.
         """
         (height, width, depth) = self.image.shape
-        cv.line(self._image, (0,int(height/2)), (width, int(height/2)), (0,127,127), 3, cv.LINE_AA)
+        cv.line(self._image, (0, int(height / 2)), (width, int(height / 2)), (0, 127, 127), 3, cv.LINE_AA)
         cv.putText(self._image,
                    "Center Line",
-                   (int(width/2), int(height/2) + 20),
+                   (int(width / 2), int(height / 2) + 20),
                    cv.FONT_HERSHEY_SIMPLEX,
                    0.75,
-                   (0,127,127),
+                   (0, 127, 127),
                    2)
 
-        cv.line(self._image, (0,self._cropY), (width, self._cropY), (255,255,255), 3, cv.LINE_AA)
+        cv.line(self._image, (0, self._cropY), (width, self._cropY), (255, 255, 255), 3, cv.LINE_AA)
         cv.putText(self._image,
                    "Crop Line",
-                   (int(width/2) + 200, self._cropY + 20),
+                   (int(width / 2) + 200, self._cropY + 20),
                    cv.FONT_HERSHEY_SIMPLEX,
                    0.75,
-                   (255,255,255),
+                   (255, 255, 255),
                    2)
-
-
 
         # if self.linesP is not None:
         #     for i in range(0, len(self.linesP)):
@@ -992,14 +1127,14 @@ class ImageManipulation:
         #                    (255,255,255),
         #                    2)
 
-
     def drawContours(self):
         """
         Draw the contours on the image
         """
         for blobName, blobAttributes in self._blobs.items():
             contour = blobAttributes[constants.NAME_CONTOUR]
-            cv.drawContours(self._image, contour, contourIdx=-1, color=(255, 0, 0), thickness=constants.SIZE_CONTOUR_LINE)
+            cv.drawContours(self._image, contour, contourIdx=-1, color=(255, 0, 0),
+                            thickness=constants.SIZE_CONTOUR_LINE)
         # self._contours_image = np.zeros(self._image.shape, np.uint8)
         # cv.drawContours(self._contours_image, self._contours, contourIdx=-1, color=(255,0,0),thickness=2)
         # cv.imwrite("contours.jpg", self._contours_image)
@@ -1017,11 +1152,11 @@ class ImageManipulation:
         :param rectangles: A list of rectangles surrounding the blobs
         """
 
-        cv.putText(self._image, name, (50,75), cv.FONT_HERSHEY_SIMPLEX, 2.0, (255, 255, 255), 2)
+        cv.putText(self._image, name, (50, 75), cv.FONT_HERSHEY_SIMPLEX, 2.0, (255, 255, 255), 2)
 
         for rectName, rectAttributes in rectangles.items():
-            (x,y,w,h) = rectAttributes[constants.NAME_LOCATION]
-            (cX,cY) = rectAttributes[constants.NAME_CENTER]
+            (x, y, w, h) = rectAttributes[constants.NAME_LOCATION]
+            (cX, cY) = rectAttributes[constants.NAME_CENTER]
             area = rectAttributes[constants.NAME_AREA]
             type = rectAttributes[constants.NAME_TYPE]
             if type == constants.TYPE_UNKNOWN:
@@ -1038,7 +1173,7 @@ class ImageManipulation:
             # Not drawing the ignored type yields a cleaner image in the test set
 
             if type != constants.TYPE_IGNORED:
-                self._image = cv.rectangle(self._image,(x,y),(x+w,y+h),color,BOUNDING_BOX_THICKNESS)
+                self._image = cv.rectangle(self._image, (x, y), (x + w, y + h), color, BOUNDING_BOX_THICKNESS)
                 cv.circle(self._image, (cX, cY), 5, (255, 255, 255), -1)
                 location = "(" + str(cX) + "," + str(cY) + ")"
                 areaText = "Area: " + str(area)
@@ -1046,7 +1181,8 @@ class ImageManipulation:
                 lengthWidthRatioText = "L/W Ratio: " + "{:4f}".format(rectAttributes[constants.NAME_RATIO])
                 reasonText = "Classified By: " + constants.REASONS[rectAttributes[constants.NAME_REASON]]
                 classifiedText = "Classified As: " + constants.TYPES[rectAttributes[constants.NAME_TYPE]]
-                distanceText = "Normalized Distance: " + "{:.4f}".format(rectAttributes[constants.NAME_DISTANCE_NORMALIZED])
+                distanceText = "Normalized Distance: " + "{:.4f}".format(
+                    rectAttributes[constants.NAME_DISTANCE_NORMALIZED])
                 nameText = "Name: {}".format(rectName)
                 hueText = "Hue: {:.4f}".format(rectAttributes[constants.NAME_HUE])
                 yiqText = "In Phase: {:.4f}".format(rectAttributes[constants.NAME_I_YIQ])
@@ -1055,51 +1191,67 @@ class ImageManipulation:
                 roundnessText = "Roundness: {:.4f}".format(rectAttributes[constants.NAME_ROUNDNESS])
                 convexityText = "Convexity: {:.4f}".format(rectAttributes[constants.NAME_CONVEXITY])
                 solidityText = "Solidity: {:.4f}".format(rectAttributes[constants.NAME_SOLIDITY])
-                distanceToEmitterText = "Distance to Emitter: {:.4f}".format(rectAttributes[constants.NAME_DIST_TO_LEADING_EDGE])
+                distanceToEmitterText = "Distance to Emitter: {:.4f}".format(
+                    rectAttributes[constants.NAME_DIST_TO_LEADING_EDGE])
                 if constants.NAME_LOCATION in decorations:
-                    cv.putText(self._image, location, (cX - 25, cY - 25),cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+                    cv.putText(self._image, location, (cX - 25, cY - 25), cv.FONT_HERSHEY_SIMPLEX, 0.75,
+                               (255, 255, 255), 2)
                 if constants.NAME_AREA in decorations:
-                    cv.putText(self._image, areaText, (cX - 25, cY - 50),cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+                    cv.putText(self._image, areaText, (cX - 25, cY - 50), cv.FONT_HERSHEY_SIMPLEX, 0.75,
+                               (255, 255, 255), 2)
                 if constants.NAME_SHAPE_INDEX in decorations:
-                    cv.putText(self._image, shapeText, (cX - 25, cY - 75), cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+                    cv.putText(self._image, shapeText, (cX - 25, cY - 75), cv.FONT_HERSHEY_SIMPLEX, 0.75,
+                               (255, 255, 255), 2)
                 if constants.NAME_RATIO in decorations:
-                    cv.putText(self._image, lengthWidthRatioText, (cX - 25, cY - 100), cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+                    cv.putText(self._image, lengthWidthRatioText, (cX - 25, cY - 100), cv.FONT_HERSHEY_SIMPLEX, 0.75,
+                               (255, 255, 255), 2)
                 if constants.NAME_REASON in decorations:
-                    cv.putText(self._image, reasonText, (cX - 25, cY - 125), cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+                    cv.putText(self._image, reasonText, (cX - 25, cY - 125), cv.FONT_HERSHEY_SIMPLEX, 0.75,
+                               (255, 255, 255), 2)
                 if constants.NAME_TYPE in decorations:
-                    cv.putText(self._image, classifiedText, (cX - 25, cY - 150), cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+                    cv.putText(self._image, classifiedText, (cX - 25, cY - 150), cv.FONT_HERSHEY_SIMPLEX, 0.75,
+                               (255, 255, 255), 2)
                 if constants.NAME_NAME in decorations:
-                    cv.putText(self._image, nameText, (cX - 25, cY - 175), cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+                    cv.putText(self._image, nameText, (cX - 25, cY - 175), cv.FONT_HERSHEY_SIMPLEX, 0.75,
+                               (255, 255, 255), 2)
                 if constants.NAME_DISTANCE_NORMALIZED in decorations:
-                    cv.putText(self._image, distanceText,(cX - 25, cY- 200), cv.FONT_HERSHEY_SIMPLEX, 0.75, (255,255,255), 2)
-                    cv.line(self._image,(cX, cY), (cX, self._cropY), (255,255,255), 3)
+                    cv.putText(self._image, distanceText, (cX - 25, cY - 200), cv.FONT_HERSHEY_SIMPLEX, 0.75,
+                               (255, 255, 255), 2)
+                    cv.line(self._image, (cX, cY), (cX, self._cropY), (255, 255, 255), 3)
                 if constants.NAME_HUE in decorations:
-                    cv.putText(self._image, hueText,(cX - 25, cY- 225), cv.FONT_HERSHEY_SIMPLEX, 0.75, (255,255,255), 2)
+                    cv.putText(self._image, hueText, (cX - 25, cY - 225), cv.FONT_HERSHEY_SIMPLEX, 0.75,
+                               (255, 255, 255), 2)
                 if constants.NAME_I_YIQ in decorations:
-                    cv.putText(self._image, yiqText, (cX - 25, cY - 250), cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+                    cv.putText(self._image, yiqText, (cX - 25, cY - 250), cv.FONT_HERSHEY_SIMPLEX, 0.75,
+                               (255, 255, 255), 2)
                 if constants.NAME_ELONGATION in decorations:
-                    cv.putText(self._image, elongationText, (cX - 25, cY - 275), cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+                    cv.putText(self._image, elongationText, (cX - 25, cY - 275), cv.FONT_HERSHEY_SIMPLEX, 0.75,
+                               (255, 255, 255), 2)
                 if constants.NAME_ECCENTRICITY in decorations:
-                    cv.putText(self._image, eccentricityText, (cX - 25, cY - 300), cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+                    cv.putText(self._image, eccentricityText, (cX - 25, cY - 300), cv.FONT_HERSHEY_SIMPLEX, 0.75,
+                               (255, 255, 255), 2)
                 if constants.NAME_ROUNDNESS in decorations:
-                    cv.putText(self._image, roundnessText, (cX - 25, cY - 325), cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+                    cv.putText(self._image, roundnessText, (cX - 25, cY - 325), cv.FONT_HERSHEY_SIMPLEX, 0.75,
+                               (255, 255, 255), 2)
                 if constants.NAME_CONVEXITY in decorations:
-                    cv.putText(self._image, convexityText, (cX - 25, cY - 350), cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+                    cv.putText(self._image, convexityText, (cX - 25, cY - 350), cv.FONT_HERSHEY_SIMPLEX, 0.75,
+                               (255, 255, 255), 2)
                 if constants.NAME_SOLIDITY in decorations:
-                    cv.putText(self._image, solidityText, (cX - 25, cY - 375), cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+                    cv.putText(self._image, solidityText, (cX - 25, cY - 375), cv.FONT_HERSHEY_SIMPLEX, 0.75,
+                               (255, 255, 255), 2)
                 if constants.NAME_DIST_TO_LEADING_EDGE in decorations:
-                    cv.putText(self._image, distanceToEmitterText, (cX - 25, cY - 400), cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+                    cv.putText(self._image, distanceToEmitterText, (cX - 25, cY - 400), cv.FONT_HERSHEY_SIMPLEX, 0.75,
+                               (255, 255, 255), 2)
 
-
-        #cv.imwrite("opencv-centers.jpg", self._image)
-        #self.show("centers", self._image)
-        #cv.waitKey()
+        # cv.imwrite("opencv-centers.jpg", self._image)
+        # self.show("centers", self._image)
+        # cv.waitKey()
 
     def stitchTo(self, previous):
         # Stitch the current image to the previous one
-        status, pano = self._stitcher.stitch([previous.astype(np.uint8),self._image.astype(np.uint8)])
+        status, pano = self._stitcher.stitch([previous.astype(np.uint8), self._image.astype(np.uint8)])
         return pano
-        #cv.imwrite("stitched.jpg", pano)
+        # cv.imwrite("stitched.jpg", pano)
 
     def drawBoundingBoxes(self, contours: []):
         for c in contours:
@@ -1115,22 +1267,22 @@ class ImageManipulation:
             # cX = int(M["m10"] / M["m00"])
             # cY = int(M["m01"] / M["m00"])
             cv.circle(self._image, (cX, cY), 5, (255, 255, 255), -1)
-            cv.putText(self._image, "centroid", (cX - 25, cY - 25),cv.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+            cv.putText(self._image, "centroid", (cX - 25, cY - 25), cv.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
 
             # Do not consider rotation -- just bound the object
-            x,y,w,h = cv.boundingRect(c)
-            self._image = cv.rectangle(self._image,(x,y),(x+w,y+h),COLOR_CROP,2)
+            x, y, w, h = cv.boundingRect(c)
+            self._image = cv.rectangle(self._image, (x, y), (x + w, y + h), COLOR_CROP, 2)
 
             # Minimum area bounding
             rect = cv.minAreaRect(c)
             box = cv.boxPoints(rect)
             box = np.int0(box)
-            cv.drawContours(self._image,[box],0,COLOR_UNKNOWN,BOUNDING_BOX_THICKNESS)
+            cv.drawContours(self._image, [box], 0, COLOR_UNKNOWN, BOUNDING_BOX_THICKNESS)
 
             # Append the current rectangle
             self._rectangles.append(rect)
 
-            #cv.imwrite("centers.jpg", cv.cvtColor(self._image,))
+            # cv.imwrite("centers.jpg", cv.cvtColor(self._image,))
         self.show("centers", self._image)
         cv.waitKey()
         return
@@ -1138,13 +1290,22 @@ class ImageManipulation:
     # This does not do quite what is need.  If some unwanted vegetation is inside the bounding box, it is
     # present in the extracted image.
     # TODO: Write a routine to eliminate a class of object within the image.
-    def extractImages(self, classifiedAs: int):
+    def extractImages(self):
         for blobName, blobAttributes in self._blobs.items():
-            if blobAttributes[constants.NAME_TYPE] == classifiedAs:
-                (x, y, w, h) = blobAttributes[constants.NAME_LOCATION]
-                # Pull the subset from the original image so we don't see the markings
-                image = self._original[y:y+h, x:x+w]
-                blobAttributes[constants.NAME_IMAGE] = image
+            (x, y, w, h) = blobAttributes[constants.NAME_LOCATION]
+            # Pull the subset from the original image so we don't see the markings
+            image = self._original[y:y + h, x:x + w]
+            blobAttributes[constants.NAME_IMAGE] = image
+            blobAttributes[constants.NAME_IMAGE_RGB] = image
+
+            image = self._imgAsGreyscale[y:y + h, x:x + w]
+            blobAttributes[constants.NAME_GREYSCALE_IMAGE] = image
+
+            image = self._imageAsYIQ[y:y + h, x:x + w]
+            blobAttributes[constants.NAME_IMAGE_YIQ] = image
+
+            image = self._imgAsHSV[y:y + h, x:x + w]
+            blobAttributes[constants.NAME_IMAGE_HSV] = image
 
     def extractImagesFrom(self, source: np.ndarray, zslice: int, attribute: str, manipulation):
         """
@@ -1166,14 +1327,14 @@ class ImageManipulation:
             if blobAttributes[constants.NAME_TYPE] != constants.TYPE_IGNORED:
                 (x, y, w, h) = blobAttributes[constants.NAME_LOCATION]
                 # Pull the subset from the original image so we don't see the markings
-                image = source[y:y+h, x:x+w, zslice]
+                image = source[y:y + h, x:x + w, zslice]
                 # This seems to be a very specific case.  After we have masked from the vegetation index
                 # The black values are 0,0,0.  Convert them to NaN so when we perform calculations, we don't
                 # use the black pixels
                 image = np.where(image == 0, np.nan, image)
                 if np.isnan(image).all():
                     self.log.error("All values for attribute are NaN: " + attribute)
-                #hueMean = np.nanmean(image)
+                # hueMean = np.nanmean(image)
                 hueMean = manipulation(image)
                 self.log.debug(attribute + ": " + str(hueMean))
                 blobAttributes[attribute] = hueMean
@@ -1200,3 +1361,68 @@ class ImageManipulation:
     @staticmethod
     def _area(size):
         return size[0] * size[1]
+
+    def drawSquares(self, size: int):
+        """
+        Draw squares on the blobs
+        """
+        color = COLOR_UNKNOWN
+        for blobName, blobAttributes in self._blobs.items():
+            for (x, y) in blobAttributes[constants.NAME_SQUARES]:
+                self._image = cv.rectangle(self._image, (x, y), (x + size, y + size), color, 1)
+
+    # This is a computationally very expensive routine.
+    def fitSquares(self, size: int):
+        """
+        Fits squares of specified size onto the blobs within an image
+        :param size: size of the square in pixels
+        """
+        color = COLOR_UNKNOWN
+        size -= 1
+        for blobName, blobAttributes in self._blobs.items():
+            squares = []
+            contour = blobAttributes[constants.NAME_CONTOUR]
+            # Get the attributes of the box bounding the contour
+            boundingX, boundingY, boundingWidth, boundingHeight = blobAttributes[constants.NAME_LOCATION]
+            self.log.debug(f"Fitting squares in contour for blob: {blobName} Bounding box: {boundingHeight} high X {boundingWidth} wide")
+            occupied = np.ndarray((boundingHeight, boundingWidth), bool)
+            occupied.fill(False)
+            x = boundingX
+            y = boundingY
+            while x < (boundingX + boundingWidth):
+                while y < (boundingY + boundingHeight):
+                    try:
+                        isUpperLeftOccupied = occupied[y - boundingY, x - boundingX]
+                        isUpperRightOccupied = occupied[y - boundingY, x - boundingX + size]
+                        isLowerLeftOccupied = occupied[y - boundingY + size, x - boundingX]
+                        isLowerRightOccupied = occupied[y - boundingY + size, x - boundingX + size]
+                    except IndexError:
+                        #y += size
+                        isUpperRightOccupied = True
+                        isUpperLeftOccupied = True
+                        isLowerRightOccupied = True
+                        isLowerLeftOccupied = True
+
+                    if not (isUpperLeftOccupied or isUpperRightOccupied or isLowerLeftOccupied or isLowerRightOccupied):
+                        # Test if the point is within or on the contour. Unnecessary computations here
+                        isUpperLeftInsideContour = cv.pointPolygonTest(contour, (x + size, y), False) >= 0
+                        isUpperRightInsideContour = cv.pointPolygonTest(contour, (x + size, y + size), False) >= 0
+                        isLowerLeftInsideContour = cv.pointPolygonTest(contour, (x, y), False) >= 0
+                        isLowerRightInsideContour = cv.pointPolygonTest(contour, (x + size, y), False) >= 0
+                        if isLowerRightInsideContour and isLowerLeftInsideContour and isUpperRightInsideContour and isUpperLeftInsideContour:
+                            #self.log.debug(f"Square of size {size + 1} is contained at ({x},{y})")
+                            #self._image = cv.rectangle(self._image, (x, y), (x + size, y + size), color, BOUNDING_BOX_THICKNESS)
+                            squares.append((x, y))
+                            #self._image = cv.rectangle(self._image, (x, y), (x + size, y + size), color, 1)
+                            #self.log.debug(f"Marking occupied[{y - boundingY}:{(y - boundingY) + size},{x - boundingX}:{x - boundingX + size}]")
+                            occupied[y - boundingY: (y - boundingY) + size, x - boundingX:x - boundingX + size] = True
+                            y += size
+                        else:
+                            y += 1
+                    else:
+                        #self.log.debug(f"Position ({x},{y}) is occupied")
+                        y += size
+                x += 1
+                y = boundingY
+                self.log.debug(f"Next column: {x}")
+            blobAttributes[constants.NAME_SQUARES] = squares
