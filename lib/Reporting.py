@@ -33,7 +33,19 @@ class Reporting:
                          constants.NAME_ECCENTRICITY,
                          constants.NAME_ROUNDNESS,
                          constants.NAME_SOLIDITY,
-                         constants.NAME_TYPE]
+                         constants.NAME_TYPE,
+                         constants.NAME_HOMOGENEITY,
+                         constants.NAME_ENERGY,
+                         constants.NAME_CONTRAST,
+                         constants.NAME_DISSIMILARITY,
+                         constants.NAME_ASM,
+                         constants.NAME_CORRELATION,
+                         constants.NAME_I_YIQ + "_" + constants.NAME_HOMOGENEITY,
+                         constants.NAME_I_YIQ + "_" + constants.NAME_ENERGY,
+                         constants.NAME_I_YIQ + "_" + constants.NAME_CONTRAST,
+                         constants.NAME_I_YIQ + "_" + constants.NAME_DISSIMILARITY,
+                         constants.NAME_I_YIQ + "_" + constants.NAME_ASM,
+                         constants.NAME_I_YIQ + "_" + constants.NAME_CORRELATION]
 
         # Columns to exclude from translations like normalizing values
         self._exclude = [constants.NAME_NAME, constants.NAME_NUMBER, constants.NAME_TYPE]
@@ -56,7 +68,7 @@ class Reporting:
             return False, "Unable to write file " + self._filename
         return True, "OK"
 
-    def addBlobs(self, sequence: int,blobs: {}):
+    def addBlobs(self, sequence: int, blobs: {}):
         """
         Add the blob dictionary to the global list of everything seen so far.
         :param sequence: The sequence number of this image
@@ -68,7 +80,8 @@ class Reporting:
             self._blobs[newName] = blobAttributes
             attributes = {}
             attributes[constants.NAME_NAME] = newName
-            attributes[constants.NAME_NUMBER] = sequence
+            # The name of the blob is blob<n>, so this should split it apart
+            attributes[constants.NAME_NUMBER] = blobName.split(constants.NAME_BLOB)[1]
             # Add only the columns needed
             for attributeName, attributeValue in blobAttributes.items():
                 if attributeName in self._columns:
@@ -89,6 +102,14 @@ class Reporting:
                     self.log.error("Division by zero error for column {}".format(column))
         return
 
+    def writeFactors(self) -> (bool, str):
+
+        with open(self._filename, "w") as file:
+            # The header row
+            pass
+
+
+
     def writeSummary(self) -> (bool, str):
         """
         Write the data to the file specified.  We will use this data later for training.
@@ -104,31 +125,46 @@ class Reporting:
         newdf = self._blobDF[(self._blobDF.type == constants.TYPE_DESIRED) | (self._blobDF.type == constants.TYPE_UNDESIRED)]
         newdf.to_csv("normalized.csv", encoding="UTF-8", index=False)
         blobNumber = 1
-        file.write("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n".format(constants.NAME_NAME,
-                                                         constants.NAME_NUMBER,
-                                                         constants.NAME_RATIO,
-                                                         constants.NAME_SHAPE_INDEX,
-                                                         constants.NAME_DISTANCE,
-                                                         constants.NAME_DISTANCE_NORMALIZED,
-                                                         constants.NAME_HUE,
-                                                         constants.NAME_SATURATION,
-                                                         constants.NAME_I_YIQ,
-                                                         constants.NAME_BLUE_DIFFERENCE,
-                                                         # The new items
-                                                         constants.NAME_COMPACTNESS,
-                                                         constants.NAME_ELONGATION,
-                                                         constants.NAME_ECCENTRICITY,
-                                                         constants.NAME_ROUNDNESS,
-                                                         constants.NAME_SOLIDITY,
-                                                         constants.NAME_TYPE))
+        file.write("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n".format(constants.NAME_NAME,
+                                                                                          constants.NAME_NUMBER,
+                                                                                          constants.NAME_RATIO,
+                                                                                          constants.NAME_SHAPE_INDEX,
+                                                                                          constants.NAME_DISTANCE,
+                                                                                          constants.NAME_DISTANCE_NORMALIZED,
+                                                                                          constants.NAME_HUE,
+                                                                                          constants.NAME_SATURATION,
+                                                                                          constants.NAME_I_YIQ,
+                                                                                          constants.NAME_BLUE_DIFFERENCE,
+                                                                                          # The new items
+                                                                                          constants.NAME_COMPACTNESS,
+                                                                                          constants.NAME_ELONGATION,
+                                                                                          constants.NAME_ECCENTRICITY,
+                                                                                          constants.NAME_ROUNDNESS,
+                                                                                          constants.NAME_SOLIDITY,
+                                                                                          # GLCM
+                                                                                          constants.NAME_HOMOGENEITY,
+                                                                                          constants.NAME_ENERGY,
+                                                                                          constants.NAME_CONTRAST,
+                                                                                          constants.NAME_DISSIMILARITY,
+                                                                                          constants.NAME_ASM,
+                                                                                          constants.NAME_CORRELATION,
+                                                                                          constants.NAME_I_YIQ + "_" + constants.NAME_HOMOGENEITY,
+                                                                                          constants.NAME_I_YIQ + "_" + constants.NAME_ENERGY,
+                                                                                          constants.NAME_I_YIQ + "_" + constants.NAME_CONTRAST,
+                                                                                          constants.NAME_I_YIQ + "_" + constants.NAME_DISSIMILARITY,
+                                                                                          constants.NAME_I_YIQ + "_" + constants.NAME_ASM,
+                                                                                          constants.NAME_I_YIQ + "_" + constants.NAME_CORRELATION,
+                                                                                          # Type of the blob
+                                                                                          constants.NAME_TYPE))
         for blobName, blobAttributes in self._blobs.items():
             # Only take desired vegetation in full view
-            if (blobAttributes[constants.NAME_TYPE] == constants.TYPE_DESIRED and blobAttributes[constants.NAME_RATIO] != 0) or \
-               (blobAttributes[constants.NAME_TYPE] == constants.TYPE_UNDESIRED and blobAttributes[constants.NAME_RATIO] != 0):
-
+            # if (blobAttributes[constants.NAME_TYPE] == constants.TYPE_DESIRED and blobAttributes[constants.NAME_RATIO] != 0) or \
+            #    (blobAttributes[constants.NAME_TYPE] == constants.TYPE_UNDESIRED and blobAttributes[constants.NAME_RATIO] != 0):
+            # get everything irrespective of being fully in view
+            if blobAttributes[constants.NAME_TYPE] == constants.TYPE_DESIRED or blobAttributes[constants.NAME_TYPE] == constants.TYPE_UNDESIRED:
                 try:
                     self.log.debug("Writing out training data for : " + blobName)
-                    file.write("%s,%d,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%d\n" %
+                    file.write("%s,%d,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%d\n" %
                                (blobName,
                                 blobNumber,
                                 blobAttributes[constants.NAME_RATIO],
@@ -145,6 +181,18 @@ class Reporting:
                                 blobAttributes[constants.NAME_ECCENTRICITY],
                                 blobAttributes[constants.NAME_ROUNDNESS],
                                 blobAttributes[constants.NAME_SOLIDITY],
+                                blobAttributes[constants.NAME_HOMOGENEITY],
+                                blobAttributes[constants.NAME_ENERGY],
+                                blobAttributes[constants.NAME_CONTRAST],
+                                blobAttributes[constants.NAME_DISSIMILARITY],
+                                blobAttributes[constants.NAME_ASM],
+                                blobAttributes[constants.NAME_CORRELATION],
+                                blobAttributes[constants.NAME_I_YIQ + "_" + constants.NAME_HOMOGENEITY],
+                                blobAttributes[constants.NAME_I_YIQ + "_" + constants.NAME_ENERGY],
+                                blobAttributes[constants.NAME_I_YIQ + "_" + constants.NAME_CONTRAST],
+                                blobAttributes[constants.NAME_I_YIQ + "_" + constants.NAME_DISSIMILARITY],
+                                blobAttributes[constants.NAME_I_YIQ + "_" + constants.NAME_ASM],
+                                blobAttributes[constants.NAME_I_YIQ + "_" + constants.NAME_CORRELATION],
                                 blobAttributes[constants.NAME_TYPE]))
                 except ValueError:
                     self.log.error("Error in writing feature data.")
