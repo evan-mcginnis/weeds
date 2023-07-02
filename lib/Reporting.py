@@ -7,6 +7,8 @@ import constants
 import logging
 import numpy as np
 import pandas as pd
+import pandas.core
+from Factors import Factors
 
 class Reporting:
     def __init__(self, filename: str):
@@ -40,15 +42,25 @@ class Reporting:
                          constants.NAME_DISSIMILARITY,
                          constants.NAME_ASM,
                          constants.NAME_CORRELATION,
-                         constants.NAME_I_YIQ + "_" + constants.NAME_HOMOGENEITY,
-                         constants.NAME_I_YIQ + "_" + constants.NAME_ENERGY,
-                         constants.NAME_I_YIQ + "_" + constants.NAME_CONTRAST,
-                         constants.NAME_I_YIQ + "_" + constants.NAME_DISSIMILARITY,
-                         constants.NAME_I_YIQ + "_" + constants.NAME_ASM,
-                         constants.NAME_I_YIQ + "_" + constants.NAME_CORRELATION]
+                         # Rename the prefix from I_YIQ to HSV
+                         # constants.NAME_I_YIQ + "_" + constants.NAME_HOMOGENEITY,
+                         constants.NAME_HSV_HUE + "_" + constants.NAME_HOMOGENEITY,
+                         constants.NAME_HSV_HUE + "_" + constants.NAME_ENERGY,
+                         constants.NAME_HSV_HUE + "_" + constants.NAME_CONTRAST,
+                         constants.NAME_HSV_HUE + "_" + constants.NAME_DISSIMILARITY,
+                         constants.NAME_HSV_HUE + "_" + constants.NAME_ASM,
+                         constants.NAME_HSV_HUE + "_" + constants.NAME_CORRELATION]
+
+        factors = Factors()
+
+        # All the factors
+        self._columns = factors.getColumns(None)
 
         # Columns to exclude from translations like normalizing values
         self._exclude = [constants.NAME_NAME, constants.NAME_NUMBER, constants.NAME_TYPE]
+
+        # All the columns includes the factors + the identifying attributes
+        self._columns.extend(self._exclude)
 
         self._blobDF = pd.DataFrame(columns=self._columns)
 
@@ -97,9 +109,21 @@ class Reporting:
         for column in self._columns:
             if column not in self._exclude:
                 try:
-                    self._blobDF[column] = (self._blobDF[column] - self._blobDF[column].min()) / (self._blobDF[column].max() - self._blobDF[column].min())
+                    minimum = self._blobDF[column].min()
+                    maximum = self._blobDF[column].max()
+                    self.log.debug(f"Checking: {column}")
+                    if type(minimum) == pd.Series:
+                        if minimum[0] == maximum[0]:
+                            self.log.error(f"Normalize (Series): Min == Max for {column}")
+                            self._blobDF[column] = 1
+                    elif minimum == maximum:
+                        self.log.error(f"Normalize: Min == Max for {column}")
+                        self._blobDF[column] = 1
+                    else:
+                        self._blobDF[column] = (self._blobDF[column] - self._blobDF[column].min()) / (self._blobDF[column].max() - self._blobDF[column].min())
                 except ZeroDivisionError:
                     self.log.error("Division by zero error for column {}".format(column))
+                    self._blobDF[column] = 1
         return
 
     def writeFactors(self) -> (bool, str):
@@ -120,6 +144,9 @@ class Reporting:
         except PermissionError as p:
             self.log.error("Permission denied for file: " + self._filename)
             return False, "Unable to write file " + self._filename
+
+        newdf = self._blobDF[(self._blobDF.type == constants.TYPE_DESIRED) | (self._blobDF.type == constants.TYPE_UNDESIRED)]
+        newdf.to_csv("results-from-dataframe.csv", encoding="UTF-8", index=False)
 
         self._normalize()
         newdf = self._blobDF[(self._blobDF.type == constants.TYPE_DESIRED) | (self._blobDF.type == constants.TYPE_UNDESIRED)]
@@ -148,12 +175,12 @@ class Reporting:
                                                                                           constants.NAME_DISSIMILARITY,
                                                                                           constants.NAME_ASM,
                                                                                           constants.NAME_CORRELATION,
-                                                                                          constants.NAME_I_YIQ + "_" + constants.NAME_HOMOGENEITY,
-                                                                                          constants.NAME_I_YIQ + "_" + constants.NAME_ENERGY,
-                                                                                          constants.NAME_I_YIQ + "_" + constants.NAME_CONTRAST,
-                                                                                          constants.NAME_I_YIQ + "_" + constants.NAME_DISSIMILARITY,
-                                                                                          constants.NAME_I_YIQ + "_" + constants.NAME_ASM,
-                                                                                          constants.NAME_I_YIQ + "_" + constants.NAME_CORRELATION,
+                                                                                          constants.NAME_HSV_SATURATION + "_" + constants.NAME_HOMOGENEITY,
+                                                                                          constants.NAME_HSV_SATURATION + "_" + constants.NAME_ENERGY,
+                                                                                          constants.NAME_HSV_SATURATION + "_" + constants.NAME_CONTRAST,
+                                                                                          constants.NAME_HSV_SATURATION + "_" + constants.NAME_DISSIMILARITY,
+                                                                                          constants.NAME_HSV_SATURATION + "_" + constants.NAME_ASM,
+                                                                                          constants.NAME_HSV_SATURATION + "_" + constants.NAME_CORRELATION,
                                                                                           # Type of the blob
                                                                                           constants.NAME_TYPE))
         for blobName, blobAttributes in self._blobs.items():
@@ -181,18 +208,18 @@ class Reporting:
                                 blobAttributes[constants.NAME_ECCENTRICITY],
                                 blobAttributes[constants.NAME_ROUNDNESS],
                                 blobAttributes[constants.NAME_SOLIDITY],
-                                blobAttributes[constants.NAME_HOMOGENEITY],
-                                blobAttributes[constants.NAME_ENERGY],
-                                blobAttributes[constants.NAME_CONTRAST],
-                                blobAttributes[constants.NAME_DISSIMILARITY],
-                                blobAttributes[constants.NAME_ASM],
-                                blobAttributes[constants.NAME_CORRELATION],
-                                blobAttributes[constants.NAME_I_YIQ + "_" + constants.NAME_HOMOGENEITY],
-                                blobAttributes[constants.NAME_I_YIQ + "_" + constants.NAME_ENERGY],
-                                blobAttributes[constants.NAME_I_YIQ + "_" + constants.NAME_CONTRAST],
-                                blobAttributes[constants.NAME_I_YIQ + "_" + constants.NAME_DISSIMILARITY],
-                                blobAttributes[constants.NAME_I_YIQ + "_" + constants.NAME_ASM],
-                                blobAttributes[constants.NAME_I_YIQ + "_" + constants.NAME_CORRELATION],
+                                blobAttributes[constants.NAME_GREYSCALE + constants.DELIMETER + constants.NAME_HOMOGENEITY + constants.DELIMETER + "0"],
+                                blobAttributes[constants.NAME_GREYSCALE + constants.DELIMETER + constants.NAME_ENERGY + constants.DELIMETER + "0"],
+                                blobAttributes[constants.NAME_GREYSCALE + constants.DELIMETER + constants.NAME_CONTRAST + constants.DELIMETER + "0"],
+                                blobAttributes[constants.NAME_GREYSCALE + constants.DELIMETER + constants.NAME_DISSIMILARITY + constants.DELIMETER + "0"],
+                                blobAttributes[constants.NAME_GREYSCALE + constants.DELIMETER + constants.NAME_ASM + constants.DELIMETER + "0"],
+                                blobAttributes[constants.NAME_GREYSCALE + constants.DELIMETER + constants.NAME_CORRELATION + constants.DELIMETER + "0"],
+                                blobAttributes[constants.NAME_HSV_SATURATION + "_" + constants.NAME_HOMOGENEITY + constants.DELIMETER + "0"],
+                                blobAttributes[constants.NAME_HSV_SATURATION + "_" + constants.NAME_ENERGY + constants.DELIMETER + "0"],
+                                blobAttributes[constants.NAME_HSV_SATURATION + "_" + constants.NAME_CONTRAST + constants.DELIMETER + "0"],
+                                blobAttributes[constants.NAME_HSV_SATURATION + "_" + constants.NAME_DISSIMILARITY + constants.DELIMETER + "0"],
+                                blobAttributes[constants.NAME_HSV_SATURATION + "_" + constants.NAME_ASM + constants.DELIMETER + "0"],
+                                blobAttributes[constants.NAME_HSV_SATURATION + "_" + constants.NAME_CORRELATION + constants.DELIMETER + "0"],
                                 blobAttributes[constants.NAME_TYPE]))
                 except ValueError:
                     self.log.error("Error in writing feature data.")
