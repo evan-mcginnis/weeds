@@ -14,6 +14,7 @@ import configparser
 try:
     import matplotlib.pyplot as plt
     import plotly.graph_objects as go
+
     supportsPlotting = True
 except ImportError:
     print("Unable to import plotting libraries.")
@@ -26,7 +27,6 @@ import shutil
 
 import xmpp
 # from xmpp import protocol
-from datetime import datetime
 
 from pypylon import pylon
 # This does not work
@@ -34,26 +34,25 @@ from pypylon import pylon
 
 from VegetationIndex import VegetationIndex
 from ImageManipulation import ImageManipulation
-from Logger import Logger
-from Classifier import Classifier, LogisticRegressionClassifier, KNNClassifier, DecisionTree, RandomForest, GradientBoosting, SuppportVectorMachineClassifier
+from ImageLogger import ImageLogger
+from Classifier import Classifier, LogisticRegressionClassifier, KNNClassifier, DecisionTree, RandomForest, \
+    GradientBoosting, SuppportVectorMachineClassifier
 from OptionsFile import OptionsFile
 from Reporting import Reporting
 from Treatment import Treatment
 from MUCCommunicator import MUCCommunicator
 from MQCommunicator import ClientMQCommunicator
 from Messages import OdometryMessage, SystemMessage, TreatmentMessage
-from WeedExceptions import XMPPServerUnreachable, XMPPServerAuthFailure, CameraError
+from WeedExceptions import XMPPServerUnreachable, XMPPServerAuthFailure
 from CameraDepth import CameraDepth
-from RealSense import RealSense
-from ProcessedImage import ProcessedImage, Images
+from ProcessedImage import Images
 from Enrich import Enrich
 from Context import Context
 from Diagnostics import Diagnostics
-from Camera import Camera
 from CameraFile import CameraFile
+from GLCM import GLCM
 
-from pypylon import pylon
-from pypylon import genicam
+SQUARE_SIZE = 40
 
 #
 # W A R N I N G
@@ -68,7 +67,7 @@ from pypylon import genicam
 # from CameraBasler import SampleImageEventHandler
 
 
-#from Selection import Selection
+# from Selection import Selection
 
 #
 # C A M E R A S
@@ -78,22 +77,14 @@ from pypylon import genicam
 # This works just fine in another file, but fails whenever it is imported,
 # so I'm giving up and copying it here
 
-import logging
 import logging.config
-import time
-from collections import deque
 
 import numpy as np
-import os
-import cv2 as cv
-from abc import ABC, abstractmethod
 
 import pypylon.pylon
-from pypylon import _genicam
 
 from PIL import Image
 
-import constants
 from Performance import Performance
 
 ### B A S L E R  S T A R T ###
@@ -116,6 +107,7 @@ import cv2 as cv
 
 import constants
 from ProcessedImage import ProcessedImage
+
 
 #
 # B A S L E R  E V E N T  H A N D L E R S
@@ -173,6 +165,7 @@ class ConfigurationEventPrinter(pypylon.pylon.ConfigurationEventHandler):
     def OnCameraDeviceRemoved(self, camera):
         print("OnCameraDeviceRemoved event for device ", camera.GetDeviceInfo().GetModelName())
 
+
 # Handle image grab notifications
 
 class ImageEvents(pypylon.pylon.ImageEventHandler):
@@ -187,11 +180,11 @@ class ImageEvents(pypylon.pylon.ImageEventHandler):
         :param camera:
         :param grabResult:
         """
-        #log.debug("OnImageGrabbed event for device: {}".format(camera.GetDeviceInfo().GetModelName()))
+        # log.debug("OnImageGrabbed event for device: {}".format(camera.GetDeviceInfo().GetModelName()))
 
         # Image grabbed successfully?
         if grabResult.GrabSucceeded():
-            #log.debug("Image grabbed successfully")
+            # log.debug("Image grabbed successfully")
             start = time.time()
             # Convert the image grabbed to something we like
             # image = CameraBasler(grabResult)
@@ -205,7 +198,7 @@ class ImageEvents(pypylon.pylon.ImageEventHandler):
 
             cameraNumber = camera.GetCameraContext()
             camera = Camera.cameras[cameraNumber]
-            #log.debug("Camera context is {} Queue is {}".format(cameraNumber, len(camera._images)))
+            # log.debug("Camera context is {} Queue is {}".format(cameraNumber, len(camera._images)))
             camera._images.append(timestamped)
 
             # print("SizeX: ", grabResult.GetWidth())
@@ -214,7 +207,9 @@ class ImageEvents(pypylon.pylon.ImageEventHandler):
             # print("Gray values of first row: ", img[0])
             # print()
         else:
-            log.error("Image Grab error code: {} {}".format(grabResult.GetErrorCode(), grabResult.GetErrorDescription()))
+            log.error(
+                "Image Grab error code: {} {}".format(grabResult.GetErrorCode(), grabResult.GetErrorDescription()))
+
 
 # Example of an image event handler.
 class SampleImageEventHandler(pypylon.pylon.ImageEventHandler):
@@ -222,6 +217,7 @@ class SampleImageEventHandler(pypylon.pylon.ImageEventHandler):
         print("CSampleImageEventHandler::OnImageGrabbed called.")
         print()
         print()
+
 
 class CameraBasler(Camera):
     # Initialize the converter for images
@@ -233,7 +229,7 @@ class CameraBasler(Camera):
     # converting to opencv bgr format
     _converter.OutputPixelFormat = pylon.PixelType_BGR8packed
     # Temporary -- the setting is already in place on the camera
-    #_converter.OutputBitAlignment = pylon.OutputBitAlignment_MsbAligned
+    # _converter.OutputBitAlignment = pylon.OutputBitAlignment_MsbAligned
 
     _configurationEvents = ConfigurationEventPrinter()
     _imageEvents = ImageEvents()
@@ -292,6 +288,7 @@ class CameraBasler(Camera):
     @property
     def ip(self):
         return self._ip
+
     @classmethod
     def convert(cls, grabResult):
         """
@@ -301,7 +298,7 @@ class CameraBasler(Camera):
         """
         start = time.time()
         image = CameraBasler._converter.Convert(grabResult)
-        #self.log.debug(f"Image conversion took: {time.time() - start} seconds")
+        # self.log.debug(f"Image conversion took: {time.time() - start} seconds")
         return image
 
     def connect(self) -> bool:
@@ -421,7 +418,7 @@ class CameraBasler(Camera):
         # to GrabLoop_ProvidedByInstantCamera. The grab results are delivered to the image event handlers.
         # The GrabStrategy_OneByOne default grab strategy is used.
         try:
-            #self.camera.Open()
+            # self.camera.Open()
             self.camera.StartGrabbing(pylon.GrabStrategy_OneByOne, pylon.GrabLoop_ProvidedByInstantCamera)
             self.log.debug("Start Capturing with OneByOne Strategy")
         except _genicam.RuntimeException as e:
@@ -464,55 +461,6 @@ class CameraBasler(Camera):
         """
         Begin capturing images and store them in a queue for later retrieval.
         """
-
-        # # Use the startCapturing() method for the loop
-        # return
-
-        # #######################
-        # # This is based on a basler example
-        # #######################
-        #
-        # self._camera.Open()
-        # self._camera.MaxNumBuffer = 40
-        # self._camera.StartGrabbing(pylon.GrabStrategy_OneByOne)
-        # i = 0
-        # self.log.debug('Starting to acquire')
-        # while self._camera.IsGrabbing():
-        #     for i in range(3):
-        #         self.log.debug("Waiting for FrameTriggerReady")
-        #         if self._camera.WaitForFrameTriggerReady(2000, pylon.TimeoutHandling_ThrowException):
-        #             self._camera.ExecuteSoftwareTrigger()
-        #     time.sleep(0.2)
-        #     # Check that grab results are waiting.
-        #
-        #     if self._camera.GetGrabResultWaitObject().Wait(0):
-        #         self.log.debug("Grab results wait in the output queue.")
-        #     else:
-        #         self.log.error("No results are waiting")
-        #
-        #     # All triggered images are still waiting in the output queue
-        #     # and are now retrieved.
-        #     # The grabbing continues in the background, e.g. when using hardware trigger mode,
-        #     # as long as the grab engine does not run out of buffers.
-        #     start = time.time()
-        #     grab = self._camera.RetrieveResult(0, pylon.TimeoutHandling_Return)
-        #     img = grab.Array
-        #     grab.Release()
-        #     # timestamped = ProcessedImage(constants.Capture.RGB, grab, round(time.time() * 1000))
-        #     # Temporary -- attach the image, not the grab
-        #     timestamped = ProcessedImage(constants.Capture.RGB, img, round(time.time() * 1000))
-        #     timestamped.type = constants.ImageType.BASLER_RAW
-        #
-        #     cameraNumber = self._camera.GetCameraContext()
-        #     # self._camera = Camera.cameras[cameraNumber]
-        #     # log.debug("Camera context is {} Queue is {}".format(cameraNumber, len(camera._images)))
-        #     self.log.debug(f"Grabbed image processed and enqueued in {time.time() - start:.8f} seconds")
-        #     self._images.append(timestamped)
-
-        ###############################
-        # This is the original logic
-        ###############################
-
         self._camera.Open()
         self._camera.MaxNumBuffer = 40
         self._camera.StartGrabbing(pylon.GrabStrategy_OneByOne)
@@ -533,28 +481,28 @@ class CameraBasler(Camera):
                 # Convert the image grabbed to something we like
                 start = time.time()
 
-                #image = CameraBasler.convert(grab)
-                #self.log.debug(f"Basler image converted time: {time.time() - start} s")
-                #img = image.GetArray()
+                # image = CameraBasler.convert(grab)
+                # self.log.debug(f"Basler image converted time: {time.time() - start} s")
+                # img = image.GetArray()
 
                 # The 1920 and 2500 cameras do not support PTP, so the timestamp is just the ticks since startup.
                 # We will mark the images based on when we got them -- ideally, this should be:
                 # timestamped = ProcessedImage(img, grabResult.TimeStamp)
                 # Orignally
-                #timestamped = ProcessedImage(constants.Capture.RGB, img, round(time.time() * 1000))
+                # timestamped = ProcessedImage(constants.Capture.RGB, img, round(time.time() * 1000))
                 # Create a processed image that has not yet been converted
                 # Use the pylon methods for everything
                 # img = pylon.PylonImage()
                 # img.AttachGrabResultBuffer(grab)
                 img = grab.Array
                 grab.Release()
-                #timestamped = ProcessedImage(constants.Capture.RGB, grab, round(time.time() * 1000))
+                # timestamped = ProcessedImage(constants.Capture.RGB, grab, round(time.time() * 1000))
                 # Temporary -- attach the image, not the grab
                 timestamped = ProcessedImage(constants.Capture.RGB, img, round(time.time() * 1000))
                 timestamped.type = constants.ImageType.BASLER_RAW
 
                 cameraNumber = self._camera.GetCameraContext()
-                #self._camera = Camera.cameras[cameraNumber]
+                # self._camera = Camera.cameras[cameraNumber]
                 log.debug("Camera context is {} Queue is {}".format(cameraNumber, len(camera._images)))
                 self.log.debug(f"Grabbed image processed and enqueued in {time.time() - start:.8f} seconds")
                 self._images.append(timestamped)
@@ -566,7 +514,6 @@ class CameraBasler(Camera):
                 # print()
             else:
                 self.log.error("Image Grab error code: {} {}".format(grab.GetErrorCode(), grab.GetErrorDescription()))
-
 
         self._camera.Close()
 
@@ -667,7 +614,8 @@ class CameraBasler(Camera):
 
             # The timestamp is in milliseconds
             timestamp = processed.timestamp / 1000
-            self.log.debug("Image captured at UTC: {}".format(datetime.utcfromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')))
+            self.log.debug(
+                "Image captured at UTC: {}".format(datetime.utcfromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')))
         return processed
 
     def getResolution(self) -> ():
@@ -754,755 +702,48 @@ class CameraBasler(Camera):
                 "Unable to find configuration file: {}.  Camera configuration unchanged".format(filename))
         return loaded
 
+
 ### B A S L E R  E N D ###
 
-# ##################
-#
-# B A S L E R  E V E N T  H A N D L E R S
-#
-
-# Handle various basler camera events
-
-# class ConfigurationEventPrinter(pypylon.pylon.ConfigurationEventHandler):
-#     def OnAttach(self, camera):
-#         print("OnAttach event")
-#
-#     def OnAttached(self, camera):
-#         print("OnAttached event for device ", camera.GetDeviceInfo().GetModelName())
-#
-#     def OnOpen(self, camera):
-#         print("OnOpen event for device ", camera.GetDeviceInfo().GetModelName())
-#
-#     def OnOpened(self, camera):
-#         print("OnOpened event for device ", camera.GetDeviceInfo().GetModelName())
-#
-#     def OnGrabStart(self, camera):
-#         print("OnGrabStart event for device ", camera.GetDeviceInfo().GetModelName())
-#
-#     def OnGrabStarted(self, camera):
-#         print("OnGrabStarted event for device ", camera.GetDeviceInfo().GetModelName())
-#
-#     def OnGrabStop(self, camera):
-#         print("OnGrabStop event for device ", camera.GetDeviceInfo().GetModelName())
-#
-#     def OnGrabStopped(self, camera):
-#         print("OnGrabStopped event for device ", camera.GetDeviceInfo().GetModelName())
-#
-#     def OnClose(self, camera):
-#         print("OnClose event for device ", camera.GetDeviceInfo().GetModelName())
-#
-#     def OnClosed(self, camera):
-#         print("OnClosed event for device ", camera.GetDeviceInfo().GetModelName())
-#
-#     def OnDestroy(self, camera):
-#         print("OnDestroy event for device ", camera.GetDeviceInfo().GetModelName())
-#
-#     def OnDestroyed(self, camera):
-#         print("OnDestroyed event")
-#
-#     def OnDetach(self, camera):
-#         print("OnDetach event for device ", camera.GetDeviceInfo().GetModelName())
-#
-#     def OnDetached(self, camera):
-#         print("OnDetached event for device ", camera.GetDeviceInfo().GetModelName())
-#
-#     def OnGrabError(self, camera, errorMessage):
-#         print("OnGrabError event for device ", camera.GetDeviceInfo().GetModelName())
-#         print("Error Message: ", errorMessage)
-#
-#     def OnCameraDeviceRemoved(self, camera):
-#         print("OnCameraDeviceRemoved event for device ", camera.GetDeviceInfo().GetModelName())
-#
-# # Handle image grab notifications
-#
-# class ImageEvents(pypylon.pylon.ImageEventHandler):
-#     def OnImagesSkipped(self, camera, countOfSkippedImages):
-#         print("OnImagesSkipped event for device ", camera.GetDeviceInfo().GetModelName())
-#         print(countOfSkippedImages, " images have been skipped.")
-#         print()
-#
-#     def OnImageGrabbed(self, camera, grabResult):
-#         """
-#         Called when an image has been grabbed by the camera
-#         :param camera:
-#         :param grabResult:
-#         """
-#         #log.debug("OnImageGrabbed event for device: {}".format(camera.GetDeviceInfo().GetModelName()))
-#
-#         # Image grabbed successfully?
-#         if grabResult.GrabSucceeded():
-#             # Convert the image grabbed to something we like
-#             imagi = _CameraBasler.convert(grabResult)
-#             img = image.GetArray()
-#             # The 1920 and 2500 cameras do not support PTP, so the timestamp is just the ticks since startup.
-#             # We will mark the images based on when we got them -- ideally, this should be:
-#             # timestamped = ProcessedImage(img, grabResult.TimeStamp)
-#             timestamped = ProcessedImage(constants.Capture.RGB, img, round(time.time() * 1000))
-#
-#             cameraNumber = camera.GetCameraContext()
-#             camera = _Camera.cameras[cameraNumber]
-#             #log.debug("Camera context is {} Queue is {}".format(cameraNumber, len(camera._images)))
-#             camera._images.append(timestamped)
-#
-#             # print("SizeX: ", grabResult.GetWidth())
-#             # print("SizeY: ", grabResult.GetHeight())
-#             # img = grabResult.GetArray()
-#             # print("Gray values of first row: ", img[0])
-#             # print()
-#         else:
-#             log.error("Image Grab error code: {} {}".format(grabResult.GetErrorCode(), grabResult.GetErrorDescription()))
-#
-# # Example of an image event handler.
-# class SampleImageEventHandler(pypylon.pylon.ImageEventHandler):
-#     def OnImageGrabbed(self, _camera, grabResult):
-#         print("CSampleImageEventHandler::OnImageGrabbed called.")
-#         print()
-#         print()
-#
-# # I gave up on getting this to work, and just copied it here.
-# # This is not the correct thing to do, but I renamed the class so it would not
-# # conflict with the base class of the depth camera.  This is a mess.
-#
-# class _Camera(ABC):
-#     cameras = list()
-#     cameraCount = 0
-#
-#     def __init__(self, **kwargs):
-#
-#         # Register the camera on the global list so we can keep track of them
-#         # Even though there will probably be only one
-#         self.cameraID = _Camera.cameraCount
-#         _Camera.cameraCount += 1
-#         _Camera.cameras.append(self)
-#
-#         self._status = constants.OperationalStatus.UNKNOWN
-#
-#         self._gsd = 0
-#         return
-#
-#     @property
-#     def status(self) -> constants.OperationalStatus:
-#         return self._status
-#
-#     @abstractmethod
-#     def connect(self) -> bool:
-#         raise NotImplementedError()
-#         return True
-#
-#     @abstractmethod
-#     def initialize(self):
-#         return
-#
-#     @abstractmethod
-#     def start(self):
-#         return
-#
-#     @abstractmethod
-#     def disconnect(self):
-#         raise NotImplementedError()
-#         return True
-#
-#     @abstractmethod
-#     def diagnostics(self):
-#         self._connected = False
-#         return 0
-#
-#     @abstractmethod
-#     def capture(self) -> ProcessedImage:
-#         self._connected = False
-#         return
-#
-#     @abstractmethod
-#     def getResolution(self) -> ():
-#         self._connected = False
-#         return (0,0)
-#
-#     @abstractmethod
-#     def getMMPerPixel(self) -> float:
-#         return
-#
-#     @property
-#     def gsd(self) -> int:
-#         """
-#         The ground sampling distance as specified in the options file. As we can't determine how high off the ground
-#         the camera is, this is a pre-computed value
-#         :return: width of the ground capture.
-#         """
-#         return self._gsd
-#
-#     @gsd.setter
-#     def gsd(self, distance: int):
-#         self._gsd = distance
-#
-# class _CameraFile(_Camera):
-#     def __init__(self, **kwargs):
-#         super().__init__(**kwargs)
-#         self._connected = False
-#
-#         self.log = logging.getLogger(__name__)
-#         if constants.KEYWORD_DIRECTORY in kwargs:
-#             self.directory = kwargs[constants.KEYWORD_DIRECTORY]
-#         else:
-#             self.log.fatal("The image directory name must be specified with the keyword {}".format(constants.KEYWORD_DIRECTORY))
-#         if constants.KEYWORD_GSD in kwargs:
-#             self._gsd = kwargs[constants.KEYWORD_GSD]
-#         else:
-#             self.log.warning("The GSD keyword is not specified for the image set with {}. Using default.".format(constants.KEYWORD_GSD))
-#             self._gsd = 0.5
-#
-#         self._currentImage = 0
-#         self._image = None
-#         self._capturing = False
-#         self._metadata = None
-#         self._mmPerPixel = 0.0
-#         self._flist = []
-#         return
-#
-#     def connect(self) -> bool:
-#         """
-#         Connects to a directory and finds all images there. This method will not traverse subdirectories
-#         :return:
-#         """
-#         self._connected = os.path.isdir(self.directory)
-#         # Find all the files in the directory.
-#         if self._connected:
-#             self._flist = glob.glob(self.directory + '/*' + constants.EXTENSION_IMAGE)
-#             #self._flist = [p for p in pathlib.Path(self.directory).iterdir() if p.is_file()]
-#         else:
-#             self.log.error("Unable to connect to directory: {}".format(self.directory))
-#
-#         metadataFile = glob.glob(self.directory + '/*' + constants.EXTENSION_META)
-#
-#         if len(metadataFile) == 1:
-#             # Load the metadata for the imageset
-#             self._metadata = OptionsFile(metadataFile[0])
-#             if self._metadata.load():
-#                 try:
-#                     self._mmPerPixel = float(self._metadata.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_PIXELS_PER_MM))
-#                     self.log.debug("Image set mm per pixel: {}".format(self._mmPerPixel))
-#                 except KeyError as key:
-#                     self.log.error("Could not find pixel to mm mapping in metadata")
-#             else:
-#                 self.log.error("Unable to load metadata file {}".format(metadataFile[0]))
-#         else:
-#             self.log.warning("Expected one metadata file. Found {}".format(len(metadataFile)))
-#
-#         return self._connected
-#
-#     def disconnect(self):
-#         self._connected = False
-#         return True
-#
-#     def diagnostics(self):
-#         return True, "Camera diagnostics passed"
-#
-#     def initialize(self):
-#         return
-#
-#     def start(self):
-#         return
-#
-#     def capture(self) -> ProcessedImage:
-#         """
-#         Each time capture() is called, the next image in the directory is returned
-#         :return:
-#         The image as a numpy array.  Raises EOFError when no more images exist
-#         """
-#         if self._currentImage < len(self._flist):
-#             imageName = str(self._flist[self._currentImage])
-#             self._image = cv.imread(imageName, cv.IMREAD_COLOR)
-#             self._currentImage = self._currentImage + 1
-#             processed = ProcessedImage(constants.Capture.RGB, self._image, 0)
-#             return processed
-#         # Raise an EOFError  when we get through the sequence of images
-#         else:
-#             raise EOFError
-#
-#     def startCapturing(self):
-#         """
-#         Start capturing loop for files on disk. This is a no-op loop
-#         """
-#         self.log.debug("Dummy capture loop started")
-#         self._capturing = True
-#         while self._capturing:
-#             time.sleep(10)
-#
-#     def getResolution(self) -> ():
-#         # The camera resolution is the shape of the current image
-#         self.log.debug("Getting resolution of current image")
-#         return self._image.shape
-#
-#     def getMMPerPixel(self) -> float:
-#         #
-#         # TODO: The mm per pixel is something that should be read from the metadata for the image set
-#         return self._mmPerPixel
-#
-# class _CameraPhysical(_Camera):
-#     def __init__(self, **kwargs):
-#      self._connected = False
-#      self._currentImage = 0
-#      self._cam = cv.VideoCapture(0)
-#      super().__init__(**kwargs)
-#      return
-#
-#     def connect(self):
-#         """
-#         Connects to the camera and sets it to highest resolution for capture.
-#         :return:
-#         True if connection was successful
-#         """
-#         # Read calibration information here
-#         HIGH_VALUE = 10000
-#         WIDTH = HIGH_VALUE
-#         HEIGHT = HIGH_VALUE
-#
-#         # A bit a hack to set the camera to the highest resolution
-#         self._cam.set(cv.CAP_PROP_FRAME_WIDTH, WIDTH)
-#         self._cam.set(cv.CAP_PROP_FRAME_HEIGHT, HEIGHT)
-#
-#         return True
-#
-#     def disconnect(self):
-#         self._cam.release()
-#
-#     def initialize(self):
-#         return
-#
-#     def start(self):
-#         return
-#
-#     def diagnostics(self) -> (bool, str):
-#         """
-#         Execute diagnostics on the camera.
-#         :return:
-#         Boolean result of the diagnostics and a string of the details
-#         """
-#         return True, "Camera diagnostics not provided"
-#
-#     def capture(self) -> ProcessedImage:
-#         """
-#         Capture a single image from the camera.
-#         Requires calling the connect() method before this call.
-#         :return:
-#         The image as a numpy array
-#         """
-#         ret, frame = self._cam.read()
-#         if not ret:
-#             raise IOError("There was an error encountered communicating with the camera")
-#         # cv.imwrite("camera.jpg", frame)
-#         processed = ProcessedImage(constants.Capture.RGB, frame, 0)
-#         return processed
-#
-#     def getResolution(self) -> ():
-#         w = self._cam.get(cv.CAP_PROP_FRAME_WIDTH)
-#         h = self._cam.get(cv.CAP_PROP_FRAME_HEIGHT)
-#         return (w, h)
-#
-#     # This should be part of the calibration procedure
-#     def getMMPerPixel(self) -> float:
-#         return 0.0
-#
-# #
-# # The Basler camera is accessed through the pylon API
-# # Perhaps this can be through openCV, but this will do for now
-# #
-#
-#
-# from pypylon import pylon
-# from pypylon import genicam
-#
-# class _CameraBasler(_Camera):
-#     # Initialize the converter for images
-#     # The images stream of in YUV color space.  An optimization here might be to make
-#     # both formats available, as YUV is something we will use later
-#
-#     _converter = pylon.ImageFormatConverter()
-#
-#     # converting to opencv bgr format
-#     _converter.OutputPixelFormat = pylon.PixelType_BGR8packed
-#     _converter.OutputBitAlignment = pylon.OutputBitAlignment_MsbAligned
-#
-#     def __init__(self, **kwargs):
-#         """
-#         Tha basler camera object.
-#         :param kwargs: ip=<ip-address of camera>
-#         """
-#         self._connected = False
-#         self._currentImage = 0
-#         self._camera = None
-#         self.log = logging.getLogger(__name__)
-#         self._strategy = constants.STRATEGY_ASYNC
-#         self._capturing = False
-#         self._images = deque(maxlen=constants.IMAGE_QUEUE_LEN)
-#         self._camera = pylon.InstantCamera()
-#
-#         if constants.KEYWORD_GSD in kwargs:
-#             self._gsd = kwargs[constants.KEYWORD_GSD]
-#         else:
-#             self.log.info("The GSD keyword is not specified with {}. Calculated instead.".format( constants.KEYWORD_GSD))
-#             # This is just a placeholder
-#             self._gsd = 0.5
-#
-#         # Assume a GigE camera for now
-#         if constants.KEYWORD_IP in kwargs:
-#             self._ip = kwargs[constants.KEYWORD_IP]
-#         else:
-#             self.log.fatal("The IP address of the camera must be specified with the keyword {}".format(constants.KEYWORD_IP))
-#
-#         super().__init__(**kwargs)
-#
-#     @classmethod
-#     def convert(cls, grabResult):
-#         image = _CameraBasler._converter.Convert(grabResult)
-#         return image
-#
-#
-#     def connect(self) -> bool:
-#         """
-#         Connects to the camera with the specified IP address.
-#         """
-#         tl_factory = pylon.TlFactory.GetInstance()
-#
-#         self._connected = False
-#
-#         for dev_info in tl_factory.EnumerateDevices():
-#             self.log.debug("Looking for {}. Current device is {}".format(self._ip, dev_info.GetIpAddress()))
-#             if dev_info.GetIpAddress() == self._ip:
-#                 try:
-#                     self._camera = pylon.InstantCamera()
-#                     self._camera.Attach(tl_factory.CreateDevice(dev_info))
-#                 except Exception as e:
-#                     log.fatal("Error encountered in attaching camera")
-#                     log.fatal("{}".format(e))
-#                     self._status = constants.OperationalStatus.FAIL
-#                 #self._camera.MaxNumBuffer = 100
-#                 try:
-#                     self._camera.Open()
-#                     self.log.info("Using device {} at {}".format(self._camera.GetDeviceInfo().GetModelName(), dev_info.GetIpAddress()))
-#                     self._connected = True
-#                     self._status = constants.OperationalStatus.OK
-#                 except Exception as e:
-#                     self.log.fatal("Error encountered in opening camera")
-#                     log.fatal("{}".format(e))
-#                     self._status = constants.OperationalStatus.FAIL
-#                 # This shows how to get the list of what is available as attributes.  Not particularly useful for what
-#                 # we need here
-#                 # info = pylon.DeviceInfo()
-#                 # info = self._camera.GetDeviceInfo()
-#                 # tlc = pylon.GigETransportLayer()
-#                 # tlc = self._camera.GetTLNodeMap()
-#                 #
-#                 # properties = info.GetPropertyNames()
-#
-#                 #self.log.debug("Current counter {}".format())
-#                 break
-#
-#         if not self._connected:
-#             self.log.error("Failed to connect to camera")
-#             #raise EnvironmentError("No GigE device found")
-#
-#         return self._connected
-#
-#
-#     def initializeCapture(self):
-#
-#         initialized = False
-#         try:
-#             # Register the standard configuration event handler for enabling software triggering.
-#             # The software trigger configuration handler replaces the default configuration
-#             # as all currently registered configuration handlers are removed by setting the registration mode to RegistrationMode_ReplaceAll.
-#             self._camera.RegisterConfiguration(pylon.SoftwareTriggerConfiguration(),
-#                                                pylon.RegistrationMode_ReplaceAll,
-#                                                pylon.Cleanup_Delete)
-#
-#             # For demonstration purposes only, add a sample configuration event handler to print out information
-#             # about camera use.t
-#             self._camera.RegisterConfiguration(ConfigurationEventPrinter(),
-#                                                pylon.RegistrationMode_Append,
-#                                                pylon.Cleanup_Delete)
-#
-#             # The image event printer serves as sample image processing.
-#             # When using the grab loop thread provided by the Instant Camera object, an image event handler processing the grab
-#             # results must be created and registered.
-#             self._camera.RegisterImageEventHandler(ImageEvents(),
-#                                                    pylon.RegistrationMode_Append,
-#                                                    pylon.Cleanup_Delete)
-#
-#             # For demonstration purposes only, register another image event handler.
-#             # self._camera.RegisterImageEventHandler(SampleImageEventHandler(),
-#             #                                        pylon.RegistrationMode_Append,
-#             #                                        pylon.Cleanup_Delete)
-#
-#             self._camera.SetCameraContext(self.cameraID)
-#             initialized = True
-#
-#         except genicam.GenericException as e:
-#             # Error handling.
-#             self.log.fatal("Unable to initialize the capture", e.GetDescription())
-#             initialized = False
-#
-#         return initialized
-#
-#     def initialize(self):
-#         """
-#         Set the camera parameters to reflect what we want them to be.
-#         :return:
-#         """
-#
-#         if not self._connected:
-#             raise IOError("Camera is not connected.")
-#
-#         self.log.debug("Camera initialized")
-#
-#
-#     def startCapturing(self):
-#         # Start the grabbing using the grab loop thread, by setting the grabLoopType parameter
-#         # to GrabLoop_ProvidedByInstantCamera. The grab results are delivered to the image event handlers.
-#         # The GrabStrategy_OneByOne default grab strategy is used.
-#         self.log.debug("Begin grab with OneByOne Strategy")
-#         try:
-#             #self.camera.Open()
-#             self.camera.StartGrabbing(pylon.GrabStrategy_OneByOne, pylon.GrabLoop_ProvidedByInstantCamera)
-#         except _genicam.RuntimeException as e:
-#             log.fatal("Failed to open the camera and start grabbing.")
-#             log.fatal("{}".format(e))
-#
-#         # If we immediately start waiting for the trigger, we get an error
-#         time.sleep(2)
-#         self._capturing = True
-#         while self._capturing:
-#             try:
-#                 if self.camera.WaitForFrameTriggerReady(400, pylon.TimeoutHandling_ThrowException):
-#                     self.camera.ExecuteSoftwareTrigger()
-#             except _genicam.TimeoutException as e:
-#                 self.log.fatal("Timeout from camera")
-#             except _genicam.RuntimeException as e:
-#                 if not self._capturing:
-#                     self.log.warning("Errors encountered in shutdown.  This is normal")
-#                 else:
-#                     self.log.error("Unexpected errors in capture")
-#                     self.log.error("Device: {}".format(self._camera.GetDeviceInfo().GetModelName()))
-#                     self.log.error("{}".format(e))
-#             except Exception as e:
-#                 self.log.error("Unable to execute wait for trigger")
-#                 self.log.error(e)
-#
-#
-#     def start(self):
-#         """
-#         Begin capturing images and store them in a queue for later retrieval.
-#         """
-#
-#         if not self._connected:
-#             raise IOError("Camera is not connected.")
-#
-#         # The scheme here is to get the images and store them for later consumption.
-#         # The basler library does not have quite what is needed here, as we can't quite tell
-#         # when an image is needed, as that is based on distance tranversed (let's say images every 10 cm to allow for
-#         # overlap.
-#
-#         # Start grabbing images
-#         self._camera.GevSCPSPacketSize = 8192
-#         self._camera.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
-#         self.log.debug("Started grabbing images")
-#         # Fetch the images from the camera and store the results in a buffer
-#         if self._strategy == constants.STRATEGY_ASYNC:
-#             self.log.debug("Asynchronous capture")
-#             self._capturing = True
-#             while self._capturing:
-#                 try:
-#                     timestamped = self._grab()
-#                     self._images.append(timestamped)
-#                 except IOError as e:
-#                     self.log.error(e)
-#                 #self.log.debug("Image queue size: {}".format(len(self._images)))
-#             self._camera.StopGrabbing()
-#
-#         # For synchronous capture, we don't do anything but retrieve the image on demand
-#         else:
-#             self.log.debug("Synchronous capture")
-#
-#
-#
-#     def stop(self):
-#         """
-#         Stop collecting from the current camera.
-#         :return:
-#         """
-#
-#         self.log.debug("Stopping image capture")
-#
-#         # Stop only if camera is connected.  This doesn't directly stop the collection, but clears the flag so the
-#         # collection loop will stop
-#         if self._connected:
-#             self._capturing = False
-#         # if self._strategy == constants.STRATEGY_ASYNC:
-#         #     self._camera.StopGrabbing()
-#
-#         return
-#
-#     def disconnect(self):
-#         """
-#         Disconnected from the current camera and stop grabbing images
-#         """
-#
-#         self.log.debug("Disconnecting from camera")
-#         self.stop()
-#         self._camera.Close()
-#
-#     def diagnostics(self) -> (bool, str):
-#         """
-#         Execute diagnostics on the camera.
-#         :return:
-#         Boolean result of the diagnostics and a string of the details
-#         """
-#         return True, "Camera diagnostics not provided"
-#
-#     def capture(self) -> ProcessedImage:
-#         """
-#         Capture a single image from the camera.
-#         Requires calling the connect() method before this call.
-#
-#         If the image is in the queue, it will be served from there -- otherwise the method will retrieve if
-#         synchronously from the camera.
-#
-#         :return:
-#         The image as a numpy array
-#         """
-#
-#         if not self._connected:
-#             raise IOError("Camera is not connected")
-#
-#         # If there are no images in the queue, just wait for one.
-#         while len(self._images) == 0:
-#             self.log.error("Image queue is empty. Wait for a new image to appear")
-#             time.sleep(0.1)
-#
-#         # The image we want is the one closest to the current time. The queue may contain a bunch of older images
-#         processed = self._images.popleft()
-#         img = processed.image
-#         # The timestamp is in milliseconds
-#         timestamp = processed.timestamp / 1000
-#         self.log.debug("Image captured at UTC: {}".format(datetime.utcfromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')))
-#         return processed
-#
-#     def getResolution(self) -> ():
-#         w = self._camera.get(cv.CAP_PROP_FRAME_WIDTH)
-#         h = self._camera.get(cv.CAP_PROP_FRAME_HEIGHT)
-#         return w, h
-#
-#     # This should be part of the calibration procedure
-#     def getMMPerPixel(self) -> float:
-#         return 0.0
-#
-#     @property
-#     def camera(self) -> pylon.InstantCamera:
-#         return self._camera
-#
-#     @camera.setter
-#     def camera(self, openedCamera: pylon.InstantCamera):
-#         self._camera = openedCamera
-#
-#
-#     def _grabImage(self) -> ProcessedImage:
-#
-#         try:
-#             grabResult = self._camera.RetrieveResult(200, pylon.TimeoutHandling_ThrowException)
-#
-#         except _genicam.RuntimeException as e:
-#             self.log.fatal("Genicam runtime error encountered.")
-#             self.log.fatal("{}".format(e))
-#
-#         if grabResult.GrabSucceeded():
-#             # This is very noisy -- a bit more than we need here
-#             self.log.debug("Image grab succeeded at timestamp " + str(grabResult.TimeStamp))
-#         else:
-#             raise IOError("Failed to grab image. Pylon error code: {}".format(grabResult.GetErrorCode()))
-#
-#         image = self._converter.Convert(grabResult)
-#         img = image.GetArray()
-#         # The 1920 and 2500 cameras do not support PTP, so the timestamp is just the ticks since startup.
-#         # We will mark the images based on when we got them -- ideally, this should be:
-#         # timestamped = ProcessedImage(img, grabResult.TimeStamp)
-#         timestamped = ProcessedImage(constants.Capture.RGB, img, round(time.time() * 1000))
-#         return timestamped
-#
-#     def _grab(self) -> ProcessedImage:
-#         """
-#         Grab the image from the camera
-#         :return: ProcessedImag
-#         """
-#
-#
-#         try:
-#             self.log.debug("Grab start")
-#             grabResult = pypylon.pylon.GrabResult(self._camera.RetrieveResult(constants.TIMEOUT_CAMERA, pylon.TimeoutHandling_ThrowException))
-#             self.log.debug("Grab complete")
-#         except _genicam.RuntimeException as e:
-#             self.log.fatal("Genicam runtime error encountered.")
-#             self.log.fatal("{}".format(e))
-#         # If the camera is close while we are capturing, this may be null.
-#         if not grabResult.IsValid():
-#             self.log.error("Image is not valid")
-#             raise IOError("Image is not valid")
-#
-#         if grabResult.GrabSucceeded():
-#             # This is very noisy -- a bit more than we need here
-#             #self.log.debug("Image grab succeeded at timestamp " + str(grabResult.TimeStamp))
-#             pass
-#         else:
-#             raise IOError("Failed to grab image. Pylon error code: {}".format(grabResult.GetErrorCode()))
-#
-#         image = self._converter.Convert(grabResult)
-#         img = image.GetArray()
-#         # The 1920 and 2500 cameras do not support PTP, so the timestamp is just the ticks since startup.
-#         # We will mark the images based on when we got them -- ideally, this should be:
-#         #timestamped = ProcessedImage(img, grabResult.TimeStamp)
-#         timestamped = ProcessedImage(constants.Capture.RGB, img, round(time.time() * 1000))
-#         return timestamped
-#
-#     def save(self, filename: str) -> bool:
-#         """
-#         Save the camera settings
-#         :param filename: The file to contain the settings
-#         :return: True on success
-#         """
-#         #self._camera.Open()
-#         self.log.info("Saving camera configuration to: {}".format(filename))
-#         pylon.FeaturePersistence.Save(filename, self._camera.GetNodeMap())
-#         return True
-#
-#     def load(self, filename: str) -> bool:
-#         """
-#         Load the camera configuration from a file. Usually, this is the .pfs file saved from the pylon viewer
-#         :param filename: The name of the file on disk
-#         :return: True on success
-#         """
-#         loaded = False
-#
-#         #self._camera.Open()
-#         # If the camera configuration exists, use that, otherwise warn
-#         if os.path.isfile(filename):
-#             self.log.info("Using saved camera configuration: {}".format(filename))
-#             try:
-#                 pylon.FeaturePersistence.Load(filename,self._camera.GetNodeMap(),True)
-#             except _genicam.RuntimeException as geni:
-#                 log.error("Unable to load configuration: {}".format(geni))
-#
-#             loaded = True
-#         else:
-#             self.log.warning("Unable to find configuration file: {}.  Camera configuration unchanged".format(filename))
-#         return loaded
 # #
 # # E N D  C A M A R A S
 # #
 ################################
+def startupLogger(outputDirectory: str) -> ():
+    """
+    Initializes two logging systems: the image logger and python centric logging.
+    :param outputDirectory: The output directory for the images
+    :return: The image logger instance
+    """
+
+    # The command line argument contains the name of the YAML configuration file.
+
+    # Confirm the INI exists
+    if not os.path.isfile(arguments.logging):
+        print("Unable to access logging configuration file {}".format(arguments.logging))
+        sys.exit(1)
+
+    # Initialize logging
+    logging.config.fileConfig(arguments.logging)
+    log = logging.getLogger("jetson")
+
+    logger = ImageLogger()
+    if not logger.connect(outputDirectory):
+        print("Unable to connect to logging. ./output does not exist.")
+        sys.exit(1)
+    return logger, log
+
+def readINI() -> OptionsFile:
+    options = OptionsFile(arguments.ini)
+    options.load()
+    return options
 
 # Used in command line processing so we can accept thresholds that are tuples
 def tuple_type(strings):
     strings = strings.replace("(", "").replace(")", "")
     mapped_int = map(int, strings.split(","))
     return tuple(mapped_int)
+
 
 # This is here so we can extract the supported algorithms
 
@@ -1514,29 +755,38 @@ parser.add_argument("-a", '--algorithm', action="store", help="Vegetation Index 
                     choices=veg.GetSupportedAlgorithms(),
                     default="ngrdi")
 parser.add_argument("-c", "--contours", action="store_true", default=False, help="Show contours on images")
-parser.add_argument("-d", "--decorations", action="store", type=str, default="all", help="Decorations on output images (all and none are shortcuts)")
+parser.add_argument("-d", "--decorations", action="store", type=str, default="all",
+                    help="Decorations on output images (all and none are shortcuts)")
 
-functionGroup = parser.add_mutually_exclusive_group()
-functionGroup.add_argument("-w", "--weeds", action="store_true", default=False, help="Classify and treat weeds")
-functionGroup.add_argument("-e", "--emitter", action="store_true", default=False, help="Assess treatment post emitters")
+# functionGroup = parser.add_mutually_exclusive_group()
+# functionGroup.add_argument("-w", "--weeds", action="store_true", default=False, help="Classify and treat weeds")
+# functionGroup.add_argument("-e", "--emitter", action="store_true", default=False, help="Assess treatment post emitters")
 
-parser.add_argument("-df", "--data", action="store", help="Name of the data in CSV for use in logistic regression or KNN")
+parser.add_argument("-df", "--data", action="store",
+                    help="Name of the data in CSV for use in logistic regression or KNN")
+parser.add_argument("-e", "--edge", action="store_true", default=False, help="Ignore items at edge of image")
 parser.add_argument("-hg", "--histograms", action="store_true", default=False, help="Show histograms")
 parser.add_argument("-he", "--height", action="store_true", default=False, help="Consider height in scoring")
 parser.add_argument('-i', '--input', action="store", required=False, help="Images directory")
 
-captureTypeGroup = parser.add_mutually_exclusive_group()
-captureTypeGroup.add_argument("-gr", "--grab", action="store_true", default=False, help="Just grab images. No processing")
-captureTypeGroup.add_argument("-nu", "--null", action="store_true", default=False, help="Null processor. No processing")
+parser.add_argument("-gr", "--grab", action="store_true", default=False,
+                    help="Just grab images. No processing")
 
 group = parser.add_mutually_exclusive_group()
-parser.add_argument('-ini', '--ini', action="store", required=False, default=constants.PROPERTY_FILENAME, help="Options INI")
-group.add_argument("-k", "--knn", action="store_true", default=False, help="Predict using KNN. Requires data file to be specified")
-group.add_argument("-l", "--logistic", action="store_true", default=False, help="Predict using logistic regression. Requires data file to be specified")
-group.add_argument("-dt", "--tree", action="store_true", default=False, help="Predict using decision tree. Requires data file to be specified")
-group.add_argument("-f", "--forest", action="store_true", default=False, help="Predict using random forest. Requires data file to be specified")
-group.add_argument("-g", "--gradient", action="store_true", default=False, help="Predict using gradient boosting. Requires data file to be specified")
-group.add_argument("-svm", "--support", action="store_true", default=False, help="Predict using support vector machine. Requires data file to be specified")
+parser.add_argument('-ini', '--ini', action="store", required=False, default=constants.PROPERTY_FILENAME,
+                    help="Options INI")
+group.add_argument("-k", "--knn", action="store_true", default=False,
+                   help="Predict using KNN. Requires data file to be specified")
+group.add_argument("-l", "--logistic", action="store_true", default=False,
+                   help="Predict using logistic regression. Requires data file to be specified")
+group.add_argument("-dt", "--tree", action="store_true", default=False,
+                   help="Predict using decision tree. Requires data file to be specified")
+group.add_argument("-f", "--forest", action="store_true", default=False,
+                   help="Predict using random forest. Requires data file to be specified")
+group.add_argument("-g", "--gradient", action="store_true", default=False,
+                   help="Predict using gradient boosting. Requires data file to be specified")
+group.add_argument("-svm", "--support", action="store_true", default=False,
+                   help="Predict using support vector machine. Requires data file to be specified")
 parser.add_argument("-im", "--image", action="store", default=200, type=int, help="Horizontal length of image")
 parser.add_argument("-lg", "--logging", action="store", default="logging.ini", help="Logging configuration file")
 parser.add_argument("-m", "--mask", action="store_true", default=False, help="Mask only -- no processing")
@@ -1545,18 +795,20 @@ parser.add_argument("-mr", "--minratio", action="store", default=5, type=int, he
 parser.add_argument("-n", "--nonegate", action="store_true", default=False, help="Negate image mask")
 parser.add_argument('-o', '--output', action="store", required=True, help="Output directory for processed images")
 parser.add_argument("-p", '--plot', action="store_true", help="Show 3D plot of index", default=False)
-parser.add_argument("-P", "--performance", action="store", type=str, default="performance.csv", help="Name of performance file")
+parser.add_argument("-P", "--performance", action="store", type=str, default="performance.csv",
+                    help="Name of performance file")
 parser.add_argument("-r", "--results", action="store", default="results.csv", help="Name of results file")
 parser.add_argument("-s", "--stitch", action="store_true", help="Stitch adjacent images together")
 parser.add_argument("-sc", "--score", action="store_true", help="Score the prediction method")
 parser.add_argument("-se", "--selection", action="store", default="all-parameters.csv", help="Parameter selection file")
 parser.add_argument("-sp", "--spray", action="store_true", help="Generate spray treatment grid")
 parser.add_argument("-spe", "--speed", action="store", default=1, type=int, help="Speed in meters per second")
-parser.add_argument("-stand", "--standalone", action="store_true", default=False, help="Run standalone and just process the images")
+parser.add_argument("-stand", "--standalone", action="store_true", default=False,
+                    help="Run standalone and just process the images")
+parser.add_argument("-st", "--strategy", action="store", required=False, default="CARTOON", help="Blob strategy")
 parser.add_argument("-t", "--threshold", action="store", type=tuple_type, default="(0,0)", help="Threshold tuple (x,y)")
 parser.add_argument("-v", "--verbose", action="store_true", default=False, help="Generate debugging data and text")
 parser.add_argument("-x", "--xtract", action="store_true", default=False, help="Extract each crop plant into images")
-
 
 arguments = parser.parse_args()
 
@@ -1565,17 +817,18 @@ arguments = parser.parse_args()
 
 outputDirectory = arguments.output
 
-# index
-# classifier
-# ratio
-# center
-# area
-# distance
+factorsToExtract = []
+
 decorations = [item for item in arguments.decorations.split(',')]
+
+(logger, log) = startupLogger(arguments.output)
 
 if (arguments.logistic or arguments.knn or arguments.tree or arguments.forest) and arguments.data is None:
     print("Data file is not specified.")
     sys.exit(1)
+
+options = readINI()
+
 
 #
 # C A M E R A
@@ -1589,97 +842,22 @@ def startupRGBDepthCamera(options: OptionsFile) -> CameraDepth:
     Starts the attached depth camera
     :return: The depth camera instance or None if the camera cannot be found.
     """
-    global intel435Status
-    sensors = RealSense()
-    sensors.query()
-    markSensorAsFailed = False
-    cameraForDepth = None
 
-    if sensors.count() < 1:
-        log.error("Detected {} depth/IMU sensors. Expected at least 1.".format(sensors.count()))
-        log.error("No sensor will be used.")
-        markSensorAsFailed = True
-        intel435Status = constants.OperationalStatus.FAIL
+    return None
 
-    # Start the Depth Cameras
-    try:
-        requiredExposure = options.option(constants.PROPERTY_SECTION_INTEL, constants.PROPERTY_EXPOSURE)
-    except KeyError:
-        log.error("Exposure not found. Using defaults")
-        requiredExposure = constants.DEFAULT_EXPOSURE
 
-    try:
-        gsd = options.option(constants.PROPERTY_SECTION_INTEL, constants.PROPERTY_DEPTH_WIDTH)
-    except KeyError:
-        log.error("GSD D not found. Using defaults")
-        requiredExposure = constants.DEFAULT_EXPOSURE
-
-    try:
-        cameraForDepth = CameraDepth(constants.Capture.DEPTH_RGB, EXPOSURE=requiredExposure)
-        if markSensorAsFailed:
-            cameraForDepth.state.toMissing()
-        else:
-            cameraForDepth.state.toIdle()
-            intel435Status = constants.OperationalStatus.OK
-    except KeyError:
-        log.error("Unable to find serial number for depth camera: {}/{} & {}".format(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_SERIAL_LEFT, constants.PROPERTY_SERIAL_RIGHT))
-        cameraForDepth.state.toMissing()
-
-    # log.debug("Using Intel camera: {}".format(cameraForDepth))
-    return cameraForDepth
-
-def startupCamera(options: OptionsFile, position: constants.PositionWithEmitter) -> Camera:
-
+def startupCamera(options: OptionsFile) -> Camera:
     theCamera = None
     # The camera that takes crop images
-    if position == constants.PositionWithEmitter.PRE:
-        if arguments.input is not None:
-            # Get the images from a directory
-            theCamera = CameraFile(directory=arguments.input, TYPE=constants.ImageType.RGB.name)
-            theCamera.gsd = int(options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_IMAGE_WIDTH))
-        else:
-            # Get the images from an actual camera
-            cameraIP = options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_CAMERA_IP)
-            # The version of the BaslerCamera defined here
-            #theCamera = _CameraBasler(ip=cameraIP)
-            # Use these when employing a callback method
-            configurationEvents = ConfigurationEventPrinter()
-            imageEvents = ImageEvents()
-            theCamera = CameraBasler(ip=cameraIP,
-                                     capture=constants.CAPTURE_STRATEGY_QUEUED,
-                                     image=imageEvents,
-                                     configuration=configurationEvents)
-            theCamera.position = position
-
-        # The version that does not use callbacks
-        # theCamera = CameraBasler(ip=cameraIP, capture=constants.CAPTURE_STRATEGY_QUEUED)
-
-        # Set the ground sampling distance, so we know when to take a picture
+    if arguments.input is not None:
+        # Get the images from a directory
+        theCamera = CameraFile(directory=arguments.input, TYPE=constants.ImageType.RGB.name)
         theCamera.gsd = int(options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_IMAGE_WIDTH))
+    else:
+        log.error("Connecting to physical camera")
 
-    elif position == constants.PositionWithEmitter.POST:
-        if arguments.input is not None:
-            # Get the images from a directory
-            theCamera = CameraFile(directory=arguments.input, TYPE=constants.ImageType.RGB.name)
-            theCamera.gsd = int(options.option(constants.PROPERTY_SECTION_POST_EMITTER, constants.PROPERTY_IMAGE_HEIGHT))
-        else:
-            # Get the images from an actual camera
-            cameraIP = options.option(constants.PROPERTY_SECTION_POST_EMITTER, constants.PROPERTY_CAMERA_IP)
-            # The version of the BaslerCamera defined here
-            #theCamera = _CameraBasler(ip=cameraIP)
-            # Use these when employing a callback method
-            configurationEvents = ConfigurationEventPrinter()
-            imageEvents = ImageEvents()
-            theCamera = CameraBasler(ip=cameraIP,
-                                     capture=constants.CAPTURE_STRATEGY_QUEUED,
-                                     image=imageEvents,
-                                     configuration=configurationEvents)
-            theCamera.position = position
-        # The version that does not use callbacks
-        # theCamera = CameraBasler(ip=cameraIP, capture=constants.CAPTURE_STRATEGY_QUEUED)
-
-        # Set the ground sampling distance, so we know when to take a picture
-        theCamera.gsd = int(options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_IMAGE_WIDTH))
+    # Set the ground sampling distance, so we know when to take a picture
+    theCamera.gsd = int(options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_IMAGE_WIDTH))
 
     # Test the camera
     diagnosticResult, diagnosticText = theCamera.diagnostics()
@@ -1687,9 +865,7 @@ def startupCamera(options: OptionsFile, position: constants.PositionWithEmitter)
         print(diagnosticText)
         sys.exit(1)
 
-
     return theCamera
-
 
 
 def startupPerformance() -> Performance:
@@ -1704,6 +880,7 @@ def startupPerformance() -> Performance:
         sys.exit(1)
     return performance
 
+
 #
 # Z e r o M Q  C O M M U N I C A T I O N S
 #
@@ -1716,16 +893,19 @@ def startupMQCommunications(options: OptionsFile, processMessage: Callable) -> C
     :return: ClientMQCommunicator
     """
     try:
-        communicator = ClientMQCommunicator(SERVER=options.option(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_SERVER),
-                                            PORT=constants.PORT_ODOMETRY)
+        communicator = ClientMQCommunicator(
+            SERVER=options.option(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_SERVER),
+            PORT=constants.PORT_ODOMETRY)
     except KeyError:
-        log.error("Unable to find {}/{} in ini file".format(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_SERVER))
+        log.error(
+            "Unable to find {}/{} in ini file".format(constants.PROPERTY_SECTION_ODOMETER, constants.PROPERTY_SERVER))
         communicator = None
 
     communicator.connect()
     communicator.callback = processMessage
 
     return communicator
+
 
 #
 # X M P P   C O M M U N I C A T I O N S
@@ -1734,7 +914,8 @@ def startupMQCommunications(options: OptionsFile, processMessage: Callable) -> C
 #     log.debug("Callback for distance")
 #     return
 
-def startupCommunications(options: OptionsFile, callbackOdometer: Callable, callbackSystem: Callable, callbackTreatment: Callable) -> ():
+def startupCommunications(options: OptionsFile, callbackOdometer: Callable, callbackSystem: Callable,
+                          callbackTreatment: Callable) -> ():
     """
 
     :param options:
@@ -1768,54 +949,35 @@ def startupCommunications(options: OptionsFile, callbackOdometer: Callable, call
     treatmentRoom = MUCCommunicator(options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_SERVER),
                                     options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_JID_JETSON),
                                     options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_NICK_JETSON),
-                                    options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_DEFAULT_PASSWORD),
+                                    options.option(constants.PROPERTY_SECTION_XMPP,
+                                                   constants.PROPERTY_DEFAULT_PASSWORD),
                                     options.option(constants.PROPERTY_SECTION_XMPP, constants.PROPERTY_ROOM_TREATMENT),
                                     callbackTreatment,
                                     None)
-    #print("XMPP communications started")
+    # print("XMPP communications started")
 
     return odometryRoom, systemRoom, treatmentRoom
+
+
 #
 # L O G G E R
 #
 
-def startupLogger(outputDirectory: str) -> ():
-    """
-    Initializes two logging systems: the image logger and python centric logging.
-    :param outputDirectory: The output directory for the images
-    :return: The image logger instance
-    """
-
-    # The command line argument contains the name of the YAML configuration file.
-
-    # Confirm the INI exists
-    if not os.path.isfile(arguments.logging):
-        print("Unable to access logging configuration file {}".format(arguments.logging))
-        sys.exit(1)
 
 
-    # Initialize logging
-    logging.config.fileConfig(arguments.logging)
-    log = logging.getLogger("jetson")
-
-    logger = Logger()
-    if not logger.connect(outputDirectory):
-        print("Unable to connect to logging. ./output does not exist.")
-        sys.exit(1)
-    return (logger, log)
 
 def resample(index: np.ndarray, targetX: int, targetY: int) -> np.ndarray:
     # Hardcode this for now -- depth is 1280x720, and we want 1920x1080
 
-    #z = (1920 / 1280, 1080 / 720)
+    # z = (1920 / 1280, 1080 / 720)
     z = (targetY / 1920, targetX / 1080)
 
     transformed = scipy.ndimage.zoom(index, z, order=0)
     return transformed
 
+
 # The plotly version
 def plot3D(index: np.ndarray, title: str):
-
     if not supportsPlotting:
         log.error("Unable to produce plots on this platform")
         return
@@ -1830,8 +992,8 @@ def plot3D(index: np.ndarray, title: str):
     fig = go.Figure(data=[go.Surface(x=xi, y=yi, z=subset)])
 
     # Can't get these to work
-    #fig = go.Figure(data=[go.Mesh3d(x=xi, y=yi, z=subset, color='lightpink', opacity=0.50)])
-    #fig = go.Figure(data=go.Isosurface(x=xi, y=yi,z=subset, isomin=-1, isomax=1))
+    # fig = go.Figure(data=[go.Mesh3d(x=xi, y=yi, z=subset, color='lightpink', opacity=0.50)])
+    # fig = go.Figure(data=go.Isosurface(x=xi, y=yi,z=subset, isomin=-1, isomax=1))
 
     fig.update_layout(title=title, autosize=False,
                       width=1000, height=1000,
@@ -1839,33 +1001,31 @@ def plot3D(index: np.ndarray, title: str):
 
     fig.show()
 
+
 # The matplotlib version is very slow to visualize and then rotate.
 def plot3Dmatplotlib(index, title):
-
     if not supportsPlotting:
         log.error("Unable to produce plots on this platform")
         return
 
     downsampled = resample(index, 720, 1280)
 
-    yLen,xLen = downsampled.shape
+    yLen, xLen = downsampled.shape
     x = np.arange(0, xLen, 1)
     y = np.arange(0, yLen, 1)
-    log.debug("3D plot x: {} y: {}".format(x,y))
+    log.debug("3D plot x: {} y: {}".format(x, y))
 
     x, y = np.meshgrid(x, y)
 
-    fig = plt.figure(figsize=(10,10))
-    axes = fig.gca(projection ='3d')
+    fig = plt.figure(figsize=(10, 10))
+    axes = fig.gca(projection='3d')
     plt.title(title)
     axes.scatter(x, y, downsampled, c=downsampled.flatten(), cmap='BrBG', s=0.25)
     plt.show()
     cv.waitKey()
 
-def readINI() -> OptionsFile:
-    options = OptionsFile(arguments.ini)
-    options.load()
-    return options
+
+
 
 # Keep track of attributes in processing
 
@@ -1891,43 +1051,48 @@ sequence = 0
 
 # Initialize logistic regression only if the user specified a data file
 
+selections = [e.strip() for e in options.option(constants.PROPERTY_SECTION_IMAGE_PROCESSING, constants.PROPERTY_FACTORS).split(',')]
+log.debug(f"Selected parameters from INI file: {selections}")
+
 if arguments.logistic:
     try:
         classifier = LogisticRegressionClassifier()
         classifier.loadSelections(arguments.selection)
+        #classifier.selections = selections
+        log.debug(f"Loaded selections: {classifier.selections}")
         classifier.load(arguments.data, stratify=False)
         classifier.createModel(arguments.score)
-        #classifier.scatterPlotDataset()
+        # classifier.scatterPlotDataset()
     except FileNotFoundError:
         print("Regression data file %s not found\n" % arguments.regression)
         sys.exit(1)
 elif arguments.knn:
-   classifier = KNNClassifier()
-   # Load selected parameters
-   classifier.loadSelections(arguments.selection)
-   classifier.load(arguments.data, stratify=False)
-   classifier.createModel(arguments.score)
+    classifier = KNNClassifier()
+    # Load selected parameters
+    classifier.loadSelections(arguments.selection)
+    classifier.load(arguments.data, stratify=False)
+    classifier.createModel(arguments.score)
 elif arguments.tree:
-   classifier = DecisionTree()
-   # Load selected parameters
-   classifier.loadSelections(arguments.selection)
-   classifier.load(arguments.data, stratify=False)
-   classifier.createModel(arguments.score)
-   classifier.visualize()
+    classifier = DecisionTree()
+    # Load selected parameters
+    classifier.loadSelections(arguments.selection)
+    classifier.load(arguments.data, stratify=False)
+    classifier.createModel(arguments.score)
+    classifier.visualize()
 elif arguments.forest:
-   classifier = RandomForest()
-   # Load selected parameters
-   classifier.loadSelections(arguments.selection)
-   classifier.load(arguments.data, stratify=True)
-   classifier.createModel(arguments.score)
-   classifier.visualize()
+    classifier = RandomForest()
+    # Load selected parameters
+    classifier.loadSelections(arguments.selection)
+    classifier.load(arguments.data, stratify=True)
+    classifier.createModel(arguments.score)
+    classifier.visualize()
 elif arguments.gradient:
-   classifier = GradientBoosting()
-   # Load selected parameters
-   classifier.loadSelections(arguments.selection)
-   classifier.load(arguments.data, stratify=False)
-   classifier.createModel(arguments.score)
-   classifier.visualize()
+    classifier = GradientBoosting()
+    # Load selected parameters
+    classifier.loadSelections(arguments.selection)
+    classifier.load(arguments.data, stratify=False)
+    classifier.createModel(arguments.score)
+    classifier.visualize()
 elif arguments.support:
     classifier = SuppportVectorMachineClassifier()
     # Load selected parameters
@@ -1964,8 +1129,6 @@ elif constants.NAME_NONE in arguments.decorations:
 else:
     featuresToShow = [arguments.decorations]
 
-
-
 # The contours are a bit distracting
 if arguments.contours:
     featuresToShow.append(constants.NAME_CONTOUR)
@@ -1975,7 +1138,9 @@ imageNumberIntel = 0
 processing = False
 processingOdometry = False
 
-def nullProcessor(contextForImage: Context, captureType: constants.Capture, capturePosition: constants.PositionWithEmitter) -> bool:
+
+def nullProcessor(contextForImage: Context, captureType: constants.Capture,
+                  capturePosition: constants.PositionWithEmitter) -> bool:
     """
     The null processor ignores context.  Just puts an empty file on disk for the capture type.
     :param contextForImage:
@@ -2008,13 +1173,15 @@ def nullProcessor(contextForImage: Context, captureType: constants.Capture, capt
     imageNumberBasler += 1
     return True
 
-def storeImage(contextForImage: Context, captureType: constants.Capture, capturePosition: constants.PositionWithEmitter) -> bool:
+
+def storeImage(contextForImage: Context, captureType: constants.Capture,
+               capturePosition: constants.PositionWithEmitter) -> bool:
     global imageNumberBasler
     global imageNumberIntel
     global intelCaptureType
 
     if not processing:
-        #log.debug("Not collecting images (This is normal if the weeding has not started")
+        # log.debug("Not collecting images (This is normal if the weeding has not started")
         return False
 
     log.info("Storing image {} type {} position {}".format(imageNumberBasler, captureType, capturePosition))
@@ -2029,56 +1196,7 @@ def storeImage(contextForImage: Context, captureType: constants.Capture, capture
 
     start = time.time()
     if captureType == constants.Capture.DEPTH_RGB:
-        # The RGB image from the Intel camera
-        if rgbDepthCamera.connected:
-            try:
-                performance.start()
-                # Capture the image from the Intel Camera
-                rgbDepth = rgbDepthCamera.capture()
-                performance.stopAndRecord(constants.PERF_ACQUIRE_INTEL_RGB)
-
-                # DEPTH data
-                imageName = "{}-{}-{:05d}".format(constants.FILENAME_INTEL_DEPTH, options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_POSITION), imageNumberIntel)
-                #depthPath = os.path.join(logger.directory, imageName)
-                depthPath = os.path.join(arguments.output + "/" + currentSessionName + "/", imageName)
-
-                processedImage = ProcessedImage(constants.Capture.DEPTH_DEPTH, rgbDepth.depth, 0)
-                processedImage.filename = depthPath
-                processedImage.make = "intel"
-                processedImage.model = "435"
-                processedImage.exposure = contextForImage.exposure
-                processedImage.latitude = contextForImage.latitude
-                processedImage.longitude = contextForImage.longitude
-                processedImage.urlFilename = currentSessionName + "/" + imageName
-                # Put the image into the queue for further processing
-                rawImages.enqueue(processedImage)
-                log.debug(f"Added Intel depth image to queue in {time.time() - start} seconds")
-
-                # Store the RGB images from the intel camera
-                if intelCaptureType == constants.IntelCapture.RGBDEPTH:
-                    imageName = "{}-intel-{}-{:05d}".format(constants.FILENAME_RAW, options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_POSITION), imageNumberIntel)
-                    #rgbPath = os.path.join(logger.directory, imageName)
-                    rgbPath = os.path.join(arguments.output + "/" + currentSessionName + "/", imageName)
-
-                    processedImage = ProcessedImage(constants.Capture.DEPTH_RGB, rgbDepth.rgb, 0)
-                    processedImage.urlFilename = currentSessionName + "/" + imageName
-                    processedImage.filename = rgbPath
-                    processedImage.make = "intel"
-                    processedImage.model = "435"
-                    processedImage.exposure = contextForImage.exposure
-                    processedImage.latitude = contextForImage.latitude
-                    processedImage.longitude = contextForImage.longitude
-                    # Put the image into the queue for further processing
-                    rawImages.enqueue(processedImage)
-                    log.debug(f"Added Intel RGB image to queue in {time.time() - start} seconds")
-
-                imageNumberIntel += 1
-            except IOError as e:
-                log.fatal("Cannot capture RGB data ({})".format(e))
-            except CameraError as cam:
-                log.error("Error seen in camera stream")
-        else:
-            depthData = None
+        pass
 
     elif captureType == constants.Capture.RGB:
         performance.start()
@@ -2092,7 +1210,9 @@ def storeImage(contextForImage: Context, captureType: constants.Capture, capture
         performance.stopAndRecord(constants.PERF_ACQUIRE_BASLER_RGB)
 
         # Set the context and enqueue the image
-        imageName = "{}-basler-{}-{:05d}".format(imageNamePrefix, options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_POSITION), imageNumberBasler)
+        imageName = "{}-basler-{}-{:05d}".format(imageNamePrefix, options.option(constants.PROPERTY_SECTION_GENERAL,
+                                                                                 constants.PROPERTY_POSITION),
+                                                 imageNumberBasler)
         imagePath = os.path.join(logger.directory, imageName)
 
         processed = ProcessedImage(constants.Capture.RGB, rawImage, 0)
@@ -2114,7 +1234,9 @@ def storeImage(contextForImage: Context, captureType: constants.Capture, capture
 
     return True
 
+
 mmPerPixel = 0.01
+
 
 def processImage(contextForImage: Context) -> constants.ProcessResult:
     global imageNumberBasler
@@ -2122,9 +1244,6 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
     global previousImage
 
     try:
-
-        if arguments.verbose:
-            print("Processing image " + str(imageNumberBasler))
         log.info("Processing image " + str(imageNumberBasler))
         performance.start()
 
@@ -2143,31 +1262,16 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
 
         performance.stopAndRecord(constants.PERF_ACQUIRE_BASLER_RGB)
 
-        #ImageManipulation.show("Source",image)
+        # ImageManipulation.show("Source",image)
         veg.SetImage(rawImage)
-
-        # Attempt to capture the depth data if connected
-        if rgbDepthCamera.connected:
-            try:
-                depthData = rgbDepthCamera.capture()
-            except EOFError as eof:
-                # This case is where we just hit the end of an image set from disk
-                log.info("Encountered end of image set")
-                return constants.ProcessResult.EOF
-            except IOError as io:
-                # This is the case where something went wrong with a grab from a camera
-                log.error("Encountered I/O Error for depth camera: {}".format(io))
-                return constants.ProcessResult.INTERNAL_ERROR
-        else:
-            log.warning("Depth camera is not connected")
 
         performance.stopAndRecord(constants.PERF_ACQUIRE_BASLER_RGB)
 
         manipulated = ImageManipulation(rawImage, imageNumberBasler, logger)
         logger.logImage(constants.FILENAME_RAW, manipulated.image)
 
-        #manipulated.mmPerPixel = mmPerPixel
-        #ImageManipulation.show("Greyscale", manipulated.toGreyscale())
+        # manipulated.mmPerPixel = mmPerPixel
+        # ImageManipulation.show("Greyscale", manipulated.toGreyscale())
 
         # TODO: Simply this to just imsge=brg.GetMaskedImage(results.algorithm)
         # Compute the index using the requested algorithm
@@ -2175,40 +1279,41 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
         index = veg.Index(arguments.algorithm)
         performance.stopAndRecord(constants.PERF_INDEX)
 
-        #ImageManipulation.show("index", index)
-        #cv.imwrite("index.jpg", index)
-        if arguments.plot:   plot3D(index, arguments.algorithm)
+        # ImageManipulation.show("index", index)
+        # cv.imwrite("index.jpg", index)
+        if arguments.plot:
+            plot3D(index, arguments.algorithm)
 
         # Get the mask
-        #mask, threshold = veg.MaskFromIndex(index, True, 1, results.threshold)
+        # mask, threshold = veg.MaskFromIndex(index, True, 1, results.threshold)
         mask, threshold = veg.MaskFromIndex(index, not arguments.nonegate, 1, arguments.threshold)
 
         veg.applyMask()
         # This is the slow call
-        #image = veg.GetMaskedImage()
+        # image = veg.GetMaskedImage()
         image = veg.GetImage()
         normalized = np.zeros_like(image)
-        finalImage = cv.normalize(image,  normalized, 0, 255, cv.NORM_MINMAX)
+        finalImage = cv.normalize(image, normalized, 0, 255, cv.NORM_MINMAX)
         if arguments.mask:
             filledMask = mask.copy().astype(np.uint8)
-            cv.floodFill(filledMask, None, (0,0),255)
+            cv.floodFill(filledMask, None, (0, 0), 255)
             filledMaskInverted = cv.bitwise_not(filledMask)
             manipulated.toGreyscale()
-            threshold, imageThresholded = cv.threshold(manipulated.greyscale, 0,255, cv.THRESH_BINARY_INV)
+            threshold, imageThresholded = cv.threshold(manipulated.greyscale, 0, 255, cv.THRESH_BINARY_INV)
             finalMask = cv.bitwise_not(filledMaskInverted)
             logger.logImage("processed", finalImage)
-            #veg.ShowImage("Thresholded", imageThresholded)
+            # veg.ShowImage("Thresholded", imageThresholded)
             logger.logImage("inverted", filledMaskInverted)
-            #veg.ShowImage("Filled", filledMask)
-            #veg.ShowImage("Inverted", filledMaskInverted)
-            #veg.ShowImage("Final", finalMask)
+            # veg.ShowImage("Filled", filledMask)
+            # veg.ShowImage("Inverted", filledMaskInverted)
+            # veg.ShowImage("Final", finalMask)
             logger.logImage("final", finalMask)
-            #plt.imshow(veg.imageMask, cmap='gray', vmin=0, vmax=1)
-            #plt.imshow(finalImage)
+            # plt.imshow(veg.imageMask, cmap='gray', vmin=0, vmax=1)
+            # plt.imshow(finalImage)
 
-        #print("X={}".format(x))            #plt.show()
-            #logger.logImage("mask", veg.imageMask)
-        #ImageManipulation.show("Masked", image)
+        # print("X={}".format(x))            #plt.show()
+        # logger.logImage("mask", veg.imageMask)
+        # ImageManipulation.show("Masked", image)
 
         manipulated = ImageManipulation(finalImage, imageNumberBasler, logger)
         manipulated.mmPerPixel = mmPerPixel
@@ -2229,7 +1334,14 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
 
         # Find the plants in the image
         performance.start()
-        contours, hierarchy, blobs, largest = manipulated.findBlobs(arguments.minarea)
+        strategy = constants.Strategy.CARTOON
+        try:
+            strategy = constants.Strategy[arguments.strategy]
+        except ValueError:
+            log.error(f"Unknown strategy: {arguments.strategy}")
+
+        contours, hierarchy, blobs, largest = manipulated.findBlobs(arguments.minarea, strategy)
+        log.debug("Found blobs: {}".format(len(blobs)))
         performance.stopAndRecord(constants.PERF_CONTOURS)
 
         # The test should probably be if we did not find any blobs
@@ -2244,6 +1356,15 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
         # Set the classifier blob set to be the set just identified
         classifier.blobs = blobs
 
+        # G L C M
+        performance.start()
+        # This takes too long and is not needed right now
+        # manipulated.fitSquares(SQUARE_SIZE)
+        # manipulated.drawSquares(SQUARE_SIZE)
+        performance.start()
+        manipulated.extractImages()
+        manipulated.computeGLCM()
+        performance.stopAndRecord(constants.PERF_GLCM)
 
         performance.start()
         manipulated.computeShapeIndices()
@@ -2264,11 +1385,17 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
         manipulated.computeConvexity()
         manipulated.computeSolidity()
         performance.stopAndRecord(constants.PERF_SHAPES)
+
+        # # GLCM attributes
+        # theGLCM = GLCM(blobs, manipulated.greyscale)
+        # theGLCM.computeAttributes()
+
         # End image analysis
 
         # Classify items by where they are in image
         # This only marks items that can't be fully seen (at edges) of image
-        classifier.classifyByPosition(size=manipulated.image.shape)
+        if arguments.edge:
+            classifier.classifyByPosition(size=manipulated.image.shape)
 
         # Determine the distance from the object to the edge of the image given  the pixel size of the camera
         performance.start()
@@ -2277,9 +1404,8 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
 
         classifiedBlobs = classifier.blobs
 
-
         performance.start()
-        #manipulated.findAngles()
+        # manipulated.findAngles()
         manipulated.findCropLine()
         performance.stopAndRecord(constants.PERF_ANGLES)
 
@@ -2311,7 +1437,7 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
         manipulated.extractImagesFrom(manipulated.ycbcr, 1, constants.NAME_BLUE_DIFFERENCE, np.nanmean)
         performance.stopAndRecord(constants.PERF_MEAN)
 
-        #Use either heuristics or logistic regression
+        # Use either heuristics or logistic regression
         if arguments.logistic or arguments.knn or arguments.tree or arguments.forest or arguments.gradient:
             performance.start()
             classifier.classify()
@@ -2323,18 +1449,18 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
             performance.stopAndRecord(constants.PERF_CLASSIFY)
 
         # Draw boxes around the images we found with decorations for attributes selected
-        #manipulated.drawBoundingBoxes(contours)
+        # manipulated.drawBoundingBoxes(contours)
         manipulated.drawBoxes(manipulated.name, classifiedBlobs, featuresToShow)
 
         # Eliminate vegetation we would damage
         classifier.classifyByDamage(classifiedBlobs)
 
-        #logger.logImage("cropline", manipulated.croplineImage)
+        # logger.logImage("cropline", manipulated.croplineImage)
         # This is using the hough transform which we abandoned as a technique
-        #manipulated.detectLines()
-        #TODO: Draw crop line as part of image decoration
+        # manipulated.detectLines()
+        # TODO: Draw crop line as part of image decoration
         manipulated.drawCropline()
-        #logger.logImage("crop-line", manipulated.croplineImage)
+        # logger.logImage("crop-line", manipulated.croplineImage)
         if arguments.contours:
             manipulated.drawContours()
 
@@ -2356,17 +1482,20 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
                 previousImage = image
 
         # Write out the processed image
-        #cv.imwrite("processed.jpg", manipulated.image)
-        logger.logImage("processed", manipulated.image)
-        logger.logImage("original", manipulated.original)
-        #ImageManipulation.show("Greyscale", manipulated.toGreyscale())
+        # cv.imwrite("processed.jpg", manipulated.image)
+        logger.logImage(constants.FILENAME_PROCESSED, manipulated.image)
+        logger.logImage(constants.FILENAME_ORIGINAL, manipulated.original)
+        # ImageManipulation.show("Greyscale", manipulated.toGreyscale())
 
         # Write out the crop images so we can use them later
         if arguments.xtract:
-            manipulated.extractImages(classifiedAs=constants.TYPE_DESIRED)
+            manipulated.extractImages()
             for blobName, blobAttributes in manipulated.blobs.items():
                 if blobAttributes[constants.NAME_TYPE] == constants.TYPE_DESIRED:
                     logger.logImage("crop", blobAttributes[constants.NAME_IMAGE])
+                else:
+                    logger.logImage("weed", blobAttributes[constants.NAME_IMAGE])
+
 
         reporting.addBlobs(sequence, blobs)
         sequence = sequence + 1
@@ -2378,7 +1507,7 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
             treatment = Treatment(manipulated.original, manipulated.binary)
             treatment.overlayTreatmentLanes()
             treatment.generatePlan(classifiedBlobs)
-            #treatment.drawTreatmentLanes(classifiedBlobs)
+            # treatment.drawTreatmentLanes(classifiedBlobs)
             performance.stopAndRecord(constants.PERF_TREATMENT)
             logger.logImage("treatment", treatment.image)
 
@@ -2396,21 +1525,23 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
         reporting.showHistogram("Areas", 20, constants.NAME_AREA)
         reporting.showHistogram("Shape", 20, constants.NAME_SHAPE_INDEX)
 
+    logger.increment()
+
     return constants.ProcessResult.OK
+
 
 #
 # Set up the processor for the image.
 #
 # This could be simplified a bit by having only one processing routine
 # and figuring out the intent there
-if arguments.null:
-    processor = nullProcessor
-elif arguments.grab:
+if arguments.grab:
     # If all we want is just to take pictures
     processor = storeImage
 else:
     # This is the normal run state, where items in images are classified
     processor = processImage
+
 
 def postWeedingCleanup():
     global processing
@@ -2422,7 +1553,6 @@ def postWeedingCleanup():
 
     path = options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_ROOT) + "/output"
     root = options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_ROOT)
-
 
     # Move the log file over to the output directory
     try:
@@ -2437,7 +1567,8 @@ def postWeedingCleanup():
         log.critical(oserr)
 
     # Write session data out as an INI file
-    finished = os.path.join(logger.directory, options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_FILENAME_FINISHED))
+    finished = os.path.join(logger.directory,
+                            options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_FILENAME_FINISHED))
     log.debug("Writing session statistics to: {}".format(finished))
     sessionInfo = configparser.ConfigParser()
     sessionInfo[constants.PROPERTY_SECTION_GENERAL] = {'ACQUIRED': 'imageNumber'}
@@ -2450,6 +1581,7 @@ def postWeedingCleanup():
 
     processing = False
 
+
 def sendCurrentOperation(systemRoom: MUCCommunicator):
     systemMessage = SystemMessage()
     systemMessage.action = constants.Action.ACK.name
@@ -2458,9 +1590,11 @@ def sendCurrentOperation(systemRoom: MUCCommunicator):
         position = options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_POSITION)
         systemMessage.position = position
     except KeyError:
-        log.error("Can't find {}/{} in ini file".format(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_POSITION))
+        log.error(
+            "Can't find {}/{} in ini file".format(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_POSITION))
 
     systemRoom.sendMessage(systemMessage.formMessage())
+
 
 def runDiagnostics(systemRoom: MUCCommunicator, camera: Camera):
     """
@@ -2475,18 +1609,19 @@ def runDiagnostics(systemRoom: MUCCommunicator, camera: Camera):
         position = options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_POSITION)
         systemMessage.position = position
     except KeyError:
-        log.error("Can't find {}/{} in ini file".format(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_POSITION))
+        log.error(
+            "Can't find {}/{} in ini file".format(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_POSITION))
 
     # Include the status of system components in the report
     systemMessage.statusCamera = camera.status.name
     systemMessage.statusSystem = systemStatus.name
-    systemMessage.statusIntel = intel435Status.name
     systemMessage.statusOdometry = odometryStatus.name
 
     # TODO: Correct hard coded status
     systemMessage.statusSystem = constants.OperationalStatus.OK.name
 
     systemRoom.sendMessage(systemMessage.formMessage())
+
 
 totalMovement = 0.0
 keepAliveMessages = 0
@@ -2500,6 +1635,7 @@ odometryMessageCount = 0
 # Setting this to -1 means the first message will be processed
 currentSequenceNumberForOdometry = -1
 
+
 def messageIsCurrent(timestamp: int) -> bool:
     """
     Determine if a message is old or current
@@ -2510,11 +1646,12 @@ def messageIsCurrent(timestamp: int) -> bool:
     # log.debug("Time delta of message: {} ns".format(timeDelta))
     return timeDelta < constants.OLD_MESSAGE
 
+
 #
 # The callback for messages received in the system room.
 # When the total distance is the width of the image, grab an image and process it.
 #
-def messageSystemCB(conn,msg: xmpp.protocol.Message):
+def messageSystemCB(conn, msg: xmpp.protocol.Message):
     global logger
     global processing
     global outputDirectory
@@ -2535,7 +1672,7 @@ def messageSystemCB(conn,msg: xmpp.protocol.Message):
                     currentOperation = systemMessage.operation
                     outputDirectory = arguments.output + "/" + currentSessionName
                     log.debug("Begin processing to: {}".format(outputDirectory))
-                    logger = Logger()
+                    logger = ImageLogger()
                     if not logger.connect(outputDirectory):
                         log.error("Unable to connect to logging. {} does not exist.".format(outputDirectory))
                 if systemMessage.action == constants.Action.STOP.name:
@@ -2571,15 +1708,15 @@ def processOdometryMessage(message: str):
     global odometryMessageCount
 
     performance.start()
-    #log.debug("RAW message: {}".format(message))
+    # log.debug("RAW message: {}".format(message))
     odometryMessage = OdometryMessage(raw=message)
 
     # We are only concerned with distance messages here
     if odometryMessage.type == constants.OdometryMessageType.DISTANCE.name:
         # This assumes we haven't missed any messages
-        #totalMovement += odometryMessage.distance
-        #movementSinceLastProcessing += odometryMessage.distance
-        #movementSinceLastProcessingForIntel += odometryMessage.distance
+        # totalMovement += odometryMessage.distance
+        # movementSinceLastProcessing += odometryMessage.distance
+        # movementSinceLastProcessingForIntel += odometryMessage.distance
 
         totalMovement = odometryMessage.totalDistance
         movementSinceLastProcessing = totalMovement - distanceAtLastBaslerProcessing
@@ -2591,7 +1728,7 @@ def processOdometryMessage(message: str):
             return
         # If the sequence number is the same as the last one, ignore
         elif odometryMessage.sequence == currentSequenceNumberForOdometry:
-            #log.debug("Sequence number {} already processed.".format(currentSequenceNumberForOdometry))
+            # log.debug("Sequence number {} already processed.".format(currentSequenceNumberForOdometry))
             return
         # Missed a message -- update the current sequence and process
         elif odometryMessage.sequence != currentSequenceNumberForOdometry + 1:
@@ -2605,9 +1742,11 @@ def processOdometryMessage(message: str):
 
             if odometryMessageCount > 0:
                 if movementSinceLastProcessing > (gsdBasler * (1 + overlapFactor)):
-                    log.fatal("Missed movement exceeds GSD + overlap of Basler: {} Message gap {}".format(movementSinceLastProcessing, gap))
+                    log.fatal("Missed movement exceeds GSD + overlap of Basler: {} Message gap {}".format(
+                        movementSinceLastProcessing, gap))
                 if movementSinceLastProcessingForIntel > (gsdIntel * (1 + overlapFactor)):
-                    log.fatal("Missed movement exceeds GSD + overlap of Intel: {} Message gap {}".format(movementSinceLastProcessingForIntel, gap))
+                    log.fatal("Missed movement exceeds GSD + overlap of Intel: {} Message gap {}".format(
+                        movementSinceLastProcessingForIntel, gap))
 
             currentSequenceNumberForOdometry = odometryMessage.sequence
         # Normal case
@@ -2635,7 +1774,8 @@ def processOdometryMessage(message: str):
         # The Basler camera
         if movementSinceLastProcessing > gsdBasler:
             distanceAtLastBaslerProcessing = totalMovement
-            log.debug("Acquiring image from Basler.  Movement since last processing {} GSD {}".format(movementSinceLastProcessing, gsdBasler))
+            log.debug("Acquiring image from Basler.  Movement since last processing {} GSD {}".format(
+                movementSinceLastProcessing, gsdBasler))
             movementSinceLastProcessing = 0
             #
             # Record the context under which this photo was taken
@@ -2649,7 +1789,8 @@ def processOdometryMessage(message: str):
 
         # The intel RGB camera
         if movementSinceLastProcessingForIntel > gsdIntel:
-            log.debug("Acquiring image from Intel Camera.  Movement since last processing {} GSD {}".format(movementSinceLastProcessingForIntel, gsdIntel))
+            log.debug("Acquiring image from Intel Camera.  Movement since last processing {} GSD {}".format(
+                movementSinceLastProcessingForIntel, gsdIntel))
             movementSinceLastProcessingForIntel = 0
             distanceAtLastIntelProcessing = totalMovement
 
@@ -2665,9 +1806,9 @@ def processOdometryMessage(message: str):
         pass
         # log.debug("Message type is not distance. Ignored")
 
-
     # Too noisy -- less than 0.25 ms on the jetsons.  Good enough
-    #log.debug("Processed odometry message: {} ms".format(performance.stop()))
+    # log.debug("Processed odometry message: {} ms".format(performance.stop()))
+
 
 #
 # The callback for messages received in the odometry room.
@@ -2699,53 +1840,6 @@ def messageOdometryCB(conn, msg: xmpp.protocol.Message):
                 # We are only concerned with distance messages here
                 if odometryMessage.type == constants.OdometryMessageType.DISTANCE.name:
                     pass
-                #     totalMovement += odometryMessage.distance
-                #     movementSinceLastProcessing += odometryMessage.distance
-                #     movementSinceLastProcessingForIntel += odometryMessage.distance
-                #     # The time of the observation
-                #     timeRead = odometryMessage.timestamp
-                #     # Determine how old the observation is
-                #     # The version of python on the jetson does not support time_ns, so this a bit of a workaround until I
-                #     # get that sorted out.  Just convert the reading to milliseconds for now
-                #     #timeDelta = (time.time() * 1000) - (timeRead / 1000000)
-                #     timeDelta = (time.time() * 1000) - timeRead
-                #
-                #     # If the movement is equal to the size of the image, take a picture
-                #     # We need to allow for some overlap so the images can be stitched together.
-                #     # So reduce this by the overlap factor
-                #     # TODO: Optimize by moving this calculation out
-                #     gsdBasler = (1 - float(options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_OVERLAP_FACTOR))) * camera.gsd
-                #     gsdIntel = (1 - float(options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_OVERLAP_FACTOR))) * rgbDepthCamera.gsd
-                #     #
-                #     # log.debug("Total movement: {} at time: {}. Movement: {} GSD [Basler: {} Intel: {}] Time now is {} delta from now {} ms".
-                #     #           format(totalMovement, timeRead, movementSinceLastProcessing, gsdBasler, gsdIntel, time.time() * 1000, timeDelta))
-                #
-                #     # The Basler camera
-                #     if movementSinceLastProcessing > gsdBasler:
-                #         log.debug("Acquiring image from Basler.  Movement since last processing {} GSD {}".format(movementSinceLastProcessing, gsdBasler))
-                #         movementSinceLastProcessing = 0
-                #
-                #         # Record the context under which this photo was taken
-                #         contextForImage = Context()
-                #         contextForImage.latitude = odometryMessage.latitude
-                #         contextForImage.longitude = odometryMessage.longitude
-                #         # Convert to kilometers
-                #         contextForImage.speed = odometryMessage.speed / 1e+6
-                #         # contextForPhoto.model
-                #         processor(contextForImage, constants.Capture.RGB)
-                #     # The intel RGB camera
-                #     elif movementSinceLastProcessingForIntel > gsdIntel:
-                #         log.debug("Acquiring image from Intel Camera.  Movement since last processing {} GSD {}".format(movementSinceLastProcessingForIntel, gsdIntel))
-                #         movementSinceLastProcessingForIntel = 0
-                #
-                #         # Record the context under which this photo was taken
-                #         contextForImage = Context()
-                #         contextForImage.latitude = odometryMessage.latitude
-                #         contextForImage.longitude = odometryMessage.longitude
-                #         # Convert to kilometers
-                #         contextForImage.speed = odometryMessage.speed / 1e+6
-                #         # contextForPhoto.model
-                #         processor(contextForImage, constants.Capture.DEPTH_RGB)
                 else:
                     pass
                     # log.debug("Message type is not distance. Ignored")
@@ -2754,7 +1848,7 @@ def messageOdometryCB(conn, msg: xmpp.protocol.Message):
         else:
             # There's not much to do here for keepalive messages
             keepAliveMessages += 1
-            #print("weeds: keepalive message from chatroom")
+            # print("weeds: keepalive message from chatroom")
     elif msg.getType() == "chat":
         log.error("Private Message from {}: {} ".format(str(msg.getFrom()), str(msg.getBody())))
     else:
@@ -2762,10 +1856,11 @@ def messageOdometryCB(conn, msg: xmpp.protocol.Message):
 
     log.debug("Processed odometry message: {} ms".format(performance.stop()))
 
+
 # The callback for messages received in the system room.
 # When the total distance is the width of the image, grab an image and process it.
 #
-def messageTreatmentCB(conn,msg: xmpp.protocol.Message):
+def messageTreatmentCB(conn, msg: xmpp.protocol.Message):
     # Make sure this is a message sent to the room, not directly to us
     if msg.getType() == "groupchat":
         body = msg.getBody()
@@ -2773,9 +1868,10 @@ def messageTreatmentCB(conn,msg: xmpp.protocol.Message):
         # if body is not None:
         #     log.debug("treatment message from {}: [{}]".format(msg.getFrom(), msg.getBody()))
     elif msg.getType() == "chat":
-            print("private: " + str(msg.getFrom()) +  ":" +str(msg.getBody()))
+        print("private: " + str(msg.getFrom()) + ":" + str(msg.getBody()))
     else:
         log.error("Unknown message type {}".format(msg.getType()))
+
 
 def connectMQ(communicator: ClientMQCommunicator) -> bool:
     global odometryStatus
@@ -2793,6 +1889,7 @@ def connectMQ(communicator: ClientMQCommunicator) -> bool:
                 log.info("Odometry server responded successfully after retry")
                 odometryStatus = constants.OperationalStatus.OK
     return serverResponding
+
 
 #
 # Process the incoming MQ stream
@@ -2822,6 +1919,7 @@ def processMQ(communicator: ClientMQCommunicator):
             communicator.disconnect()
             connectMQ(communicator)
 
+
 #
 #
 # This method will never return.  Connect and start processing messages
@@ -2846,52 +1944,11 @@ def processMessages(communicator: MUCCommunicator):
             log.fatal("Unable to authenticate using parameters")
             processing = False
 
-def takeDepthImages(camera: CameraDepth):
-    """
-    Take depth images from the Intel 435 camera
-    :param camera: CameraDepth instance
-    :return:
-    """
-    global intel435Status
-    cameraConnected = False
-
-
-    if camera is None:
-        log.error("Depth camera is not created")
-        return cameraConnected
-
-    # Connect to the camera and take an image
-    log.debug("Connecting to depth camera")
-    cameraConnected = camera.connect()
-
-    if cameraConnected:
-        if isinstance(camera, CameraDepth):
-            camera._state.toClaim()
-            camera.initialize()
-            camera.start()
-
-            if camera.initializeCapture():
-                try:
-                    camera.startCapturing()
-                except IOError as io:
-                    camera.log.error(io)
-                rc = 0
-            else:
-                log.fatal("Unable to initialize depth camera")
-                rc = -1
-        else:
-            log.error("Not a depth camera")
-            intel435Status = constants.OperationalStatus.FAIL
-    else:
-        log.error("Unable to connect to depth camera")
-        intel435Status = constants.OperationalStatus.FAIL
-
 
 #
 # Take the images -- this method will not return, only add new images to the queue
 #
 def takeRGBImages(camera: CameraBasler):
-
     cameraConnected = False
 
     if camera.ip == constants.IP_NONE:
@@ -2906,46 +1963,17 @@ def takeRGBImages(camera: CameraBasler):
 
     capturing = True
     # Temporary -- this effectively disables basler
-    #while capturing:
+    # while capturing:
     #    log.debug("Dummy basler capture loop")
     #    time.sleep(10)
     #
-    #return
+    # return
 
     cameraConnected = camera.connect()
-    #camera.start()
+    # camera.start()
 
     if cameraConnected:
         if isinstance(camera, CameraBasler):
-            # # Temporary: Do not load the configuration during debug
-            #
-            # # The camera settings are stored in files like aca-2500-gc.pfs
-            # # This will be used for call capture parameters
-            # # Get the specific settings for location and position <location>-<position>.pfs
-            # try:
-            #     location = options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_LOCATION)
-            #     position = options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_POSITION)
-            #     filename = "{}-{}.pfs".format(location, position)
-            #     log.debug("Basler configuration file: {}".format(filename))
-            # except KeyError as key:
-            #     log.error("Unable to find location/position in ini file. Expected {}/{} and {}/{}"
-            #               .format(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_LOCATION,
-            #                       constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_POSITION))
-            #     filename = camera.camera.GetDeviceInfo().GetModelName() + ".pfs"
-            #     log.error("Using camera defaults from {}".format(filename))
-            #
-            # camera.camera.Open()
-            # if not camera.load(filename):
-            #     # If we don't have a configuration, warn about this
-            #     log.warning("Unable to locate camera config {}".format(filename))
-            #
-            # # Save what was used in capture
-            # filename = "camera-" + options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_CAMERA_IP) + "-" + filename
-            # camera.save(filename)
-            # camera.camera.Close()
-            ##########################################
-
-
             if camera.initializeCapture():
                 try:
                     log.debug("Beginning Basler RGB Capture")
@@ -2965,32 +1993,6 @@ def takeRGBImages(camera: CameraBasler):
     else:
         log.error("Unable to connect to camera")
 
-def _takeImages(theCamera: CameraBasler):
-
-    # Connect to the camera and take an image
-    log.debug("Connecting to camera")
-    theCamera.connect()
-
-    # Load the configuration for the camera -- if we have one
-    filename = theCamera.camera.GetDeviceInfo().GetModelName() + ".pfs"
-    theCamera.camera.Open()
-    if not theCamera.load(filename):
-        # If we don't have a configuration, save what was used
-        filename = "default-" + filename
-        theCamera.save(filename)
-    theCamera.camera.Close()
-
-    if theCamera.initializeCapture():
-        try:
-            log.debug("Beginning capture")
-            theCamera.startCapturing()
-        except IOError as io:
-            theCamera.log.fatal("I/O error encountered in start of capture")
-            theCamera.log.error(io)
-        rc = 0
-    else:
-        log.error("Capture initialization failed.")
-        rc = -1
 
 #
 # Enrich the images on disk with the EXIF data
@@ -3043,7 +2045,8 @@ def enrichImages():
                 message.position = position
             except KeyError:
                 log.error(
-                    "Can't find {}/{} in ini file".format(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_POSITION))
+                    "Can't find {}/{} in ini file".format(constants.PROPERTY_SECTION_GENERAL,
+                                                          constants.PROPERTY_POSITION))
 
             messageText = message.formMessage()
             log.debug("Sending: {}".format(messageText))
@@ -3070,7 +2073,8 @@ def enrichImages():
                 message.position = position
             except KeyError:
                 log.error(
-                    "Can't find {}/{} in ini file".format(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_POSITION))
+                    "Can't find {}/{} in ini file".format(constants.PROPERTY_SECTION_GENERAL,
+                                                          constants.PROPERTY_POSITION))
 
             messageText = message.formMessage()
             log.debug("Sending: {}".format(messageText))
@@ -3091,8 +2095,8 @@ def enrichImages():
 
             # Use the basler routines to save the image
             # As PNG
-            #rawImage.image.Save(pylon.ImageFileFormat_Png, rawImage.filename + constants.EXTENSION_PNG)
-            #rawImage.image.Release()
+            # rawImage.image.Save(pylon.ImageFileFormat_Png, rawImage.filename + constants.EXTENSION_PNG)
+            # rawImage.image.Release()
 
             # As JPG. Bit of a pain here. JPG can't be saved on linux. Not sure why
             # ipo = pylon.ImagePersistenceOptions()
@@ -3102,7 +2106,7 @@ def enrichImages():
             # rawImage.image.Save(pylon.ImageFileFormat_Jpeg, rawImage.filename, ipo)
 
             # Use the opencv routines to save the image
-            #veg.SetImage(rawImage.image)
+            # veg.SetImage(rawImage.image)
 
             # manipulated = ImageManipulation(rawImage.image, imageNumberBasler, logger)
             # try:
@@ -3111,9 +2115,9 @@ def enrichImages():
             #     log.error("Unable to save Basler RGB")
             # End of image save using opencv
 
-            #fileName = logger.logImage(imageName, manipulated.image)
+            # fileName = logger.logImage(imageName, manipulated.image)
 
-            #enricher.addEXIFToImageAndWriteToDisk(rawImage)
+            # enricher.addEXIFToImageAndWriteToDisk(rawImage)
             performance.stopAndRecord(constants.PERF_SAVE_BASLER_RGB)
 
             # Send out a message to the treatment channel that an image has been taken and is available.
@@ -3129,7 +2133,8 @@ def enrichImages():
                 message.position = position
             except KeyError:
                 log.error(
-                    "Can't find {}/{} in ini file".format(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_POSITION))
+                    "Can't find {}/{} in ini file".format(constants.PROPERTY_SECTION_GENERAL,
+                                                          constants.PROPERTY_POSITION))
 
             messageText = message.formMessage()
             log.debug("Sending: {}".format(messageText))
@@ -3142,16 +2147,13 @@ def enrichImages():
             log.error("Unknown capture type: {}".format(rawImage.captureType))
 
 
-
-
-
 # Start up various subsystems
 #
-options = readINI()
 
 if not arguments.standalone:
     # Diagnostics will appear in the same directory structure as the output files
-    systemDiagnostics = Diagnostics("../output", options.option(constants.PROPERTY_SECTION_GENERAL, constants.PROPERTY_POSITION) + constants.EXTENSION_HTML)
+    systemDiagnostics = Diagnostics("../output", options.option(constants.PROPERTY_SECTION_GENERAL,
+                                                                constants.PROPERTY_POSITION) + constants.EXTENSION_HTML)
     systemDiagnostics.writeHTML()
 
 # Set the status of all components to failed initially
@@ -3162,50 +2164,41 @@ odometryStatus = constants.OperationalStatus.FAIL
 currentSessionName = ""
 currentOperation = constants.Operation.QUIESCENT.name
 
-(logger, log) = startupLogger(arguments.output)
-#log = logging.getLogger(__name__)
 
-# Is this the pre- or post- emitter camera?
-if arguments.weeds:
-    camera = startupCamera(options, constants.PositionWithEmitter.PRE)
-    log.debug("Basler RGB camera started. Position: {}".format(constants.PositionWithEmitter.PRE))
-else:
-    camera = startupCamera(options, constants.PositionWithEmitter.POST)
-    log.debug("Basler RGB camera started. Position: {}".format(constants.PositionWithEmitter.POST))
+# Set up image processing features
+try:
+    factors = options.option(constants.PROPERTY_SECTION_IMAGE_PROCESSING, constants.PROPERTY_FACTORS).split(',')
+    factors = [factor.strip() for factor in factors]
+    log.debug(f"Extract and use factors: {factors}")
+except KeyError:
+    log.fatal(f"Unable to find factors {constants.PROPERTY_SECTION_IMAGE_PROCESSING}/{constants.PROPERTY_FACTORS}")
+    sys.exit(-1)
 
+camera = startupCamera(options)
 
 # For analysing weeds, we collect depth images
 gsdIntel = float('inf')
-if arguments.weeds:
-    rgbDepthCamera = startupRGBDepthCamera(options)
-    gsdIntel = (1 - float(options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_OVERLAP_FACTOR))) * rgbDepthCamera.gsd
-    rgbDepthCamera.gsdAdjusted = gsdIntel
-else:
-    rgbDepthCamera = startupRGBDepthCamera(options)
-    # This assures that no amount of movement will result in capturing an image
-    rgbDepthCamera.gsdAdjusted = float('inf')
-
-log.debug("GSD Intel: {}/{}".format(gsdIntel, rgbDepthCamera.gsd))
 
 # What sort of capture is to be performed with the intel camera?
 
 # By default, this is only depth data
-intelCaptureType = constants.IntelCapture.DEPTH
-captureType = options.option(constants.PROPERTY_SECTION_INTEL, constants.PROPERTY_CAPTURE)
-if captureType == constants.IntelCapture.DEPTH.name:
-    intelCaptureType = constants.IntelCapture.DEPTH
-    log.info("Intel capture limited to depth data only")
-elif captureType == constants.IntelCapture.RGBDEPTH.name:
-    intelCaptureType = constants.IntelCapture.RGBDEPTH
-    log.info("Intel capturing both RGB and depth data")
-
+# intelCaptureType = constants.IntelCapture.DEPTH
+# captureType = options.option(constants.PROPERTY_SECTION_INTEL, constants.PROPERTY_CAPTURE)
+# if captureType == constants.IntelCapture.DEPTH.name:
+#     intelCaptureType = constants.IntelCapture.DEPTH
+#     log.info("Intel capture limited to depth data only")
+# elif captureType == constants.IntelCapture.RGBDEPTH.name:
+#     intelCaptureType = constants.IntelCapture.RGBDEPTH
+#     log.info("Intel capturing both RGB and depth data")
 
 # This is the GSD of the image that takes into account overlap
-gsdBasler = (1 - float(options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_OVERLAP_FACTOR))) * camera.gsd
+gsdBasler = (1 - float(
+    options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_OVERLAP_FACTOR))) * camera.gsd
 camera.gsdAdjusted = gsdBasler
 log.debug("GSD Basler: {}/{}".format(gsdBasler, camera.gsd))
 
-(roomOdometry, roomSystem, roomTreatment) = startupCommunications(options, messageOdometryCB, messageSystemCB, messageTreatmentCB)
+(roomOdometry, roomSystem, roomTreatment) = startupCommunications(options, messageOdometryCB, messageSystemCB,
+                                                                  messageTreatmentCB)
 log.debug("Communications started")
 
 odometryMQ = startupMQCommunications(options, processOdometryMessage)
@@ -3213,10 +2206,8 @@ odometryMQ = startupMQCommunications(options, processOdometryMessage)
 performance = startupPerformance()
 log.debug("Performance started")
 
-
 # Start the worker threads, putting them in a list
 threads = list()
-
 
 #
 # There are two modes of operation here: standalone or part of a system.
@@ -3241,14 +2232,6 @@ if not arguments.standalone:
     # threads.append(acquire)
     # acquire.start()
 
-    # We don't need intel data if what we are doing is looking at the post-emitter camera
-    if arguments.weeds:
-        log.debug("Start Intel RGB image acquisition")
-        acquireRGB = threading.Thread(name=constants.THREAD_NAME_ACQUIRE_RGB, target=takeDepthImages, args=(rgbDepthCamera,))
-        acquireRGB.daemon = True
-        threads.append(acquireRGB)
-        acquireRGB.start()
-
     log.debug("Starting odometry MQ receiver")
     odometryProcessor = threading.Thread(name=constants.THREAD_NAME_REQ_RSP, target=processMQ, args=(odometryMQ,))
     odometryProcessor.daemon = True
@@ -3256,7 +2239,7 @@ if not arguments.standalone:
     odometryProcessor.start()
 
     log.debug("Starting system receiver")
-    #sys = threading.Thread(name=constants.THREAD_NAME_SYSTEM, target=processMessages, args=(roomSystem,))
+    # sys = threading.Thread(name=constants.THREAD_NAME_SYSTEM, target=processMessages, args=(roomSystem,))
     sys = threading.Thread(name=constants.THREAD_NAME_SYSTEM, target=roomSystem.processMessages, args=())
     sys.daemon = True
     threads.append(sys)
@@ -3265,7 +2248,7 @@ if not arguments.standalone:
     # Not needed for post-emitter assessment
     if arguments.weeds:
         log.debug("Starting treatment thread")
-        #treat = threading.Thread(name=constants.THREAD_NAME_TREATMENT, target=processMessages, args=(roomTreatment,))
+        # treat = threading.Thread(name=constants.THREAD_NAME_TREATMENT, target=processMessages, args=(roomTreatment,))
         treat = threading.Thread(name=constants.THREAD_NAME_TREATMENT, target=roomTreatment.processMessages, args=())
         treat.daemon = True
         threads.append(treat)
@@ -3296,11 +2279,10 @@ else:  # if not arguments.standalone
         result = processor(contextForImage)
         processing = (result == constants.ProcessResult.OK or result == constants.ProcessResult.NOT_PROCESSED)
 
-
 performance.cleanup()
 
 # Not quite right here to get the list of all blobs from the reporting module
-#classifier.train(reporting.blobs)
+# classifier.train(reporting.blobs)
 
 result, reason = reporting.writeSummary()
 
