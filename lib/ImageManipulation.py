@@ -58,7 +58,7 @@ class ImageManipulation:
         self._imageAsBinary = np.ndarray
         self._imageAsRGB = None
         self._imageAsYIQ = None
-        self._imageAsYCBCR = None
+        self._imgAsYCBCR = None
         self._imageAsYUV = None
         self._logger = logger
 
@@ -126,7 +126,7 @@ class ImageManipulation:
 
     @property
     def ycbcr(self):
-        return self._imageAsYCBCR
+        return self._imgAsYCBCR
 
     @property
     def yuv(self):
@@ -216,8 +216,8 @@ class ImageManipulation:
         :return:
         The YCbCR values as a numpy array
         """
-        self._imageAsYCBCR = cv.cvtColor(self._image.astype(np.uint8), cv.COLOR_BGR2YCR_CB)
-        return self._imageAsYCBCR
+        self._imgAsYCBCR = cv.cvtColor(self._image.astype(np.uint8), cv.COLOR_BGR2YCR_CB)
+        return self._imgAsYCBCR
 
     # This code doesn't work exactly right, as I see negative values for saturation
     # And this is unacceptably slow.  Takes over 700 ms on my machine
@@ -663,11 +663,76 @@ class ImageManipulation:
         """
         GLCM Computations for all objects in image.
         """
-        glcm = GLCM(self._blobs, constants.NAME_GREYSCALE_IMAGE)
+        self.log.debug("GLCM: Greyscale")
+        glcm = GLCM(self._blobs, constants.NAME_GREYSCALE_IMAGE, PREFIX=constants.NAME_GREYSCALE)
         glcm.computeAttributes()
         self._blobs = glcm.blobs
 
-        glcm = GLCM(self._blobs, constants.NAME_IMAGE_HSV, PREFIX=constants.NAME_I_YIQ, BAND=1)
+        # The in-phase component is float -- skip this for now, as GLCM tends to lend itself to
+        # int8 values
+
+        # self.log.debug("GLCM: YIQ")
+        # glcm = GLCM(self._blobs, constants.NAME_IMAGE_YIQ, PREFIX=constants.NAME_I_YIQ, BAND=1)
+        # glcm.computeAttributes()
+        # self._blobs = glcm.blobs
+
+        self.log.debug("GLCM: HSV Hue")
+        glcm = GLCM(self._blobs, constants.NAME_IMAGE_HSV, PREFIX=constants.NAME_HSV_HUE, BAND=0)
+        glcm.computeAttributes()
+        self._blobs = glcm.blobs
+
+        self.log.debug("GLCM: HSV Saturation")
+        glcm = GLCM(self._blobs, constants.NAME_IMAGE_HSV, PREFIX=constants.NAME_HSV_SATURATION, BAND=1)
+        glcm.computeAttributes()
+        self._blobs = glcm.blobs
+
+        self.log.debug("GLCM: HSV Value")
+        glcm = GLCM(self._blobs, constants.NAME_IMAGE_HSV, PREFIX=constants.NAME_HSV_VALUE, BAND=2)
+        glcm.computeAttributes()
+        self._blobs = glcm.blobs
+
+        self.log.debug("GLCM: Blue")
+        glcm = GLCM(self._blobs, constants.NAME_IMAGE, PREFIX=constants.NAME_BLUE, BAND=0)
+        glcm.computeAttributes()
+        self._blobs = glcm.blobs
+
+        self.log.debug("GLCM: Green")
+        glcm = GLCM(self._blobs, constants.NAME_IMAGE, PREFIX=constants.NAME_GREEN, BAND=1)
+        glcm.computeAttributes()
+        self._blobs = glcm.blobs
+
+        self.log.debug("GLCM: Red")
+        glcm = GLCM(self._blobs, constants.NAME_IMAGE, PREFIX=constants.NAME_RED, BAND=2)
+        glcm.computeAttributes()
+        self._blobs = glcm.blobs
+
+        self.log.debug("GLCM: HSI H")
+        glcm = GLCM(self._blobs, constants.NAME_IMAGE_HSI, PREFIX=constants.NAME_HSI_HUE, BAND=0)
+        glcm.computeAttributes()
+        self._blobs = glcm.blobs
+
+        self.log.debug("GLCM: HSI S")
+        glcm = GLCM(self._blobs, constants.NAME_IMAGE_HSI, PREFIX=constants.NAME_HSI_SATURATION, BAND=1)
+        glcm.computeAttributes()
+        self._blobs = glcm.blobs
+
+        self.log.debug("GLCM: HSI I")
+        glcm = GLCM(self._blobs, constants.NAME_IMAGE_HSI, PREFIX=constants.NAME_HSI_INTENSITY, BAND=2)
+        glcm.computeAttributes()
+        self._blobs = glcm.blobs
+
+        self.log.debug("GLCM: YCBCR")
+        glcm = GLCM(self._blobs, constants.NAME_IMAGE_YCBCR, PREFIX=constants.NAME_YCBCR_LUMA, BAND=0)
+        glcm.computeAttributes()
+        self._blobs = glcm.blobs
+
+        self.log.debug("GLCM: YCBCR CB")
+        glcm = GLCM(self._blobs, constants.NAME_IMAGE_YCBCR, PREFIX=constants.NAME_YCBCR_BLUE_DIFFERENCE, BAND=1)
+        glcm.computeAttributes()
+        self._blobs = glcm.blobs
+
+        self.log.debug("GLCM: YCBCR CR")
+        glcm = GLCM(self._blobs, constants.NAME_IMAGE_YCBCR, PREFIX=constants.NAME_YCBCR_RED_DIFFERENCE, BAND=2)
         glcm.computeAttributes()
         self._blobs = glcm.blobs
 
@@ -1306,6 +1371,12 @@ class ImageManipulation:
 
             image = self._imgAsHSV[y:y + h, x:x + w]
             blobAttributes[constants.NAME_IMAGE_HSV] = image
+
+            image = self._imgAsHSI[y:y + h, x:x + w]
+            blobAttributes[constants.NAME_IMAGE_HSI] = image
+
+            image = self._imgAsYCBCR[y:y + h, x:x + w]
+            blobAttributes[constants.NAME_IMAGE_YCBCR] = image
 
     def extractImagesFrom(self, source: np.ndarray, zslice: int, attribute: str, manipulation):
         """
