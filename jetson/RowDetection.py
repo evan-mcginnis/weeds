@@ -107,7 +107,7 @@ class RowDetection:
                 y0 = b * rho
                 pt1 = (int(x0 + 1000*(-b)), int(y0 + 1000*(a)))
                 pt2 = (int(x0 - 1000*(-b)), int(y0 - 1000*(a)))
-                cv.line(self.cdst, pt1, pt2, (0,0,255), 3, cv.LINE_AA)
+                cv.line(self.cdst, pt1, pt2, (0, 0, 255), 3, cv.LINE_AA)
 
     def getMarkedUp(self):
         return self.cdstP
@@ -123,6 +123,12 @@ class RowDetection:
 
 
 if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser("Weed recognition system")
+    parser.add_argument('-i', '--input', action="store", required=True, help="Images to process")
+    arguments = parser.parse_args()
+
     row_detector = RowDetection(threshold1=300)
     #row_detector.load("overhead.jpg")
     #image = "sudoku.png"
@@ -133,11 +139,11 @@ if __name__ == "__main__":
     # imAsNp[:,:,1] *=0
     # imAsNp[:,:,2] *=0
     # img = Image.fromarray(imAsNp)
-    img = cv.imread(image, cv.CV_8UC1)
-    th3 = cv.adaptiveThreshold(img,255,cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY,11,2)
+    img = cv.imread(arguments.input, cv.CV_8UC1)
+    th3 = cv.adaptiveThreshold(img, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 11, 2)
     cv.imshow("Threshold", th3)
 
-    if not row_detector.load(image):
+    if not row_detector.load(arguments.input):
         row_detector.detectEdges()
         row_detector.detectLines()
         row_detector.markupOriginal()
