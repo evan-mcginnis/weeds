@@ -4,6 +4,7 @@
 import logging
 
 from skimage.feature import graycomatrix, graycoprops
+from skimage import exposure
 from skimage import io
 import cv2
 import numpy as np
@@ -15,6 +16,16 @@ NUMBER_OF_PIXELS = 5
 ANGLE = 0
 
 class GLCM:
+    attributes = [constants.NAME_ENERGY,
+                  constants.NAME_CONTRAST,
+                  constants.NAME_DISSIMILARITY,
+                  constants.NAME_HOMOGENEITY,
+                  constants.NAME_ASM,
+                  constants.NAME_CORRELATION]
+
+    angles = [0, np.pi / 4, np.pi / 2, 3 * np.pi / 4, np.pi]
+    angleNames = ["0", "45", "90", "135", "180", "avg"]
+
     def __init__(self, blobs: {}, selectedImage: str, **kwargs):
         """
         GLCM
@@ -40,12 +51,6 @@ class GLCM:
             self._prefix += constants.DELIMETER
 
 
-        self._GCLMAttributes = [constants.NAME_ENERGY,
-                                constants.NAME_CONTRAST,
-                                constants.NAME_DISSIMILARITY,
-                                constants.NAME_HOMOGENEITY,
-                                constants.NAME_ASM,
-                                constants.NAME_CORRELATION]
 
     @property
     def blobs(self):
@@ -56,7 +61,7 @@ class GLCM:
         Compute all GLCM attributes and insert them into the blob list
         """
         for blobName, blobAttributes in self._blobs.items():
-            for glcmAttribute in self._GCLMAttributes:
+            for glcmAttribute in GLCM.attributes:
 
                 # Use a sample of the image
                 #(x, y, w, h) = blobAttributes[constants.NAME_LOCATION]
@@ -66,7 +71,7 @@ class GLCM:
 
                 # Works: Use the entire portion of the blob
                 #img = blobAttributes[constants.NAME_GREYSCALE_IMAGE]
-                # Use the image name passed in
+                img = np.empty_like(blobAttributes[self._selectedImage])
                 if self._selectedBand == -1:
                     img = blobAttributes[self._selectedImage]
                 else:
@@ -74,10 +79,30 @@ class GLCM:
 
                 # Just compute these for a single angle and number of pixels
                 if len(img) > 0:
-                    corelationMatrix = graycomatrix(img, [DISTANCE], [ANGLE])
-                    attribute = graycoprops(corelationMatrix, glcmAttribute)[0]
-                    blobAttributes[self._prefix + glcmAttribute] = attribute[0]
-                    self._log.debug(f"GLCM {self._prefix + glcmAttribute}: {attribute}")
+                    if img.dtype == np.int16:
+                        self._log.debug(f"Data is int16: min: {np.amin(img)} max: {np.amax(img)}")
+                        correlationMatrix = graycomatrix(img, [DISTANCE], GLCM.angles, levels=256)
+                    elif img.dtype == np.float64:
+                        self._log.warning(f"Data is float. Converting. min: {np.amin(img)} max: {np.amax(img)}")
+                        imgRescaled = exposure.rescale_intensity(img, out_range=(0, 1))
+                        imgAsInt = imgRescaled.astype(np.int)
+                        correlationMatrix = graycomatrix(imgAsInt, [DISTANCE], GLCM.angles, levels=256)
+                    else:
+                        correlationMatrix = graycomatrix(img, [DISTANCE], GLCM.angles)
+                    attribute = graycoprops(correlationMatrix, glcmAttribute)[0]
+                    # Walk through all the angles
+                    total = 0
+                    for angle in range(len(GLCM.angles)):
+                        # Insert the angle/attribute into the result table: i.e., yiq_i_90_energy
+                        name = self._prefix + glcmAttribute + constants.DELIMETER + self.angleNames[angle]
+                        blobAttributes[name] = attribute[angle]
+                        total += attribute[angle]
+                        self._log.debug(f"GLCM {name}: {attribute[angle]}")
+
+                    # Add in the average to make the observation rotationally independant
+                    name = self._prefix + glcmAttribute + constants.DELIMETER + constants.NAME_AVERAGE
+                    blobAttributes[name] = total / len(GLCM.angleNames)
+
                 else:
                     self._log.warning(f"GLCM: Empty array {np.shape(img)}")
                     blobAttributes[glcmAttribute] = float("nan")
