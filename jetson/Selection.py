@@ -18,6 +18,7 @@ import matplotlib.pyplot as plt
 import os
 
 import constants
+from Factors import Factors
 
 from numpy import set_printoptions
 
@@ -25,21 +26,30 @@ from numpy import set_printoptions
 class Selection(ABC):
 
     def __init__(self):
+        allFactors = Factors()
         self._rawData = np.ndarray
         self.log = logging.getLogger(__name__)
-        self._columns = [constants.NAME_RATIO,
-                         constants.NAME_SHAPE_INDEX,
-                         constants.NAME_DISTANCE,
-                         constants.NAME_DISTANCE_NORMALIZED,
-                         constants.NAME_HUE,
-                         constants.NAME_SATURATION,
-                         constants.NAME_I_YIQ,
-                         constants.NAME_COMPACTNESS,
-                         constants.NAME_ELONGATION,
-                         constants.NAME_ECCENTRICITY,
-                         constants.NAME_ROUNDNESS,
-                         constants.NAME_SOLIDITY,
-                         constants.NAME_TYPE]
+        self._columns = allFactors.getColumns([constants.PROPERTY_FACTOR_COLOR, constants.PROPERTY_FACTOR_GLCM])
+        self._columns.append(constants.NAME_TYPE)
+        # self._columns = [constants.NAME_RATIO,
+        #                  constants.NAME_SHAPE_INDEX,
+        #                  constants.NAME_DISTANCE,
+        #                  constants.NAME_DISTANCE_NORMALIZED,
+        #                  constants.NAME_HUE,
+        #                  constants.NAME_SATURATION,
+        #                  constants.NAME_I_YIQ,
+        #                  constants.NAME_COMPACTNESS,
+        #                  constants.NAME_ELONGATION,
+        #                  constants.NAME_ECCENTRICITY,
+        #                  constants.NAME_ROUNDNESS,
+        #                  constants.NAME_SOLIDITY,
+        #                  # GLCM
+        #                  constants.NAME_HOMOGENEITY,
+        #                  constants.NAME_ENERGY,
+        #                  constants.NAME_DISSIMILARITY,
+        #                  constants.NAME_ASM,
+        #                  constants.NAME_CONTRAST,
+        #                  constants.NAME_TYPE]
 
         self._results = pd.DataFrame(columns=self._columns)
 
@@ -67,20 +77,28 @@ class Selection(ABC):
             raise FileNotFoundError(filename)
 
         self.log.info("Load training file")
-        self._df = pd.read_csv(filename,
-                               usecols=[constants.NAME_RATIO,
-                                        constants.NAME_SHAPE_INDEX,
-                                        constants.NAME_DISTANCE,
-                                        constants.NAME_DISTANCE_NORMALIZED,
-                                        constants.NAME_HUE,
-                                        constants.NAME_SATURATION,
-                                        constants.NAME_I_YIQ,
-                                        constants.NAME_COMPACTNESS,
-                                        constants.NAME_ELONGATION,
-                                        constants.NAME_ECCENTRICITY,
-                                        constants.NAME_ROUNDNESS,
-                                        constants.NAME_SOLIDITY,
-                                        constants.NAME_TYPE])
+        # Works
+        # self._df = pd.read_csv(filename,
+        #                        usecols=[constants.NAME_RATIO,
+        #                                 constants.NAME_SHAPE_INDEX,
+        #                                 constants.NAME_DISTANCE,
+        #                                 constants.NAME_DISTANCE_NORMALIZED,
+        #                                 constants.NAME_HUE,
+        #                                 constants.NAME_SATURATION,
+        #                                 constants.NAME_I_YIQ,
+        #                                 constants.NAME_COMPACTNESS,
+        #                                 constants.NAME_ELONGATION,
+        #                                 constants.NAME_ECCENTRICITY,
+        #                                 constants.NAME_ROUNDNESS,
+        #                                 constants.NAME_SOLIDITY,
+        #                                 # GLCM
+        #                                 constants.NAME_HOMOGENEITY,
+        #                                 constants.NAME_ENERGY,
+        #                                 constants.NAME_DISSIMILARITY,
+        #                                 constants.NAME_ASM,
+        #                                 constants.NAME_CONTRAST,
+        #                                 constants.NAME_TYPE])
+        self._df = pd.read_csv(filename, usecols=self._columns)
 
         # Keep a copy of this -- we will use this elsewhere
         self._rawData = self._df
@@ -148,7 +166,7 @@ class PrincipalComponentAnalysis(Selection):
         # y is just the type
         x = features[:, 0:self._rawData.shape[1] - 1]
         y = features[:, self._rawData.shape[1] - 1]
-        pca = PCA(n_components=12)
+        pca = PCA(n_components=len(self._columns) - 1)
         fit = pca.fit(x)
         print("Explained Variance: %s" % fit.explained_variance_ratio_)
         print(fit.components_)
