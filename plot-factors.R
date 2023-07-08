@@ -3,13 +3,22 @@
 #
 
 library(rgl)
+library(ConfigParser)
 
 #input <- "results-for-plot.csv"
-input <- "normalized.csv"
+input <- "results-latest.csv"
 output <- "figures"
 
 cropPredictions <- read.csv(input)
 
+#
+# I N I  P R O C E S S I N G
+#
+# Read the factors used from the INI file
+config <- ConfigParser$new()
+config$read("standalone.ini")
+classificationFactorsString <- config$get("FACTORS_R", NA, "IMAGE-PROCESSING")
+classificationFactors <- unlist(strsplit(factors, split=", "))
 
 # Gillian's testing zone
 library(dplyr)
@@ -43,7 +52,7 @@ colorGrid <- "rgb(211,211,211)"
 colorLine <- "rgb(255,255,255)"
 
 axx <- list(
-  title = "Length/Width Ratio",
+  title = c[1],
   backgroundcolor=colorBG,
   gridcolor=colorLine,
   showbackground=TRUE,
@@ -51,7 +60,7 @@ axx <- list(
 )
 
 axy <- list(
-  title = "Shape Index",
+  title = c[2],
   backgroundcolor=colorBG,
   gridcolor=colorLine,
   showbackground=TRUE,
@@ -59,7 +68,7 @@ axy <- list(
 )
 
 axz <- list(
-  title = "YIQ In-Phase Mean",
+  title = c[3],
   backgroundcolor=colorBG,
   gridcolor=colorLine,
   showbackground=TRUE,
@@ -70,12 +79,49 @@ axz <- list(
 cropPredictions$cluster = as.factor(cropPredictions$actual)
 # Works
 #p <- plot_ly(cropPredictions, x=~lw_ratio, y=~shape_index, z=~in_phase, color=~normalized_distance, symbol=~I(actual), hovertext=cropPredictions$name, hoverinfo="x+y+z+text") 
-p <- plot_ly(cropPredictions, x=~lw_ratio, y=~shape_index, z=~in_phase, color=~normalized_distance, symbol=~I(actual), hovertext=cropPredictions$name, hoverinfo="x+y+z+text") 
+
+# Feature Importance
+#p <- plot_ly(cropPredictions, x=~contrast, y=~saturation_mean, z=~in_phase, color=~dissimilarity, symbol=~I(actual), hovertext=cropPredictions$name, hoverinfo="x+y+z+text") 
+
+# Recursive
+#axx['title'] <- "Saturation Mean"
+#axy['title'] <- "YIQ In-Phase"
+#axz['title'] <- "Dissimilarty"
+#techique <- "Recursive"
+#p <- plot_ly(cropPredictions, x=~saturation_mean, y=~in_phase, z=~dissimilarity, color=~ASM, symbol=~I(actual), hovertext=cropPredictions$name, hoverinfo="x+y+z+text")
+
+# Variance
+axx['title'] <- classificationFactors[1]
+axy['title'] <- classificationFactors[2]
+axz['title'] <- classificationFactors[3]
+technique <- "PCA"
+p <- plot_ly(cropPredictions, x=~eval(as.symbol(classificationFactors[1])), y=~eval(as.symbol(classificationFactors[2])), z=~eval(as.symbol(classificationFactors[3])), color=~eval(as.symbol(classificationFactors[5])), symbol=~I(actual), hovertext=cropPredictions$name, hoverinfo="x+y+z+text")
+
+# PCA
+#axx['title'] <- "Hue"
+#axy['title'] <- "Saturation Mean"
+#axz['title'] <- "YIQ In-Phase"
+#technique <- "PCA"
+#p <- plot_ly(cropPredictions, x=~hue, y=~saturation_mean, z=~in_phase, color=~cb_mean, symbol=~I(actual), hovertext=cropPredictions$name, hoverinfo="x+y+z+text")
+
+# Univariate
+#axx['title'] <- "Hue"
+#axy['title'] <- "Saturation Mean"
+#axz['title'] <- "YIQ In-Phase"
+#p <- plot_ly(cropPredictions, x=~hue, y=~saturation_mean, z=~in_phase, color=~dissimilarity, symbol=~I(actual), hovertext=cropPredictions$name, hoverinfo="x+y+z+text")
+#technique <- "Univariate"
+#p <- p %>% colorbar(title="Dissimilarity")
+
 p <- p %>% add_markers()
 # As I can't have a second legend in plotly, I will just put the shape interpretation in the title
-p <- p %>% layout(scene = list(xaxis=axx,yaxis=axy,zaxis=axz), title="Features of Weeds (Circles) and Crop (Squares) Crop as Weed (Diamonds)" )
-p <- p %>% layout(legend = list(x = 100, y = 0.5))
-p <- p %>% colorbar(title="Normalized distance from cropline")
+plotTitle <- sprintf("%s: Features of Weeds [Circles] and Crop [Squares] Crop as Weed [Diamonds]", technique)
+# This works, but I get an ugly title for the color bar
+# p <- p %>% layout(scene = list(xaxis=axx,yaxis=axy,zaxis=axz), title=plotTitle )
+p <- p %>% layout(scene = list(xaxis=axx,yaxis=axy,zaxis=axz), title=plotTitle)
+p <- p %>% colorbar(title = classificationFactors[4])
+#p <- p %>% layout(legend = list(x = 100, y = 0.5, title=list(text=' TEXT ')))
+#p <- p %>% colorbar(title="Normalized distance from cropline")
+#p <- p %>% colorbar(title="ASM")
 #p <- p %>% add_trace(y = "blah")
 
 p
