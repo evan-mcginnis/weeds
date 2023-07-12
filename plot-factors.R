@@ -5,8 +5,8 @@
 library(rgl)
 library(ConfigParser)
 
-#input <- "results-for-plot.csv"
 input <- "results-latest.csv"
+#input <- "results-latest.csv"
 output <- "figures"
 
 cropPredictions <- read.csv(input)
@@ -15,10 +15,20 @@ cropPredictions <- read.csv(input)
 # I N I  P R O C E S S I N G
 #
 # Read the factors used from the INI file
+
+iniFile <- "standalone.ini"
+factorsKey <- "FACTORS_R"
+factorsSection <- "IMAGE-PROCESSING"
+
 config <- ConfigParser$new()
-config$read("standalone.ini")
-classificationFactorsString <- config$get("FACTORS_R", NA, "IMAGE-PROCESSING")
-classificationFactors <- unlist(strsplit(factors, split=", "))
+config$read(iniFile)
+classificationFactorsString <- config$get(factorsKey, NA, factorsSection)
+classificationFactors <- unlist(strsplit(classificationFactorsString, split=", "))
+
+if (is.na(classificationFactorsString)) {
+  err <- sprintf("Unable to find factors specified by %s in %s", factorsKey, iniFile)
+  stop(err)
+}
 
 # Gillian's testing zone
 library(dplyr)
@@ -52,7 +62,7 @@ colorGrid <- "rgb(211,211,211)"
 colorLine <- "rgb(255,255,255)"
 
 axx <- list(
-  title = c[1],
+  title = classificationFactors[1],
   backgroundcolor=colorBG,
   gridcolor=colorLine,
   showbackground=TRUE,
@@ -60,7 +70,7 @@ axx <- list(
 )
 
 axy <- list(
-  title = c[2],
+  title = classificationFactors[2],
   backgroundcolor=colorBG,
   gridcolor=colorLine,
   showbackground=TRUE,
@@ -68,7 +78,7 @@ axy <- list(
 )
 
 axz <- list(
-  title = c[3],
+  title = classificationFactors[3],
   backgroundcolor=colorBG,
   gridcolor=colorLine,
   showbackground=TRUE,
@@ -118,7 +128,7 @@ plotTitle <- sprintf("%s: Features of Weeds [Circles] and Crop [Squares] Crop as
 # This works, but I get an ugly title for the color bar
 # p <- p %>% layout(scene = list(xaxis=axx,yaxis=axy,zaxis=axz), title=plotTitle )
 p <- p %>% layout(scene = list(xaxis=axx,yaxis=axy,zaxis=axz), title=plotTitle)
-p <- p %>% colorbar(title = classificationFactors[4])
+p <- p %>% colorbar(title = classificationFactors[5])
 #p <- p %>% layout(legend = list(x = 100, y = 0.5, title=list(text=' TEXT ')))
 #p <- p %>% colorbar(title="Normalized distance from cropline")
 #p <- p %>% colorbar(title="ASM")
