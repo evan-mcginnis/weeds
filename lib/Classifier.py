@@ -2,10 +2,10 @@
 # C L A S S I F I E R
 #
 import csv
-import random
+#import random
 
 import constants
-import cv2 as cv
+#import cv2 as cv
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
