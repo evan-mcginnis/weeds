@@ -73,6 +73,9 @@ NAME_BLOB                   = "blob"
 NAME_AREA                   = "area"
 NAME_TYPE                   = "type"
 NAME_LOCATION               = "location"
+NAME_CIELAB_L               = "cie_l"
+NAME_CIELAB_A               = "cie_a"
+NAME_CIELAB_B               = "cie_b"
 NAME_CENTER                 = "center"
 NAME_CONTOUR                = "contour"
 NAME_SHAPE_INDEX            = "shape_index"
@@ -122,6 +125,9 @@ NAME_SQUARES                = "squares"
 NAME_YCBCR_LUMA             = "ycbcr-y"
 NAME_YCBCR_BLUE_DIFFERENCE  = "ycbcr-cb"
 NAME_YCBCR_RED_DIFFERENCE   = "ycbcr-cr"
+NAME_YIQ_Y                  = "yiq_y"
+NAME_YIQ_I                  = "yiq_i"
+NAME_YIQ_Q                  = "yiq_q"
 
 
 NAME_IMAGE_GREYSCALE        = "greyscale"
@@ -130,6 +136,7 @@ NAME_IMAGE_RGB              = "rgb"
 NAME_IMAGE_HSV              = "hsv"
 NAME_IMAGE_HSI              = "hsi"
 NAME_IMAGE_YCBCR            = "ycbcr"
+NAME_IMAGE_CIELAB           = "cielab"
 
 # Column names in pandas
 COLUMN_NAME_VALUE           = "value"
@@ -149,6 +156,13 @@ NAME_CONTRAST               = "contrast"
 NAME_ASM                    = "ASM"
 NAME_AVERAGE                = "avg"
 
+# H O G
+KEYWORD_IMAGE               = "image"
+NAME_HOG                    = "hog"
+
+NAME_STDDEV                 = "stddev"
+NAME_MEAN                   = "mean"
+NAME_VAR                    = "variance"
 #
 # X M P P  R O O M S  A N D  J I D S
 #
@@ -282,6 +296,7 @@ TYPES = ["Desired", "Undesired", "Untreated", "Ignored", "Unknown"]
 PERF_ANGLES     = "angles"
 PERF_ACQUIRE_BASLER_RGB = "acquire-basler"
 PERF_ACQUIRE_INTEL_RGB  = "acquire-intel-rgb"
+PERF_CIELAB     = "cielab"
 PERF_CLASSIFY   = "classify"
 PERF_CONTOURS   = "contours"
 PERF_DISTANCE   = "distance"
@@ -302,6 +317,7 @@ PERF_COMPACTNESS= "compactness"
 PERF_SHAPES     = "shapes"
 PERF_UNDISTORT  = "undistort"
 PERF_GLCM       = "glcm"
+PERF_HOG        = "hog"
 
 PERF_SAVE_INTEL_DEPTH       = "save-intel-depth"
 PERF_SAVE_INTEL_RGB         = "save-intel-rgb"

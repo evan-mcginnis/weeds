@@ -10,7 +10,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import logging
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, cross_validate, cross_val_score, cross_val_score
 from sklearn.linear_model import LogisticRegression
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.tree import DecisionTreeClassifier
@@ -23,6 +23,7 @@ from abc import ABC, abstractmethod
 import os.path
 
 class Classifier:
+    name = "Base"
 
     def __init__(self):
 
@@ -36,6 +37,9 @@ class Classifier:
 
         self._blobsInView = pd.DataFrame()
         self._selections = []
+        self._scores = []
+        self._name = "Base"
+        self._loaded = False
 
         self.log = logging.getLogger(__name__)
         # # The ANN for the classifier
@@ -92,6 +96,14 @@ class Classifier:
     #                 self._ann.train(data, cv.ml.ANN_MLP_NO_INPUT_SCALE, cv.ml.ANN_MLP_NO_OUTPUT_SCALE)
     #     return
     # ANN support routines end
+
+    # @property
+    # def name(self):
+    #     return self._name
+
+    @property
+    def scores(self) -> []:
+        return self._scores
 
     @property
     def blobs(self):
@@ -201,11 +213,23 @@ class Classifier:
 
         return True
 
-    def load(self, filename: str, stratify : bool):
-               # Confirm the file exists
+    @property
+    def selections(self) -> []:
+        return self._selections
+
+    @selections.setter
+    def selections(self, selectionList: []):
+        self._selections = selectionList
+
+    def load(self, filename: str, stratify: bool):
+        # Confirm the file exists
         if not os.path.isfile(filename):
             self.log.critical("Unable to load file: {}".format(filename))
             raise FileNotFoundError
+
+        if self._loaded:
+            self.log.info(f"Data is already loaded.")
+            return
 
         self.log.info("Load training file")
 
@@ -233,6 +257,7 @@ class Classifier:
         self._y = y
         # Drop the type column
         self._df.drop("type", axis='columns', inplace=True)
+        self._x = self._df
         # Drop any data that is not part of the factors we want to consider
         # TODO: Put references to height
 
@@ -245,6 +270,7 @@ class Classifier:
         self._yTrain = y_train
         self._xTest = X_test
         self._yTest = y_test
+        self._loaded = True
 
     def _prepareData(self ):
 
@@ -258,20 +284,7 @@ class Classifier:
         # Build up the list of features we will use.
         # Reading some performance comparisons, this is the fastest way to create a dataframe
         for blobName, blobAttributes in self._blobs.items():
-        #     if constants.NAME_HEIGHT in factors:
-        #         print("Warning: Faking height data.")
-        #         if blobAttributes[constants.NAME_TYPE] == constants.TYPE_UNDESIRED:
-        #             blobAttributes[constants.NAME_HEIGHT] = random.randint(10, 25)
-        #         else:
-        #             blobAttributes[constants.NAME_HEIGHT] = random.randint(55,75)
-        #         features.append([blobAttributes[constants.NAME_RATIO],
-        #                          blobAttributes[constants.NAME_SHAPE_INDEX],
-        #                          blobAttributes[constants.NAME_DISTANCE],
-        #                          blobAttributes[constants.NAME_DISTANCE_NORMALIZED],
-        #                          blobAttributes[constants.NAME_HEIGHT]])
-        #         self._blobsInView = pd.DataFrame(features,
-        #                                          columns=( 'ratio', 'shape', 'distance', 'normalized_distance', 'height'))
-        #     else:
+
             # Build up a list of features in the same order as the names
             _features = []
             for feature in self._selections:
@@ -279,22 +292,42 @@ class Classifier:
 
             # Put these in a format so we can initialize the dataframe
             features.append(_features)
-            # This is the original, hard-coded version
-            Xfeatures.append([blobAttributes[constants.NAME_RATIO],
-                             blobAttributes[constants.NAME_SHAPE_INDEX],
-                             blobAttributes[constants.NAME_DISTANCE],
-                             blobAttributes[constants.NAME_DISTANCE_NORMALIZED],
-                             blobAttributes[constants.NAME_HUE],
-                             blobAttributes[constants.NAME_I_YIQ]])
+            # This is the original, hard-coded version before I transitioned to using just color and GLCM
+            # 23 May 2023 this works just fine when I use all the attributes
+            # Xfeatures.append([blobAttributes[constants.NAME_RATIO],
+            #                  blobAttributes[constants.NAME_SHAPE_INDEX],
+            #                  blobAttributes[constants.NAME_DISTANCE],
+            #                  blobAttributes[constants.NAME_DISTANCE_NORMALIZED],
+            #                  blobAttributes[constants.NAME_HUE],
+            #                  blobAttributes[constants.NAME_I_YIQ]])
+            # This is the Color+GLCM version 23 May 2023
+            Xfeatures.append([blobAttributes[constants.NAME_SATURATION],
+                             blobAttributes[constants.NAME_I_YIQ],
+                             blobAttributes[constants.NAME_BLUE_DIFFERENCE],
+                             blobAttributes[constants.NAME_GREYSCALE + constants.DELIMETER + constants.NAME_HOMOGENEITY + constants.DELIMETER + "0"],
+                             blobAttributes[constants.NAME_GREYSCALE + constants.DELIMETER + constants.NAME_ENERGY + constants.DELIMETER + "0"],
+                             blobAttributes[constants.NAME_GREYSCALE + constants.DELIMETER + constants.NAME_CONTRAST + constants.DELIMETER + "0"],
+                             blobAttributes[constants.NAME_GREYSCALE + constants.DELIMETER + constants.NAME_DISSIMILARITY + constants.DELIMETER + "0"],
+                             blobAttributes[constants.NAME_GREYSCALE + constants.DELIMETER + constants.NAME_ASM + constants.DELIMETER + "0"]])
 
             # Construct the dataframe we will use
             #self._blobsInView = pd.DataFrame(features, columns=('ratio', 'shape', 'distance','normalized_distance', 'hue'))
-            self._blobsInView = pd.DataFrame(Xfeatures, columns=(constants.NAME_RATIO,
-                                                                constants.NAME_SHAPE_INDEX, #'shape',
-                                                                constants.NAME_DISTANCE, # 'distance',
-                                                                constants.NAME_DISTANCE_NORMALIZED, # 'normalized_distance',
-                                                                constants.NAME_HUE, # 'hue'
-                                                                constants.NAME_I_YIQ)) # I std deviation
+            # 23 May 2023 the original with shape attributes
+            # self._blobsInView = pd.DataFrame(Xfeatures, columns=(constants.NAME_RATIO,
+            #                                                     constants.NAME_SHAPE_INDEX, #'shape',
+            #                                                     constants.NAME_DISTANCE, # 'distance',
+            #                                                     constants.NAME_DISTANCE_NORMALIZED, # 'normalized_distance',
+            #                                                     constants.NAME_HUE, # 'hue'
+            #                                                     constants.NAME_I_YIQ)) # I std deviation
+
+            self._blobsInView = pd.DataFrame(Xfeatures, columns=(constants.NAME_SATURATION,
+                                                                 constants.NAME_I_YIQ,
+                                                                 constants.NAME_BLUE_DIFFERENCE,
+                                                                 constants.NAME_HOMOGENEITY,
+                                                                 constants.NAME_ENERGY,
+                                                                 constants.NAME_CONTRAST,
+                                                                 constants.NAME_DISSIMILARITY,
+                                                                 constants.NAME_ASM))
             # Create a dataframe from the with the column names we want and the feature values
             self._blobsInView = pd.DataFrame(features, columns=selectedFeatureNames)
 
@@ -302,6 +335,7 @@ class Classifier:
         return
 
 class SuppportVectorMachineClassifier(Classifier):
+    name = "SVM"
     def __init__(self):
         super().__init__()
 
@@ -328,8 +362,12 @@ class SuppportVectorMachineClassifier(Classifier):
         self._model = LinearSVC()
         self._model.fit(self._xTrain, self._yTrain)
 
+        self._scores = cross_val_score(self._model, self._x, self._y)
+
         # Debug
         if score:
+            self.log.debug(f"SVM cross validation scores: {self._scores}")
+
             print("Support Vector Machine prediction")
             print(self._model.predict(self._xTest))
             print("Training Score: {:.3f}".format(self._model.score(self._xTrain, self._yTrain)))
@@ -363,6 +401,7 @@ class SuppportVectorMachineClassifier(Classifier):
 
 
 class LogisticRegressionClassifier(Classifier):
+    name = "LogisticRegression"
 
     def __init__(self):
         super().__init__()
@@ -370,6 +409,7 @@ class LogisticRegressionClassifier(Classifier):
     def createModel(self, score: bool):
         """
         Initialize the logistic regression subsystem.
+        :param score:
         :param filename: A csv format file name with type, ratio, shape, and area columns
         :return:
         """
@@ -386,12 +426,15 @@ class LogisticRegressionClassifier(Classifier):
         # # Split up the data
         # X_train, X_test, y_train, y_test = train_test_split(self._df,y,train_size=0.4)
 
-        self._model = LogisticRegression(C=100, max_iter=200)
+        self.log.debug("Creating LR Model")
+        self._model = LogisticRegression(C=100, max_iter=300)
         self._model.fit(self._xTrain, self._yTrain)
 
+        self._scores = cross_val_score(self._model, self._x, self._y)
 
         # Debug
         if score:
+            self.log.debug(f"LR Cross validation scores: {self._scores}")
             print("Logistic regression prediction")
             print(self._model.predict(self._xTest))
             print("Training Score: {:.3f}".format(self._model.score(self._xTrain, self._yTrain)))
@@ -438,16 +481,21 @@ class LogisticRegressionClassifier(Classifier):
         return
 
 class KNNClassifier(Classifier):
+    name = "KNN"
 
     def __init__(self):
         super().__init__()
 
     def createModel(self, score: bool):
 
-        self._knnModel = KNeighborsClassifier(n_neighbors=1)
-        self._knnModel.fit(self._xTrain, pd.DataFrame(self._yTrain))
+        self._knnModel = KNeighborsClassifier(n_neighbors=5)
+        #model = forest.fit(train_fold, train_y.values.ravel())
+        self._knnModel.fit(self._xTrain, pd.DataFrame(self._yTrain).values.ravel())
+
+        self._scores = cross_val_score(self._knnModel, self._x, self._y)
 
         if score:
+            self.log.debug(f"KNN Cross validation scores: {self._scores}")
             yPred = self._knnModel.predict(self._xTest)
             print("K Neighbors prediction:\n", yPred)
 
@@ -477,6 +525,10 @@ class KNNClassifier(Classifier):
 
 
 class DecisionTree(Classifier):
+    name = "DecisionTree"
+
+    def __init__(self):
+        super().__init__()
 
 
     def visualize(self):
@@ -494,8 +546,13 @@ class DecisionTree(Classifier):
         self._classifier = DecisionTreeClassifier(random_state=0)
         self._classifier.fit(self._xTrain, self._yTrain)
 
-        print("Training Score: {:.3f}".format(self._classifier.score(self._xTrain, self._yTrain)))
-        print("Testing Score: {:.2f}\n".format(self._classifier.score(self._xTest, self._yTest)))
+        self._scores = cross_val_score(self._classifier, self._x, self._y)
+
+        if score:
+            self.log.debug(f"Decision Tree cross validation scores: {self._scores}")
+
+            print("Training Score: {:.3f}".format(self._classifier.score(self._xTrain, self._yTrain)))
+            print("Testing Score: {:.2f}\n".format(self._classifier.score(self._xTest, self._yTest)))
         return
 
     def classify(self):
@@ -513,12 +570,21 @@ class DecisionTree(Classifier):
         return
 
 class RandomForest(Classifier):
+    name = "RandomForest"
+
+    def __init__(self):
+        super().__init__()
 
     def createModel(self, score: bool):
-        self._classifier = RandomForestClassifier(n_estimators=1000, max_features=1,random_state=2, n_jobs=-1)
+        #self._classifier = RandomForestClassifier(n_estimators=1000, max_features=1, random_state=2, n_jobs=-1)
+        self._classifier = RandomForestClassifier(n_estimators=1000, max_features=1, random_state=2, n_jobs=-1)
         self._classifier.fit(self._xTrain, self._yTrain)
 
+        self._scores = cross_val_score(self._classifier, self._x, self._y, n_jobs=-1)
+
         if score:
+            self.log.debug(f"Random Forest cross validation scores: {self._scores}")
+
             print("Training Score: {:.3f}".format(self._classifier.score(self._xTrain, self._yTrain)))
             print("Testing Score: {:.3f}".format(self._classifier.score(self._xTest, self._yTest)))
         return
@@ -540,12 +606,19 @@ class RandomForest(Classifier):
         return
 
 class GradientBoosting(Classifier):
+    name = "GradientBoosting"
 
+    def __init__(self):
+        super().__init__()
     def createModel(self, score: bool):
         self._classifier = GradientBoostingClassifier(random_state=0, max_depth=4)
         self._classifier.fit(self._xTrain, self._yTrain)
 
+        self._scores = cross_val_score(self._classifier, self._x, self._y)
+
         if score:
+            self.log.debug(f"Gradient Boosting cross validation scores: {self._scores}")
+
             print("Training Score: {:.3f}".format(self._classifier.score(self._xTrain, self._yTrain)))
             print("Testing Score: {:.3f}".format(self._classifier.score(self._xTest, self._yTest)))
 
@@ -563,8 +636,11 @@ class SVM(Classifier):
 
         self._classifier = GradientBoostingClassifier(random_state=0, max_depth=4)
         self._classifier.fit(self._xTrain, self._yTrain)
+        self._scores = cross_val_score(self._classifier, self._x, self._y)
 
         if score:
+            self.log.debug(f"SVM cross validation scores: {self._scores}")
+
             print("Training Score: {:.3f}".format(self._classifier.score(self._xTrain, self._yTrain)))
             print("Testing Score: {:.3f}".format(self._classifier.score(self._xTest, self._yTest)))
 

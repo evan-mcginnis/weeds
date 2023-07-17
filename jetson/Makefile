@@ -2,8 +2,8 @@
 # M A K E F I L E
 #
 clean:
-	rm -f *.log*
-	rm -rf ../output/*
+	rm -f *.log
+	#rm -rf ../output/*
 
 requirements:
 	pipreqs
@@ -52,6 +52,8 @@ PYLINT=pylint
 #
 # Defaults if they are not specified on the make line
 #
+# Area
+AREA?=500
 # Log configuration
 #LOG?=info-logging.yaml
 LOG?=logging.ini
@@ -75,7 +77,7 @@ PARAMETERS?=all-parameters.csv
 # Originally
 #THRESHOLDS?="(130,0)"
 THRESHOLDS?="(128,0)"
-THRESHOLDS-TGI?="(32,0)"
+THRESHOLDS-TGI?="(9,0)"
 # Contours
 CONTOURS?=-c
 # Standlone
@@ -112,13 +114,51 @@ endif
 # Indicate that the system should produce treatment plans as an image
 TREATMENT?=-sp
 
-# This takes an image set from the disk and processes it
+LOGFILE = jetson-right.log
 
 weeds:
 	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a $(INDEX) -t $(THRESHOLDS) -df $(TRAINING) $(ALGFLAG) -sc -v -lg $(LOG) -se $(PARAMETERS) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE)
 
+svm:
+	$(PYTHON) weeds.py -r ../../results/results.svm.csv -i $(INPUT) -o ../../results/output-svm -a $(INDEX) -t $(THRESHOLDS) -df $(TRAINING) -svm -sc -v -lg $(LOG) -se $(PARAMETERS) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE)
+	mv $(LOGFILE) ../../results/output-svm.log
+
+tree:
+	$(PYTHON) weeds.py -r ../../results/results.tree.csv -i $(INPUT) -o ../../results/output-tree -a $(INDEX) -t $(THRESHOLDS) -df $(TRAINING) -dt -sc -v -lg $(LOG) -se $(PARAMETERS) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE)
+	mv $(LOGFILE) ../../results/output-tree.log
+
+knn:
+	$(PYTHON) weeds.py -r ../../results/results.knn.csv -i $(INPUT) -o ../../results/output-knn -a $(INDEX) -t $(THRESHOLDS) -df $(TRAINING) -k -sc -v -lg $(LOG) -se $(PARAMETERS) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE)
+	mv $(LOGFILE) ../../results/output-knn.log
+
+gradient:
+	$(PYTHON) weeds.py -r ../../results/results.gradient.csv -i $(INPUT) -o ../../results/output-gradient -a $(INDEX) -t $(THRESHOLDS) -df $(TRAINING) -g -sc -v -lg $(LOG) -se $(PARAMETERS) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE)
+	mv $(LOGFILE) ../../results/output-gradient.log
+
+lr:
+	$(PYTHON) weeds.py -r ../../results/results.lr.csv -i $(INPUT) -o ../../results/output-lr -a $(INDEX) -t $(THRESHOLDS) -df $(TRAINING) -l -sc -v -lg $(LOG) -se $(PARAMETERS) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE)
+	mv $(LOGFILE) ../../results/output-lr.log
+
+forest:
+	$(PYTHON) weeds.py -r ../../results/results.forest.csv -i $(INPUT) -o ../../results/output-forest -a $(INDEX) -t $(THRESHOLDS) -df $(TRAINING) -f -sc -v -lg $(LOG) -se $(PARAMETERS) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE)
+	mv $(LOGFILE) ../../results/output-forest.log
+
+all-techniques: svm tree knn gradient lr forest
+	echo "Done"
+
+
+
+weeds-extract:
+	$(PYTHON) weeds.py -x -i $(INPUT) -o $(OUTPUT) -a $(INDEX) -t $(THRESHOLDS) -df $(TRAINING) $(ALGFLAG) -sc -v -lg $(LOG) -se $(PARAMETERS) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE)
+
 weeds-plot:
 	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a $(INDEX) -t $(THRESHOLDS-TGI) -df $(TRAINING) $(ALGFLAG) -sc -v -lg $(LOG) -se $(PARAMETERS) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE) --plot
+
+weeds-glcm:
+	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a $(INDEX) -t $(THRESHOLDS-TGI) -df $(TRAINING) $(ALGFLAG) -sc -v -lg $(LOG) -se $(PARAMETERS) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE)
+
+weeds-debug:
+	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a $(INDEX) -t $(THRESHOLDS-TGI) -df $(TRAINING) $(ALGFLAG) -sc -v -lg $(LOG) -se $(PARAMETERS) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE) -ma $(AREA) -x
 
 treatment:
 	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a $(INDEX) -t $(THRESHOLDS) -df $(TRAINING) $(ALGFLAG) -sc -v -lg $(LOG) -se $(PARAMETERS) -d location $(TREATMENT) -ini $(INI) $(STANDALONE)
@@ -229,36 +269,36 @@ thesis:
 
 # Various targets that are probably not needed anymore
 
-heuristic:
-	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a ndi -t "(130,0)" -v
-
-development:
-	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a ndi -t "(130,0)" -df $(TRAINING) -l -sc -v -d $(DECORATIONS)
-
-minimal:
-	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a ndi -t "(130,0)" -df $(TRAINING) -l -sc -v -d none
-
-
-lr-hsv:
-	$(PYTHON) weeds.py -i $(INPUT)4 -o $(OUTPUT) -a ndi -t "(130,0)" -df $(TRAINING) -l -sc -v
-
-lr:
-	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a ndi -t "(130,0)" -df $(TRAINING) -l -sc -v
-
-lr3:
-	$(PYTHON) weeds.py -i $(INPUT)3 -o $(OUTPUT) -a ndi -t "(130,0)" -df $(TRAINING) -l -sc -v
-
-knn:
-	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a ndi -t "(130,0)" -df $(TRAINING) -k -sc -v
-
-decision:
-	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a ndi -t "(130,0)" -df $(TRAINING) -dt -sc -v
-
-forest:
-	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a ndi -t "(130,0)" -df $(TRAINING) -f -sc -v
-
-gradient:
-	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a ndi -t "(130,0)" -df $(TRAINING) -g -sc -v
+#heuristic:
+#	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a ndi -t "(130,0)" -v
+#
+#development:
+#	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a ndi -t "(130,0)" -df $(TRAINING) -l -sc -v -d $(DECORATIONS)
+#
+#minimal:
+#	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a ndi -t "(130,0)" -df $(TRAINING) -l -sc -v -d none
+#
+#
+#lr-hsv:
+#	$(PYTHON) weeds.py -i $(INPUT)4 -o $(OUTPUT) -a ndi -t "(130,0)" -df $(TRAINING) -l -sc -v
+#
+#lr:
+#	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a ndi -t "(130,0)" -df $(TRAINING) -l -sc -v
+#
+#lr3:
+#	$(PYTHON) weeds.py -i $(INPUT)3 -o $(OUTPUT) -a ndi -t "(130,0)" -df $(TRAINING) -l -sc -v
+#
+#knn:
+#	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a ndi -t "(130,0)" -df $(TRAINING) -k -sc -v
+#
+#decision:
+#	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a ndi -t "(130,0)" -df $(TRAINING) -dt -sc -v
+#
+#forest:
+#	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a ndi -t "(130,0)" -df $(TRAINING) -f -sc -v
+#
+#gradient:
+#	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a ndi -t "(130,0)" -df $(TRAINING) -g -sc -v
 
 
 treatment2:

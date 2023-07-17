@@ -1057,8 +1057,8 @@ log.debug(f"Selected parameters from INI file: {selections}")
 if arguments.logistic:
     try:
         classifier = LogisticRegressionClassifier()
-        classifier.loadSelections(arguments.selection)
-        #classifier.selections = selections
+        #classifier.loadSelections(arguments.selection)
+        classifier.selections = selections
         log.debug(f"Loaded selections: {classifier.selections}")
         classifier.load(arguments.data, stratify=False)
         classifier.createModel(arguments.score)
@@ -1069,37 +1069,42 @@ if arguments.logistic:
 elif arguments.knn:
     classifier = KNNClassifier()
     # Load selected parameters
-    classifier.loadSelections(arguments.selection)
+    #classifier.loadSelections(arguments.selection)
+    classifier.selections = selections
     classifier.load(arguments.data, stratify=False)
     classifier.createModel(arguments.score)
 elif arguments.tree:
     classifier = DecisionTree()
     # Load selected parameters
-    classifier.loadSelections(arguments.selection)
+    #classifier.loadSelections(arguments.selection)
+    classifier.selections = selections
     classifier.load(arguments.data, stratify=False)
     classifier.createModel(arguments.score)
-    classifier.visualize()
+    #classifier.visualize()
 elif arguments.forest:
     classifier = RandomForest()
     # Load selected parameters
-    classifier.loadSelections(arguments.selection)
+    #classifier.loadSelections(arguments.selection)
+    classifier.selections = selections
     classifier.load(arguments.data, stratify=True)
     classifier.createModel(arguments.score)
-    classifier.visualize()
+    #classifier.visualize()
 elif arguments.gradient:
     classifier = GradientBoosting()
     # Load selected parameters
-    classifier.loadSelections(arguments.selection)
+    #classifier.loadSelections(arguments.selection)
+    classifier.selections = selections
     classifier.load(arguments.data, stratify=False)
     classifier.createModel(arguments.score)
-    classifier.visualize()
+    #classifier.visualize()
 elif arguments.support:
     classifier = SuppportVectorMachineClassifier()
     # Load selected parameters
-    classifier.loadSelections(arguments.selection)
+    #classifier.loadSelections(arguments.selection)
+    classifier.selections = selections
     classifier.load(arguments.data, stratify=False)
     classifier.createModel(arguments.score)
-    classifier.visualize()
+    #classifier.visualize()
 else:
     # TODO: This should be HeuristicClassifier
     classifier = Classifier()
@@ -1331,6 +1336,9 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
         performance.start()
         manipulated.toYIQ()
         performance.stopAndRecord(constants.PERF_YIQ)
+        performance.start()
+        manipulated.toCIELAB()
+        performance.stopAndRecord(constants.PERF_CIELAB)
 
         # Find the plants in the image
         performance.start()
@@ -1373,6 +1381,12 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
         performance.start()
         manipulated.computeLengthWidthRatios()
         performance.stopAndRecord(constants.PERF_LW_RATIO)
+
+        # H O G
+        performance.start()
+        manipulated.computeHOG()
+        performance.stopAndRecord(constants.PERF_HOG)
+
 
         # New image analysis based on readings here:
         # http://www.cyto.purdue.edu/cdroms/micro2/content/education/wirth10.pdf
@@ -1438,7 +1452,7 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
         performance.stopAndRecord(constants.PERF_MEAN)
 
         # Use either heuristics or logistic regression
-        if arguments.logistic or arguments.knn or arguments.tree or arguments.forest or arguments.gradient:
+        if arguments.logistic or arguments.knn or arguments.tree or arguments.forest or arguments.gradient or arguments.support:
             performance.start()
             classifier.classify()
             performance.stopAndRecord(constants.PERF_CLASSIFY)

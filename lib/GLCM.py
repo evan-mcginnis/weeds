@@ -80,10 +80,10 @@ class GLCM:
                 # Just compute these for a single angle and number of pixels
                 if len(img) > 0:
                     if img.dtype == np.int16:
-                        self._log.debug(f"Data is int16: min: {np.amin(img)} max: {np.amax(img)}")
+                        # self._log.debug(f"Data is int16: min: {np.amin(img)} max: {np.amax(img)}")
                         correlationMatrix = graycomatrix(img, [DISTANCE], GLCM.angles, levels=256)
                     elif img.dtype == np.float64:
-                        self._log.warning(f"Data is float. Converting. min: {np.amin(img)} max: {np.amax(img)}")
+                        # self._log.warning(f"Data is float. Converting. min: {np.amin(img)} max: {np.amax(img)}")
                         imgRescaled = exposure.rescale_intensity(img, out_range=(0, 1))
                         imgAsInt = imgRescaled.astype(np.int)
                         correlationMatrix = graycomatrix(imgAsInt, [DISTANCE], GLCM.angles, levels=256)
@@ -97,7 +97,8 @@ class GLCM:
                         name = self._prefix + glcmAttribute + constants.DELIMETER + self.angleNames[angle]
                         blobAttributes[name] = attribute[angle]
                         total += attribute[angle]
-                        self._log.debug(f"GLCM {name}: {attribute[angle]}")
+                        # This is quite noisy
+                        # self._log.debug(f"GLCM {name}: {attribute[angle]}")
 
                     # Add in the average to make the observation rotationally independant
                     name = self._prefix + glcmAttribute + constants.DELIMETER + constants.NAME_AVERAGE

@@ -25,6 +25,7 @@ from ImageLogger import ImageLogger
 
 import constants
 from GLCM import GLCM
+from HOG import HOG
 
 # Colors for the bounding boxes
 COLOR_WEED = (0, 0, 255)
@@ -60,6 +61,7 @@ class ImageManipulation:
         self._imageAsYIQ = None
         self._imgAsYCBCR = None
         self._imageAsYUV = None
+        self._imageAsCIELAB = None
         self._logger = logger
 
         (self._maxY, self._maxX, self._depth) = img.shape
@@ -219,6 +221,15 @@ class ImageManipulation:
         self._imgAsYCBCR = cv.cvtColor(self._image.astype(np.uint8), cv.COLOR_BGR2YCR_CB)
         return self._imgAsYCBCR
 
+    def toCIELAB(self) -> np.ndarray:
+        """
+        The current image convered to the CIELAB colorspace
+        :return:
+        The CIELAB values as a numpy array
+        """
+        self._imgAsCIELAB = cv.cvtColor(self._image.astype(np.uint8), cv.COLOR_BGR2Lab)
+        return self._imgAsCIELAB
+
     # This code doesn't work exactly right, as I see negative values for saturation
     # And this is unacceptably slow.  Takes over 700 ms on my machine
 
@@ -350,7 +361,6 @@ class ImageManipulation:
         # This article gives the greyscale conversion as:
         # grey = 0.2989 * R + 0.5870 * G + 0.1140 * B
         # TODO: Check the grayscale conversion from opencv
-
         img = cv.cvtColor(self._image.astype(np.uint8), cv.COLOR_BGR2GRAY)
         # cv.imwrite("converted.jpg", img)
         self._imgAsGreyscale = img
@@ -659,6 +669,16 @@ class ImageManipulation:
                 #     print("detected overlap")
             i = i + 1
 
+    def computeHOG(self):
+        """
+        HOG Computations for all objects in image
+        """
+        self.log.debug("HOG")
+
+        hog = HOG(self._blobs, constants.NAME_IMAGE)
+        hog.computeAttributes()
+        self._blobs = hog.blobs
+
     def computeGLCM(self):
         """
         GLCM Computations for all objects in image.
@@ -668,13 +688,20 @@ class ImageManipulation:
         glcm.computeAttributes()
         self._blobs = glcm.blobs
 
-        # The in-phase component is float -- skip this for now, as GLCM tends to lend itself to
-        # int8 values
+        self.log.debug("GLCM: YIQ Y")
+        glcm = GLCM(self._blobs, constants.NAME_IMAGE_YIQ, PREFIX=constants.NAME_YIQ_Y, BAND=0)
+        glcm.computeAttributes()
+        self._blobs = glcm.blobs
 
-        # self.log.debug("GLCM: YIQ")
-        # glcm = GLCM(self._blobs, constants.NAME_IMAGE_YIQ, PREFIX=constants.NAME_I_YIQ, BAND=1)
-        # glcm.computeAttributes()
-        # self._blobs = glcm.blobs
+        self.log.debug("GLCM: YIQ I")
+        glcm = GLCM(self._blobs, constants.NAME_IMAGE_YIQ, PREFIX=constants.NAME_YIQ_I, BAND=1)
+        glcm.computeAttributes()
+        self._blobs = glcm.blobs
+
+        self.log.debug("GLCM: YIQ Q")
+        glcm = GLCM(self._blobs, constants.NAME_IMAGE_YIQ, PREFIX=constants.NAME_YIQ_Q, BAND=2)
+        glcm.computeAttributes()
+        self._blobs = glcm.blobs
 
         self.log.debug("GLCM: HSV Hue")
         glcm = GLCM(self._blobs, constants.NAME_IMAGE_HSV, PREFIX=constants.NAME_HSV_HUE, BAND=0)
@@ -733,6 +760,21 @@ class ImageManipulation:
 
         self.log.debug("GLCM: YCBCR CR")
         glcm = GLCM(self._blobs, constants.NAME_IMAGE_YCBCR, PREFIX=constants.NAME_YCBCR_RED_DIFFERENCE, BAND=2)
+        glcm.computeAttributes()
+        self._blobs = glcm.blobs
+
+        self.log.debug("GLCM: CIELAB L")
+        glcm = GLCM(self._blobs, constants.NAME_IMAGE_CIELAB, PREFIX=constants.NAME_CIELAB_L, BAND=2)
+        glcm.computeAttributes()
+        self._blobs = glcm.blobs
+
+        self.log.debug("GLCM: CIELAB A")
+        glcm = GLCM(self._blobs, constants.NAME_IMAGE_CIELAB, PREFIX=constants.NAME_CIELAB_A, BAND=2)
+        glcm.computeAttributes()
+        self._blobs = glcm.blobs
+
+        self.log.debug("GLCM: CIELAB B")
+        glcm = GLCM(self._blobs, constants.NAME_IMAGE_CIELAB, PREFIX=constants.NAME_CIELAB_B, BAND=2)
         glcm.computeAttributes()
         self._blobs = glcm.blobs
 
@@ -1377,6 +1419,10 @@ class ImageManipulation:
 
             image = self._imgAsYCBCR[y:y + h, x:x + w]
             blobAttributes[constants.NAME_IMAGE_YCBCR] = image
+
+            image = self._imgAsCIELAB[y:y + h, x:x + w]
+            blobAttributes[constants.NAME_IMAGE_CIELAB] = image
+
 
     def extractImagesFrom(self, source: np.ndarray, zslice: int, attribute: str, manipulation):
         """
