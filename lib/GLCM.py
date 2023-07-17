@@ -5,8 +5,8 @@ import logging
 
 from skimage.feature import graycomatrix, graycoprops
 from skimage import exposure
-from skimage import io
-import cv2
+#from skimage import io
+#import cv2
 import numpy as np
 
 import constants
