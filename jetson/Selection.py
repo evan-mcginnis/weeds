@@ -466,7 +466,11 @@ if __name__ == "__main__":
         :param theParameters: An array of the parameters
         """
         resultsSemaphore.acquire(blocking=True)
-        maximums[theTechnique] = {RESULT: theResult, PARAMETERS: theParameters}
+        results = maximums[theTechnique]
+        if theResult > results[RESULT]:
+            maximums[theTechnique] = {RESULT: theResult, PARAMETERS: theParameters}
+        else:
+            logging.debug(f"Local maximum found for {theTechnique}: {theResult} ({theParameters}) vs {results[RESULT]} ({results[PARAMETERS]}")
         resultsSemaphore.release()
 
     def reportMaximums(resultsFilename: str):
@@ -483,19 +487,19 @@ if __name__ == "__main__":
         """
         highestClassificationRate = 0.0
         currentCombination = 0
-        for combination in allCombinations:
+        for combination in parameters:
             currentCombination += 1
             if currentCombination % 10000 == 0:
                 logger.debug(f"Processed {currentCombination} combinations for {technique.name}")
-            print(f"{classifier.name}: {combination}")
-            classifier.selections = combination
-            classifier.load(dataFile, stratify=False)
-            classifier.createModel(False)
+            print(f"{technique.name}: {combination}")
+            technique.selections = combination
+            technique.load(dataFile, stratify=False)
+            technique.createModel(False)
             meanClassificationRate = sum(classifier.scores) / len(classifier.scores)
             if meanClassificationRate > highestClassificationRate:
                 highestClassificationRate = meanClassificationRate
-                logger.info(f"Found new max for {classifier.name}:{meanClassificationRate} using {combination}")
-                recordMaximum(classifier.name, meanClassificationRate, combination)
+                logger.info(f"Found new max for {technique.name}:{meanClassificationRate} using {combination}")
+                recordMaximum(technique.name, meanClassificationRate, combination)
 
     def startupLogger(configFile: str):
         """
@@ -554,6 +558,8 @@ if __name__ == "__main__":
     selector.load(arguments.data)
     selector.create()
 
+    dataDirectory = os.path.dirname(arguments.data)
+
     # For each technique, find the optimal set of attributes
     if arguments.optimal:
         selector.analyze(Output.NOTHING)
@@ -568,31 +574,37 @@ if __name__ == "__main__":
 
         allTechniques = [RandomForest(), KNNClassifier(), GradientBoosting(), LogisticRegressionClassifier(), DecisionTree(), SuppportVectorMachineClassifier()]
 
-        chunks = more_itertools.grouper(combinations_1, 2)
-        i = 0
-        for chunk in chunks:
-            print(f"Chunk {i}: Length {len(chunk)}")
-            i += 1
-
         print(f"Total Combinations: {len(allCombinations)}")
+
+        # Determine the number of groups needed.  Use a small value for debugging
+        if len(allCombinations) > 1000:
+            groups = len(allCombinations) / 1000000
+        else:
+            groups = 2
+
+        chunks = more_itertools.batched(combinations_1, groups)
 
         threads = list()
         threading.stack_size(1024 * 128)
-        for classifier in allTechniques:
-            print(f"Technique: {classifier.name}")
-            search = Thread(name=classifier.name, target=searchForParameters, args=(classifier, arguments.data, allCombinations,))
-            search.daemon = True
-            threads.append(search)
-            search.start()
-            # This is arbitrary but required to avoid errors in startup, it would seem.
-            time.sleep(2)
-            #searchForParameters(classifier, arguments.data, allCombinations)
+        for chunk in chunks:
+            i = 0
+            for classifier in allTechniques:
+                subset = list(chunk)
+                print(f"Technique: {classifier.name} searching list of {len(subset)}")
+                search = Thread(name=classifier.name + constants.DELIMETER + str(i), target=searchForParameters, args=(classifier, arguments.data, subset,))
+                search.daemon = True
+                threads.append(search)
+                search.start()
+                # This is arbitrary but required to avoid errors in startup, it would seem.
+                time.sleep(2)
+                #searchForParameters(classifier, arguments.data, allCombinations)
+                i += 1
 
         for x in threads:
             x.join()
 
-
-        reportMaximums("maximums.txt")
+        print(f"Maximums reported in: {os.path.join(dataDirectory, 'maximums.txt')}")
+        reportMaximums(os.path.join(dataDirectory, 'maximums.txt'))
 
     if arguments.consolidated:
         selector.analyze(Output.NOTHING)
