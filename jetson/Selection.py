@@ -478,19 +478,20 @@ if __name__ == "__main__":
             for technique, details in maximums.items():
                 results.write(f"{technique}:{details[RESULT]} {details[PARAMETERS]}\n")
 
-    def searchForParameters(technique: Classifier, dataFile: str, parameters: []):
+    def searchForParameters(technique: Classifier, dataFile: str, parameters: [], maximums: str):
         """
 
         :param technique:
         :param dataFile:
         :param parameters:
         """
+        logger.debug(f"Search using {technique.name} in {parameters}")
         highestClassificationRate = 0.0
         currentCombination = 0
         for combination in parameters:
             currentCombination += 1
             if currentCombination % 10000 == 0:
-                logger.debug(f"Processed {currentCombination} combinations for {technique.name}")
+                logger.info(f"Processed {currentCombination} combinations for {technique.name}")
             print(f"{technique.name}: {combination}")
             technique.selections = combination
             technique.load(dataFile, stratify=False)
@@ -500,6 +501,7 @@ if __name__ == "__main__":
                 highestClassificationRate = meanClassificationRate
                 logger.info(f"Found new max for {technique.name}:{meanClassificationRate} using {combination}")
                 recordMaximum(technique.name, meanClassificationRate, combination)
+                reportMaximums(maximums)
 
     def startupLogger(configFile: str):
         """
@@ -586,12 +588,14 @@ if __name__ == "__main__":
 
         threads = list()
         threading.stack_size(1024 * 128)
+        i = 0
         for chunk in chunks:
-            i = 0
             for classifier in allTechniques:
                 subset = list(chunk)
                 print(f"Technique: {classifier.name} searching list of {len(subset)}")
-                search = Thread(name=classifier.name + constants.DELIMETER + str(i), target=searchForParameters, args=(classifier, arguments.data, subset,))
+                search = Thread(name=classifier.name + constants.DELIMETER + str(i),
+                                target=searchForParameters,
+                                args=(classifier, arguments.data, subset, os.path.join(dataDirectory, 'maximums.txt'),))
                 search.daemon = True
                 threads.append(search)
                 search.start()
@@ -604,7 +608,7 @@ if __name__ == "__main__":
             x.join()
 
         print(f"Maximums reported in: {os.path.join(dataDirectory, 'maximums.txt')}")
-        reportMaximums(os.path.join(dataDirectory, 'maximums.txt'))
+        #reportMaximums(os.path.join(dataDirectory, 'maximums.txt'))
 
     if arguments.consolidated:
         selector.analyze(Output.NOTHING)
