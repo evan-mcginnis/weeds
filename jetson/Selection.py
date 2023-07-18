@@ -566,9 +566,9 @@ if __name__ == "__main__":
     if arguments.optimal:
         selector.analyze(Output.NOTHING)
         # The list of all the attributes to be analyzed
-        #results = selector.results(unique=True)
+        results = selector.results(unique=True)
         # Temporary debugging to cut down on the scope -- replace with above line and set MAX_PARAMETERS to 10
-        results = ["hue", "cb_mean", "hog_mean", "greyscale_homogeneity_90"]
+        #results = ["hue", "cb_mean", "hog_mean", "greyscale_homogeneity_90"]
         combinations = itertools.combinations(results, MAX_PARAMETERS)
         allCombinations = list(combinations)
         combinations_1, combinations_2 = itertools.tee(allCombinations, 2)
