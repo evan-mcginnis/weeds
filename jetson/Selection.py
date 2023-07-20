@@ -570,29 +570,33 @@ if __name__ == "__main__":
         # Temporary debugging to cut down on the scope -- replace with above line and set MAX_PARAMETERS to 10
         #results = ["hue", "cb_mean", "hog_mean", "greyscale_homogeneity_90"]
         combinations = itertools.combinations(results, MAX_PARAMETERS)
-        allCombinations = list(combinations)
-        combinations_1, combinations_2 = itertools.tee(allCombinations, 2)
+        chunks = more_itertools.batched(combinations, 1000000)
+
+        # allCombinations = list(combinations)
+        # combinations_1, combinations_2 = itertools.tee(allCombinations, 2)
 
 
         allTechniques = [RandomForest(), KNNClassifier(), GradientBoosting(), LogisticRegressionClassifier(), DecisionTree(), SuppportVectorMachineClassifier()]
 
-        print(f"Total Combinations: {len(allCombinations)}")
-
-        # Determine the number of groups needed.  Use a small value for debugging
-        if len(allCombinations) > 1000:
-            groups = int(len(allCombinations) / 1000000)
-        else:
-            groups = 2
-
-        chunks = more_itertools.batched(combinations_1, groups)
+        # print(f"Total Combinations: {len(allCombinations)}")
+        #
+        # # Determine the number of groups needed.  Use a small value for debugging
+        # if len(allCombinations) > 1000:
+        #     groups = int(len(allCombinations) / 1000000)
+        # else:
+        #     groups = 2
+        #
+        # chunks = more_itertools.batched(combinations_1, groups)
 
         threads = list()
         threading.stack_size(1024 * 128)
-        i = 0
+        classifierID = 0
+        chunkID = 0
         for chunk in chunks:
             for classifier in allTechniques:
                 subset = list(chunk)
-                print(f"Technique: {classifier.name} searching list of {len(subset)}")
+                print(f"Technique: {classifier.name}-{classifierID} searching list of length: {len(subset)}")
+                # For debugging, don't actually launch the threads
                 search = Thread(name=classifier.name + constants.DELIMETER + str(i),
                                 target=searchForParameters,
                                 args=(classifier, arguments.data, subset, os.path.join(dataDirectory, 'maximums.txt'),))
@@ -602,7 +606,8 @@ if __name__ == "__main__":
                 # This is arbitrary but required to avoid errors in startup, it would seem.
                 time.sleep(2)
                 #searchForParameters(classifier, arguments.data, allCombinations)
-                i += 1
+                classifierID += 1
+            chunkID += 1
 
         for x in threads:
             x.join()
