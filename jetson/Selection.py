@@ -481,18 +481,17 @@ if __name__ == "__main__":
     def searchForParameters(technique: Classifier, dataFile: str, parameters: [], maximums: str):
         """
 
+        :param maximums:
         :param technique:
         :param dataFile:
         :param parameters:
         """
-        logger.debug(f"Search using {technique.name} in {parameters}")
+        logger.debug(f"Search using {technique.name}")
         highestClassificationRate = 0.0
         currentCombination = 0
         for combination in parameters:
             currentCombination += 1
-            if currentCombination % 10000 == 0:
-                logger.info(f"Processed {currentCombination} combinations for {technique.name}")
-            print(f"{technique.name}: {combination}")
+            logger.info(f"{technique.name}: combination: {currentCombination}")
             technique.selections = combination
             technique.load(dataFile, stratify=False)
             technique.createModel(False)
