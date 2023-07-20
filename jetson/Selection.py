@@ -443,7 +443,7 @@ if __name__ == "__main__":
     RESULT = "RESULT"
     PARAMETERS = "PARAMETERS"
 
-    MAX_PARAMETERS = 3
+    MAX_PARAMETERS = 10
 
     # The maximum values for each technique
 
@@ -470,7 +470,7 @@ if __name__ == "__main__":
         if theResult > results[RESULT]:
             maximums[theTechnique] = {RESULT: theResult, PARAMETERS: theParameters}
         else:
-            logging.debug(f"Local maximum found for {theTechnique}: {theResult} ({theParameters}) vs {results[RESULT]} ({results[PARAMETERS]}")
+            logging.info(f"Local maximum found for {theTechnique}: {theResult} ({theParameters}) vs {results[RESULT]} ({results[PARAMETERS]}")
         resultsSemaphore.release()
 
     def reportMaximums(resultsFilename: str):
@@ -580,7 +580,7 @@ if __name__ == "__main__":
 
         # Determine the number of groups needed.  Use a small value for debugging
         if len(allCombinations) > 1000:
-            groups = len(allCombinations) / 1000000
+            groups = int(len(allCombinations) / 1000000)
         else:
             groups = 2
 
