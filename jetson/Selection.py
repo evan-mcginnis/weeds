@@ -469,6 +469,7 @@ if __name__ == "__main__":
         results = maximums[theTechnique]
         if theResult > results[RESULT]:
             maximums[theTechnique] = {RESULT: theResult, PARAMETERS: theParameters}
+            logging.info(f"Global maximum found for {theTechnique}: {theResult} ({theParameters}) vs {results[RESULT]} ({results[PARAMETERS]}")
         else:
             logging.info(f"Local maximum found for {theTechnique}: {theResult} ({theParameters}) vs {results[RESULT]} ({results[PARAMETERS]}")
         resultsSemaphore.release()
@@ -486,12 +487,12 @@ if __name__ == "__main__":
         :param dataFile:
         :param parameters:
         """
-        logger.debug(f"Search using {technique.name}")
+        logger.debug(f"Search using {technique.name} in {len(parameters)} combinations")
         highestClassificationRate = 0.0
         currentCombination = 0
         for combination in parameters:
             currentCombination += 1
-            logger.info(f"{technique.name}: combination: {currentCombination}")
+            logger.info(f"{technique.name}: combination: {currentCombination} parameters: {combination}")
             technique.selections = combination
             technique.load(dataFile, stratify=False)
             technique.createModel(False)
