@@ -454,6 +454,7 @@ if __name__ == "__main__":
         RandomForest.name: {RESULT: 0, PARAMETERS: []},
         GradientBoosting.name: {RESULT: 0, PARAMETERS: []},
         SuppportVectorMachineClassifier.name: {RESULT: 0, PARAMETERS: []},
+        LDA.name: {RESULT: 0, PARAMETERS: []}
     }
 
     resultsSemaphore = Semaphore()
@@ -542,6 +543,7 @@ if __name__ == "__main__":
                         help="Output latex tables")
     parser.add_argument("-o", "--optimal", action="store_true", required=False, default=False, help="Search for optimal parameters")
     parser.add_argument("-c", "--consolidated", action="store_true", required=False, default=False, help="Show consolidated list of parameters")
+    parser.add_argument("-d", "--debug", action="store_true", required=False, default=False, help="Process a small subset of parameters")
     arguments = parser.parse_args()
 
     logger = startupLogger(arguments.logging)
@@ -568,12 +570,19 @@ if __name__ == "__main__":
     # For each technique, find the optimal set of attributes
     if arguments.optimal:
         selector.analyze(Output.NOTHING)
-        # The list of all the attributes to be analyzed
-        results = selector.results(unique=True)
-        # Temporary debugging to cut down on the scope -- replace with above line and set MAX_PARAMETERS to 10
-        #results = ["hue", "cb_mean", "hog_mean", "greyscale_homogeneity_90"]
-        combinations = itertools.combinations(results, MAX_PARAMETERS)
-        chunks = more_itertools.batched(combinations, 1000000)
+        if arguments.debug:
+            logger.warning("Processing reduced subset")
+            results = ["hue", "cb_mean", "hog_mean", "greyscale_homogeneity_90"]
+            maxParameters = 2
+            combinationsPerBatch = 1
+        else:
+            # The list of all the attributes to be analyzed
+            results = selector.results(unique=True)
+            maxParameters = MAX_PARAMETERS
+            combinationsPerBatch = 1000000
+
+        combinations = itertools.combinations(results, maxParameters)
+        chunks = more_itertools.batched(combinations, combinationsPerBatch)
 
         # allCombinations = list(combinations)
         # combinations_1, combinations_2 = itertools.tee(allCombinations, 2)
@@ -600,7 +609,7 @@ if __name__ == "__main__":
                 subset = list(chunk)
                 print(f"Technique: {classifier.name}-{classifierID} searching list of length: {len(subset)}")
                 # For debugging, don't actually launch the threads
-                search = Thread(name=classifier.name + constants.DELIMETER + str(i),
+                search = Thread(name=classifier.name + constants.DELIMETER + str(chunkID),
                                 target=searchForParameters,
                                 args=(classifier, arguments.data, subset, os.path.join(dataDirectory, 'maximums.txt'),))
                 search.daemon = True
