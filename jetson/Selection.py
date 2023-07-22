@@ -436,7 +436,7 @@ if __name__ == "__main__":
     import more_itertools
     from threading import Thread, Semaphore
 #    from Logger import Logger
-    from Classifier import Classifier, LogisticRegressionClassifier, KNNClassifier, DecisionTree, RandomForest, GradientBoosting, SuppportVectorMachineClassifier
+    from Classifier import Classifier, LogisticRegressionClassifier, KNNClassifier, DecisionTree, RandomForest, GradientBoosting, SuppportVectorMachineClassifier, LDA
 
     selector = None
     TECHNIQUE = "TECHNIQUE"
@@ -478,6 +478,9 @@ if __name__ == "__main__":
         with open(resultsFilename, "w") as results:
             for technique, details in maximums.items():
                 results.write(f"{technique}:{details[RESULT]} {details[PARAMETERS]}\n")
+
+    def outputMaximums(format: Output):
+        maximumsDF = pd.DataFrame(maximums)
 
     def searchForParameters(technique: Classifier, dataFile: str, parameters: [], maximums: str):
         """
@@ -576,7 +579,7 @@ if __name__ == "__main__":
         # combinations_1, combinations_2 = itertools.tee(allCombinations, 2)
 
 
-        allTechniques = [RandomForest(), KNNClassifier(), GradientBoosting(), LogisticRegressionClassifier(), DecisionTree(), SuppportVectorMachineClassifier()]
+        allTechniques = [RandomForest(), KNNClassifier(), GradientBoosting(), LogisticRegressionClassifier(), DecisionTree(), SuppportVectorMachineClassifier(), LDA()]
 
         # print(f"Total Combinations: {len(allCombinations)}")
         #

@@ -110,6 +110,9 @@ endif
 ifeq ($(ML), svm)
 	ALGFLAG = -svm
 endif
+ifeq ($(ML), lda)
+	ALGFLAG = -lda
+endif
 
 # Indicate that the system should produce treatment plans as an image
 TREATMENT?=-sp
@@ -165,6 +168,12 @@ treatment:
 
 lint:
 	$(PYLINT) weeds.py
+
+# H P C C
+DATA?=normalized.csv
+
+hpcc-upload:
+	scp $(DATA) evanmc@filexfer.hpc.arizona.edu:
 
 # This should be run only on an ubuntu distribution
 OPENSSL = openssl

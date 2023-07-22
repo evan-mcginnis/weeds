@@ -36,7 +36,7 @@ from VegetationIndex import VegetationIndex
 from ImageManipulation import ImageManipulation
 from ImageLogger import ImageLogger
 from Classifier import Classifier, LogisticRegressionClassifier, KNNClassifier, DecisionTree, RandomForest, \
-    GradientBoosting, SuppportVectorMachineClassifier
+    GradientBoosting, SuppportVectorMachineClassifier, LDA
 from OptionsFile import OptionsFile
 from Reporting import Reporting
 from Treatment import Treatment
@@ -777,6 +777,8 @@ parser.add_argument('-ini', '--ini', action="store", required=False, default=con
                     help="Options INI")
 group.add_argument("-k", "--knn", action="store_true", default=False,
                    help="Predict using KNN. Requires data file to be specified")
+group.add_argument("-lda", "--lda", action="store_true", default=False,
+                   help="Predict using Linear Discriminate Analysis. Requires data file to be specified")
 group.add_argument("-l", "--logistic", action="store_true", default=False,
                    help="Predict using logistic regression. Requires data file to be specified")
 group.add_argument("-dt", "--tree", action="store_true", default=False,
@@ -823,7 +825,7 @@ decorations = [item for item in arguments.decorations.split(',')]
 
 (logger, log) = startupLogger(arguments.output)
 
-if (arguments.logistic or arguments.knn or arguments.tree or arguments.forest) and arguments.data is None:
+if (arguments.logistic or arguments.knn or arguments.tree or arguments.forest or arguments.lda) and arguments.data is None:
     print("Data file is not specified.")
     sys.exit(1)
 
@@ -1099,6 +1101,14 @@ elif arguments.gradient:
     #classifier.visualize()
 elif arguments.support:
     classifier = SuppportVectorMachineClassifier()
+    # Load selected parameters
+    #classifier.loadSelections(arguments.selection)
+    classifier.selections = selections
+    classifier.load(arguments.data, stratify=False)
+    classifier.createModel(arguments.score)
+    #classifier.visualize()
+elif arguments.lda:
+    classifier = LDA()
     # Load selected parameters
     #classifier.loadSelections(arguments.selection)
     classifier.selections = selections
@@ -1452,7 +1462,7 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
         performance.stopAndRecord(constants.PERF_MEAN)
 
         # Use either heuristics or logistic regression
-        if arguments.logistic or arguments.knn or arguments.tree or arguments.forest or arguments.gradient or arguments.support:
+        if arguments.logistic or arguments.knn or arguments.tree or arguments.forest or arguments.gradient or arguments.support or arguments.lda:
             performance.start()
             classifier.classify()
             performance.stopAndRecord(constants.PERF_CLASSIFY)
