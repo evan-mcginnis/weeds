@@ -31,7 +31,7 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 
 from review_ui import Ui_MainWindow
-from select_image_set import Ui_select_image_set
+#from select_image_set import Ui_select_image_set
 
 FILE_PROGRESS = "progress.ini"
 ATTRIBUTE_CURRENT = "CURRENT"
@@ -41,73 +41,17 @@ UNKNOWN_LONG = -999
 NOT_SET = "-----"
 UNKNOWN_STR = NOT_SET
 
-class SelectImageSet(QDialog):
-    def __init__(self, directory: str, parent=None):
-        super().__init__(parent)
-        self._directory = directory
-        # Create an instance of the GUI
-        self.ui = Ui_select_image_set()
-        # Run the .setupUi() method to show the GUI
-        self.ui.setupUi(self)
-        self.ui.imageType.addItem("Basler RGB")
-        self.ui.imageType.addItem("Intel RGB")
-        self.ui.imageType.addItem("Intel Depth")
-        self.ui.image_position.addItem("Left", "left")
-        self.ui.image_position.addItem("Middle", "middle")
-        self.ui.image_position.addItem("Right", "right")
-
-        self.ui.ok.setEnabled(False)
-
-        self.ui.image_sets.clicked.connect(self.imageSetSelected)
-        self.ui.ok.clicked.connect(self.ok)
-
-        self._selectedImageType = 0
-        self._selectedImageSet = ""
-        self._selectedImagePosition = 0
-        self._pattern = ""
-
-        # POSITION is replaced by the actual position of the images, left, middle, right
-        self._patterns = ["finished-basler-POSITION-*.jpg", "finished-intel-POSITION-*.jpg", "depth-POSITION-*.npy"]
-    @property
-    def pattern(self) -> str:
-        return self._pattern
-
-
-    @property
-    def selectedSet(self) -> str:
-        return self._selectedImageSet
-
-    def selectedTypePattern(self, type: int, position: str) -> str:
-        return self._patterns[type].replace("POSITION", position)
-
-    def ok(self):
-        self._selectedImageSet = self.ui.image_sets.currentItem().text()
-        self._selectedImageType = self.ui.imageType.currentIndex()
-        self._selectedImagePosition = self.ui.image_position.currentData()
-
-        self._pattern = self.selectedTypePattern(self._selectedImageType, self._selectedImagePosition)
-        self.close()
-    def imageSetSelected(self):
-        self.ui.ok.setEnabled(True)
-
-    def getImageSets(self):
-        self._fileNames = glob.glob(self._directory + "/*")
-        self._directories = list(filter(os.path.isdir, os.listdir(os.curdir)))
-        # self._fileNames = sorted(glob.glob(self._directory + "/"), key=os.path.getmtime)
-        for directory in self._directories:
-            imageSetName = os.path.basename(directory)
-            #imageComonent imageSetName.split('-')
-            self.ui.image_sets.addItem(imageSetName)
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def __init__(self, *args, **kwargs):
         super(MainWindow, self).__init__(*args, **kwargs)
 
         # Images
+        self._attributes = None
         self._fileNames = []
-        #self._attributes = np.empty(
         self._currentFileNumber = 0
         self._maxFileNumber = 0
 
+        self._processedFileName = None
         self._lastFileReviewed = 0
         # Attributes
         #self._attributes = np.empty()
@@ -127,6 +71,14 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.actionExit.triggered.connect(self.safeExit)
         self.actionSave.triggered.connect(self.saveProgress)
         self.actionMark_for_review.triggered.connect(self.markCurrentImageForReview)
+
+    @property
+    def processed(self) -> str:
+        return self._processedFileName
+
+    @processed.setter
+    def processed(self, filename: str):
+        self._processedFileName = filename
 
     @property
     def lastFileReviewed(self):
@@ -179,6 +131,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         """
         Save the current image number to the INI file
         """
+
+        self._attributes.to_csv(self._processedFileName, encoding="UTF-8", index=False)
+
         if self._currentFileNumber == self._maxFileNumber:
             try:
                 os.remove(FILE_PROGRESS)
@@ -294,9 +249,11 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         width = self.image.width()
         height = self.image.height()
         print("Image is {}x{}".format(width, height))
+        #self.image.setGeometry()
         pixmap = QPixmap(imageName)
-        #scaled = pixmap.scaled(width, height, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-        scaled = pixmap.scaled(height, height, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        #scaled = pixmap.scaled(width, height, Qt.KeepAspectRatio)
+        #scaled = pixmap.scaled(self.image.size(), Qt.KeepAspectRatio)
+        scaled = pixmap.scaled(width, height, Qt.KeepAspectRatio, Qt.SmoothTransformation)
         self.image.setPixmap(scaled)
 
 
@@ -304,6 +261,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         if len(self._fileNames) > 0:
             self._displayImage(self._fileNames[0])
+        self.populateBlobTypes(0)
 
     def setCurrentImage(self, imageNumber):
         self._currentFileNumber = imageNumber
@@ -322,6 +280,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.button_previous.setEnabled(True)
 
         self._displayImage(self._fileNames[self._currentFileNumber])
+        self.populateBlobTypes(self._currentFileNumber)
         self.updateInformationForCurrentImage()
 
     def previousImage(self):
@@ -339,6 +298,12 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def exitHandler(self):
         pass
 
+    def parseImageName(self, name: str) -> (int, int):
+        # Images names are of the form image-M-blob-N
+        imageNumber, blobNumber = name.split(constants.DASH)
+
+        return imageNumber, blobNumber
+
     def loadAttributesFromCSV(self, attributes: str) -> bool:
         """
         Load feature attributes and classifications into a pandas frame
@@ -352,7 +317,63 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         except FileNotFoundError as file:
             print("Unable to find file: {}".format(attributes))
             rc = False
+
+        # If there is no "actual" column, insert one, setting the actual type to the predicted
+        if constants.NAME_ACTUAL not in self._attributes.columns:
+            self._attributes[constants.NAME_ACTUAL] = self._attributes[constants.NAME_TYPE]
+
+        print(f"Loaded from csv")
         return rc
+
+    def recordCorrectTypes(self):
+        pass
+
+    def _selected(self, value):
+
+        # image-M-blob-N is <crop | weed>
+        text = value.split(' ')
+
+        if text[2].lower() == constants.NAME_CROP.lower():
+            value = 0
+        elif text[2].lower() == constants.NAME_WEED.lower():
+            value = 1
+        else:
+            raise ValueError(f"Unable to determine type for: {text[2]}")
+
+        # There should be only one row
+        rows = self._attributes.loc[self._attributes[constants.NAME_NAME] == text[0]]
+        for index, row in rows.iterrows():
+            # This assumes that the 'actual' column is last -- too lazy to figure that out
+            self._attributes.iloc[index, -1] = value
+        return
+
+
+    def populateBlobTypes(self, imageNumber: int):
+        names = ["Crop", "Weed"]
+
+        # Delete all the combo boxes added for the previous view
+        for i in reversed(range(self.blobType.count())):
+            self.blobType.itemAt(i).widget().setParent(None)
+
+        # The name of the image -- the trailing dash is included so we don't confuse image-1 with image-11
+        imageName = constants.NAME_IMAGE + constants.DASH + str(imageNumber) + constants.DASH
+        df = self._attributes
+        blobsInImage = df[df[constants.NAME_NAME].str.contains(imageName)]
+
+        for index, row in blobsInImage.iterrows():
+            # creating a combo box widget
+            comboBox = QComboBox(self)
+            comboBox.activated[str].connect(self._selected)
+            # setting geometry of combo box
+            comboBox.setGeometry(200, 150, 120, 40)
+
+            # Put both choices in the combo-box, but the selected one will be the one predicted
+            comboBox.addItem(f"{row[constants.NAME_NAME]} is {names[int(row[constants.NAME_TYPE])]}")
+            comboBox.addItem(f"{row[constants.NAME_NAME]} is {names[not int(row[constants.NAME_TYPE])]}")
+
+            self.blobType.addWidget(comboBox)
+        return
+
 
 
     def selectDirectory(self) -> str:
@@ -361,6 +382,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def loadImagesFromDirectory(self, directory: str, pattern: str) -> bool:
         """
         Finds the images in the specified directory and sorts them by modification time
+        :param pattern:
         :param directory:
         :return: True on success
         """
@@ -369,7 +391,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         rc = True
         try:
-            self._fileNames = sorted(glob.glob(directory + "/" + pattern), key=os.path.getmtime)
+            self._fileNames = sorted(glob.glob(os.path.join(directory, pattern)), key=os.path.getmtime)
             print("Found files {}".format(self._fileNames))
             self._maxFileNumber = len(self._fileNames) - 1
             rc = True
@@ -386,8 +408,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 parser = argparse.ArgumentParser("Image Reviewer")
 
 parser.add_argument('-i', '--input', action="store", required=False,  help="Input directory")
-parser.add_argument('-a', '--attributes', action="store", required=False,  help="Attributes")
+parser.add_argument('-p', '--pattern', action="store", required=False,  default="*.jpg", help="Pattern, i.e., processed-*.jpg")
 parser.add_argument('-o', '--output', action="store", required=False,  default="classifications.csv", help="Output CSV")
+parser.add_argument('-a', '--attributes', action="store", required=False,  default="results.csv", help="Classification CSV")
 
 arguments = parser.parse_args()
 
@@ -405,32 +428,12 @@ app.aboutToQuit.connect(window.exitHandler)
 
 
 if arguments.input is not None:
-    window.loadImagesFromDirectory(arguments.input)
+    window.loadImagesFromDirectory(arguments.input, arguments.pattern)
 
+window.loadAttributesFromCSV(arguments.attributes)
 
-if arguments.attributes:
-    window.loadAttributesFromCSV(arguments.attributes)
-
+window.processed = arguments.output
 window.setup()
-
-# TODO: Deal with classifications -- hide this for now
-window.scroll_classification_area.setVisible(False)
-
-os.chdir("/tmp/output")
-selection = SelectImageSet(".")
-selection.getImageSets()
-selection.exec_()
-print("Read images {}".format(selection.pattern))
-window.loadImagesFromDirectory(selection.selectedSet, selection.pattern)
-
 window.show()
-
-# if window.loadProgress():
-#     if window.confirmResumeReview("Resume editing at image {}?".format(window.lastFileReviewed)):
-#         window.setCurrentImage(window.lastFileReviewed)
-#         window.currentFileNumber = window.lastFileReviewed
-#         window.updateInformationForCurrentImage()
-#     else:
-#         window.setCurrentImage(0)
 
 sys.exit(app.exec_())
