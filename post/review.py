@@ -164,17 +164,6 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             rc = False
         return rc
 
-    @staticmethod
-    def valueOrUnknown(value: float) -> str:
-        """
-        Utility function to return a string form of the float, using '----' for the UNKNOWN_LONG value
-        :param value: value or UNKNOWN_LONG
-        :return: string representation of value
-        """
-        if value == UNKNOWN_LONG:
-            return NOT_SET
-        else:
-            return str(value)
 
     def updateFileNumber(self):
         """
@@ -182,25 +171,6 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         """
         self.image_number.setText(str(self._currentFileNumber) + '/' + str(self._maxFileNumber))
 
-    def updateCaptureDate(self, date: str):
-        """
-        Update the date the image was captured
-        :param date:
-        """
-        self.image_acquired.setText(date)
-
-    def updateLatitude(self, latitude: float):
-        self.image_latitude.setText(self.valueOrUnknown(latitude))
-
-    def updateLongitude(self, longitude: float):
-        self.image_longitude.setText(self.valueOrUnknown(longitude))
-
-    def updateSpeed(self, speed: float):
-        if speed > 0.0:
-            speedText = f"{speed * 1e6:.2f} kph"
-        else:
-            speedText = NOT_SET
-        self.image_speed.setText(speedText)
 
     def updateInformationForCurrentImage(self):
         """
@@ -222,22 +192,22 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
             # Image may not have the exif information
 
-            if "gps_latitude" in exif:
-                reference = theImage.gps_latitude_ref
-                self.updateLatitude(GPSUtilities.dms2decdeg(theImage.gps_latitude, reference))
-            else:
-                self.updateLatitude(UNKNOWN_LONG)
-
-            if "gps_longitude" in exif:
-                reference = theImage.gps_longitude_ref
-                self.updateLongitude(GPSUtilities.dms2decdeg(theImage.gps_longitude, reference))
-            else:
-                self.updateLongitude(UNKNOWN_LONG)
-
-            if "gps_speed" in exif:
-                self.updateSpeed(theImage.gps_speed)
-            else:
-                self.updateSpeed(UNKNOWN_LONG)
+            # if "gps_latitude" in exif:
+            #     reference = theImage.gps_latitude_ref
+            #     self.updateLatitude(GPSUtilities.dms2decdeg(theImage.gps_latitude, reference))
+            # else:
+            #     self.updateLatitude(UNKNOWN_LONG)
+            #
+            # if "gps_longitude" in exif:
+            #     reference = theImage.gps_longitude_ref
+            #     self.updateLongitude(GPSUtilities.dms2decdeg(theImage.gps_longitude, reference))
+            # else:
+            #     self.updateLongitude(UNKNOWN_LONG)
+            #
+            # if "gps_speed" in exif:
+            #     self.updateSpeed(theImage.gps_speed)
+            # else:
+            #     self.updateSpeed(UNKNOWN_LONG)
 
         self.updateFileNumber()
 
@@ -365,7 +335,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             comboBox = QComboBox(self)
             comboBox.activated[str].connect(self._selected)
             # setting geometry of combo box
-            comboBox.setGeometry(200, 150, 120, 40)
+            #comboBox.setGeometry(200, 150, 120, 40)
 
             # Put both choices in the combo-box, but the selected one will be the one predicted
             comboBox.addItem(f"{row[constants.NAME_NAME]} is {names[int(row[constants.NAME_TYPE])]}")

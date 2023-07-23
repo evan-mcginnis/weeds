@@ -16,7 +16,7 @@
   <widget class="QWidget" name="centralwidget">
    <layout class="QHBoxLayout" name="horizontalLayout_3">
     <item>
-     <layout class="QVBoxLayout" name="verticalLayout_5">
+     <layout class="QVBoxLayout" name="verticalLayout_3">
       <item>
        <layout class="QHBoxLayout" name="horizontalLayout_2">
         <item>
@@ -46,7 +46,7 @@
            <pixmap>output.jpg</pixmap>
           </property>
           <property name="scaledContents">
-           <bool>true</bool>
+           <bool>false</bool>
           </property>
           <property name="margin">
            <number>12</number>
@@ -54,9 +54,9 @@
          </widget>
         </item>
         <item>
-         <layout class="QVBoxLayout" name="verticalLayout_3">
+         <layout class="QVBoxLayout" name="photo_info">
           <item>
-           <layout class="QFormLayout" name="formLayout">
+           <layout class="QFormLayout" name="metadata">
             <item row="0" column="0">
              <widget class="QLabel" name="label_image_number">
               <property name="font">
@@ -81,103 +81,30 @@
               </property>
              </widget>
             </item>
-            <item row="1" column="0">
-             <widget class="QLabel" name="label_acquired">
-              <property name="font">
-               <font>
-                <pointsize>20</pointsize>
-               </font>
-              </property>
-              <property name="text">
-               <string>Acquired</string>
-              </property>
-             </widget>
-            </item>
-            <item row="1" column="1">
-             <widget class="QLabel" name="image_acquired">
-              <property name="font">
-               <font>
-                <pointsize>20</pointsize>
-               </font>
-              </property>
-              <property name="text">
-               <string>1/1/24</string>
-              </property>
-             </widget>
-            </item>
-            <item row="2" column="0">
-             <widget class="QLabel" name="label_latitude">
-              <property name="font">
-               <font>
-                <pointsize>20</pointsize>
-               </font>
-              </property>
-              <property name="text">
-               <string>Latitude</string>
-              </property>
-             </widget>
-            </item>
-            <item row="2" column="1">
-             <widget class="QLabel" name="image_latitude">
-              <property name="font">
-               <font>
-                <pointsize>20</pointsize>
-               </font>
-              </property>
-              <property name="text">
-               <string>-----</string>
-              </property>
-             </widget>
-            </item>
-            <item row="3" column="0">
-             <widget class="QLabel" name="label_longitude">
-              <property name="font">
-               <font>
-                <pointsize>20</pointsize>
-               </font>
-              </property>
-              <property name="text">
-               <string>Longitude</string>
-              </property>
-             </widget>
-            </item>
-            <item row="3" column="1">
-             <widget class="QLabel" name="image_longitude">
-              <property name="font">
-               <font>
-                <pointsize>20</pointsize>
-               </font>
-              </property>
-              <property name="text">
-               <string>-----</string>
-              </property>
-             </widget>
-            </item>
-            <item row="4" column="0">
-             <widget class="QLabel" name="label_speed">
-              <property name="font">
-               <font>
-                <pointsize>20</pointsize>
-               </font>
-              </property>
-              <property name="text">
-               <string>Speed</string>
-              </property>
-             </widget>
-            </item>
-            <item row="4" column="1">
-             <widget class="QLabel" name="image_speed">
-              <property name="font">
-               <font>
-                <pointsize>20</pointsize>
-               </font>
-              </property>
-              <property name="text">
-               <string>-----</string>
-              </property>
-             </widget>
-            </item>
            </layout>
+          </item>
+          <item>
+           <widget class="QFrame" name="frame">
+            <property name="font">
+             <font>
+              <pointsize>20</pointsize>
+             </font>
+            </property>
+            <property name="frameShape">
+             <enum>QFrame::Panel</enum>
+            </property>
+            <property name="frameShadow">
+             <enum>QFrame::Sunken</enum>
+            </property>
+            <property name="lineWidth">
+             <number>3</number>
+            </property>
+            <layout class="QVBoxLayout" name="verticalLayout_5">
+             <item>
+              <layout class="QVBoxLayout" name="blobType"/>
+             </item>
+            </layout>
+           </widget>
           </item>
           <item>
            <spacer name="verticalSpacer">
@@ -191,9 +118,6 @@
              </size>
             </property>
            </spacer>
-          </item>
-          <item>
-           <layout class="QVBoxLayout" name="blobType"/>
           </item>
          </layout>
         </item>
@@ -288,15 +212,7 @@
     <addaction name="actionSave"/>
     <addaction name="actionExit"/>
    </widget>
-   <widget class="QMenu" name="menuImage">
-    <property name="title">
-     <string>Image</string>
-    </property>
-    <addaction name="actionDepth_View"/>
-    <addaction name="actionMark_for_review"/>
-   </widget>
    <addaction name="menuFile"/>
-   <addaction name="menuImage"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <action name="actionSave">
