@@ -573,7 +573,7 @@ if __name__ == "__main__":
         if arguments.debug:
             logger.warning("Processing reduced subset")
             results = ["hue", "cb_mean", "hog_mean", "greyscale_homogeneity_90"]
-            maxParameters = 2
+            maxParameters = 3
             combinationsPerBatch = 1
         else:
             # The list of all the attributes to be analyzed
@@ -589,6 +589,7 @@ if __name__ == "__main__":
 
 
         allTechniques = [RandomForest(), KNNClassifier(), GradientBoosting(), LogisticRegressionClassifier(), DecisionTree(), SuppportVectorMachineClassifier(), LDA()]
+        allTechniquesNames = [x.name for x in allTechniques]
 
         # print(f"Total Combinations: {len(allCombinations)}")
         #
@@ -625,6 +626,29 @@ if __name__ == "__main__":
             x.join()
 
         print(f"Maximums reported in: {os.path.join(dataDirectory, 'maximums.txt')}")
+        if arguments.latex:
+            longCaption = "Optimal Parameters by Technique"
+            shortCaption = "Optimal Parameters"
+            headers = ["Technique", "Parameters"]
+            dfMaximums = pd.DataFrame(maximums)
+
+            # The consolidated results -- each row is a technique with factors in order as columns
+            rows, cols = (len(allTechniques), maxParameters)
+            arr = [[0 for i in range(cols)] for j in range(rows)]
+
+            i = 0
+            for technique, result in maximums.items():
+                parameters = [parameter for parameter in result[PARAMETERS]]
+                print(f"{technique}: {parameters}")
+                arr[i] = parameters
+                i += 1
+            dfMaximums = pd.DataFrame(arr)
+            print("---------- begin latex ---------------")
+            print(f"{dfMaximums.T.to_latex(longtable=True, index_names=False, index=False, caption=(longCaption, shortCaption), header=allTechniquesNames)}")
+            print("---------- end latex ---------------")
+
+
+
         #reportMaximums(os.path.join(dataDirectory, 'maximums.txt'))
 
     if arguments.consolidated:
