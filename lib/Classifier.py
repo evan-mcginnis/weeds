@@ -16,7 +16,13 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.calibration import CalibratedClassifierCV
 from sklearn.svm import LinearSVC
+from sklearn.metrics import roc_curve
+from sklearn.metrics import auc
+
+from sklearn.model_selection import RepeatedStratifiedKFold
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 
 from abc import ABC, abstractmethod
 
@@ -34,6 +40,16 @@ class Classifier:
         self._yTrain = pd.Series
         self._xTest = []
         self._yTest = []
+        # The actual type of the blob
+        self._actual = []
+
+        # ROC items
+        self._fpr = 0.0
+        self._tpr = 0.0
+        self._auc = 0.0
+        self._y_scores = []
+        self._threshold = 0.0
+
 
         self._blobsInView = pd.DataFrame()
         self._selections = []
@@ -100,6 +116,10 @@ class Classifier:
     # @property
     # def name(self):
     #     return self._name
+
+    @property
+    def actual(self) -> []:
+        return self._actual
 
     @property
     def scores(self) -> []:
@@ -181,7 +201,7 @@ class Classifier:
         except KeyError:
             return
 
-    def classify(self, reason : int):
+    def classify(self, reason: int):
         self._prepareData()
 
         self.log.info("Classify")
@@ -259,7 +279,6 @@ class Classifier:
         self._df.drop("type", axis='columns', inplace=True)
         self._x = self._df
         # Drop any data that is not part of the factors we want to consider
-        # TODO: Put references to height
 
         # Split up the data
         if stratify:
@@ -332,14 +351,73 @@ class Classifier:
             self._blobsInView = pd.DataFrame(features, columns=selectedFeatureNames)
 
     def visualize(self):
+        plt.title(f'{self.name} Receiver Operating Characteristic')
+        plt.plot(self._fpr, self._tpr, 'b', label='AUC = %0.2f' % self._auc)
+        plt.legend(loc='lower right')
+        plt.plot([0, 1], [0, 1], 'r--')
+        plt.xlim([0, 1])
+        plt.ylim([0, 1])
+        plt.ylabel('True Positive Rate')
+        plt.xlabel('False Positive Rate')
+        plt.title(f'ROC Curve of {self.name}')
+        plt.show()
+class LDA(Classifier):
+    name = "LDA"
+
+    def __init__(self):
+        super().__init__()
+
+    def createModel(self, score: bool):
+        """
+        Create an LDA model
+        :param score: True indicates a text output of the score
+        """
+        self._model = LinearDiscriminantAnalysis()
+        self._model.fit(self._xTrain, self._yTrain)
+
+        self._scores = cross_val_score(self._model, self._x, self._y)
+
+        self._y_scores = self._model.predict_proba(self._xTest)
+        self._fpr, self._tpr, self._threshold = roc_curve(self._yTest, self._y_scores[:, 1])
+        self._auc = auc(self._fpr, self._tpr)
+
+        if score:
+            self.log.debug(f"LDA cross validation scores: {self._scores}")
+
+
+            print("Linear Discriminate Analysis")
+            print(self._model.predict(self._xTest))
+            print("Training Score: {:.3f}".format(self._model.score(self._xTrain, self._yTrain)))
+            print("Testing Score: %s" % self._model.score(self._xTest, self._yTest))
+
+
+    def classify(self):
+        # TODO: Raise an exception
+        if self._model is None:
+            return
+
+        self.log.info("Classify by support vector machine")
+        self._prepareData()
+
+        # Make the predictions using the model trained
+        predictions = self._model.predict(self._blobsInView)
+
+        # Put the predictions into the blobs and mark the reason as LDA
+        i = 0
+        for blobName, blobAttributes in self._blobs.items():
+            if blobAttributes[constants.NAME_REASON] != constants.REASON_AT_EDGE:
+                blobAttributes[constants.NAME_TYPE] = predictions[i]
+                blobAttributes[constants.NAME_REASON] = constants.REASON_LDA
+            i = i + 1
         return
 
 class SuppportVectorMachineClassifier(Classifier):
     name = "SVM"
+
     def __init__(self):
         super().__init__()
 
-    def createModel(self, score:bool):
+    def createModel(self, score: bool):
         """
         Create the model for SVM
         :param score: A boolean indicating if scores should be printed.
@@ -363,6 +441,15 @@ class SuppportVectorMachineClassifier(Classifier):
         self._model.fit(self._xTrain, self._yTrain)
 
         self._scores = cross_val_score(self._model, self._x, self._y)
+
+        # Since linearSVC doesn't support the probabilities needed, use this approach
+        clf = CalibratedClassifierCV(self._model)
+        clf.fit(self._xTrain, self._yTrain)
+        y_proba = clf.predict_proba(self._xTest)
+
+        self._y_scores = clf.predict_proba(self._xTest)
+        self._fpr, self._tpr, self._threshold = roc_curve(self._yTest, self._y_scores[:, 1])
+        self._auc = auc(self._fpr, self._tpr)
 
         # Debug
         if score:
@@ -397,7 +484,6 @@ class SuppportVectorMachineClassifier(Classifier):
                 blobAttributes[constants.NAME_REASON] = constants.REASON_SVM
             i = i + 1
         return
-        return
 
 
 class LogisticRegressionClassifier(Classifier):
@@ -431,6 +517,10 @@ class LogisticRegressionClassifier(Classifier):
         self._model.fit(self._xTrain, self._yTrain)
 
         self._scores = cross_val_score(self._model, self._x, self._y)
+
+        self._y_scores = self._model.predict_proba(self._xTest)
+        self._fpr, self._tpr, self._threshold = roc_curve(self._yTest, self._y_scores[:, 1])
+        self._auc = auc(self._fpr, self._tpr)
 
         # Debug
         if score:
@@ -494,6 +584,10 @@ class KNNClassifier(Classifier):
 
         self._scores = cross_val_score(self._knnModel, self._x, self._y)
 
+        self._y_scores = self._knnModel.predict_proba(self._xTest)
+        self._fpr, self._tpr, self._threshold = roc_curve(self._yTest, self._y_scores[:, 1])
+        self._auc = auc(self._fpr, self._tpr)
+
         if score:
             self.log.debug(f"KNN Cross validation scores: {self._scores}")
             yPred = self._knnModel.predict(self._xTest)
@@ -543,23 +637,27 @@ class DecisionTree(Classifier):
         plt.show()
 
     def createModel(self, score: bool):
-        self._classifier = DecisionTreeClassifier(random_state=0)
-        self._classifier.fit(self._xTrain, self._yTrain)
+        self._model = DecisionTreeClassifier(random_state=0)
+        self._model.fit(self._xTrain, self._yTrain)
 
-        self._scores = cross_val_score(self._classifier, self._x, self._y)
+        self._scores = cross_val_score(self._model, self._x, self._y)
+
+        self._y_scores = self._model.predict_proba(self._xTest)
+        self._fpr, self._tpr, self._threshold = roc_curve(self._yTest, self._y_scores[:, 1])
+        self._auc = auc(self._fpr, self._tpr)
 
         if score:
             self.log.debug(f"Decision Tree cross validation scores: {self._scores}")
 
-            print("Training Score: {:.3f}".format(self._classifier.score(self._xTrain, self._yTrain)))
-            print("Testing Score: {:.2f}\n".format(self._classifier.score(self._xTest, self._yTest)))
+            print("Training Score: {:.3f}".format(self._model.score(self._xTrain, self._yTrain)))
+            print("Testing Score: {:.2f}\n".format(self._model.score(self._xTest, self._yTest)))
         return
 
     def classify(self):
 
         self._prepareData()
 
-        predictions = self._classifier.predict(self._blobsInView)
+        predictions = self._model.predict(self._blobsInView)
                 # Mark up the current view
         i = 0
         for blobName, blobAttributes in self._blobs.items():
@@ -582,14 +680,15 @@ class RandomForest(Classifier):
 
         self._scores = cross_val_score(self._classifier, self._x, self._y, n_jobs=-1)
 
+        self._y_scores = self._classifier.predict_proba(self._xTest)
+        self._fpr, self._tpr, self._threshold = roc_curve(self._yTest, self._y_scores[:, 1])
+        self._auc = auc(self._fpr, self._tpr)
+
         if score:
             self.log.debug(f"Random Forest cross validation scores: {self._scores}")
 
             print("Training Score: {:.3f}".format(self._classifier.score(self._xTrain, self._yTrain)))
             print("Testing Score: {:.3f}".format(self._classifier.score(self._xTest, self._yTest)))
-        return
-
-    def visualize(self):
         return
 
     def classify(self):
@@ -610,11 +709,16 @@ class GradientBoosting(Classifier):
 
     def __init__(self):
         super().__init__()
+
     def createModel(self, score: bool):
         self._classifier = GradientBoostingClassifier(random_state=0, max_depth=4)
         self._classifier.fit(self._xTrain, self._yTrain)
 
         self._scores = cross_val_score(self._classifier, self._x, self._y)
+
+        self._y_scores = self._classifier.predict_proba(self._xTest)
+        self._fpr, self._tpr, self._threshold = roc_curve(self._yTest, self._y_scores[:, 1])
+        self._auc = auc(self._fpr, self._tpr)
 
         if score:
             self.log.debug(f"Gradient Boosting cross validation scores: {self._scores}")
@@ -622,8 +726,6 @@ class GradientBoosting(Classifier):
             print("Training Score: {:.3f}".format(self._classifier.score(self._xTrain, self._yTrain)))
             print("Testing Score: {:.3f}".format(self._classifier.score(self._xTest, self._yTest)))
 
-    def visualize(self):
-        return
 
     def classify(self):
         super().classify(constants.REASON_GRADIENT)
@@ -634,15 +736,6 @@ class SVM(Classifier):
     def createModel(self, score: bool):
         raise NotImplementedError
 
-        self._classifier = GradientBoostingClassifier(random_state=0, max_depth=4)
-        self._classifier.fit(self._xTrain, self._yTrain)
-        self._scores = cross_val_score(self._classifier, self._x, self._y)
-
-        if score:
-            self.log.debug(f"SVM cross validation scores: {self._scores}")
-
-            print("Training Score: {:.3f}".format(self._classifier.score(self._xTrain, self._yTrain)))
-            print("Testing Score: {:.3f}".format(self._classifier.score(self._xTest, self._yTest)))
 
     def visualize(self):
         raise NotImplementedError
