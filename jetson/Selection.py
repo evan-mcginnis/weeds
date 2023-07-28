@@ -500,7 +500,11 @@ if __name__ == "__main__":
             technique.selections = combination
             technique.load(dataFile, stratify=False)
             technique.createModel(False)
-            meanClassificationRate = sum(classifier.scores) / len(classifier.scores)
+            if len(classifier.scores) > 0:
+                meanClassificationRate = sum(classifier.scores) / len(classifier.scores)
+            else:
+                logger.error(f"Length of scores is zero. Proceeding")
+                meanClassificationRate = 0
             if meanClassificationRate > highestClassificationRate:
                 highestClassificationRate = meanClassificationRate
                 logger.info(f"Found new max for {technique.name}:{meanClassificationRate} using {combination}")
@@ -638,13 +642,15 @@ if __name__ == "__main__":
 
             i = 0
             for technique, result in maximums.items():
+                accuracy = result[RESULT]
                 parameters = [parameter for parameter in result[PARAMETERS]]
-                print(f"{technique}: {parameters}")
+                print(f"{technique}: Accuracy: {accuracy} {parameters}")
+                parameters.insert(0, accuracy)
                 arr[i] = parameters
                 i += 1
             dfMaximums = pd.DataFrame(arr)
             print("---------- begin latex ---------------")
-            print(f"{dfMaximums.T.to_latex(longtable=True, index_names=False, index=False, caption=(longCaption, shortCaption), header=allTechniquesNames)}")
+            print(f"{dfMaximums.T.to_latex(longtable=True, index_names=False, index=False, caption=(longCaption, shortCaption), label='table:optimal', header=allTechniquesNames)}")
             print("---------- end latex ---------------")
 
 
