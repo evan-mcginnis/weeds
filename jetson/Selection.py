@@ -375,7 +375,10 @@ class All(Selection):
         self._univariate = Univariate()
         # TODO: Get variance to work correctly
         #self._selectionTechniques = [self._variance, self._recursive, self._pca, self._importance, self._univariate]
-        self._selectionTechniques = [self._recursive, self._pca, self._importance, self._univariate]
+        # This is the original
+	#self._selectionTechniques = [self._recursive, self._pca, self._importance, self._univariate]
+	# This is the debug list
+        self._selectionTechniques = [self._recursive, self._pca]
 
 
     def create(self):
