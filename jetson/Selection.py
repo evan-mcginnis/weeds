@@ -494,7 +494,7 @@ if __name__ == "__main__":
         :param dataFile:
         :param parameters:
         """
-        logger.debug(f"Search using {technique.name} in {len(parameters)} combinations")
+        logger.info(f"Search using {technique.name} in {len(parameters)} combinations")
         highestClassificationRate = 0.0
         currentCombination = 0
         for combination in parameters:
@@ -615,7 +615,7 @@ if __name__ == "__main__":
         for chunk in chunks:
             for classifier in allTechniques:
                 subset = list(chunk)
-                print(f"Technique: {classifier.name}-{classifierID} searching list of length: {len(subset)}")
+                logger.info(f"Technique: {classifier.name}-{classifierID} searching list of length: {len(subset)}")
                 # For debugging, don't actually launch the threads
                 search = Thread(name=classifier.name + constants.DELIMETER + str(chunkID),
                                 target=searchForParameters,
