@@ -378,7 +378,7 @@ class All(Selection):
         # This is the original
 	#self._selectionTechniques = [self._recursive, self._pca, self._importance, self._univariate]
 	# This is the debug list
-        self._selectionTechniques = [self._recursive, self._pca]
+        self._selectionTechniques = [self._recursive, self._pca, self._importance]
 
 
     def create(self):
@@ -637,7 +637,7 @@ if __name__ == "__main__":
             # The list of all the attributes to be analyzed
             results = selector.results(unique=True)
             maxParameters = MAX_PARAMETERS
-            combinationsPerBatch = 1000000
+            combinationsPerBatch = 500000
 
         combinations = itertools.combinations(results, maxParameters)
         chunks = more_itertools.batched(combinations, combinationsPerBatch)
