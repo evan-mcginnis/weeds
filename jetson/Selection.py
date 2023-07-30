@@ -505,17 +505,20 @@ if __name__ == "__main__":
             logging.info(f"Local maximum found for {theTechnique}: {theResult} ({theParameters}) vs {results[RESULT]} ({results[PARAMETERS]}")
         resultsSemaphore.release()
 
-    def reportMaximums(baseDirectory: str):
+    def reportMaximums(baseDirectory: str, baseFilename: str):
         """
         Write the accuracy abd AUC maximums to a file
+        :param baseFilename:
         :param baseDirectory:
         """
-        resultsFilename = os.path.join(baseDirectory, 'maximum-accuracy.txt')
+        filename = baseFilename + '.accuracy.txt'
+        resultsFilename = os.path.join(baseDirectory, filename)
         with open(resultsFilename, "w") as results:
             for technique, details in maximumsAccuracy.items():
                 results.write(f"{technique}:{details[RESULT]} {details[PARAMETERS]}\n")
 
-        resultsFilename = os.path.join(baseDirectory, 'maximum-auc.txt')
+        filename = baseFilename + '.auc.txt'
+        resultsFilename = os.path.join(baseDirectory, filename)
         with open(resultsFilename, "w") as results:
             for technique, details in maximumsAUC.items():
                 results.write(f"{technique}:{details[RESULT]} {details[PARAMETERS]}\n")
@@ -553,12 +556,12 @@ if __name__ == "__main__":
                 highestClassificationRate = meanClassificationRate
                 logger.info(f"Found new max for {technique.name}:{meanClassificationRate} using {combination}")
                 recordMaximum(technique.name, meanClassificationRate, Criteria.ACCURACY, combination)
-                reportMaximums(basePath)
+                reportMaximums(basePath, arguments.prefix)
             # AUC
             if technique.auc > highestAUC:
                 logger.info(f"Found new max for {technique.name}: {technique.auc} using {combination}")
                 recordMaximum(technique.name, technique.auc, Criteria.AUC, combination)
-                reportMaximums(basePath)
+                reportMaximums(basePath, arguments.prefix)
 
     def startupLogger(configFile: str):
         """
@@ -597,6 +600,8 @@ if __name__ == "__main__":
     parser.add_argument("-o", "--optimal", action="store_true", required=False, default=False, help="Search for optimal parameters")
     parser.add_argument("-c", "--consolidated", action="store_true", required=False, default=False, help="Show consolidated list of parameters")
     parser.add_argument("-d", "--debug", action="store_true", required=False, default=False, help="Process a small subset of parameters")
+    parser.add_argument("-p", "--prefix", action="store", required=False, default="maximums", help="Prefix for result files")
+    parser.add_argument("-b", "--batch", action="store", required=False, type=int, default=500000, help="Batch size for parameter search")
 
     # selectionCriteria = parser.add_mutually_exclusive_group()
     # selectionCriteria.add_argument("-a", "--auc", action="store_true", default=False, help="Use AUC for scoring")
@@ -685,7 +690,7 @@ if __name__ == "__main__":
         for x in threads:
             x.join()
 
-        print(f"Maximums reported in: {os.path.join(dataDirectory, 'maximums.txt')}")
+        print(f"Maximums reported in: {os.path.join(dataDirectory, arguments.prefix)}")
         if arguments.latex:
             # Accuracy
             longCaption = "Optimal Parameters by Technique (Accuracy)"
