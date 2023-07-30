@@ -563,7 +563,7 @@ if __name__ == "__main__":
                 recordMaximum(technique.name, technique.auc, Criteria.AUC, combination)
                 reportMaximums(basePath, arguments.prefix)
 
-    def startupLogger(configFile: str):
+    def startupLogger(configFile: str, outputFile: str):
         """
         Initializes two logging systems: the image logger and python centric logging.
         :param configFile:
@@ -581,6 +581,7 @@ if __name__ == "__main__":
         # Initialize logging
         with open(arguments.logging, "rt") as f:
             config = yaml.safe_load(f.read())
+            config['handlers']['file_handler']['filename'] = outputFile
             logging.config.dictConfig(config)
             theLogger = logging.getLogger(__name__)
         return theLogger
@@ -593,8 +594,8 @@ if __name__ == "__main__":
     parser.add_argument("-fs", "--selection", action="store", required=True, choices=Selection.supportedSelections(),
                         help="Feature selection")
     parser.add_argument("-f", "--factors", type=int, required=False, default=10)
-    parser.add_argument("-lg", "--logging", action="store", default="info-logging.yaml",
-                        help="Logging configuration file")
+    parser.add_argument("-lg", "--logging", action="store", default="info-logging.yaml", help="Logging configuration file")
+    parser.add_argument("-lf", "--logfile", action="store", default="weeds.log", help="Logging output file")
     parser.add_argument("-l", "--latex", action="store_true", required=False, default=False,
                         help="Output latex tables")
     parser.add_argument("-o", "--optimal", action="store_true", required=False, default=False, help="Search for optimal parameters")
@@ -609,7 +610,7 @@ if __name__ == "__main__":
 
     arguments = parser.parse_args()
 
-    logger = startupLogger(arguments.logging)
+    logger = startupLogger(arguments.logging, arguments.logfile)
 
     if arguments.selection == SELECTION_UNIVARIATE:
         selector = Univariate()
