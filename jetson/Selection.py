@@ -441,16 +441,36 @@ if __name__ == "__main__":
 #    from Logger import Logger
     from Classifier import Classifier, LogisticRegressionClassifier, KNNClassifier, DecisionTree, RandomForest, GradientBoosting, SuppportVectorMachineClassifier, LDA
 
+    from enum import Enum
+
     selector = None
     TECHNIQUE = "TECHNIQUE"
     RESULT = "RESULT"
     PARAMETERS = "PARAMETERS"
 
+    STRATEGY_ACCURACY = "accuracy"
+    STRATEGY_AUC = "auc"
+    allStrategies = [STRATEGY_ACCURACY, STRATEGY_AUC]
+
+    class Criteria(Enum):
+        ACCURACY = 0
+        AUC = 1
+
     MAX_PARAMETERS = 10
 
     # The maximum values for each technique
 
-    maximums = {
+    maximumsAccuracy = {
+        KNNClassifier.name: {RESULT: 0, PARAMETERS: []},
+        LogisticRegressionClassifier.name: {RESULT: 0, PARAMETERS: []},
+        DecisionTree.name: {RESULT: 0, PARAMETERS: []},
+        RandomForest.name: {RESULT: 0, PARAMETERS: []},
+        GradientBoosting.name: {RESULT: 0, PARAMETERS: []},
+        SuppportVectorMachineClassifier.name: {RESULT: 0, PARAMETERS: []},
+        LDA.name: {RESULT: 0, PARAMETERS: []}
+    }
+
+    maximumsAUC = {
         KNNClassifier.name: {RESULT: 0, PARAMETERS: []},
         LogisticRegressionClassifier.name: {RESULT: 0, PARAMETERS: []},
         DecisionTree.name: {RESULT: 0, PARAMETERS: []},
@@ -462,15 +482,22 @@ if __name__ == "__main__":
 
     resultsSemaphore = Semaphore()
 
-    def recordMaximum(theTechnique: str, theResult: float, theParameters: []):
+    def recordMaximum(theTechnique: str, theResult: float, theCriteria: Criteria, theParameters: []):
         """
         Record the maximum for a technique
+        :param theCriteria:
         :param theTechnique: The name of the technique (KNN, SVM, etc.)
         :param theResult: The float of the result (0..1)
         :param theParameters: An array of the parameters
         """
         resultsSemaphore.acquire(blocking=True)
-        results = maximums[theTechnique]
+        if theCriteria == Criteria.ACCURACY:
+            results = maximumsAccuracy[theTechnique]
+            maximums = maximumsAccuracy
+        elif theCriteria == Criteria.AUC:
+            results = maximumsAUC[theTechnique]
+            maximums = maximumsAUC
+
         if theResult > results[RESULT]:
             maximums[theTechnique] = {RESULT: theResult, PARAMETERS: theParameters}
             logging.info(f"Global maximum found for {theTechnique}: {theResult} ({theParameters}) vs {results[RESULT]} ({results[PARAMETERS]}")
@@ -478,24 +505,36 @@ if __name__ == "__main__":
             logging.info(f"Local maximum found for {theTechnique}: {theResult} ({theParameters}) vs {results[RESULT]} ({results[PARAMETERS]}")
         resultsSemaphore.release()
 
-    def reportMaximums(resultsFilename: str):
+    def reportMaximums(baseDirectory: str):
+        """
+        Write the accuracy abd AUC maximums to a file
+        :param baseDirectory:
+        """
+        resultsFilename = os.path.join(baseDirectory, 'maximum-accuracy.txt')
         with open(resultsFilename, "w") as results:
-            for technique, details in maximums.items():
+            for technique, details in maximumsAccuracy.items():
                 results.write(f"{technique}:{details[RESULT]} {details[PARAMETERS]}\n")
 
-    def outputMaximums(format: Output):
-        maximumsDF = pd.DataFrame(maximums)
+        resultsFilename = os.path.join(baseDirectory, 'maximum-auc.txt')
+        with open(resultsFilename, "w") as results:
+            for technique, details in maximumsAUC.items():
+                results.write(f"{technique}:{details[RESULT]} {details[PARAMETERS]}\n")
 
-    def searchForParameters(technique: Classifier, dataFile: str, parameters: [], maximums: str):
+    # def outputMaximums(format: Output):
+    #     maximumsDF = pd.DataFrame(maximumsAccuracy)
+
+    def searchForParameters(technique: Classifier, dataFile: str, parameters: [], basePath: str):
         """
 
-        :param maximums:
+        :param strategy:
+        :param basePath:
         :param technique:
         :param dataFile:
         :param parameters:
         """
         logger.info(f"Search using {technique.name} in {len(parameters)} combinations")
         highestClassificationRate = 0.0
+        highestAUC = 0.0
         currentCombination = 0
         for combination in parameters:
             currentCombination += 1
@@ -503,6 +542,8 @@ if __name__ == "__main__":
             technique.selections = combination
             technique.load(dataFile, stratify=False)
             technique.createModel(False)
+
+            # Accuracy
             if len(classifier.scores) > 0:
                 meanClassificationRate = sum(classifier.scores) / len(classifier.scores)
             else:
@@ -511,8 +552,13 @@ if __name__ == "__main__":
             if meanClassificationRate > highestClassificationRate:
                 highestClassificationRate = meanClassificationRate
                 logger.info(f"Found new max for {technique.name}:{meanClassificationRate} using {combination}")
-                recordMaximum(technique.name, meanClassificationRate, combination)
-                reportMaximums(maximums)
+                recordMaximum(technique.name, meanClassificationRate, Criteria.ACCURACY, combination)
+                reportMaximums(basePath)
+            # AUC
+            if technique.auc > highestAUC:
+                logger.info(f"Found new max for {technique.name}: {technique.auc} using {combination}")
+                recordMaximum(technique.name, technique.auc, Criteria.AUC, combination)
+                reportMaximums(basePath)
 
     def startupLogger(configFile: str):
         """
@@ -551,6 +597,11 @@ if __name__ == "__main__":
     parser.add_argument("-o", "--optimal", action="store_true", required=False, default=False, help="Search for optimal parameters")
     parser.add_argument("-c", "--consolidated", action="store_true", required=False, default=False, help="Show consolidated list of parameters")
     parser.add_argument("-d", "--debug", action="store_true", required=False, default=False, help="Process a small subset of parameters")
+
+    # selectionCriteria = parser.add_mutually_exclusive_group()
+    # selectionCriteria.add_argument("-a", "--auc", action="store_true", default=False, help="Use AUC for scoring")
+    # selectionCriteria.add_argument("-s", "--accuracy", action="store_true", default=False, help="Use model accuracy for scoring")
+
     arguments = parser.parse_args()
 
     logger = startupLogger(arguments.logging)
@@ -619,7 +670,7 @@ if __name__ == "__main__":
                 # For debugging, don't actually launch the threads
                 search = Thread(name=classifier.name + constants.DELIMETER + str(chunkID),
                                 target=searchForParameters,
-                                args=(classifier, arguments.data, subset, os.path.join(dataDirectory, 'maximums.txt'),))
+                                args=(classifier, arguments.data, subset, dataDirectory,))
                 search.daemon = True
                 threads.append(search)
                 search.start()
@@ -629,22 +680,25 @@ if __name__ == "__main__":
                 classifierID += 1
             chunkID += 1
 
+        # Wait for the threads to finish
+        logger.info(f"Wait for {len(threads)} to finish")
         for x in threads:
             x.join()
 
         print(f"Maximums reported in: {os.path.join(dataDirectory, 'maximums.txt')}")
         if arguments.latex:
-            longCaption = "Optimal Parameters by Technique"
-            shortCaption = "Optimal Parameters"
+            # Accuracy
+            longCaption = "Optimal Parameters by Technique (Accuracy)"
+            shortCaption = "Optimal Parameters for Accuracy"
             headers = ["Technique", "Parameters"]
-            dfMaximums = pd.DataFrame(maximums)
+            dfMaximums = pd.DataFrame(maximumsAccuracy)
 
             # The consolidated results -- each row is a technique with factors in order as columns
             rows, cols = (len(allTechniques), maxParameters)
             arr = [[0 for i in range(cols)] for j in range(rows)]
 
             i = 0
-            for technique, result in maximums.items():
+            for technique, result in maximumsAccuracy.items():
                 accuracy = result[RESULT]
                 parameters = [parameter for parameter in result[PARAMETERS]]
                 print(f"{technique}: Accuracy: {accuracy} {parameters}")
@@ -653,9 +707,31 @@ if __name__ == "__main__":
                 i += 1
             dfMaximums = pd.DataFrame(arr)
             print("---------- begin latex ---------------")
-            print(f"{dfMaximums.T.to_latex(longtable=True, index_names=False, index=False, caption=(longCaption, shortCaption), label='table:optimal', header=allTechniquesNames)}")
+            print(f"{dfMaximums.T.to_latex(longtable=True, index_names=False, index=False, caption=(longCaption, shortCaption), label='table:optimal-accuracy', header=allTechniquesNames)}")
             print("---------- end latex ---------------")
 
+            # AUC
+            longCaption = "Optimal Parameters by Technique (AUC)"
+            shortCaption = "Optimal Parameters for AUC"
+            headers = ["Technique", "Parameters"]
+            dfMaximums = pd.DataFrame(maximumsAUC)
+
+            # The consolidated results -- each row is a technique with factors in order as columns
+            rows, cols = (len(allTechniques), maxParameters)
+            arr = [[0 for i in range(cols)] for j in range(rows)]
+
+            i = 0
+            for technique, result in maximumsAUC.items():
+                accuracy = result[RESULT]
+                parameters = [parameter for parameter in result[PARAMETERS]]
+                print(f"{technique}: AUC: {accuracy} {parameters}")
+                parameters.insert(0, accuracy)
+                arr[i] = parameters
+                i += 1
+            dfMaximums = pd.DataFrame(arr)
+            print("---------- begin latex ---------------")
+            print(f"{dfMaximums.T.to_latex(longtable=True, index_names=False, index=False, caption=(longCaption, shortCaption), label='table:optimal-auc', header=allTechniquesNames)}")
+            print("---------- end latex ---------------")
 
 
         #reportMaximums(os.path.join(dataDirectory, 'maximums.txt'))
