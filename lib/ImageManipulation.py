@@ -497,7 +497,7 @@ class ImageManipulation:
                              constants.NAME_I_YIQ: yiqStdDeviation,
                              constants.NAME_BLUE_DIFFERENCE: blueDifferenceMean}
 
-            name = "blob" + str(i)
+            name = constants.NAME_BLOB + constants.DASH + str(i)
             # Ignore items in the image that are smaller in area than the
             # threshold.  Things in shadow and noise will be identified as shapes
             if area > threshold:
