@@ -376,9 +376,9 @@ class All(Selection):
         # TODO: Get variance to work correctly
         #self._selectionTechniques = [self._variance, self._recursive, self._pca, self._importance, self._univariate]
         # This is the original
-	#self._selectionTechniques = [self._recursive, self._pca, self._importance, self._univariate]
-	# This is the debug list
-        self._selectionTechniques = [self._recursive, self._pca, self._importance]
+        #self._selectionTechniques = [self._recursive, self._pca, self._importance, self._univariate]
+        # This is the debug list
+        self._selectionTechniques = [self._recursive, self._pca]
 
 
     def create(self):
@@ -634,6 +634,7 @@ if __name__ == "__main__":
     # For each technique, find the optimal set of attributes
     if arguments.optimal:
         selector.analyze(Output.NOTHING)
+        results = []
         if arguments.debug:
             logger.warning("Processing reduced subset")
             results = ["hue", "cb_mean", "hog_mean", "greyscale_homogeneity_90"]
@@ -643,10 +644,17 @@ if __name__ == "__main__":
             # The list of all the attributes to be analyzed
             results = selector.results(unique=True)
             maxParameters = MAX_PARAMETERS
-            combinationsPerBatch = 500000
+            combinationsPerBatch = arguments.batch
+
 
         combinations = itertools.combinations(results, maxParameters)
         chunks = more_itertools.batched(combinations, combinationsPerBatch)
+
+        combinations2 = itertools.combinations(results, maxParameters)
+        #chunks2 = more_itertools.batched(combinations2, combinationsPerBatch)
+        #allChunks = list(chunks2)
+        allCombinations = list(combinations2)
+        logger.info(f"Search space is {len(allCombinations)} combinations")
 
         # allCombinations = list(combinations)
         # combinations_1, combinations_2 = itertools.tee(allCombinations, 2)
@@ -682,12 +690,12 @@ if __name__ == "__main__":
                 search.start()
                 # This is arbitrary but required to avoid errors in startup, it would seem.
                 time.sleep(2)
-                #searchForParameters(classifier, arguments.data, allCombinations)
+                #searchForParameters(classifier, arguments.data, allCombinations, dataDirectory)
                 classifierID += 1
             chunkID += 1
 
         # Wait for the threads to finish
-        logger.info(f"Wait for {len(threads)} to finish")
+        logger.info(f"Wait for {len(threads)} threads to finish")
         for x in threads:
             x.join()
 
@@ -738,6 +746,9 @@ if __name__ == "__main__":
             print("---------- begin latex ---------------")
             print(f"{dfMaximums.T.to_latex(longtable=True, index_names=False, index=False, caption=(longCaption, shortCaption), label='table:optimal-auc', header=allTechniquesNames)}")
             print("---------- end latex ---------------")
+
+            # Sloppy
+            sys.exit(0)
 
 
         #reportMaximums(os.path.join(dataDirectory, 'maximums.txt'))
