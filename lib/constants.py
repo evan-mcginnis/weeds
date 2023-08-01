@@ -5,6 +5,7 @@ from enum import Enum
 
 # General things
 DELIMETER = "_"
+DASH = "-"
 
 # UI
 UI_STATUS_OK = "OK"
@@ -72,6 +73,7 @@ MSG_NO_PROBLEM_FOUND = "No problem found"
 NAME_BLOB                   = "blob"
 NAME_AREA                   = "area"
 NAME_TYPE                   = "type"
+NAME_ACTUAL                 = "actual"
 NAME_LOCATION               = "location"
 NAME_CIELAB_L               = "cie_l"
 NAME_CIELAB_A               = "cie_a"
@@ -128,6 +130,8 @@ NAME_YCBCR_RED_DIFFERENCE   = "ycbcr-cr"
 NAME_YIQ_Y                  = "yiq_y"
 NAME_YIQ_I                  = "yiq_i"
 NAME_YIQ_Q                  = "yiq_q"
+NAME_CROP                   = "crop"
+NAME_WEED                   = "weed"
 
 
 NAME_IMAGE_GREYSCALE        = "greyscale"
@@ -137,6 +141,8 @@ NAME_IMAGE_HSV              = "hsv"
 NAME_IMAGE_HSI              = "hsi"
 NAME_IMAGE_YCBCR            = "ycbcr"
 NAME_IMAGE_CIELAB           = "cielab"
+
+
 
 # Column names in pandas
 COLUMN_NAME_VALUE           = "value"
@@ -280,8 +286,9 @@ REASON_DECISION_TREE = 5
 REASON_RANDOM_FOREST = 6
 REASON_GRADIENT = 7
 REASON_SVM = 8
-REASON_TOO_CLOSE = 9
-REASONS = ["Unknown", "At Edge", "Size", "Logistic", "KNN", "Decision Tree", "Random Forest", "Gradient", "SVM", "Too Close"]
+REASON_LDA = 9
+REASON_TOO_CLOSE = 10
+REASONS = ["Unknown", "At Edge", "Size", "Logistic", "KNN", "Decision Tree", "Random Forest", "Gradient", "SVM", "LDA", "Too Close"]
 
 # TYPES of vegetation
 TYPE_DESIRED = 0

@@ -118,6 +118,10 @@ class Classifier:
     #     return self._name
 
     @property
+    def auc(self) -> float:
+        return self._auc
+
+    @property
     def actual(self) -> []:
         return self._actual
 
@@ -383,7 +387,6 @@ class LDA(Classifier):
 
         if score:
             self.log.debug(f"LDA cross validation scores: {self._scores}")
-
 
             print("Linear Discriminate Analysis")
             print(self._model.predict(self._xTest))
