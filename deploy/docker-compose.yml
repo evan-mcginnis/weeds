@@ -1,0 +1,13 @@
+version: '1.0'
+services:
+  mongodb:
+    image: mongodb/mongodb-community-server:4.4.5-ubuntu2004 
+    ports:
+      - '27017:27017'
+    volumes:
+      - /home/weeds/data/db:/data/db
+  web:
+    image: nginx
+    ports:
+      - '80:80'
+      - '443:443'
