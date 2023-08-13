@@ -2,7 +2,7 @@
 # M A K E F I L E
 #
 clean:
-	rm -f *.log
+	rm -f *.log*
 	#rm -rf ../output/*
 
 requirements:
@@ -89,6 +89,9 @@ INI?=options.ini
 LOG=standalone-logging.ini
 INI=standalone.ini
 
+# Operation
+OPERATION?=normal
+
 # Clean this up a bit, reducing the ML algorithm to one parameter
 ALGFLAG=-k
 
@@ -120,7 +123,10 @@ TREATMENT?=-sp
 LOGFILE = jetson-right.log
 
 weeds:
-	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a $(INDEX) -t $(THRESHOLDS) -df $(TRAINING) $(ALGFLAG) -sc -v -lg $(LOG) -se $(PARAMETERS) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE)
+	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a $(INDEX) -t $(THRESHOLDS) -df $(TRAINING) $(ALGFLAG) -sc -op $(OPERATION) -lg $(LOG) -se $(PARAMETERS) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE)
+
+weeds-to-db:
+	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a $(INDEX) -t $(THRESHOLDS) -df $(TRAINING) $(ALGFLAG) -sc -op $(OPERATION) -lg $(LOG) -se $(PARAMETERS) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE) -db
 
 svm:
 	$(PYTHON) weeds.py -r ../../results/results.svm.csv -i $(INPUT) -o ../../results/output-svm -a $(INDEX) -t $(THRESHOLDS) -df $(TRAINING) -svm -sc -v -lg $(LOG) -se $(PARAMETERS) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE)

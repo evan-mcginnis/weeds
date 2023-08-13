@@ -4,6 +4,7 @@
 # Image manipulation
 import uuid
 
+import numpy
 from PIL import Image
 from skimage import color
 from numpy import linalg as LA
@@ -26,6 +27,8 @@ from ImageLogger import ImageLogger
 import constants
 from GLCM import GLCM
 from HOG import HOG
+
+from hashlib import sha1
 
 # Colors for the bounding boxes
 COLOR_WEED = (0, 0, 255)
@@ -72,9 +75,14 @@ class ImageManipulation:
         # The minimum distance to the edge of crop that we will tolerate
         self._minDistanceToContour = 100
 
+        self._hash = sha1(numpy.ascontiguousarray(img)).hexdigest()
+
     # def init(self):
     #     self._cvimage = cv.cvtColor(self._image)
 
+    @property
+    def hash(self) -> str:
+        return self._hash
     @property
     def name(self) -> str:
         return self._name

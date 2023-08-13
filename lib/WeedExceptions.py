@@ -31,3 +31,6 @@ class DAQError(WeedExceptions):
         super().__init__(message)
         self.eligibleForReconnect = eligible
 
+class PersistenceError(WeedExceptions):
+    def __init__(self, message):
+        super().__init__(message)

@@ -28,6 +28,11 @@ import shutil
 import xmpp
 # from xmpp import protocol
 
+import shortuuid
+
+from urllib.request import url2pathname
+from urllib.parse import urlparse
+
 from pypylon import pylon
 # This does not work
 # from CameraFile import CameraFile, CameraBasler
@@ -51,8 +56,16 @@ from Context import Context
 from Diagnostics import Diagnostics
 from CameraFile import CameraFile
 from GLCM import GLCM
+from Persistence import Mongo
+from Persistence import Disk
+from Persistence import RawImage
 
 SQUARE_SIZE = 40
+
+# Operations
+OPERATION_VISUALIZE         = "visualize"
+OPERATION_NORMAL            = "normal"
+allOperations = [OPERATION_NORMAL, OPERATION_VISUALIZE]
 
 #
 # W A R N I N G
@@ -758,6 +771,12 @@ parser.add_argument("-c", "--contours", action="store_true", default=False, help
 parser.add_argument("-d", "--decorations", action="store", type=str, default="all",
                     help="Decorations on output images (all and none are shortcuts)")
 
+# Database specifications
+parser.add_argument("-db", "--database", action="store_true", required=False, default=False, help="Store results in DB")
+parser.add_argument("-host", "--host", action="store", required=False, help="DB Host")
+parser.add_argument("-port", "--port", type=int, action="store", required=False, help="DB Port")
+parser.add_argument("-dbname", "--dbname", action="store", required=False, help="DB Name")
+
 # functionGroup = parser.add_mutually_exclusive_group()
 # functionGroup.add_argument("-w", "--weeds", action="store_true", default=False, help="Classify and treat weeds")
 # functionGroup.add_argument("-e", "--emitter", action="store_true", default=False, help="Assess treatment post emitters")
@@ -809,21 +828,21 @@ parser.add_argument("-stand", "--standalone", action="store_true", default=False
                     help="Run standalone and just process the images")
 parser.add_argument("-st", "--strategy", action="store", required=False, default="CARTOON", help="Blob strategy")
 parser.add_argument("-t", "--threshold", action="store", type=tuple_type, default="(0,0)", help="Threshold tuple (x,y)")
-parser.add_argument("-v", "--verbose", action="store_true", default=False, help="Generate debugging data and text")
+parser.add_argument("-op", "--operation", action="store", default=OPERATION_NORMAL, choices=allOperations, help="Operation")
 parser.add_argument("-x", "--xtract", action="store_true", default=False, help="Extract each crop plant into images")
 
 arguments = parser.parse_args()
 
-# This is just the root of the output directory, typically ../output.  Later, this will be ../output/<UUID> for
-# a specific session
 
-outputDirectory = arguments.output
+# This creates a unique session -- nothing special here & could be changed to something human readable
+currentSessionName = shortuuid.uuid()
+outputDirectory = arguments.output + "/" + currentSessionName + "/"
 
 factorsToExtract = []
 
 decorations = [item for item in arguments.decorations.split(',')]
 
-(logger, log) = startupLogger(arguments.output)
+(logger, log) = startupLogger(outputDirectory)
 
 if (arguments.logistic or arguments.knn or arguments.tree or arguments.forest or arguments.lda) and arguments.data is None:
     print("Data file is not specified.")
@@ -1056,6 +1075,8 @@ sequence = 0
 selections = [e.strip() for e in options.option(constants.PROPERTY_SECTION_IMAGE_PROCESSING, constants.PROPERTY_FACTORS).split(',')]
 log.debug(f"Selected parameters from INI file: {selections}")
 
+mlApproach = "unknown"
+
 if arguments.logistic:
     try:
         classifier = LogisticRegressionClassifier()
@@ -1064,6 +1085,7 @@ if arguments.logistic:
         log.debug(f"Loaded selections: {classifier.selections}")
         classifier.load(arguments.data, stratify=False)
         classifier.createModel(arguments.score)
+        mlApproach = "lr"
         # classifier.scatterPlotDataset()
     except FileNotFoundError:
         print("Regression data file %s not found\n" % arguments.regression)
@@ -1075,6 +1097,7 @@ elif arguments.knn:
     classifier.selections = selections
     classifier.load(arguments.data, stratify=False)
     classifier.createModel(arguments.score)
+    mlApproach = "knn"
 elif arguments.tree:
     classifier = DecisionTree()
     # Load selected parameters
@@ -1082,6 +1105,7 @@ elif arguments.tree:
     classifier.selections = selections
     classifier.load(arguments.data, stratify=False)
     classifier.createModel(arguments.score)
+    mlApproach = "decision"
     #classifier.visualize()
 elif arguments.forest:
     classifier = RandomForest()
@@ -1091,6 +1115,7 @@ elif arguments.forest:
     classifier.load(arguments.data, stratify=True)
     classifier.createModel(arguments.score)
     #classifier.visualize()
+    mlApproach = "forest"
 elif arguments.gradient:
     classifier = GradientBoosting()
     # Load selected parameters
@@ -1099,6 +1124,7 @@ elif arguments.gradient:
     classifier.load(arguments.data, stratify=False)
     classifier.createModel(arguments.score)
     #classifier.visualize()
+    mlApproach = "gradient"
 elif arguments.support:
     classifier = SuppportVectorMachineClassifier()
     # Load selected parameters
@@ -1107,6 +1133,7 @@ elif arguments.support:
     classifier.load(arguments.data, stratify=False)
     classifier.createModel(arguments.score)
     #classifier.visualize()
+    mlApproach = "svm"
 elif arguments.lda:
     classifier = LDA()
     # Load selected parameters
@@ -1115,10 +1142,16 @@ elif arguments.lda:
     classifier.load(arguments.data, stratify=False)
     classifier.createModel(arguments.score)
     #classifier.visualize()
+    mlApproach = "lda"
 else:
     # TODO: This should be HeuristicClassifier
     classifier = Classifier()
     print("Classify using heuristics\n")
+
+# If this is just to visualize, exit afterwards
+if arguments.operation == OPERATION_VISUALIZE:
+    classifier.visualize()
+    sys.exit(0)
 
 # These are the attributes that will decorate objects in the images
 if constants.NAME_ALL in arguments.decorations:
@@ -1257,6 +1290,7 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
     global imageNumberBasler
     global sequence
     global previousImage
+    global currentSessionName
 
     try:
         log.info("Processing image " + str(imageNumberBasler))
@@ -1283,7 +1317,10 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
         performance.stopAndRecord(constants.PERF_ACQUIRE_BASLER_RGB)
 
         manipulated = ImageManipulation(rawImage, imageNumberBasler, logger)
-        logger.logImage(constants.FILENAME_RAW, manipulated.image)
+
+
+
+        rawImage = logger.logImage(constants.FILENAME_RAW, manipulated.image)
 
         # manipulated.mmPerPixel = mmPerPixel
         # ImageManipulation.show("Greyscale", manipulated.toGreyscale())
@@ -1331,6 +1368,18 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
         # ImageManipulation.show("Masked", image)
 
         manipulated = ImageManipulation(finalImage, imageNumberBasler, logger)
+
+        if arguments.database:
+            imageInDB = RawImage.find(manipulated.hash, persistenceConnection)
+
+            # if imageInDB is not None:
+            #     log.error(f"Image with hash {manipulated.hash} already exists in DB. Skipping")
+            #     sequence += 1
+            #     imageNumberBasler += 1
+            #     return constants.ProcessResult.NOT_PROCESSED
+            # else:
+            #     log.debug(f"Image with hash {manipulated.hash} does not exist in DB, Continuing")
+
         manipulated.mmPerPixel = mmPerPixel
 
         # TODO: Conversion to HSV should be done automatically
@@ -1507,9 +1556,32 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
 
         # Write out the processed image
         # cv.imwrite("processed.jpg", manipulated.image)
-        logger.logImage(constants.FILENAME_PROCESSED, manipulated.image)
-        logger.logImage(constants.FILENAME_ORIGINAL, manipulated.original)
+        processedImage = logger.logImage(constants.FILENAME_PROCESSED + "-" + arguments.algorithm + "-" + mlApproach, manipulated.image)
+        originalImage = logger.logImage(constants.FILENAME_ORIGINAL + "-" + arguments.algorithm, manipulated.original)
         # ImageManipulation.show("Greyscale", manipulated.toGreyscale())
+
+        # If the image is not already in DB, put it there
+        imageInDB  = RawImage.find(manipulated.hash, persistenceConnection)
+        if imageInDB is None:
+            url = "file://" + currentSessionName + "/" + rawImage
+            lat = 0.0
+            long = 0.0
+            agl = 0.0
+            hash = manipulated.hash
+            acquired = datetime.now()
+            processedURL = "file://" + currentSessionName + "/" + processedImage
+            processed = {arguments.algorithm + "-" + mlApproach: processedURL}
+            segmentedURL = "file://" + currentSessionName + "/" + originalImage
+            segmented = {arguments.algorithm: segmentedURL}
+            image = RawImage(url, lat, long, agl, acquired, segmented, processed, hash, None)
+            image.save(persistenceConnection)
+        else:
+            log.debug(f"Image {manipulated.hash} is already in DB")
+            processedURL = "file://" + currentSessionName + "/" + processedImage
+            imageInDB.addProcessed(arguments.algorithm + "-" + mlApproach, processedURL)
+            segmentedURL = "file://" + currentSessionName + "/" + originalImage
+            imageInDB.addSegmented(arguments.algorithm, segmentedURL)
+            imageInDB.save(persistenceConnection)
 
         # Write out the crop images so we can use them later
         if arguments.xtract:
@@ -1525,8 +1597,6 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
         sequence = sequence + 1
 
         if arguments.spray:
-            if arguments.verbose:
-                print("Forming treatment")
             performance.start()
             treatment = Treatment(manipulated.original, manipulated.binary)
             treatment.overlayTreatmentLanes()
@@ -2185,8 +2255,26 @@ systemStatus = constants.OperationalStatus.FAIL
 intel435Status = constants.OperationalStatus.FAIL
 odometryStatus = constants.OperationalStatus.FAIL
 
-currentSessionName = ""
+#currentSessionName = ""
 currentOperation = constants.Operation.QUIESCENT.name
+
+# D A T A B A S E
+# If any of these are specified, they all must be
+if arguments.database:
+    dbHost = options.option(constants.PROPERTY_SECTION_DATABASE, constants.PROPERTY_HOST) if arguments.host is None else arguments.host
+    dbPort = int(options.option(constants.PROPERTY_SECTION_DATABASE, constants.PROPERTY_PORT)) if arguments.port is None else arguments.port
+    dbName = options.option(constants.PROPERTY_SECTION_DATABASE, constants.PROPERTY_DB) if arguments.dbname is None else arguments.dbname
+    if dbHost is None or dbPort is None or dbName is None:
+        log.fatal("Specify host, port, and database to use a database on the command line or INI file")
+        sys.exit(-1)
+
+    persistenceConnection = Mongo()
+    persistenceConnection.connect(dbHost, dbPort, "", "", dbName)
+    if not persistenceConnection.connected:
+        log.fatal("Unable to connect to database")
+        sys.exit(-1)
+else:
+    persistenceConnection = Disk()
 
 
 # Set up image processing features
