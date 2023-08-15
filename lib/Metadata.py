@@ -1,0 +1,141 @@
+#
+# E X I F
+#
+# Enrich the image or image set by inserting GPS info and other data into the exif.
+#
+
+from exif import Image
+import logging
+import logging.config
+import math
+import os
+import re
+
+from ProcessedImage import ProcessedImage
+import constants
+
+
+class Metadata:
+    def __init__(self, image: str):
+        """
+        Extract metadata for all images in a directory
+        :param image: path to the image
+        """
+
+        self._log = logging.getLogger(__name__)
+        self._image = image
+        self._meta = []
+        self._lat = 0.0
+        self._long = 0.0
+        self._altitude = 0.0
+        self._taken = ""
+
+    @property
+    def gps(self) -> ():
+        return self._lat, self._long
+
+    @property
+    def latitude(self) -> float:
+        return self._lat
+
+    @property
+    def longitude(self) -> float:
+        return self._long
+
+    @property
+    def altitude(self) -> float:
+        return self._altitude
+
+    @property
+    def taken(self) -> str:
+        return self._taken
+
+    def getMetadata(self) -> {}:
+        coordinates = "[0-9]+.[0-9]+"
+        try:
+            with open(self._image, 'rb') as image_file:
+                my_image = Image(image_file)
+                if my_image.has_exif:
+                    try:
+                        latitude = re.findall(coordinates, str(my_image.gps_latitude))
+                        self._lat = self.dms2dd(latitude[0], latitude[1], latitude[2], my_image.gps_latitude_ref)
+                        longitude = re.findall(coordinates, str(my_image.gps_longitude))
+                        self._long = self.dms2dd(longitude[0], longitude[1], longitude[2], my_image.gps_longitude_ref)
+                        self._altitude = my_image.gps_altitude
+                        self._taken = my_image.datetime_original
+                        pass
+                    except AttributeError:
+                        self._log.error("Unable to find expected EXIF: latitude, longitude, and altitude")
+                else:
+                    print("Image contains no EXIF data")
+        except FileNotFoundError:
+            self._log.error(f"Unable to access: {self._image}")
+
+
+    @classmethod
+    def decdeg2dms(self, degs: float) -> ():
+        neg = degs < 0
+        degs = (-1) ** neg * degs
+        degs, d_int = math.modf(degs)
+        mins, m_int = math.modf(60 * degs)
+        secs = 60 * mins
+        return neg, d_int, m_int, secs
+
+    @classmethod
+    def dms2dd(self, degrees: float, minutes: float, seconds: float, direction: str) -> float:
+        dd = float(degrees) + float(minutes) / 60 + float(seconds) / (60 * 60)
+        if direction == 'E' or direction == 'S':
+            dd *= -1
+        return dd
+
+    def printEXIF(self, image: str):
+        print("Show current EXIF for {}".format(image))
+        with open(image, 'rb') as image_file:
+            my_image = Image(image_file)
+            if my_image.has_exif:
+                exifTags = my_image.get_all()
+                for tag in exifTags:
+                    print(f"{tag}: {my_image.get(tag)}")
+                # print(my_image.gps_latitude)
+                # print(my_image.gps_speed)
+            else:
+                print("Image contains no EXIF data")
+
+if __name__ == "__main__":
+    import argparse
+    import sys
+    import os
+
+    import constants
+    from OptionsFile import OptionsFile
+
+    parser = argparse.ArgumentParser("EXIF/Metadata Utility")
+
+    parser.add_argument("-i", "--input", action="store", required=False, help="Name of image")
+    parser.add_argument("-lg", "--logging", action="store", default="info-logging.ini", help="Logging configuration file")
+    parser.add_argument('-ini', '--ini', action="store", required=False, default=constants.PROPERTY_FILENAME,
+                        help="Options INI")
+
+    arguments = parser.parse_args()
+
+    # Confirm the logging config file exists
+    if not os.path.isfile(arguments.logging):
+        print("Unable to access logging configuration file {}".format(arguments.logging))
+        sys.exit(1)
+
+    logging.config.fileConfig(arguments.logging)
+
+    # Load up the options file.
+    options = OptionsFile(arguments.ini)
+    if not options.load():
+        print("Failed to load options from {}.".format(arguments.ini))
+        sys.exit(1)
+    else:
+        meta = Metadata(arguments.input)
+        meta.getMetadata()
+        print(f"Latitude: {meta.latitude}")
+        print(f"Longitude: {meta.longitude}")
+        print(f"Altitude: {meta.altitude}")
+        print(f"Taken: {meta.taken}")
+
+
