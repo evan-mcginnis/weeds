@@ -12,6 +12,7 @@ class ImageLogger:
         self.rootDirectory = ""
         self._sequence = 0
         self._autoIncrementMode = False
+        self._reportIndex = True
 
     @property
     def sequence(self):
@@ -48,9 +49,22 @@ class ImageLogger:
         else:
             return False
 
+
+    @property
+    def reportIndex(self) -> bool:
+        return self._reportIndex
+
+    @reportIndex.setter
+    def reportIndex(self, theReportIndex: bool):
+        self._reportIndex = theReportIndex
+
     def logImage(self, name: str, image: np.ndarray) -> str:
-        pathname = "{}/{}-{:05d}.jpg".format(self.rootDirectory, name, self.sequence)
-        filename = "{}-{:05d}.jpg".format(name, self.sequence)
+        if self._reportIndex:
+            pathname = "{}/{}-{:05d}.jpg".format(self.rootDirectory, name, self.sequence)
+            filename = "{}-{:05d}.jpg".format(name, self.sequence)
+        else:
+            pathname = "{}/{}.jpg".format(self.rootDirectory, name)
+            filename = "{}.jpg".format(name)
 
         cv.imwrite(pathname, image)
         if self._autoIncrementMode:
