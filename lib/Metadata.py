@@ -28,29 +28,58 @@ class Metadata:
         self._lat = 0.0
         self._long = 0.0
         self._altitude = 0.0
+        self._agl = 0.0
         self._taken = ""
 
     @property
     def gps(self) -> ():
+        """
+        GPS lat/long
+        :return:
+        """
         return self._lat, self._long
 
     @property
     def latitude(self) -> float:
+        """
+        Latitude
+        :return: Float of decimal latitude
+        """
         return self._lat
 
     @property
     def longitude(self) -> float:
+        """
+        Longitude
+        :return: Float of decimal longitude
+        """
         return self._long
 
     @property
     def altitude(self) -> float:
+        """
+        Altitude
+        :return: Float of altitude
+        """
         return self._altitude
 
     @property
     def taken(self) -> str:
+        """
+        Timestamp when image was taken
+        :return: String of timestamp
+        """
         return self._taken
 
-    def getMetadata(self) -> {}:
+    @property
+    def agl(self) -> float:
+        """
+        Distance AGL -- DNG only
+        :return: Float of AGL
+        """
+        return self._agl
+
+    def getMetadata(self):
         """
         Get the EXIF for the image
         """
@@ -59,7 +88,7 @@ class Metadata:
         suffix = os.path.splitext(self._image)[1]
         if suffix is None:
             self._log.error(f"Unable to determine file type: {self._image}")
-            return {}
+            return
 
         # Raw format image
         if suffix.upper() == ".DNG":
@@ -69,16 +98,22 @@ class Metadata:
                         altitude = d["Composite:GPSAltitude"]
                         latitude = d["Composite:GPSLatitude"]
                         longitude = d["Composite:GPSLongitude"]
+                        taken = d["EXIF:DateTimeOriginal"]
+                        # Not given in EXIF, but we can access it in DNG
+                        agl = d["XMP:RelativeAltitude"]
                     except KeyError:
-                        self._log.error("Unable to find expected EXIF in DNG: latitude, longitude, and altitude")
-                        altitude = 0
-                        latitude = 0
-                        longitude = 0
+                        self._log.error("Unable to find expected EXIF in DNG: latitude, longitude, AGL, and altitude")
+                        altitude = 0.0
+                        latitude = 0.0
+                        longitude = 0.0
+                        agl = 0.0
 
-                    self._altitude = altitude
+                    self._altitude = float(altitude)
+                    self._taken = taken
+                    self._agl = float(agl)
                     # Confusingly enough, the EXIF in the DNS is in digital degrees, not dms, so no conversion
-                    self._lat = latitude
-                    self._long = longitude
+                    self._lat = float(latitude)
+                    self._long = float(longitude)
 
                     # for k, v in d.items():
                     #     print(f"Dict: {k} = {v}")
@@ -95,13 +130,14 @@ class Metadata:
                             self._long = self.dms2dd(longitude[0], longitude[1], longitude[2], my_image.gps_longitude_ref)
                             self._altitude = my_image.gps_altitude
                             self._taken = my_image.datetime_original
-                            pass
                         except AttributeError:
                             self._log.error("Unable to find expected EXIF in JPG: latitude, longitude, and altitude")
                     else:
                         self._log.error("JPG Image contains no EXIF data")
             except FileNotFoundError:
                 self._log.error(f"Unable to access: {self._image}")
+        else:
+            self._log.error(f"Unknown file type: {self._image}")
 
 
     @classmethod
