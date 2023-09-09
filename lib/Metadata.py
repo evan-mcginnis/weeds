@@ -10,7 +10,7 @@ import logging.config
 import math
 import os
 import re
-
+from exiftool import ExifToolHelper
 from ProcessedImage import ProcessedImage
 import constants
 
@@ -51,25 +51,57 @@ class Metadata:
         return self._taken
 
     def getMetadata(self) -> {}:
+        """
+        Get the EXIF for the image
+        """
         coordinates = "[0-9]+.[0-9]+"
-        try:
-            with open(self._image, 'rb') as image_file:
-                my_image = Image(image_file)
-                if my_image.has_exif:
+        # There are two ways to get the EXIF -- one for things like JPGs, and another for DNGs
+        suffix = os.path.splitext(self._image)[1]
+        if suffix is None:
+            self._log.error(f"Unable to determine file type: {self._image}")
+            return {}
+
+        # Raw format image
+        if suffix.upper() == ".DNG":
+            with ExifToolHelper() as et:
+                for d in et.get_metadata(self._image):
                     try:
-                        latitude = re.findall(coordinates, str(my_image.gps_latitude))
-                        self._lat = self.dms2dd(latitude[0], latitude[1], latitude[2], my_image.gps_latitude_ref)
-                        longitude = re.findall(coordinates, str(my_image.gps_longitude))
-                        self._long = self.dms2dd(longitude[0], longitude[1], longitude[2], my_image.gps_longitude_ref)
-                        self._altitude = my_image.gps_altitude
-                        self._taken = my_image.datetime_original
-                        pass
-                    except AttributeError:
-                        self._log.error("Unable to find expected EXIF: latitude, longitude, and altitude")
-                else:
-                    print("Image contains no EXIF data")
-        except FileNotFoundError:
-            self._log.error(f"Unable to access: {self._image}")
+                        altitude = d["Composite:GPSAltitude"]
+                        latitude = d["Composite:GPSLatitude"]
+                        longitude = d["Composite:GPSLongitude"]
+                    except KeyError:
+                        self._log.error("Unable to find expected EXIF in DNG: latitude, longitude, and altitude")
+                        altitude = 0
+                        latitude = 0
+                        longitude = 0
+
+                    self._altitude = altitude
+                    # Confusingly enough, the EXIF in the DNS is in digital degrees, not dms, so no conversion
+                    self._lat = latitude
+                    self._long = longitude
+
+                    # for k, v in d.items():
+                    #     print(f"Dict: {k} = {v}")
+
+        elif suffix.upper() == ".JPG":
+            try:
+                with open(self._image, 'rb') as image_file:
+                    my_image = Image(image_file)
+                    if my_image.has_exif:
+                        try:
+                            latitude = re.findall(coordinates, str(my_image.gps_latitude))
+                            self._lat = self.dms2dd(latitude[0], latitude[1], latitude[2], my_image.gps_latitude_ref)
+                            longitude = re.findall(coordinates, str(my_image.gps_longitude))
+                            self._long = self.dms2dd(longitude[0], longitude[1], longitude[2], my_image.gps_longitude_ref)
+                            self._altitude = my_image.gps_altitude
+                            self._taken = my_image.datetime_original
+                            pass
+                        except AttributeError:
+                            self._log.error("Unable to find expected EXIF in JPG: latitude, longitude, and altitude")
+                    else:
+                        self._log.error("JPG Image contains no EXIF data")
+            except FileNotFoundError:
+                self._log.error(f"Unable to access: {self._image}")
 
 
     @classmethod
@@ -115,6 +147,7 @@ if __name__ == "__main__":
     parser.add_argument("-lg", "--logging", action="store", default="info-logging.ini", help="Logging configuration file")
     parser.add_argument('-ini', '--ini', action="store", required=False, default=constants.PROPERTY_FILENAME,
                         help="Options INI")
+    parser.add_argument("-all", "--all", action="store_true", required=False, default=False)
 
     arguments = parser.parse_args()
 
@@ -132,10 +165,13 @@ if __name__ == "__main__":
         sys.exit(1)
     else:
         meta = Metadata(arguments.input)
-        meta.getMetadata()
-        print(f"Latitude: {meta.latitude}")
-        print(f"Longitude: {meta.longitude}")
-        print(f"Altitude: {meta.altitude}")
-        print(f"Taken: {meta.taken}")
+        if arguments.all:
+            meta.printEXIF(arguments.input)
+        else:
+            meta.getMetadata()
+            print(f"Latitude: {meta.latitude}")
+            print(f"Longitude: {meta.longitude}")
+            print(f"Altitude: {meta.altitude}")
+            print(f"Taken: {meta.taken}")
 
 
