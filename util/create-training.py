@@ -3,9 +3,11 @@ import sys
 import os
 import logging
 import logging.config
+import datetime
 
 import pandas as pd
 
+import Persistence
 import constants
 from OptionsFile import OptionsFile
 from Persistence import Mongo
@@ -13,12 +15,15 @@ from Persistence import Blob
 
 parser = argparse.ArgumentParser("Create training file")
 
-parser.add_argument("-a", "--altitude", action="store", type=float, required=False, help="Altitude")
-parser.add_argument("-b", "--begin", action="store", required=False, help="Beginning Date")
-parser.add_argument("-e", "--end", action="store", required=False, help="Ending Date")
-parser.add_argument("-host", "--host", action="store", required=False, help="DB Host")
+parser.add_argument("-ba", "--beginAGL", action="store", type=float, required=False, default=0.0, help="Begin Distance AGL")
+parser.add_argument("-ea", "--endAGL", action="store", type=float, required=False, default=0.0, help="End Distance AGL")
+parser.add_argument("-c", "--crop", action="store", required=False, default="unknown", help="Crop")
+parser.add_argument("-bd", "--beginAcquired", action="store", required=False, type=datetime.date.fromisoformat, help="Beginning Date -- YYYY-MM-DD")
+parser.add_argument("-ed", "--endAcquired", action="store", required=False, type=datetime.date.fromisoformat, help="Ending Date -- YYYY-MM-DD")
 parser.add_argument('-ini', '--ini', action="store", required=False, default=constants.PROPERTY_FILENAME, help="Options INI")
 parser.add_argument("-lg", "--logging", action="store", default="info-logging.ini", help="Logging configuration file")
+parser.add_argument("-m", "--ml", action="store", required=False, default="lr", help="ML technique (lr, svm, etc.")
+parser.add_argument("-host", "--host", action="store", required=False, help="DB Host")
 parser.add_argument("-port", "--port", type=int, action="store", required=False, help="DB Port")
 parser.add_argument("-dbname", "--dbname", action="store", required=False, help="DB Name")
 parser.add_argument("-o", "--output", action="store", required=True, help="Output training data file to create")
@@ -34,6 +39,15 @@ if not os.path.isfile(arguments.logging):
 
 logging.config.fileConfig(arguments.logging)
 
+# A blank query string
+query = {}
+
+# if arguments.begin is not None:
+#     query[constants.KEYWORD_DATE_BEGIN] = str(arguments.begin)
+# if arguments.end is not None:
+#     query[constants.KEYWORD_DATE_END] = str(arguments.end)
+# if arguments.agl is not None:
+#     query[constants.KEYWORD_AGL] = arguments.agl
 #
 # D A T A B A S E
 #
@@ -52,16 +66,41 @@ if not persistenceConnection.connected:
     logging.fatal("Unable to connect to database")
     sys.exit(-1)
 
-observations = []
-if arguments.altitude is not None:
-    blobsMeetingCriteria = Blob.find(persistenceConnection, ALTITUDE=arguments.altitude)
+# Find a list of base images to use
+images = Persistence.RawImage.findByParameters(persistenceConnection,
+                                               begin_agl=arguments.beginAGL,
+                                               end_agl=arguments.endAGL,
+                                               #begin=arguments.beginAcquired,
+                                               #end=arguments.endAcquired,
+                                               crop=arguments.crop)
+
+blobs = []
+print(f"Found {len(images)} images")
+for image in images:
+    id = image.id
+    # Find the blobs corresponding to each image
+    blobsMeetingCriteria = Blob.findByParameters(persistenceConnection, parent=id, ml=arguments.ml)
+    # The list of all blobs
     for blob in blobsMeetingCriteria:
         factors = blob.factors
-        factors[constants.NAME_TYPE] =  blob.classified
-        observations.append(factors)
-        #print(f"{blob}\n")
-    training = pd.DataFrame(observations)
-    training.to_csv(arguments.output, index=False)
+        factors[constants.NAME_TYPE] = blob.classified
+        blobs.append(factors)
+
+print(f"Found {len(blobs)} blobs")
+training = pd.DataFrame(blobs)
+training.to_csv(arguments.output, index=False)
+
+# if arguments.altitude is not None:
+#     #blobsMeetingCriteria = Blob.find(persistenceConnection, ALTITUDE=arguments.altitude)
+#     blobsMeetingCriteria = Blob.find(persistenceConnection, **query)
+#     print(f"Found {len(blobsMeetingCriteria)} records.")
+#     for blob in blobsMeetingCriteria:
+#         factors = blob.factors
+#         factors[constants.NAME_TYPE] = blob.classified
+#         observations.append(factors)
+#         #print(f"{blob}\n")
+#     training = pd.DataFrame(observations)
+#     training.to_csv(arguments.output, index=False)
 
 
 
