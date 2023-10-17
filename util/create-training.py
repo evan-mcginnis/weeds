@@ -77,13 +77,14 @@ images = Persistence.RawImage.findByParameters(persistenceConnection,
 blobs = []
 print(f"Found {len(images)} images")
 for image in images:
-    id = image.id
+    mongoID = image.id
     # Find the blobs corresponding to each image
-    blobsMeetingCriteria = Blob.findByParameters(persistenceConnection, parent=id, ml=arguments.ml)
+    blobsMeetingCriteria = Blob.findByParameters(persistenceConnection, parent=mongoID, ml=arguments.ml)
     # The list of all blobs
     for blob in blobsMeetingCriteria:
         factors = blob.factors
         factors[constants.NAME_TYPE] = blob.classified
+        factors[constants.NAME_NAME] = image.name + constants.DASH + blob.name
         blobs.append(factors)
 
 print(f"Found {len(blobs)} blobs")
