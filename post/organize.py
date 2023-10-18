@@ -8,9 +8,7 @@ import os
 import shutil
 import pandas as pd
 from Metadata import Metadata
-
 import constants
-from OptionsFile import OptionsFile
 
 def closestAGL(possibleAGLs: [], recordedAGL: float) -> float:
     """
@@ -30,10 +28,11 @@ parser = argparse.ArgumentParser("Organize photos by altitude")
 
 parser.add_argument("-i", "--input", action="store", required=True, help="Source directory for images")
 parser.add_argument("-o", "--output", action="store", required=True, help="Output directory")
+parser.add_argument("-a", "--agl", action="store", type=float, nargs="+", required=True, help="List of AGL captured")
+parser.add_argument("-c", "--crop", action="store", required=True, help="crop")
+parser.add_argument("-f", "--force", action="store_true", required=False, default=False, help="Force overwrite of existing files")
 parser.add_argument("-m", "--msl", type=float, action="store", required=True, help="The altitude above MSL")
 parser.add_argument("-r", "--range", action="store", required=False, default=1.0, help="MSL range")
-parser.add_argument("-a", "--agl", action="store", type=float, nargs="+", required=True, help="List of AGL captured")
-parser.add_argument("-f", "--force", action="store_true", required=False, default=False, help="Force overwrite of existing files")
 arguments = parser.parse_args()
 
 COLUMN_PATH = "path"
@@ -44,7 +43,7 @@ COLUMN_AGL = "agl"
 allFiles = []
 allAltitudes = []
 correctedAGL = []
-included_extensions = ['JPG']
+included_extensions = ['JPG', 'DNG']
 file_names = [fn for fn in os.listdir(arguments.input)
               if any(fn.endswith(ext) for ext in included_extensions)]
 
@@ -58,6 +57,7 @@ for aFile in file_names:
         meta = Metadata(filePath)
         meta.getMetadata()
         allAltitudes.append(meta.altitude)
+        # Determine AGL, as we don't really care about the altitude
         correctedAGL.append(meta.altitude - arguments.msl)
 
 images = pd.DataFrame(list(zip(allFiles, allAltitudes, correctedAGL)),
@@ -70,12 +70,12 @@ for index, row in images.iterrows():
     images.at[index, COLUMN_AGL] = closestAGL(list(arguments.agl), row[COLUMN_AGL])
     # print(f"{row[COLUMN_PATH]}: Raw AGL: {row[COLUMN_AGL]} Closest AGL: {takeClosest(list(arguments.agl), row[COLUMN_AGL])}")
 
-dir = os.path.dirname(__file__)
+directory = os.path.dirname(__file__)
 
 for index, row in images.iterrows():
     # Create the directory
-    filename = os.path.join(dir, arguments.output)
-    destinationDir = os.path.join(filename, "AGL-" + str(images.at[index, COLUMN_AGL]))
+    filename = os.path.join(directory, arguments.output)
+    destinationDir = os.path.join(filename, "AGL-" + str(images.at[index, COLUMN_AGL]) + constants.DASH + arguments.crop)
     if not os.path.exists(destinationDir):
         os.makedirs(destinationDir, exist_ok=True)
 
@@ -86,10 +86,5 @@ for index, row in images.iterrows():
         sys.exit(-1)
     else:
         shutil.copy2(images.at[index, COLUMN_PATH], destinationDir)
-#
-# Determine the corrected AGL
-#
-for aFile in allFiles:
-    print(f"Processing: {aFile}")
-    meta = Metadata(aFile)
-    meta.getMetadata()
+
+sys.exit(0)
