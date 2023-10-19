@@ -18,7 +18,7 @@
 %\usepackage{biblatex} 
 \addbibresource{paperpile.bib}
 
-%\usepackage{hyperref}
+\usepackage[hidelinks]{hyperref}
 
 % C A P T I O N S
 %\usepackage{caption, copyrightbox}
@@ -209,6 +209,7 @@ The precision treatment of weeds within a crop depends first on accurate classif
 %
 \tableofcontents
 \listoffigures
+\listoftables
 \newpage
 
 %
@@ -222,7 +223,7 @@ While precision treatment of unwanted vegetation may be the end-product, classif
 
 
 \section{Data Preparation}
-Data for this study comes in two forms: static images obtained with visible light cameras and prepared images of manually manipulated scenarios.  Feature analysis and machine learning use unmanipulated image exclusively, while tests will be conducted on a mixture of the two.
+Data for this study comes in two forms: static images obtained with visible light cameras and prepared images of manually manipulated scenarios.  Feature analysis and machine learning use unmanipulated images exclusively, while tests will be conducted on a mixture of the two.
 
 \subsection{Discrete Static Images}
 Discrete image sets are those acquired in the field with a hand-held RGB camera. The image set used in this analysis was acquired by hand using a Samsung SM-G930V. These images are not without problems, of course. As images often have vegetation at the edges of the image, and frequently of only a single plant, attempts to classify vegetation considering shape and position within the crop-line can lead to poor results. As Figure~\ref{fig:problem-cropline} shows, a crop-line cannot be determined or surmised using only a single crop image. In this instance, the crop-line is assumed to be along the center-line of the image. Figure~\ref{fig:problem-cutoff} demonstrates the problem encountered where the shape of an object cannot be used as a factor in classification, as the shape is distorted by having a regular, straight edge.
@@ -257,7 +258,7 @@ The images acquired in the field are prepared using Adobe Photoshop\textsuperscr
 \begin{figure}[H]
 	\begin{subfigure}[h]{0.48\linewidth}
 		\includegraphics[width=1\linewidth]{./figures/with-purslane.jpg}
-		\caption{Purslane inserted into the image.}
+		\caption{Purslane (\textit Portulaca oleracea) inserted into the image.}
 		\label{fig:prepared-weed}
 	\end{subfigure}
 	\hfill
@@ -288,8 +289,110 @@ Additionally, this work makes a few simplifying assumptions about the images:
 	\item{The crop line is approximately in the middle of the image.}
 	\item{Crop is typically in roughly horizontal alignment (the centers will be with a few degrees of each other).}
 	\item{Weed centers are typically not in horizontal alignment.}
-	\item{There may be a single crop plant in the image or no crop at al.l}
+	\item{Crop is typically much larger than weeds.}
 \end{itemize}
+
+These are not without exceptions. For instance, a weed may be in perfect aligment within a crop line and two other plants. Each of these observations, however, are used in classification. Take, for instance, the observation that crop tends to be much larger than weeds. If the size of an item is three times that of another, the smaller item is -- more likely than not -- a weed.
+
+\section {Study Area}
+The study was conducted at the University of Arizona Maricopa Agricultural Research Center (MAC)  as part of XXXXX
+
+\section{Software Environment \& Source code}
+Both commercial and open-source software were used in the development an operational aspects of this study. While the majority of the software (the operational portions responsible for image processing and classification) was written in Python, commercial packages were used for pre-processing. Additionally, R was used in visualization and analysis of classification results. Some of these components play a large enough role that they warrant special mention in various places throughout this document, but in-depth descriptions of them will not be made here. Likewise, this list is not exhaustive, as numerous libraries were used for a few functions, but included here. The complete source code for this project is available in this GitHub repository: \href{https://github.com/evan-mcginnis/weeds}{\textit {weeds}}. Images, both raw and processed, are far too large to be hosted with GitHub, and are available on request from the author.
+
+All development was done on Windows 10 and Ubuntu 18.04.06 with analysis on the University of Arizona's \textit{High Performance Compute Cluster}.
+
+{
+% This avoids the document line spacing affecting the contents of the table
+\setstretch{1.0}
+\begin{longtable}{x{\dimexpr.20\columnwidth-2\tabcolsep}
+                  x{\dimexpr.20\columnwidth-2\tabcolsep}
+                  x{\dimexpr.5\columnwidth-2\tabcolsep}}
+%\begin{hyphenrules}{nohyphenation}
+    \caption{Software Used}\label{tab:software}  \\
+\toprule
+{\textbf{Component}} & {\textbf{Use}} & {\textbf{Comment}}
+\tabularnewline
+\midrule
+    \endfirsthead
+%%%%
+    \caption{Software Used (cont.)}\label{tab:software}  \\
+\toprule
+{\textbf{Component}} & {\textbf{Use}} & {\textbf{Comment}}
+\tabularnewline
+\midrule
+    \endhead
+%%%%
+\midrule[\heavyrulewidth]
+\multicolumn{3}{r}{\footnotesize\itshape
+                   Continued on the next page}
+    \endfoot
+%%%%
+\bottomrule
+    \endlastfoot
+%%%%
+		PyCharm 
+		& Python IDE     
+		& Commercial software for Python development
+\tabularnewline\addlinespace
+		Python 3.9     
+		& Python runtime                    
+		& Most software was written in python
+\tabularnewline\addlinespace
+		scikit-learn
+		& Machine Learning     
+		& Implementations for various ML techniques 
+\tabularnewline\addlinespace
+		OpenCV2 
+		& Image Processing     
+		& Machine Vision and Image Processing framework
+\tabularnewline\addlinespace
+		Numpy
+		& Numeric Processing   
+		& Python library
+\tabularnewline\addlinespace
+		Pandas 
+		& Numeric Processing     
+		& Python library
+\tabularnewline\addlinespace
+		PyQT5 
+		& UI     
+		& User Interface Framework for Python
+\tabularnewline\addlinespace
+		R 
+		& Post Processing     
+		& Statistical Software
+\tabularnewline\addlinespace
+		Plotly
+		& Visualization     
+		& Graphing libraries
+\tabularnewline\addlinespace
+		Adobe Lightroom
+		& Color Correction     
+		& Commercial software used for pre-processing
+\tabularnewline\addlinespace
+		Dronelink
+		& UAV Control     
+		& Commercial software used for planning \& control
+\tabularnewline\addlinespace
+		MongoDB
+		& Image organization     
+		& No-SQL database 
+\tabularnewline\addlinespace
+		Docker Container
+		& Virtualization     
+		& Virtual containers host database and web server
+\tabularnewline\addlinespace
+		Slurm
+		& Workload     
+		& Supercomputer workload management
+\tabularnewline\addlinespace
+		NGINX
+		& Web Server     
+		& Host HTTP API requests
+\label{table:software}
+\end{longtable}
+}
 
 \section{Workflow}
 Images are processed following the workflow shown in Figure~\ref{fig:workflow}. Each step in this workflow will be discussed in subsequent sections.
@@ -301,13 +404,56 @@ Images are processed following the workflow shown in Figure~\ref{fig:workflow}. 
 \end{figure}
 
 \section{Acquire Image}
-Images can originate from one of two sources: static images on disk or from physical cameras. For the purposes of this analysis, all images will originate from images on disk from previously acquired or prepared sets. The workflow presented here is not dependent on the source of images, indeed the software treats a camera that fetches images from disk the same as one that actually acquires images on demand. 
+While the the processing step consists only of reading images from disk, actual acquisition was carried out in this study using a \href{https://www.dji.com/air-2s/specs} {DJI Mavic 2 S} drone with a 20 MP camera, followed by color correction. Each image acquisition was accompanied by an image of a \href{https://www.datacolor.com/spyder/products/spyder-checkr-photo/} {SpyderChecker 24} color calibration chart, and color correction was subsequently applied using Adobe Photoshop Lightroom Classic and custom calibration profiles created using the Spyder Checkr software. Raw sensor data was stored in Adobe Digital Negative (DNG) format before color correction and conversion to a compressed JPG format for the resulting images. The sensor data for each image was quite large, requiring 38.5 MB of storage, resulting in these requirements for the altitudes studied:
+
+{\renewcommand{\arraystretch}{2}%
+
+{
+% This avoids the document line spacing affecting the contents of the table
+\setstretch{1.0}
+\begin{longtable}{x{\dimexpr.25\columnwidth-2\tabcolsep}
+                  x{\dimexpr.35\columnwidth-2\tabcolsep}
+                  x{\dimexpr.4\columnwidth-2\tabcolsep}}
+%\begin{hyphenrules}{nohyphenation}
+    \caption{Storage Requirements}\label{tab:storage}  \\
+\toprule
+{\textbf{AGL (meters)}} & {\textbf{DNG (Raw Sensor Data, MB)}} & {\textbf{Compressed (JPG, MB)}}
+\tabularnewline
+\midrule
+    \endfirsthead
+%%%%
+    \caption{Storage Requirements (cont.)}\label{tab:storage}  \\
+\toprule
+{\textbf{AGL (meters)}} & {\textbf{DNG (Raw Sensor Data, MB)}} & {\textbf{Compressed (JPG, MB)}}
+\tabularnewline
+\midrule
+    \endhead
+%%%%
+\midrule[\heavyrulewidth]
+\multicolumn{3}{r}{\footnotesize\itshape
+                   Continued on the next page}
+    \endfoot
+%%%%
+\bottomrule
+    \endlastfoot
+%%%%
+		2
+		& XXX     
+		& XXX
+\tabularnewline\addlinespace
+		5     
+		& XXX                    
+		& XXX
+%\tabularnewline\addlinespace
+\label{table:segmentation}
+\end{longtable}
+}
 
 %
 % I M A G E  S E G M E N T A T I O N
 %
 \section{Segmentation Image}
-The portions of the images that did not contain pixels with vegetation present were the discarded by applying a visible light vegetation index to both isolate the vegetation and reduce the information content. This discards both the ground and debris while retaining the vegetation. These images were segmented using various visible light indices (\cite{Hunt2013-ih}, \cite{Hamuda2016-dw}). As this process is not the primary subject of this paper, it will be given only superficial mention here.  Various approaches to image segmentation are  summarized in Table \ref{fig:segmentation}. 
+The portions of the images that did not contain pixels with vegetation present were the discarded by applying a visible light vegetation index to both isolate the vegetation and reduce the information content. This discards both the ground and debris while retaining the vegetation. These images were segmented using various visible light indices (\cite{Hunt2013-ih}, \cite{Hamuda2016-dw}). As this process is not the primary subject of this paper, it will be given only superficial mention here.  Various approaches to image segmentation are  summarized in Table \ref{table:segmentation}. 
 
 {\renewcommand{\arraystretch}{2}%
 
@@ -430,21 +576,24 @@ These indices are used to create a mask that is then applied to the original sou
 	\caption[Before and after segmentation]{Before and after segmentation. Note the absence of the stems seen in the weed in the lower portion of~\ref{fig:original-masked} -- this is made a bit more obvious with a close examination of the mask shown in~\ref{fig:mask}. The lack of stems will lead to a single plant being identified as multiple plants, but has no effect on the classification using the features identified as significant.}
 	\label{fig:segmentation}
 \end{figure}
-The segmented image has discarded ground pixels while retaining most of the pixels that will be used, but a close examination reveals that pixels in the stems of the weed are also eliminated, as they are less green than the rest of the plant. This effect is even more pronounced when segmenting images of weed that do not contain green stems as would be seen in the red stems seen in \textit{Portulaca oleracea} (Purslane). While they are not eliminated, pixels in the area of the deep shadows of the vegetation may affect attempts to classify objects based on color attributes. Unfortunately, the band of color featured in the stems (red) is frequently found in the background (soil), so attempts to make the stems appear in the masked image are problematic, as this solution tends to bring allow unwanted ground pixels in the final image that contain hues found within the stems. Likewise, immature vegetation where stems are not sufficiently green will not appear in the final image. Fortunately, both of these cases do not appear to have an appreciable effect on the classification. For the purposes of this paper, images will use the \textit{Normalized Difference Index} (NDI) segmentation approach. This process results in image data with only two sets of values: RGB values of zero where there is no vegetation and the original RGB values for pixels containing vegetation.
+The segmented image has discarded ground pixels while retaining most of the pixels that will be used, but a close examination reveals that pixels in the stems of the weed are also eliminated, as they are less green than the rest of the plant. This effect is even more pronounced when segmenting images of weed that do not contain green stems as would be seen in the red stems seen in \textit{Portulaca oleracea} (Purslane). While they are not eliminated, pixels in the area of the deep shadows of the vegetation may affect attempts to classify objects based on color attributes. Unfortunately, the band of color featured in the stems (red) is frequently found in the background (soil), so attempts to make the stems appear in the masked image are problematic, as this solution tends to bring allow unwanted ground pixels in the final image that contain hues found within the stems. Likewise, immature vegetation where stems are not sufficiently green will not appear in the final image. Fortunately, both of these cases do not appear to have an appreciable effect on the classification. For the purposes of this paper, images will use the \textit{Normalized Difference Index} (NDI) segmentation approach (see Table~\ref{table:segmentation} for this formula). This process results in image data with only two sets of values: RGB values of zero where there is no vegetation and the original RGB values for pixels containing vegetation.
 
 \section{Blob Identification}
 Segmented images yield images with only vegetated pixels. Single items within those images are often called (somewhat generically) \textit{blobs}, and as that is the term generally used by the OpenCV software libraries used for image processing, that is the term adopted for this document. Blobs are identified as an object requiring classification, but not yet classified. Figure~\ref{fig:original-masked} is an example of this concept. This image shows eight blobs that can be classified: three lettuce plants and a single weed plant that appears as five plants in the final image.
 
 \section{Feature Extraction}
-Once the vegetation is isolated, various features can be extracted for subsequent use in classification. These features include position-independent characteristics such as shape and hue characteristics as well as position-dependent features such as where a plant resides relative to the crop-line.  The shape formulae used to extract the various shape features are given in Table~\ref{tab:shape-formulae}, but some concepts and formulae warrant further explanation.
+Once the vegetation is isolated and blobs identified, various features can be extracted for subsequent use in classification. These features include position-independent characteristics such as shape, hue, and textural characteristics as well as position-dependent features such as where a plant resides relative to the crop-line.  
 
-\subsection{Bounding Box and Convex Hull}
+\subsection{Shape Characteristics}
+The shape parameters considered in this analysis are expressions describing the perimeter of the plant. The shape formulae used to extract the various shape features are given in Table~\ref{tab:shape-formulae}, but some concepts and formulae warrant further explanation.
+
+\subsubsection{Bounding Box and Convex Hull}
 An object can be said to have rectangular box of minimum size that completely encloses the object, commonly termed the \textit{bounding box}. The box placed around the object without regard for orientation -- that is, the placement makes no attempt to align the edges of the box with the edges of the image, so it may appear tilted at normal viewing angles. The \textit{convex hull}, likewise, is a convex shape with straight lines and of minimum size that completely encloses the object. 
 
-\subsection{Area \& Size Ratio}
+\subsubsection{Area \& Size Ratio}
 The area of the plant in the image is the number of pixels with non-zero values. The relative area of two plants can then be compared. For instance, if a plant is $1/3$ the size of the largest plant in the image it is more likely than not a weed. This ratio is highly dependent on the development phase of the crop, as the reverse could be true for crop just emerging compared to much larger weeds. For the classification purposes presented here, the larger item is presumed to be crop.
 
-\subsection{Length/Width Ratio}
+\subsubsection{Length/Width Ratio}
 \label{sec:width-length-ratio}
 The ratio of width to length is not -- as the name might imply -- a simple ratio of two measurements, but is expressed as:
 \begin{equation}
@@ -553,11 +702,14 @@ Where $eig_{1}(S)$ and $eig_{2}(S)$ are the maximum eigenvalues of the matrix $S
 }
 % End table of shape equations
 
-% H U E
-\subsection{Hue \& Saturation}
-The terms {\it color} and {\it hue} are often used interchangeably, and while this is mostly true, hue refers to the dominant color family. In this case, the image is converted to the Hue, Saturation, and Intensity {\it HSV} colorspace and the mean value for the hue of a blob's pixels is taken. The saturation of a color expressed by a component of the Hue, Saturation, and Intensity {\it HSI} colorspace and the mean value for the saturation of oa blob's pixels is taken. (\cite{Forsyth2012-hy})
+%
+% C O L O R
+%
+\subsection{Color}
+\subsubsection{Hue \& Saturation}
+The terms {\it color} and {\it hue} are often used interchangeably, and while this is mostly true, hue refers to the dominant color family. In this case, the image is converted to the Hue, Saturation, and Intensity {\it HSV} colorspace and the mean value for the hue of a blob's pixels is taken. The saturation of a color expressed by a component of the Hue, Saturation, and Intensity ({\it HSI}) colorspace and the mean value for the saturation of a blob's pixels is taken. (\cite{Forsyth2012-hy})
 
-\subsection{YIQ}
+\subsubsection{YIQ}
 The YIQ model of color used by the NTSC color TV system. Y represents the luma information, I and Q the chrominance information. The processing employed here is to convert the image to the YIQ color space and take the mean value for the I, or in-phase component for the blob's pixels. (\cite{MathWorks_undated-jg})
 %\begin{figure}[h!]
 %	\centering
@@ -585,6 +737,100 @@ The $I$ component is the feature of interest here, and conversion of RGB to YIQ 
 	\end{bmatrix}	
 \end{equation}
 
+\subsubsection{HSI \& HSV}
+\parencite[p.~84]{Forsyth2012-hy}
+\subsubsection{CIElab}
+\subsubsection{YCBCR}
+The ECMA report on the JPG file format gives this transformation for RGB to YCBCR:
+\nocite{Ecma2019-yo}
+\begin{equation}
+	\begin{bmatrix}
+	Y \\[0.3em]
+	C_b \\[0.3em]
+	C_r \\[0.3em]
+	\end{bmatrix}
+	\approx
+	\begin{bmatrix}
+	0.2126 & 0.7152 & 0.0722 \\[0.3em]
+	-0.1146 & -0.3854 & 0.5 \\[0.3em]
+	0.5 & -04542. & -0.458 \\[0.3em]
+	\end{bmatrix}
+	\begin{bmatrix}
+	R \\[0.3em]
+	G \\[0.3em]
+	B \\[0.3em]
+	\end{bmatrix}	
+\end{equation}
+
+\subsection{Textural}
+Textural descriptors of a object are formal expressions of the relationship pixel values have with one another, reducing a tactile experience to a numerical one. Here, the analysis technique employed is \textit{Grey-level Co-occurrence Matrix} (GLCM) (\cite{Haralick1973-gr}, \cite{Hall-Beyer2017-nx}). Haralick describes the analysis of an image that has been converted to greyscale values to note the relationship. Table~\ref{tab:glcm-formulae} details the subset that will be used in this analysis. The term \textit{grey-level} implies that the use of the co-occurrence matrix will be limited to greyscale images. Instead, the co-occurrence matrix will also be computed for each of the channels in the YIQ, RGB, CIELab, HSI, HSV, YCBCR colorspaces using the equations detailed in Table~\ref{tab:glcm-formulae}. GLCM attributes have two factors that relevant to this problem space: the distance of a pixel  considered to be a \textit{neighbor} and the angle of the relationship. Neighbor distance can be thought of as what is considered to adjacent -- the pixel immediately beside the one in question, or further away. This study considers pixels immediately adjacent to be neighbors. While images of crops are often gathered in an orderly manner along a row such that orientation is maintained, the vegetation is not so orderly. \citeauthor*{Haralick1973-gr} discuss this, suggesting that the mean of calculations be used instead of the individual angles.
+\begin{longtable}{x{\dimexpr.15\columnwidth-2\tabcolsep}
+                  x{\dimexpr.225\columnwidth-2\tabcolsep}
+                  x{\dimexpr.625\columnwidth-2\tabcolsep}}
+%\begin{hyphenrules}{nohyphenation}
+    \caption{GLCM Formulae}\label{tab:glcm-formulae}  \\
+\toprule
+{\textbf{Feature}} & {\textbf{Formula}} & {\textbf{Comment}}
+\tabularnewline
+\midrule
+    \endfirsthead
+%%%%
+    \caption{GLCM Features (cont.)}\label{tab:glcm-formulae}  \\
+\toprule
+{\textbf{Feature}} & {\textbf{Formula}} & {\textbf{Comment}}
+\tabularnewline
+\midrule
+    \endhead
+%%%%
+\midrule[\heavyrulewidth]
+\multicolumn{3}{r}{\footnotesize\itshape
+                   Continued on the next page}
+    \endfoot
+%%%%
+\bottomrule
+    \endlastfoot
+%%%%
+		Homogeneity
+		& \begin{minipage}[t]{0.3\textwidth}
+			$\sum_{i} \sum_{j}\frac{c}{1 + \left|i-j\right|} $
+		   \end{minipage}     
+		& An expression of how much a pixel is similar to its neighbor
+\tabularnewline\addlinespace
+
+		Entropy     
+		& $-\sum_{ij}c_{ij}\log_{2}(c_{ij}) $                    
+		& An expression of how orderly the image is
+\tabularnewline\addlinespace
+
+		Correlation      
+		& \begin{minipage}[t]{0.3\textwidth}
+			$-\sum_{ij}\frac{(i-\mu_{i})(j - \mu_{j}) c_{ij}}{\theta_{i}\theta_{j}}$ 
+		   \end{minipage}
+		& An expression of the linear relationship between neighboring pixels 
+\tabularnewline\addlinespace
+
+		Dissimilarity      
+		& \begin{minipage}[t]{0.3\textwidth}
+			$-\sum_{ij}\frac{(i-\mu_{i})(j - \mu_{j}) c_{ij}}{\theta_{i}\theta_{j}}$ 
+		   \end{minipage}
+		& An expression of how much neighboring pixels differ 
+\tabularnewline\addlinespace
+
+		Contrast      
+		& $\sum_{i}\sum_{j}{(i - j)}^2 c_{ij}$ 
+		& Expresses the contrast between a pixel and its neighbor
+\tabularnewline\addlinespace
+
+		ASM      
+		& $\sum_{ij}P{ij}^2$
+		& Angular Second Moment -- high values are seen when the cell is very orderly
+\tabularnewline\addlinespace
+
+		Energy   
+		& $\sqrt{ASM}$ 
+		& The opposite of entropy
+\label{table:shape-formulae}
+\end{longtable}
 \subsection{Distance from Cropline}
 The cropline in a planting is, simply, the line along the bed where crop can be expected. Under field conditions where images are acquired from a constant position the cropline will appear in the same spot in each photo. The image set here, however, was manually acquired by walking along the crop row and capturing images.  Unfortunately, this means that the crop line location will differ from one picture to another. For this image set, the cropline is defined as the line that intersects the centroid of the objects with the largest area. Crops will most often have a distance from the cropline very close to zero. Weeds, on the other hand, may have a distance close to zero if they appear within the line of crop, but often appear far from the crop line.
 \begin{figure}[h!]
@@ -595,524 +841,184 @@ The cropline in a planting is, simply, the line along the bed where crop can be 
 \end{figure}
 Figure~\ref{fig:normalized-distance} illustrates the concept of a cropline and the distance of vegetation from it. In this image we see two growths of lettuce that are very close to the cropline (distances here are in pixels, but the units are not significant. This could be expressed in millimeters) at 0 and 0.375 and a weed lying 0.4347 units from the cropline. The values normalized between 0 and 1 by considering the maximum distance the vegetation could be away from the crop line. The line marked {\it Center Line} is for reference purposes and can be ignored for now.  There are two additional items that are worth noting about this image: the dots connecting the plant to the cropline are the {\it centroids} mentioned earlier, and the colored bounding boxes signify the class of the object, something we will return to in a later section.
 
-%
-%
-%Heuristic Classification
-%Before we start introducing techniques for classification using Machine Learning or Neural Networks, we need to first consider some basic heuristic techniques that can be applied to an image.  Consider these attributes of vegetation:
-%How far from the crop row is it?
-%What is the size of the vegetation in relation to other vegetation in the image?
-%Weed Detection using Size Elimination
-%Objects several times smaller than the largest object in the crop row are likely to be undesirable -- regardless of position with respect to the crop row. Consider this extract of a processed image:
-%
-%
-%
-%In this instance, proximity to the cropline cannot be used as a criterion to determine that the vegetation is undesired. Indeed, it is closer to the cropline than other vegetation. Its area, however, is much smaller than that of other vegetation in the image: 10623 pixels for the plant near the center of the image vs 657712 pixels and 1002336.5 pixels for the neighbors to either side.
-%Based on this ratio, it is reasonable to determine that the vegetation is undesirable.
-%Classification using Machine Learning
-%To classify the objects within the image using machine learning, we first produce a dataset we can use to train the detector. In this case we can manually score each blob in an image.
-%
-%Consider this image:
-%
-%
-%
-%And this training data:
-%
-%
-%
-%As a manual step, the vegetation names and types shown can be manually checked and altered, if required. Here we see that blob6 (the image name appears in the upper left hand corner) has been incorrectly identified as desired vegetation (type 0 -- that’s the column on the far right of the spreadsheet above). Once the training set has been manually scored, we are now ready to classify via machine learning algorithms.
-%
-%
-%Logistic Regression
-%Using some of the attributes detailed previously, we can apply logistic regression to predict the type of vegetation using a subset of the objects appearing in images acquired in the field.
-%
-%
-%
-%
-%(Ignore the name and number columns -- that’s just so I can relate this to decorated images)
-%
-%The dataset excludes vegetation that cannot be fully seen in an image.
-%
-%These are described in prior sections:
-%The Length/Width ratio
-%The shape index of the object
-%The distance from the crop line
-%The type of the vegetation: 1 = undesired, 0 = desired
-%
-%Using this dataset split into 60/40 (training/testing) segments yields a model that is 96.5 % accurate in predicting the type of objects in the test set. However attempts to confirm this with R have hit a bit of a snag, as all coefficients are reporting as not significant
-%
-%> summary(weedModel)
-%
-%Call:
-%glm(formula = type ~ ratio + shape + distance, family = "binomial", 
-%    data = train, maxit = 100)
-%
-%Deviance Residuals: 
-%       Min          1Q      Median          3Q         Max  
-%-9.615e-06   2.110e-08   2.110e-08   2.110e-08   1.229e-05  
-%
-%Coefficients:
-%              Estimate Std. Error z value Pr(>|z|)
-%(Intercept)      79.43  508878.63   0.000        1
-%ratio           599.46 1173291.35   0.001        1
-%shape          -653.14 1278367.68  -0.001        1
-%distance         91.29  237156.90   0.000        1
-%
-%(Dispersion parameter for binomial family taken to be 1)
-%
-%    Null deviance: 9.5915e+01  on 125  degrees of freedom
-%Residual deviance: 3.4286e-10  on 122  degrees of freedom
-%AIC: 8
-%
-%
-%Removing the distance indication shows meaningful p values on the remaining factors:
-%
-%> summary(weedModel)
-%
-%Call:
-%glm(formula = type ~ ratio + shape, family = "binomial", data = train, 
-%    maxit = 100)
-%
-%Deviance Residuals: 
-%    Min       1Q   Median       3Q      Max  
-%-1.6920   0.0000   0.0140   0.1009   3.4587  
-%
-%Coefficients:
-%            Estimate Std. Error z value Pr(>|z|)    
-%(Intercept)    2.801      2.660   1.053 0.292343    
-%ratio          6.651      2.185   3.044 0.002335 ** 
-%shape         -8.129      2.138  -3.803 0.000143 ***
-%---
-%Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
-%
-%(Dispersion parameter for binomial family taken to be 1)
-%
-%    Null deviance: 95.915  on 125  degrees of freedom
-%Residual deviance: 26.811  on 123  degrees of freedom
-%AIC: 32.811
-%
-%Using a different package wish supports Firth's bias-Reduced penalized-likelihood logistic regression yields better results:
-%
-%> weedModel2 <- logistf::logistf(formula = type ~ ratio + shape + distance, data = train)
-%> summary(weedModel2)
-%logistf::logistf(formula = type ~ ratio + shape + distance, data = train)
-%
-%Model fitted by Penalized ML
-%Coefficients:
-%                  coef se(coef)   lower 0.95 upper 0.95     Chisq            p method
-%(Intercept)  0.8882576 2.558010  -4.36665548   6.177747  0.121010 7.279417e-01      2
-%ratio        5.5234812 1.961435   2.21126491  10.919413 23.225850 1.440480e-06      2
-%shape       -6.2814600 1.699084 -11.06455752  -3.422502 28.269870 1.055258e-07      2
-%distance     2.9874919 1.651566  -0.08123048   7.210671  3.625261 5.690864e-02      2
-%
-%Method: 1-Wald, 2-Profile penalized log-likelihood, 3-None
-%
-%Likelihood ratio test=64.33422 on 3 df, p=6.961098e-14, n=126
-%Wald test = 15.76606 on 3 df, p = 0.001266337
-%> 
-%> 
-%
-%
-%
-%
-%KNN
-%For classification with KNN, the number of neighbors was set to 1.
-%Random Forest
-%The number of estimators was set to 1000.
-%Decision Tree
-%No specific tuning parameters were applied.
-%Boosted Gradient
-%The maximum depth was set to 4.
-%
-%Summary of various machine learning algorithms
-%These are the results of the scoring of a basic 40/60 split of the data
-%
-%Algorithm
-%Train
-%Test
-%Logistic Regression
-%0.988
-%0.952
-%KNN
-%1
-%0.9
-%Decision Tree
-%1
-%0.9
-%Random Forest
-%1
-%0.9
-%Gradient Boosted
-%1
-%0.944
-%
-%
-%Perhaps an easier way of evaluating these algorithms is in terms of errors.  Here, a false positive is the identification of crop as weed, and a false negative as the identification of weed as crop.   Manually evaluating 238 objects within the image sets used shows these results:
-%
-%
-%Algorithm
-%False +
-%False -
-%Logistic Regression
-%0
-%4
-%KNN
-%6
-%11
-%Decision Tree
-%1
-%1
-%Random Forest
-%2
-%0
-%Gradient Boosted
-%1
-%0
-
+\subsection{Histogram of Oriented Gradients}
+Often shortened to \textit{HOG}, this technique is a technique to formalize the gradient orientation and magnitude of local portions of an image \parencite[p.~155]{Forsyth2012-hy}. The detail shown in Figure~\ref{fig:hog} is still recognizable as vegetation, but illustrates gradient orientation, not pixel values. It is these orientations that will be exploited in classification, specifically the standard deviation of the gradient descriptors for a plant. In lettuce the orientation of a gradient is visible even to the unaided eye, as the vein structure can be used to classify the image \parencite{Elhariri2014-eo}
+\begin{figure}[h!]
+	\centering
+	\includegraphics[width=0.4\linewidth]{./figures/hog.jpg}
+	\caption[HOG Representation of Lettuce]{HOG Representation of greyscale lettuce image.}
+	\label{fig:hog}
+\end{figure}
 
 \subsection{Overlapping Vegetation}
 
-Before examing details of classification, it is worth considering a problem that is sometimes seen: overlapping vegetation. This occurs most frequently when desired vegation partially obscures undesired. Overlapping vegetation is problematic in the current processing flow in that it is detected as part of the adjoining vegetation, distorting shape analysis computations.  Consider this portion of an image:
-\begin{figure}[h!]
+Before considering the details of classification, it is worth considering a problem that is sometimes seen: overlapping vegetation. While desired vegetation can overlap itself, this becomes problematic when desired and undesired vegetation overlap. Overlapping vegetation is problematic in the current processing flow in that it is detected as part of the adjoining vegetation, distorting shape analysis computations.  Consider this portion of an image:
+\begin{figure}[H]
 	\centering
-	\includegraphics[width=0.4\linewidth]{./figures/overlapping-weed.jpg}
-	\caption[Crop and Weed overlap]{Crop and Weed overlap -- this image contains a problem commonly encountered, the situation where there is overlap between the crop and weeds. In this instance, the crop partially obscures the weed. The blob detection algorithm does not use factors such as color differences to distinguish one blob from another, resulting in two plants being processed as a single one.}
+	\begin{subfigure}[h]{.40\textwidth}
+		\centering
+		\includegraphics[width=4cm]{./figures/overlapping-weed.jpg}
+		\caption{Raw image}
+		\label{fig:overlap-raw}
+	\end{subfigure}
+	\begin{subfigure}[h]{.40\textwidth}
+		\centering
+		\includegraphics[width=4cm]{./figures/overlapping-weed-segmented.jpg}
+		\caption{Segmented image}
+		\label{fig:overlap-segmented}
+	\end{subfigure}
+	\caption[Crop and Weed overlap]{Crop and Weed overlap -- this image contains a problem commonly encountered, the situation where there is overlap between the crop and weeds. In this instance, the crop partially obscures the weed. The blob detection algorithm does not use factors such as color differences to distinguish one blob from another, resulting in two plants being processed as a single one, as can be observed in~\ref{fig:overlap-segmented}}
 	\label{fig:overlap}
 \end{figure}
 
-The object detection algorithms are based on shapes of binary images, leading to the case where a few leaves of the weed are incorrectly identified as part of the crop. In this case,some leaves are identified as separate plants and are marked as requiring treatment, but this may not be the case with a larger plant requiring treatment that happens to overlap with desired vegetation. This affects not only the inclusion of weeds with crop, but the misidentification of several weeds as a single plant, as this image demonstrates.  The three plants in the image are identified as a single blob as the overlapping leaves of multiple plants makes it appear as one.
+
+The object detection algorithms are based on shapes of binary images, leading to the case where a few leaves of the weed are incorrectly identified as part of the crop. In this case,some leaves are identified as separate plants and are marked as requiring treatment, but this may not be the case with a larger plant requiring treatment that happens to overlap with desired vegetation. This affects not only the inclusion of weeds with crop, but the misidentification of several weeds as a single plant, as this image demonstrates.  Two of the plants in the image are identified as a single blob as the overlapping leaves of multiple plants makes it appear as one. While this a mistake that will result in the distortion of shape metrics, the weed occupies a space so close to the crop that it would not be treated even if properly identified.
 
 \subsection{Weed Shapes and Color}
-There are two complications with the identification of weeds by considering shape.  Computation of the shape index of objects within the image are complicated by poor lighting requiring more pixel dilation to make the vegetation appear to be a single plant. This, in turn, distorts the computation of the shape index of the object. The color of portions of the weeds does not produce the isolation of the entire plant.
+There are two complications with the identification of weeds by considering shape.  Computation of the shape index of objects within the image are complicated by poor lighting requiring more pixel dilation to make the vegetation appear to be a single plant. This, in turn, distorts the computation of the shape index of the object. The indices covered in Table~\ref{table:segmentation} fail to capture elements of the vegetation that are other than the commonly encountered green.
 
-Consider this image of a purslane weed:
-Notice that this image exhibits both of these problematic properties. The color of the stem is a shade of red that is not isolated by considering only a single threshold of the vegetation indices discussed earlier in this document. The leaves also shade the stems to such an extent that the color is even closer to that of the surrounding soil. This problem is not unique to purslane, but can be seen in other vegetation with significant amounts of red in stems such as redroot pigweed.
+Consider a sample of Purslane:
+\begin{figure}[H]
+	\centering
+	\begin{subfigure}[h]{.40\textwidth}
+		\centering
+		\includegraphics[width=4cm]{./figures/purslane.png}
+		\caption{Purslane}
+		\label{fig:purslane}
+	\end{subfigure}
+	\begin{subfigure}[h]{.40\textwidth}
+		\centering
+		\includegraphics[width=4cm]{./figures/purslane-segmented.jpg}
+		\caption{Segmented image (NDI)}
+		\label{fig:purslane-segmented}
+	\end{subfigure}
+	\caption[Color problems complicate segmentation]{The red stems found in purslane complicate use of indices calculated to emphasize green vegetation. As seen in Figure~\ref{fig:purslane-segmented}, the prominent red stems are not present in the final image.}
+	\label{fig:purslane-segmentation}
+\end{figure}
 
-This image displays the result of applying an NGRDI index to the image. Note that the stem of the plant is not displayed at all.
-
-
-Which leads to the mis-identification of leaves as separate plants
-
-
-Increasing the number of pixel dilations addresses this, bringing down the number of detected shapes significantly.
-
-
-While this would appear to be a clean solution, it does come at a cost. As this binary image shows, the shape of the vegetation has now been distorted to the point where shape indices of the objects do not adequately represent the actual shape of the object..
+The color of the purslane stem is a shade of red that is not isolated by considering only a single threshold of the vegetation indices discussed earlier in this document. While using a second threshold value to capture the stems is an option, this approach is complicated by the red content of the background. This problem is not unique to purslane, but can be seen in other vegetation with significant amounts of red in edges of leaves such as found in redroot pigweed (\textit{Amaranthus retroflexus}).  The presence of red in leaves mis-identification of leaves as separate plants (stems) and to the distortion of shape metrics (leaves).
 
 
 
 \section{Feature Selection}
-The features described in the previous section were generated for a set of segmented images, resulting in each object being described by 12 attributes. Several techniques were then used to explore the relationship between these attributes and the labeled class. Specifically, only the most important variables will be selected in the predictions, and those parameters with a weak association are dropped. Unfortunately, different feature ranking techniques identified 
+The features described in the previous section were generated for a set of segmented images, resulting in each object being described by 715 attributes. Several techniques were then used to explore the relationship between these attributes and the labeled class: Recursive Feature Elimination, Principle Component Analysis (PCA), Feature Importance, and Univariate.  Specifically, only the most important variables will be selected in the predictions, and those parameters with a weak association are dropped. Unfortunately, different feature ranking techniques identified sets of the most significant features without a clear overlap. There were exceptions to this, of course, as can be seen with the feature \textit{saturation\_mean} identified with the highest rank in most of the analysis.
+While the features shown in Table~\ref{table:parameters} are not completely consistent with each other there are a few themes:
+\begin{itemize}
+\item{Aspects of color data are quite predictive, particularly the saturation of the color.}
+\item{Most structural attributes (convexity, roundness, etc) are not significant.}
+\item{Statistical analysis of the gradients and pixels relationship to each other is significant.}
+\end{itemize}
 
 
-
-\subsection{Univariate}
-In the univariate scheme, the features with the strongest association with the class are selected. In this scheme, scikit-learn supports a suite of statistical tests, and we will use the ANOVA F-value method for feature evaluation. Table~\ref{fig:univariate} shows that the {\it YIQ} feature is, by far, the most interesting feature, and likewise  {\it Eccentricity} the least.
-
-% Automatically generated begin  -- Do not edit
-\begin{longtable}{lr}
-\caption[Univariate]{Univariate parameter selection}\\
+\begin{longtable}{lllll}
+\caption[Parameters Identified by Selection Technique]{Parameters Identified by Selection Technique}\\
 \toprule
-{} Feature &  F-Score\\
+{}Rank &                  Recursive &                       PCA &              Importance &       Univariate \\
 \midrule
 \endfirsthead
-\caption[Univariate]{Univariate parameter selection} \\
+\caption[Parameter Selection by Technique]{Parameter Selection by Technique} \\
 \toprule
-{} Feature & F-Score \\
+{}Rank &                  Recursive &                       PCA &              Importance &       Univariate \\
 \midrule
 \endhead
 \midrule
-\multicolumn{2}{r}{{Continued on next page}} \\
+\multicolumn{5}{r}{{Continued on next page}} \\
 \midrule
 \endfoot
 
 \bottomrule
 \endlastfoot
-in\_phase            &   194.312586 \\
-saturation\_mean     &   148.913371 \\
-normalized\_distance &   122.141676 \\
-shape\_index         &   106.277327 \\
-compactness         &    96.288132 \\
-distance            &    71.406334 \\
-solidity            &    43.961273 \\
-hue                 &    34.650216 \\
-eccentricity        &    19.335181 \\
-lw\_ratio            &     6.086764 \\
-roundness           &     5.779079 \\
-elongation          &     2.568018 \\
-type                &     0.000000 \\
+0 &            saturation\_mean &                       hue &     ycbcr-cr\_energy\_avg &  saturation\_mean \\
+1 &                 hog\_stddev &           saturation\_mean &   hsi\_saturation\_ASM\_45 &       hog\_stddev \\
+2 &               hog\_variance &                  in\_phase &       yiq\_i\_contrast\_45 &         hog\_mean \\
+3 &   greyscale\_correlation\_90 &                   cb\_mean &   ycbcr-cb\_contrast\_180 &         in\_phase \\
+4 &                   hog\_mean &                hog\_stddev &             cie\_b\_ASM\_0 &     hog\_variance \\
+5 &  greyscale\_correlation\_avg &                  hog\_mean &      cie\_a\_contrast\_135 &  ycbcr-cr\_ASM\_90 \\
+6 &               yiq\_i\_ASM\_90 &              hog\_variance &      red\_homogeneity\_90 &     value\_ASM\_90 \\
+7 &     greyscale\_contrast\_avg &   greyscale\_homogeneity\_0 &     red\_homogeneity\_135 &    value\_ASM\_135 \\
+8 &  greyscale\_correlation\_180 &  greyscale\_homogeneity\_45 &  hsv\_saturation\_ASM\_180 &     value\_ASM\_45 \\
+9 &    greyscale\_correlation\_0 &  greyscale\_homogeneity\_90 &             red\_ASM\_135 &    value\_ASM\_avg 
+\label{table:parameters}
 \end{longtable}
 
+The set of unique parameters across the top 10 selection techniques was relatively small, yielding a search space of 348,330,136 combinations. This parameter space was exhaustively searched to find the set of parameters best suited for each of the  seven clasification techniques:
+\begin{itemize}
+	\item{Random Forest}
+	\item{K Nearest Neighbors (KNN)} - The number of neighbors was set to a small value of five.
+	\item{Gradient Boosting}
+	\item{Logistic Regression}
+	\item{Decision Tree}
+	\item{Support Vector Machine (SVM)}
+	\item{Linear Discriminate Analysis (LDA)}
+\end{itemize}
 
-% Automatically generated end
-%
-% {
-%\centering\settowidth\rotheadsize{\bfseries(our proposal)}
-%\renewcommand\theadalign{cl}\renewcommand\cellalign{cl}
-%\renewcommand\theadfont{\bfseries}
-%\renewcommand\tabcolsep{4pt}\renewcommand\arraystretch{1.25}
-%% Make this a bit smaller so it will fit on a page.  Still looks a bit nasty in that it extends to the edge of the page.
-%% It's that PCA line that is the trouble, as the values are just too long
-%\footnotesize
-%\begin{longtable}[c]{
-%    |l |*{12}{c |} }%
-%    \hline
-%    %\diagbox[height=1.2\rotheadsize, width=\dimexpr\eqboxwidth{AB}+2\tabcolsep\relax]%
-%    %{\raisebox{1.2ex}{Feature}}{\raisebox{-5ex}{Feature}} &
-%    {\textbf{Feature}} & {\textbf{ANOVA F-Value}}\\
-%    %\rothead{Tool X\\\mbox{(our proposal)}}\\
-%    \hline
-%        	\eqmakebox{YIQ Mean} & 517.799 \\
-%        	\eqmakebox{Normalized Distance} & 138.479  \\
-%           \eqmakebox{Saturation} & 134.901  \\
-%           \eqmakebox{Shape Index} & 120.546 \\
-%           \eqmakebox{Compactness} & 115.005  \\
-%           \eqmakebox{Distance} &  70.1 \\
-%           \eqmakebox{Roundness} & 38.047  \\
-%    		\eqmakebox{Length-Width Ratio} & 24.575 \\
-%        	\eqmakebox{Solidity} & 34.082 \\
-%    		\eqmakebox{Hue} & 1.124  \\
-%    		\eqmakebox{Convexity} & 1.041  \\
-%    		\eqmakebox{Eccentricity} & 0.321 \\
-%    \hline
-%    \caption{Univariate Feature Selection}
-%    \label{fig:univariate}
-%  \end{longtable}
-% }
-%\subsection{Low Variance}
-\subsection{Feature Importance}
-The Feature Importance scheme uses Random Forest and Extra Trees approaches to rank features for importance.
+ Table~\ref{table:optimal} contains the result of this search with the accuracy scores using an average across 5 folds.
 
-Applying this to the dataset created results in these scores, where more important features are assigned higher scores. Table~\ref{fig:importance} shows the results of the scores assigned to the various features.   In this table, we can see that the {\it YIQ}, the {\it Normalized Distance}, and the {\it Compactness} are the most important features. Interestingly, color features play prominently here, far exceeding the scores assigned to structural features such as the {\it Solidity} of an object. Structural features such as {\it Eccentricity} have scores low enough that it is likely the case that they could be omitted from the model without a negative impact on accuracy.
-
-{
-\centering\settowidth\rotheadsize{\bfseries(our proposal)}
-\renewcommand\theadalign{cl}\renewcommand\cellalign{cl}
-\renewcommand\theadfont{\bfseries}
-\renewcommand\tabcolsep{4pt}\renewcommand\arraystretch{1.25}
-% Make this a bit smaller so it will fit on a page.  Still looks a bit nasty in that it extends to the edge of the page.
-% It's that PCA line that is the trouble, as the values are just too long
-\footnotesize
-\begin{longtable}[c]{
-    |l |*{12}{c |} }%
-    \hline
-    %\diagbox[height=1.2\rotheadsize, width=\dimexpr\eqboxwidth{AB}+2\tabcolsep\relax]%
-    %{\raisebox{1.2ex}{Feature}}{\raisebox{-5ex}{Feature}} &
-    {\textbf{Feature}} & {\textbf{Importance Score}}\\
-    %\rothead{Tool X\\\mbox{(our proposal)}}\\
-    \hline
-        	\eqmakebox{YIQ Mean} & 0.38947503  \\
-           \eqmakebox{Normalized Distance} & 0.12969820 \\
-           \eqmakebox{Compactness} & 0.09122537  \\
-           \eqmakebox{Saturation} & 0.08911404  \\
-           \eqmakebox{Convexity} & 0.05499904   \\
-           \eqmakebox{Shape Index} & 0.05357191 \\
-           \eqmakebox{Solidity} & 0.05339462  \\
-           \eqmakebox{Distance} &  0.05081641 \\
-      	\eqmakebox{Roundness} & 0.04467927  \\
-    		\eqmakebox{Length-Width Ratio} & 0.02998853 \\
-  		\eqmakebox{Hue} & 0.00542753  \\
-    		\eqmakebox{Eccentricity} & 0.00761004 \\
-    \hline
-    \caption{Feature Importance Scores}
-    \label{fig:importance}
-  \end{longtable}
- }
- 
- % Begin autogenerated
-\begin{longtable}{lr}
-\caption[Feature importances]{Feature Importances}\\
+\begin{tiny}
+% -- begin copied table
+\begin{longtable}{lllllll}
+\caption[Optimal Parameters for Accuracy]{Optimal Parameters by Technique (Accuracy)}
+\label{table:optimal-accuracy}\\
 \toprule
-{} Feature & Importance \\
+            RandomForest &                      KNN &         GradientBoosting &       LogisticRegression &
+     DecisionTree &                      SVM &                      LDA \\
 \midrule
 \endfirsthead
-\caption[Feature Importances]{Feature Importances} \\
+\caption[]{Optimal Parameters by Technique (Accuracy)} \\
 \toprule
-{} Feature & Importance \\
+            RandomForest &                      KNN &         GradientBoosting &       LogisticRegression &
+     DecisionTree &                      SVM &                      LDA \\
 \midrule
 \endhead
 \midrule
-\multicolumn{2}{r}{{Continued on next page}} \\
+\multicolumn{7}{r}{{Continued on next page}} \\
 \midrule
 \endfoot
 
 \bottomrule
 \endlastfoot
-normalized\_distance &     0.278393 \\
-saturation\_mean     &     0.152188 \\
-shape\_index         &     0.147535 \\
-in\_phase            &     0.136493 \\
-hue                 &     0.113536 \\
-eccentricity        &     0.039702 \\
-distance            &     0.029729 \\
-compactness         &     0.023743 \\
-elongation          &     0.023277 \\
-solidity            &     0.021584 \\
-roundness           &     0.018191 \\
-lw\_ratio            &     0.015628 \\
-type                &     0.000000 \\
+                0.948485 &                 0.948485 &                 0.948485 &                 0.948485 &
+         0.948485 &                 0.927273 &                 0.890909 \\
+                 cb\_mean &                  cb\_mean &                  cb\_mean &                  cb\_mean &
+              cb\_mean &                  cb\_mean &                  cb\_mean \\
+      cie\_l\_contrast\_180 &       cie\_l\_contrast\_180 &       cie\_l\_contrast\_180 &       cie\_l\_contrast\_1
+80 &       cie\_l\_contrast\_180 &       cie\_l\_contrast\_180 &       cie\_l\_contrast\_180 \\
+        green\_contrast\_0 &         green\_contrast\_0 &         green\_contrast\_0 &         green\_contrast\_0 &
+         green\_contrast\_0 &         green\_contrast\_0 &         green\_contrast\_0 \\
+      green\_contrast\_180 &       green\_contrast\_180 &       green\_contrast\_180 &       green\_contrast\_180 &
+       green\_contrast\_180 &       green\_contrast\_180 &       green\_contrast\_180 \\
+ greyscale\_homogeneity\_0 &  greyscale\_homogeneity\_0 &  greyscale\_homogeneity\_0 &  greyscale\_homogeneity\_0 &
+  greyscale\_homogeneity\_0 &  greyscale\_homogeneity\_0 &  greyscale\_homogeneity\_0 \\
+greyscale\_homogeneity\_45 & greyscale\_homogeneity\_45 & greyscale\_homogeneity\_45 & greyscale\_homogeneity\_45 &
+ greyscale\_homogeneity\_45 & greyscale\_homogeneity\_45 & greyscale\_homogeneity\_45 \\
+greyscale\_homogeneity\_90 & greyscale\_homogeneity\_90 & greyscale\_homogeneity\_90 & greyscale\_homogeneity\_90 &
+ greyscale\_homogeneity\_90 & greyscale\_homogeneity\_90 & greyscale\_homogeneity\_90 \\
+              hog\_stddev &                 hog\_mean &                 hog\_mean &                 hog\_mean &
+             hog\_mean &                 hog\_mean &                 hog\_mean \\
+          red\_energy\_avg &             hog\_variance &               hog\_stddev &               hog\_stddev &
+            hog\_stddev &               hog\_stddev &               hog\_stddev \\
+          ycbcr-cb\_ASM\_0 &                      hue &             hog\_variance &                 in\_phase &
+         hog\_variance &             hog\_variance &             hog\_variance \\
 \end{longtable}
-% end autogenerated
-
-\subsection{Recursive Elimination}
-The Recursive Feature Elimination scheme works backwards from a full model (all attributes) to remove attributes, build a model, and evaluate the results to characterize a feature's contribution to the prediction. Table~\ref{fig:recursive} shows an unexpected result.  While {\it Normalized Distance} is, once again,  an important feature, {\it YIQ} is now near the bottom of the list.
-
-% Begin autogenerated
-\begin{longtable}{lr}
-\caption[Recursive Feature Elimination]{Recursive Feature Elimination}\\
-\toprule
-{} Feature & Rank\\
-\midrule
-\endfirsthead
-\caption[Recursive Feature Elimination]{Recursive Feature Elimination} \\
-\toprule
-{} Feature & Rank \\
-\midrule
-\endhead
-\midrule
-%\multicolumn{2}{r}{{Continued on next page}} \\
-\midrule
-\endfoot
-
-\bottomrule
-\endlastfoot
-saturation\_mean     &            1 \\
-normalized\_distance &            2 \\
-in\_phase            &            3 \\
-hue                 &            4 \\
-compactness         &            5 \\
-shape\_index         &            6 \\
-distance            &            7 \\
-eccentricity        &            8 \\
-roundness           &            9 \\
-elongation          &           10 \\
-solidity            &           11 \\
-lw\_ratio            &           12 \\
-\end{longtable}
-% End autogenerated
-
-%{
-%\centering\settowidth\rotheadsize{\bfseries(our proposal)}
-%\renewcommand\theadalign{cl}\renewcommand\cellalign{cl}
-%\renewcommand\theadfont{\bfseries}
-%\renewcommand\tabcolsep{4pt}\renewcommand\arraystretch{1.25}
-%% Make this a bit smaller so it will fit on a page.  Still looks a bit nasty in that it extends to the edge of the page.
-%% It's that PCA line that is the trouble, as the values are just too long
-%\footnotesize
-%\begin{longtable}[c]{
-%    |l |*{12}{c |} }%
-%    \hline
-%    %\diagbox[height=1.2\rotheadsize, width=\dimexpr\eqboxwidth{AB}+2\tabcolsep\relax]%
-%    %{\raisebox{1.2ex}{Feature}}{\raisebox{-5ex}{Feature}} &
-%    {\textbf{Feature}} & {\textbf{Importance Rank}}\\
-%    %\rothead{Tool X\\\mbox{(our proposal)}}\\
-%    \hline
-%        	\eqmakebox{Normalized Distance} & 1  \\
-%           \eqmakebox{Shape Index} & 2 \\
-%    		\eqmakebox{Length-Width Ratio} & 3 \\
-%    		\eqmakebox{Compactness} & 4  \\
-%        	\eqmakebox{Roundness} & 5  \\
-%           \eqmakebox{Solidity} & 6  \\
-%           \eqmakebox{Eccentricity} & 7 \\
-%           \eqmakebox{Convexity} & 8  \\
-%           \eqmakebox{Hue} & 9  \\
-%           \eqmakebox{Saturation} & 10  \\
-%           \eqmakebox{YIQ Mean} & 11  \\
-%    		\eqmakebox{Distance} &  12 \\
-%    \hline
-%    \caption{Feature Importance Ranks using RFE with a Logistic Regression Classifier}
-%    \label{fig:recursive}
-%  \end{longtable}
-% }
- 
- As noted in the introduction, this is not a balanced dataset, as the weed class is underrepresented. Adjusting the weights a bit by an arbitrary amount (0.8 crop, 0.2 weeds) yields a quite different result, as illustrated in Table~\ref{fig:recursive-weighted}. Here, note that the {\it YIQ} parameter is dramatically different, appearing as the $7^{th}$ most important parameter now.
- 
- {
-\centering\settowidth\rotheadsize{\bfseries(our proposal)}
-\renewcommand\theadalign{cl}\renewcommand\cellalign{cl}
-\renewcommand\theadfont{\bfseries}
-\renewcommand\tabcolsep{4pt}\renewcommand\arraystretch{1.25}
-% Make this a bit smaller so it will fit on a page.  Still looks a bit nasty in that it extends to the edge of the page.
-% It's that PCA line that is the trouble, as the values are just too long
-\footnotesize
-\begin{longtable}[c]{
-    |l |*{12}{c |} }%
-    \hline
-    %\diagbox[height=1.2\rotheadsize, width=\dimexpr\eqboxwidth{AB}+2\tabcolsep\relax]%
-    %{\raisebox{1.2ex}{Feature}}{\raisebox{-5ex}{Feature}} &
-    {\textbf{Feature}} & {\textbf{Importance Rank}}\\
-    %\rothead{Tool X\\\mbox{(our proposal)}}\\
-    \hline
-    \eqmakebox{Shape Index} & 1 \\
-    \eqmakebox{Length-Width Ratio} & 2 \\
-    \eqmakebox{Normalized Distance} & 3  \\
-    \eqmakebox{Compactness} & 4  \\
-    \eqmakebox{Roundness} & 5  \\
-    \eqmakebox{Eccentricity} & 6 \\
-    \eqmakebox{YIQ Mean} & 7  \\
-    \eqmakebox{Convexity} & 8  \\
-    \eqmakebox{Solidity} & 9  \\
-    \eqmakebox{Saturation} & 10  \\
-    \eqmakebox{Hue} & 11  \\
-    \eqmakebox{Distance} &  12 \\
-    \hline
-    \caption{Feature Importance Ranks using RFE with a Logistic Regression Classifier with weighted classes}
-    \label{fig:recursive-weighted}
-  \end{longtable}
- }
- 
- Using a random forest classifier changes the picture yet again. As Table~\ref{fig:random-forest} shows, {\it YIQ} is now the most important feature to consider.
- 
-{
-\centering\settowidth\rotheadsize{\bfseries(our proposal)}
-\renewcommand\theadalign{cl}\renewcommand\cellalign{cl}
-\renewcommand\theadfont{\bfseries}
-\renewcommand\tabcolsep{4pt}\renewcommand\arraystretch{1.25}
-% Make this a bit smaller so it will fit on a page.  Still looks a bit nasty in that it extends to the edge of the page.
-% It's that PCA line that is the trouble, as the values are just too long
-\footnotesize
-\begin{longtable}[c]{
-    |l |*{12}{c |} }%
-    \hline
-    %\diagbox[height=1.2\rotheadsize, width=\dimexpr\eqboxwidth{AB}+2\tabcolsep\relax]%
-    %{\raisebox{1.2ex}{Feature}}{\raisebox{-5ex}{Feature}} &
-    {\textbf{Feature}} & {\textbf{Importance Rank}}\\
-    %\rothead{Tool X\\\mbox{(our proposal)}}\\
-    \hline
-     		\eqmakebox{YIQ Mean} & 1  \\
-        	\eqmakebox{Saturation} & 2  \\
-         	\eqmakebox{Normalized Distance} & 3  \\
-    		\eqmakebox{Compactness} & 4  \\
-        	\eqmakebox{Roundness} & 5  \\
-           \eqmakebox{Shape Index} & 6 \\
-    		\eqmakebox{Length-Width Ratio} & 7 \\
-    		\eqmakebox{Distance} &  8 \\
-        	\eqmakebox{Solidity} & 9  \\
-   	 	\eqmakebox{Convexity} & 10  \\
-    		\eqmakebox{Hue} & 11  \\
-    		\eqmakebox{Eccentricity} & 12 \\
-    \hline
-    \caption{Feature Importance Ranks using RFE with a Random Forest Classifier}
-    \label{fig:random-forest}
-  \end{longtable}
- }
 
 
+
+
+% -- end copied table
+\end{tiny}
  
 \subsection{Principal Component Analysis}
-The Principal Component Analysis (PCA) \parencite{Muller2016-ui} seen in Figure~\ref{fig:pca} shows most of the variance can be explained by only 3 features: {\it Length-Width Ratio}, {\it Shape Index}, and {\it Distance}.
+The Principal Component Analysis (PCA) \parencite{Muller2016-ui} seen in Figure~\ref{fig:pca} shows most of the variance can be explained by only 3 features: \textit{hue}, \textit{saturation\_mean}, and \textit{in\_phase}.
 \begin{figure}[h]
 	\centering
 	\begin{subfigure}[h]{.48\textwidth}
 		  \centering
-		  \includegraphics[width=1\linewidth]{figures/explained-variance}
+		  \includegraphics[width=1\linewidth]{figures/pca.png}
 		  \caption{Features explaining variance}
-		  %\label{fig:sub1}
+		  \label{fig:pca}
 	\end{subfigure}
 	\begin{subfigure}[h]{.32\textwidth}
 	  \centering
-	  	% autogenerated begin
-
-	  	% autogenerated end
 	  	
 		{
 		\centering\settowidth\rotheadsize{\bfseries(our proposal)}
@@ -1122,6 +1028,7 @@ The Principal Component Analysis (PCA) \parencite{Muller2016-ui} seen in Figure~
 		% Make this a bit smaller so it will fit on a page.  Still looks a bit nasty in that it extends to the edge of the page.
 		% It's that PCA line that is the trouble, as the values are just too long
 		\footnotesize
+		
 		\begin{longtable}[c]{
 		    |l |*{12}{c |} }%
 		    \hline
@@ -1130,31 +1037,17 @@ The Principal Component Analysis (PCA) \parencite{Muller2016-ui} seen in Figure~
 		    {\textbf{Feature}} & {\textbf{Importance Rank}}\\
 		    %\rothead{Tool X\\\mbox{(our proposal)}}\\
 		    \hline
-			lw\_ratio            &     0.456658 \\
-			shape\_index         &     0.257242 \\
-			distance            &     0.119714 \\
-			normalized\_distance &     0.051267 \\
-			hue                 &     0.043071 \\
-			saturation\_mean     &     0.025117 \\
-			in\_phase            &     0.021433 \\
-			compactness         &     0.012424 \\
-			elongation          &     0.006397 \\
-			eccentricity        &     0.003927 \\
-			roundness           &     0.001914 \\
-			solidity            &     0.000837 \\		    
+			hue                      &     0.505089 \\
+			saturation\_mean          &     0.209646 \\
+			in\_phase                 &     0.073444 \\
+			cb\_mean                  &     0.036392 \\
+			hog\_stddev               &     0.026874 \\
+			hog\_mean                 &     0.020135 \\
+			hog\_variance             &     0.017359 \\
+			greyscale\_homogeneity\_0  &     0.016602 \\
+			greyscale\_homogeneity\_45 &     0.014872 \\
+			greyscale\_homogeneity\_90 &     0.012052 \\	    
 		    
-%		    \eqmakebox{Length-Width Ratio} & 9.85653384e-01 \\
-%		    \eqmakebox{Normalized Distance} & 2.48181154e-05  \\
-%		    \eqmakebox{Hue} & 1.72566121e-06   \\
-%		    \eqmakebox{Compactness} & 3.91351740e-08  \\
-%		    \eqmakebox{Solidity} & 3.55200370e-10  \\
-%		    \eqmakebox{Convexity} & 3.39049614e-09  \\
-%		    \eqmakebox{Eccentricity} & 2.61087301e-08 \\
-%		    \eqmakebox{YIQ Mean} & 1.62825386e-07  \\
-%		    \eqmakebox{Shape Index} & 1.32174325e-02 \\
-%		    \eqmakebox{Roundness} & 1.26245056e-08  \\
-%		    \eqmakebox{Distance} &  1.10130275e-03  \\
-%		    \eqmakebox{Saturation} & 1.09271410e-06   \\
 		    \hline
 		    %\caption{Feature Importance Ranks using RFE with a Random Forest Classifier}
 		    %\label{fig:random-forest}
@@ -1169,57 +1062,7 @@ The Principal Component Analysis (PCA) \parencite{Muller2016-ui} seen in Figure~
 
 
 
-\subsection{Feature Selections}
 
-Table~\ref{fig:highlighted-selections} shows a summary of various approaches with the top 3 features highlighted. Unfortunately, the results are not completely consistent across the various approaches. There are a few themes, however:
-\begin{itemize}
-\item{Aspects of color data are quite predictive in the YIQ and HSI color spaces. More investigation on color space is needed}
-\item{Most structural attributes (convexity, roundness, etc) are not significant.}
-\item{Placement within a crop row is one of the more consistent attributes, and this is not entirely surprising. A crop most often falls near a cropline, and weeds most often away from the crop line}
-\end{itemize}
-
-
-
-% Put the table in its own object
-{
-\centering\settowidth\rotheadsize{\bfseries(our proposal)}
-\renewcommand\theadalign{cl}\renewcommand\cellalign{cl}
-\renewcommand\theadfont{\bfseries}
-\renewcommand\tabcolsep{4pt}\renewcommand\arraystretch{1.25}
-% Make this a bit smaller so it will fit on a page.  Still looks a bit nasty in that it extends to the edge of the page.
-% It's that PCA line that is the trouble, as the values are just too long
-% Make the color blue for the top three features in each category
-\footnotesize
-\begin{longtable}{
-    |l |*{12}{c |} }%
-    \hline
-    \diagbox[height=1.2\rotheadsize, width=\dimexpr\eqboxwidth{AB}+2\tabcolsep\relax]%
-    {\raisebox{1.2ex}{Selection}}{\raisebox{-5ex}{Feature}} &
-    \rotcell{Length-Width} &
-    \rotcell{Shape Index} &
-    \rotcell{Distance} &
-    \rotcell{Normalized Distance} &
-    \rotcell{Hue} &
-    \rotcell{Saturation} &
-    \rotcell{YIQ Mean} &
-    \rotcell{Compactness} &
-    \rotcell{Eccentricity} &
-    \rotcell{Roundness} &
-    \rotcell{Convexity} &
-    \rotcell{Solidity}\\
-    %\rothead{Tool X\\\mbox{(our proposal)}}\\
-    \hline
-    \eqmakebox[AB][l]{Univariate} & 1 & 2 &3 & 5 & 5 & 6 & 7 & 8 & 9 &10 & 11 & 12 \\
-    %\eqmakebox[AB]{Variance} & 2.114 & 0.008 & 9150.389 & 0.027 & 117.093 & 1350.474 & $>$0.001 & 0.0376 & 0.174 & 0.174 & 0.312 & 0.014 \\
-    	%\eqmakebox[AB]{Recursive} &\cellcolor{blue!25} 3  &\cellcolor{blue!25} 2 &12  &\cellcolor{blue!25} 1  &9 &10 &11  &4  &7  &5  &8  &6 \\
-	\eqmakebox[AB]{Importance} & 4 & 2 & 1 & 3 & 8 & 7 & 10 & 5 & 6 & 12 &11 & 9 \\
-	\eqmakebox[AB]{RFE} & 3 & 1 & 2 & 6 & 5 & 7 & 11 & 4 & 8 & 12 & 9 & 10 \\
-	\eqmakebox[AB]{PCA} & 7 & 6 & 4 & 2 & 8 & 3 & 12 & 5 & 10 & 1 & 11 & 9 \\
-    \hline
-    \caption{Feature Selection using various approaches.}
-    \label{fig:highlighted-selections}
-  \end{longtable}
- }
  
   Given these observations, we can use these parameters for our training and prediction:
  \begin{itemize}
