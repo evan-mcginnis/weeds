@@ -395,13 +395,14 @@ All development was done on Windows 10 and Ubuntu 18.04.06 with analysis on the 
 }
 
 \section{Workflow}
-Images are processed following the workflow shown in Figure~\ref{fig:workflow}. Each step in this workflow will be discussed in subsequent sections.
+Images are processed following the workflow shown in Figure~\ref{fig:workflow}. Each step in this workflow will be discussed in subsequent sections.\footnote{The example images and analysis within the next few sections are taken from a set of images supplied by Dr. Mark Siemens, University of Arizona, and as such are not expected to provide an exact match to those acquired under field conditions. These images, however, are useful in the demonstration of key techniques that will be applied to images gathered under field conditions. This image set of 39 images was taken in 2019 with a Samsung SM-G930V phone.}
 \begin{figure}[H]
 	\centering
 	\includegraphics[width=1\linewidth]{./figures/workflow.drawio.png}
 	\caption{Image processing workflow.}
 	\label{fig:workflow}	
 \end{figure}
+
 
 \section{Acquire Image}
 While the the processing step consists only of reading images from disk, actual acquisition was carried out in this study using a \href{https://www.dji.com/air-2s/specs} {DJI Mavic 2 S} drone with a 20 MP camera, followed by color correction. Each image acquisition was accompanied by an image of a \href{https://www.datacolor.com/spyder/products/spyder-checkr-photo/} {SpyderChecker 24} color calibration chart, and color correction was subsequently applied using Adobe Photoshop Lightroom Classic and custom calibration profiles created using the Spyder Checkr software. Raw sensor data was stored in Adobe Digital Negative (DNG) format before color correction and conversion to a compressed JPG format for the resulting images. The sensor data for each image was quite large, requiring 38.5 MB of storage, resulting in these requirements for the altitudes studied:
@@ -706,11 +707,13 @@ Where $eig_{1}(S)$ and $eig_{2}(S)$ are the maximum eigenvalues of the matrix $S
 % C O L O R
 %
 \subsection{Color}
-\subsubsection{Hue \& Saturation}
-The terms {\it color} and {\it hue} are often used interchangeably, and while this is mostly true, hue refers to the dominant color family. In this case, the image is converted to the Hue, Saturation, and Intensity {\it HSV} colorspace and the mean value for the hue of a blob's pixels is taken. The saturation of a color expressed by a component of the Hue, Saturation, and Intensity ({\it HSI}) colorspace and the mean value for the saturation of a blob's pixels is taken. (\cite{Forsyth2012-hy})
+While the Red-Blue-Green (RGB) color space is widely familiar, an image can be represented in other color spaces. Classification will use both components of those reprepresentation (i.e., the mean of an object's \textit{hue} in the HSI space) as well as the data contained within those components being used in other techniques (GLCM, for instance). While viewing the vegetation in one of the components can be fairly seen as not accurately representing the same experience one would have in viewing the object in daylight or other presentations, these components often have information relevant to the task at hand. This section presents a brief overview of the color spaces used in classification.
+
+\subsubsection{HSI \& HSV}
+The Hue, Saturation, and Intensity (HSI) and the Hue, Saturation, and Value (HSV) color spaces are closely related color models in that they share an common expression of hue and saturation. While it is a bit simplistic to state, and as the similarities in the name imply, the values for \textit{hue} and \textit{saturation} are identical for these two colorspaces, leaving focus on the \textit{intensity} and \textit{value} components as the unique values that will be analyzed. \parencite[p.~84]{Forsyth2012-hy}
 
 \subsubsection{YIQ}
-The YIQ model of color used by the NTSC color TV system. Y represents the luma information, I and Q the chrominance information. The processing employed here is to convert the image to the YIQ color space and take the mean value for the I, or in-phase component for the blob's pixels. (\cite{MathWorks_undated-jg})
+The YIQ model of color used by the NTSC color TV system. Y represents the luma information (black and white), I and Q the chrominance information. The processing employed here is to convert the image to the YIQ color space and take the mean value for the I, or in-phase component for the blob's pixels. (\cite{MathWorks_undated-jg})
 %\begin{figure}[h!]
 %	\centering
 %	\includegraphics[width=0.4\linewidth]{./figures/yiq.png}
@@ -737,10 +740,33 @@ The $I$ component is the feature of interest here, and conversion of RGB to YIQ 
 	\end{bmatrix}	
 \end{equation}
 
-\subsubsection{HSI \& HSV}
-\parencite[p.~84]{Forsyth2012-hy}
+As Figure \ref{fig:hue_vs_inphase} shows, the tight grouping of the mean hue of an object, while interesting, is not something that can be used to predict if a plant is a weed or crop.  The in-phase component of the YIQ space, however, demonstrates a fairly clean separation that can.
+
+
+\begin{figure}[H]
+	\begin{subfigure}[h]{0.48\linewidth}
+		\includegraphics[width=1\linewidth]{./figures/hsi-hue.jpg}
+		\caption{Hue in HSI}
+		\label{subfig:hue}	
+	\end{subfigure}
+	\hfill
+	\begin{subfigure}[h]{0.48\linewidth}
+		\includegraphics[width=1\linewidth]{./figures/yiq-in-phase.jpg}
+		\caption{In-phase in YIQ}
+		\label{subfig:in_phase}		
+	\end{subfigure}%
+	\caption[Prediction using hue in HSI and In-phase in YIQ]{While the grouping of hue values is certainly tighter in one group (Figure~\ref{subfig:hue}), the complete overlap between means that group assignments cannot be made with confidence. In contrast, the values of the in-phase component in the YIQ space (Figure~\ref{subfig:in_phase}) shows relatively clean separation between the two groups.}
+	\label{fig:hue_vs_inphase}
+\end{figure}
+
+
+
 \subsubsection{CIElab}
-\subsubsection{YCBCR}
+Often going by the somewhat awkward acronym L*A*B*, this colorspace was intended to approximate human vision, as the L component expresses  the lightness of an object, an attribute seen a more applicable to perception of an object's color than the RGB model of mixtures of the three underlying colors.  The A and B components contain data about green to red, and blue to yellow, respectively. 
+
+\subsubsection{YCbCr}
+Often encountered for digital video. YCbCr, encodes both luminance information (Y, black and white) and chrominance information (Cb, Cr). Cb and Cr represent the difference between a reference value and the blue or red component, respectively. This color space is similar to another encoding commonly encountered in digital video, YUV. The two spaces are nearly identical.
+
 The ECMA report on the JPG file format gives this transformation for RGB to YCBCR:
 \nocite{Ecma2019-yo}
 \begin{equation}
@@ -762,8 +788,13 @@ The ECMA report on the JPG file format gives this transformation for RGB to YCBC
 	\end{bmatrix}	
 \end{equation}
 
+\subsubsection{Hue \& Saturation}
+The terms {\it color} and {\it hue} are often used interchangeably, and while this is mostly true, hue refers to the dominant color family. In this case, the image is converted to the Hue, Saturation, and Intensity {\it HSV} colorspace and the mean value for the hue of a blob's pixels is taken. The saturation of a color expressed by a component of the Hue, Saturation, and Intensity ({\it HSI}) colorspace and the mean value for the saturation of a blob's pixels is taken. (\cite{Forsyth2012-hy})
+
+
+
 \subsection{Textural}
-Textural descriptors of a object are formal expressions of the relationship pixel values have with one another, reducing a tactile experience to a numerical one. Here, the analysis technique employed is \textit{Grey-level Co-occurrence Matrix} (GLCM) (\cite{Haralick1973-gr}, \cite{Hall-Beyer2017-nx}). Haralick describes the analysis of an image that has been converted to greyscale values to note the relationship. Table~\ref{tab:glcm-formulae} details the subset that will be used in this analysis. The term \textit{grey-level} implies that the use of the co-occurrence matrix will be limited to greyscale images. Instead, the co-occurrence matrix will also be computed for each of the channels in the YIQ, RGB, CIELab, HSI, HSV, YCBCR colorspaces using the equations detailed in Table~\ref{tab:glcm-formulae}. GLCM attributes have two factors that relevant to this problem space: the distance of a pixel  considered to be a \textit{neighbor} and the angle of the relationship. Neighbor distance can be thought of as what is considered to adjacent -- the pixel immediately beside the one in question, or further away. This study considers pixels immediately adjacent to be neighbors. While images of crops are often gathered in an orderly manner along a row such that orientation is maintained, the vegetation is not so orderly. \citeauthor*{Haralick1973-gr} discuss this, suggesting that the mean of calculations be used instead of the individual angles.
+Textural descriptors of a object are formal expressions of the relationship pixel values have with one another, reducing a tactile experience to a numerical one. Here, the analysis technique employed is \textit{Grey-level Co-occurrence Matrix} (GLCM) (\cite{Haralick1973-gr}, \cite{Hall-Beyer2017-nx}). Haralick describes the analysis of an image that has been converted to greyscale values to note the relationship. Table~\ref{tab:glcm-formulae} details the subset that will be used in this analysis. The term \textit{grey-level} implies that the use of the co-occurrence matrix will be limited to greyscale images. Instead, the co-occurrence matrix will also be computed for each of the channels in the YIQ, RGB, CIELab, HSI, HSV, YCbCr colorspaces using the equations detailed in Table~\ref{tab:glcm-formulae}. While co-occurrence matrices are used, this document will continue to reference the entire class as GLCM. GLCM attributes have two factors that relevant to this problem space: the distance of a pixel  considered to be a \textit{neighbor} and the angle of the relationship. Neighbor distance can be thought of as what is considered to adjacent -- the pixel immediately beside the one in question, or further away. This study considers pixels immediately adjacent to be neighbors. While images of crops are often gathered in an orderly manner along a row such that orientation is maintained, the vegetation is not so orderly. That is, different GLCM values for the same plant or obtained simply by rotating it by 45$^{\circ}$. Expressing an orientation-independent feature (texture) as differing with rotation may work well for an analysis of a single, static image set, but may yield sub-optimal results when applied to a general case where rotational differences are expected. \citeauthor*{Haralick1973-gr} discuss this, suggesting that the mean of calculations be used instead of the individual angles.
 \begin{longtable}{x{\dimexpr.15\columnwidth-2\tabcolsep}
                   x{\dimexpr.225\columnwidth-2\tabcolsep}
                   x{\dimexpr.625\columnwidth-2\tabcolsep}}
@@ -829,74 +860,123 @@ Textural descriptors of a object are formal expressions of the relationship pixe
 		Energy   
 		& $\sqrt{ASM}$ 
 		& The opposite of entropy
-\label{table:shape-formulae}
+\label{table:glcm-formulae}
 \end{longtable}
+
+Figure~\ref{fig:glcm} illustrates an example of GLCM calculations in weed and crop images. While the clusters seen are not neatly divided, two clusters can be seen with the points sampled.
+
+\begin{figure}[H]
+	\begin{subfigure}[h]{0.28\linewidth}
+		\includegraphics[height=5cm]{./figures/glcm-crop.png}
+		\caption{Lettuce}
+		\label{subfig:glcm_crop}	
+	\end{subfigure}
+	\hfill
+	\begin{subfigure}[h]{0.28\linewidth}
+		\includegraphics[height=5cm]{./figures/glcm-weed.png}
+		\caption{Pigweed}
+		\label{subfig:glcm_weed}		
+	\end{subfigure}%
+	\hfill
+	\begin{subfigure}[h]{0.28\linewidth}
+		\includegraphics[height=5cm]{./figures/glcm-plot.png}
+		\caption{ASM \& Homogenity}
+		\label{subfig:glcm_plot}		
+	\end{subfigure}%
+	\hfill
+	\caption[An example of GLCM calculations for weed and crop]{GLCM calculations derived from crop (\ref{subfig:glcm_crop}) and weed (\ref{subfig:glcm_crop}) show that the sampled points in weeds and crop fall into two clusters. While this does not account for differences in lighting conditions or resolution between the two images, this illustrates the expected textural differences between the two plant types that are more easily seen (``weeds just look like they would feel different than crops''), than quantified. Crop image source: Dr. Mark Siemens, University of Arizona}
+	\label{fig:glcm}
+\end{figure}
+
+While the term \textit{Grey Level} is often applied to this technique (and will be used throughout this document with the GLCM abbreviation), the technique will be applied not just to images converted from the RGB colorspace to greyscale, but to the various colorspaces previously discussed. The calculations will be made on each component of those spaces.  That is, each of the seven calculations are made for each component of the various color spaces (YIQ, HSI, etc.). If computations are made for each of the angles (0$^{\circ}$, 45$^{\circ}$, 90$^{\circ}$, 135$^{\circ}$, 180$^{\circ}$) as well as the average the resulting output of many hundreds of calculations is more than can be comfortably presented here. These computations, however, will be presented in subsequent sections, taking the form \textit{$<$colorspace$>$\_$<$component$>$\_$<$glcm-calculation$>$\_$<$angle$>$}, i.e., \textit{yiq\_i\_energy\_135} to indicate the energy computation at 135$^{\circ}$ of the in-phase component of the blob in the YIQ colorspace.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.9\linewidth]{./figures/glcm-pairs.pdf}
+	\caption[GLCM parameter correlation assessment]{A breakdown of the GLCM parameter calculations detailed in Table~\ref{table:glcm-formulae} for the sample images. In contrast to the samples within an image demonstrated by Figure~\ref{fig:glcm}, these calculations are carried out across the entire plant. To negate the distortions seen with specific orientations of vegetation, these are averages across the entire plant, not specific angles. For the purposes of exploring the data, it is not of particular concern what class 0 and 1 represent.}
+\end{figure} 
+
+ 
+
 \subsection{Distance from Cropline}
-The cropline in a planting is, simply, the line along the bed where crop can be expected. Under field conditions where images are acquired from a constant position the cropline will appear in the same spot in each photo. The image set here, however, was manually acquired by walking along the crop row and capturing images.  Unfortunately, this means that the crop line location will differ from one picture to another. For this image set, the cropline is defined as the line that intersects the centroid of the objects with the largest area. Crops will most often have a distance from the cropline very close to zero. Weeds, on the other hand, may have a distance close to zero if they appear within the line of crop, but often appear far from the crop line.
+The cropline in a planting is, simply, the line along the bed where crop can be expected. Under field conditions where images are acquired from a constant position the cropline will appear in the same spot in each photo. For classification purposes, the idea is obvious to anyone who has had the pleasure of performing weeding along a cropline: things along the cropline are likely to be crop, and things not along the cropline are likely to be weeds. Things are a bit more complicated than that, of course, and it is probably more accurate to use the terms \textit{desired} and \textit{undesired} to classify vegetation. Weeds may appear along the cropline or within close proximity to crop\footnote{The concept of a defining a buffer zone around crop to avoid damage during treatment will be discussed later in this document}, and crop may appear in places other than the main cropline, making it \textit{undesirable}, but referring to it as a weed would lead to confusion.
+
+Crops will most often have a distance from the cropline very close to zero. Weeds, on the other hand, may have a distance close to zero if they appear within the line of crop, but often appear far from the crop line.
 \begin{figure}[h!]
 	\centering
 	\includegraphics[width=0.4\linewidth]{./figures/normalized-distance.jpg}
 	\caption[Distance from Cropline]{Distance from Cropline. Vegetation far from the cropline are most often weeds.}
 	\label{fig:normalized-distance}
 \end{figure}
-Figure~\ref{fig:normalized-distance} illustrates the concept of a cropline and the distance of vegetation from it. In this image we see two growths of lettuce that are very close to the cropline (distances here are in pixels, but the units are not significant. This could be expressed in millimeters) at 0 and 0.375 and a weed lying 0.4347 units from the cropline. The values normalized between 0 and 1 by considering the maximum distance the vegetation could be away from the crop line. The line marked {\it Center Line} is for reference purposes and can be ignored for now.  There are two additional items that are worth noting about this image: the dots connecting the plant to the cropline are the {\it centroids} mentioned earlier, and the colored bounding boxes signify the class of the object, something we will return to in a later section.
+Figure~\ref{fig:normalized-distance} illustrates the concept of a cropline and the distance of vegetation from it. In this image we see two growths of lettuce that are very close to the cropline (distances here are in pixels, but the units are not significant. This could be expressed in millimeters) at 0 and 0.375 and a weed lying 0.4347 units from the cropline. The values normalized between 0 and 1 by considering the maximum distance the vegetation could be away from the crop line. The line marked \textit{Center Line} is for reference purposes and can be ignored for now.  There are two additional items that are worth noting about this image: the dots connecting the plant to the cropline are the {\it centroids} mentioned earlier, and the colored bounding boxes signify the class of the object, something we will return to in a later section.
+While images obtained in close proximity to the planting beds may contain only a single cropline, images contained from higher distances AGL will often contain multiple croplines. In the former case, it is often the case that fairly simple metrics can be used to determine the cropline -- size ratios between vegetation.  The line connecting the two largest plants, for instance, is, more often than not, the cropline. This is the case, however, only for those images taken from very low distances above ground (40 cm or so) where the image contains only a single row. For imagery taken from higher distances AGL, a different approach is called for. \citeauthor*{Dian_Bah2017-kd} discuss the use of a Hough Transform \parencite{Illingworth1988-nw} to identify planting rows in AUV imagery; a technique that will be used here.
 
 \subsection{Histogram of Oriented Gradients}
-Often shortened to \textit{HOG}, this technique is a technique to formalize the gradient orientation and magnitude of local portions of an image \parencite[p.~155]{Forsyth2012-hy}. The detail shown in Figure~\ref{fig:hog} is still recognizable as vegetation, but illustrates gradient orientation, not pixel values. It is these orientations that will be exploited in classification, specifically the standard deviation of the gradient descriptors for a plant. In lettuce the orientation of a gradient is visible even to the unaided eye, as the vein structure can be used to classify the image \parencite{Elhariri2014-eo}
-\begin{figure}[h!]
+Often shortened to \textit{HOG}, this technique is a technique to formalize the gradient orientation and magnitude of local portions of an image \parencite[p.~155]{Forsyth2012-hy}. This is a structural analysis that gives insight to not only the overall shape of the object, but to the interior details as well, as this technique is geared toward the identification of high-contrast edges within the object. Contrast this with the shape analysis detailed earlier in the document where the concern was limited almost exclusively to the perimeter of the vegetation.  As shape analysis considers only the edge of the blob, the vegetation is effectively a cartooned image, providing only areas of black and white. This technique considers small cells within an image, lowering the risk that a gradient with low contrast will be missed, as it will be compared (and normalized) within that small cell. While much of the literature on this topic focuses on describing an entire scene, that is not the case here, as the background has been eliminated and the object in question is known to be vegetation.
+The detail shown in Figure~\ref{fig:hog} is still recognizable as vegetation, but illustrates gradient orientation of 16x16\footnote{The cell size can be varied, of course. This size was selected somewhat arbitrarily} cells of the image, not pixel values. It is these orientations that will be exploited in classification.  For the classification approach described in this document, the gradients will be reduced to a few numbers to describe each plant. Specifically the mean, standard deviation, and the range of the magnitudes of the gradient descriptors for a plant. In lettuce the orientation of a gradient is visible even to the unaided eye, as the vein structure can be used to classify the image \parencite{Elhariri2014-eo}. While detailed analysis of structures will not be directly used in classification, the overall effect of those structures will be used. That is, to say that leaf is ``very veiny'' or ``quite rough'' can be quantified with a few numbers that are reflective of the overall texture of the plant.
+\begin{figure}[H]
 	\centering
 	\includegraphics[width=0.4\linewidth]{./figures/hog.jpg}
-	\caption[HOG Representation of Lettuce]{HOG Representation of greyscale lettuce image.}
+	\caption[HOG Representation of Lettuce]{HOG Representation of greyscale lettuce image. This image represents not the actual pixels of the image, but is a representation of the gradients found within each 16x16 cell.}
 	\label{fig:hog}
+\end{figure}
+
+\begin{figure}[h!]
+	\centering
+	\includegraphics[width=0.7\linewidth]{./figures/hog-pairs.pdf}
+	\caption[HOG features used in classification]{Instead of considering the values of small cells contained within the perimeter of the blob, the classification will use global attributes of that portion of the image. For the purposes of exploring the data, it is not of particular concern what class 0 and 1 represent.}
+	\label{fig:hog-pairs}
 \end{figure}
 
 \subsection{Overlapping Vegetation}
 
-Before considering the details of classification, it is worth considering a problem that is sometimes seen: overlapping vegetation. While desired vegetation can overlap itself, this becomes problematic when desired and undesired vegetation overlap. Overlapping vegetation is problematic in the current processing flow in that it is detected as part of the adjoining vegetation, distorting shape analysis computations.  Consider this portion of an image:
+Before considering the details of classification, it is worth considering a problem that is sometimes seen: overlapping vegetation. While vegetation can overlap itself (in that leaves may obscure other leaves in the same plant), this becomes problematic when desired and undesired vegetation overlap. Overlapping vegetation is problematic in the current processing flow, in that it is detected as part of the adjoining vegetation, distorting the calculations detailed in previous sections.  Consider this portion of an image:
 \begin{figure}[H]
 	\centering
-	\begin{subfigure}[h]{.40\textwidth}
+	\begin{subfigure}[h]{.45\textwidth}
 		\centering
-		\includegraphics[width=4cm]{./figures/overlapping-weed.jpg}
+		\includegraphics[width=6cm]{./figures/overlapping-weed.jpg}
 		\caption{Raw image}
 		\label{fig:overlap-raw}
 	\end{subfigure}
-	\begin{subfigure}[h]{.40\textwidth}
+	\hfill
+	\begin{subfigure}[h]{.45\textwidth}
 		\centering
-		\includegraphics[width=4cm]{./figures/overlapping-weed-segmented.jpg}
+		\includegraphics[width=6cm]{./figures/overlapping-weed-segmented.jpg}
 		\caption{Segmented image}
 		\label{fig:overlap-segmented}
 	\end{subfigure}
-	\caption[Crop and Weed overlap]{Crop and Weed overlap -- this image contains a problem commonly encountered, the situation where there is overlap between the crop and weeds. In this instance, the crop partially obscures the weed. The blob detection algorithm does not use factors such as color differences to distinguish one blob from another, resulting in two plants being processed as a single one, as can be observed in~\ref{fig:overlap-segmented}}
+	\caption[Crop and Weed overlap]{Crop and Weed overlap -- this image contains a problem commonly encountered, the situation where there is overlap between the crop and weeds. In this instance, the crop partially obscures the weed. The blob detection algorithm does not use factors such as color differences to distinguish one blob from another, resulting in two plants being processed as a single one, as can be observed in~\ref{fig:overlap-segmented}. As the weed has been falsely identified as belonging to the crop, its characteristics contribute to the overall calculations for the blob. Most notably, the shape is distorted, but this also affects color and texture calculations.}
 	\label{fig:overlap}
 \end{figure}
 
 
-The object detection algorithms are based on shapes of binary images, leading to the case where a few leaves of the weed are incorrectly identified as part of the crop. In this case,some leaves are identified as separate plants and are marked as requiring treatment, but this may not be the case with a larger plant requiring treatment that happens to overlap with desired vegetation. This affects not only the inclusion of weeds with crop, but the misidentification of several weeds as a single plant, as this image demonstrates.  Two of the plants in the image are identified as a single blob as the overlapping leaves of multiple plants makes it appear as one. While this a mistake that will result in the distortion of shape metrics, the weed occupies a space so close to the crop that it would not be treated even if properly identified.
+The object detection algorithms are based on shapes of binary images, leading to the case where a few leaves of the weed are incorrectly identified as part of the crop. In this case,some leaves are identified as separate plants and are marked as requiring treatment, but this may not be the case with a larger plant requiring treatment that happens to overlap with desired vegetation. This affects not only the inclusion of weeds with crop, but the misidentification of several weeds as a single plant, as this image demonstrates.  Two of the plants in the image are identified as a single blob as the overlapping leaves of multiple plants makes it appear as one. While this a mistake that will result in the distortion of metrics, the weed occupies a space so close to the crop that it would not be treated even if properly identified.
 
 \subsection{Weed Shapes and Color}
 There are two complications with the identification of weeds by considering shape.  Computation of the shape index of objects within the image are complicated by poor lighting requiring more pixel dilation to make the vegetation appear to be a single plant. This, in turn, distorts the computation of the shape index of the object. The indices covered in Table~\ref{table:segmentation} fail to capture elements of the vegetation that are other than the commonly encountered green.
 
-Consider a sample of Purslane:
-\begin{figure}[H]
+Consider a sample of Purslane detailed in Figure~\ref{fig:segmentation-problem}. As the red stems are not detected by the green-centric index, the resulting segmented image appears to show multiple plants where there is only one.
+
+\begin{figure}[h!]
 	\centering
 	\begin{subfigure}[h]{.40\textwidth}
 		\centering
-		\includegraphics[width=4cm]{./figures/purslane.png}
+		\includegraphics[width=6cm]{./figures/purslane.png}
 		\caption{Purslane}
 		\label{fig:purslane}
 	\end{subfigure}
 	\begin{subfigure}[h]{.40\textwidth}
 		\centering
-		\includegraphics[width=4cm]{./figures/purslane-segmented.jpg}
+		\includegraphics[width=6cm]{./figures/purslane-segmented.jpg}
 		\caption{Segmented image (NDI)}
 		\label{fig:purslane-segmented}
 	\end{subfigure}
 	\caption[Color problems complicate segmentation]{The red stems found in purslane complicate use of indices calculated to emphasize green vegetation. As seen in Figure~\ref{fig:purslane-segmented}, the prominent red stems are not present in the final image.}
-	\label{fig:purslane-segmentation}
+	\label{fig:segmentation-problem}
 \end{figure}
 
-The color of the purslane stem is a shade of red that is not isolated by considering only a single threshold of the vegetation indices discussed earlier in this document. While using a second threshold value to capture the stems is an option, this approach is complicated by the red content of the background. This problem is not unique to purslane, but can be seen in other vegetation with significant amounts of red in edges of leaves such as found in redroot pigweed (\textit{Amaranthus retroflexus}).  The presence of red in leaves mis-identification of leaves as separate plants (stems) and to the distortion of shape metrics (leaves).
+Even weeds that are predominantly green have portions that are less green than others. The color of the purslane stem is a shade of red that is not isolated by considering only a single threshold of the vegetation indices discussed earlier in this document. While using a second threshold value to capture the stems is an option, this approach is complicated by the red content of the background. This problem is not unique to purslane, but can be seen in other vegetation with significant amounts of red in edges of leaves such as found in redroot pigweed (\textit{Amaranthus retroflexus}).  The presence of red in leaves mis-identification of leaves as separate plants (stems) and to the distortion of shape metrics (leaves).
 
 
 
