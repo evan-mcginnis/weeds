@@ -8,12 +8,18 @@ import platform
 import sys
 import threading
 from typing import Callable
+from pathlib import Path
 
 import configparser
+
+from bson import ObjectId
+from hashlib import sha1
+import numpy as np
 
 try:
     import matplotlib.pyplot as plt
     import plotly.graph_objects as go
+    import pandas as pd
 
     supportsPlotting = True
 except ImportError:
@@ -59,6 +65,9 @@ from GLCM import GLCM
 from Persistence import Mongo
 from Persistence import Disk
 from Persistence import RawImage
+from Persistence import Blob
+from Factors import Factors
+from Metadata import Metadata
 
 SQUARE_SIZE = 40
 
@@ -759,7 +768,6 @@ def tuple_type(strings):
 
 
 # This is here so we can extract the supported algorithms
-
 veg = VegetationIndex()
 
 parser = argparse.ArgumentParser("Weed recognition system")
@@ -777,10 +785,13 @@ parser.add_argument("-host", "--host", action="store", required=False, help="DB 
 parser.add_argument("-port", "--port", type=int, action="store", required=False, help="DB Port")
 parser.add_argument("-dbname", "--dbname", action="store", required=False, help="DB Name")
 
+parser.add_argument("-alt", "--altitude", action="store", required=False, default=0.0, type=float, help="Override altitude in image EXIF")
+
 # functionGroup = parser.add_mutually_exclusive_group()
 # functionGroup.add_argument("-w", "--weeds", action="store_true", default=False, help="Classify and treat weeds")
 # functionGroup.add_argument("-e", "--emitter", action="store_true", default=False, help="Assess treatment post emitters")
 
+parser.add_argument("-cr", "--crop", action="store", required=False, default="guayule", choices=["cotton", "guayule", "unknown"], help="Crop in the image")
 parser.add_argument("-df", "--data", action="store",
                     help="Name of the data in CSV for use in logistic regression or KNN")
 parser.add_argument("-e", "--edge", action="store_true", default=False, help="Ignore items at edge of image")
@@ -821,7 +832,8 @@ parser.add_argument("-P", "--performance", action="store", type=str, default="pe
 parser.add_argument("-r", "--results", action="store", default="results.csv", help="Name of results file")
 parser.add_argument("-s", "--stitch", action="store_true", help="Stitch adjacent images together")
 parser.add_argument("-sc", "--score", action="store_true", help="Score the prediction method")
-parser.add_argument("-se", "--selection", action="store", default="all-parameters.csv", help="Parameter selection file")
+# Not needed anymore, as parameter selection is moved to the .INI file
+#parser.add_argument("-se", "--selection", action="store", default="all-parameters.csv", help="Parameter selection file")
 parser.add_argument("-sp", "--spray", action="store_true", help="Generate spray treatment grid")
 parser.add_argument("-spe", "--speed", action="store", default=1, type=int, help="Speed in meters per second")
 parser.add_argument("-stand", "--standalone", action="store_true", default=False,
@@ -998,7 +1010,7 @@ def resample(index: np.ndarray, targetX: int, targetY: int) -> np.ndarray:
 
 
 # The plotly version
-def plot3D(index: np.ndarray, title: str):
+def plot3D(index: np.ndarray, planeLocation: int, title: str):
     if not supportsPlotting:
         log.error("Unable to produce plots on this platform")
         return
@@ -1011,6 +1023,15 @@ def plot3D(index: np.ndarray, title: str):
     yi = np.linspace(0, subset.shape[1], num=subset.shape[1])
 
     fig = go.Figure(data=[go.Surface(x=xi, y=yi, z=subset)])
+
+    # The plane represents the threshold value
+    x1 = np.linspace(0, 1500, 1500)
+    y1 = np.linspace(0, 1500, 1500)
+    z1 = np.ones(1500) * planeLocation
+    plane = go.Surface(x=x1, y=y1, z=np.array([z1] * len(x1)).T, opacity=0.5, showscale=False, showlegend=False)
+
+    fig.add_traces([plane])
+
 
     # Can't get these to work
     # fig = go.Figure(data=[go.Mesh3d(x=xi, y=yi, z=subset, color='lightpink', opacity=0.50)])
@@ -1334,7 +1355,7 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
         # ImageManipulation.show("index", index)
         # cv.imwrite("index.jpg", index)
         if arguments.plot:
-            plot3D(index, arguments.algorithm)
+            plot3D(index, 145, arguments.algorithm)
 
         # Get the mask
         # mask, threshold = veg.MaskFromIndex(index, True, 1, results.threshold)
@@ -1560,21 +1581,38 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
         originalImage = logger.logImage(constants.FILENAME_ORIGINAL + "-" + arguments.algorithm, manipulated.original)
         # ImageManipulation.show("Greyscale", manipulated.toGreyscale())
 
+        #
+        # D A T A B A S E
+        #
+
         # If the image is not already in DB, put it there
         imageInDB  = RawImage.find(manipulated.hash, persistenceConnection)
         if imageInDB is None:
             url = "file://" + currentSessionName + "/" + rawImage
-            lat = 0.0
-            long = 0.0
-            agl = 0.0
+            lat = processed.latitude
+            long = processed.longitude
+
+            # If the altitude on the command line overrides the image
+            if arguments.altitude > 0.0:
+                agl = arguments.altitude
+            else:
+                agl = processed.altitude
+
             hash = manipulated.hash
-            acquired = datetime.now()
+            date_format = '%Y:%m:%d %H:%M:%S'
+            acquired = datetime.strptime(processed.takenAt, date_format)
             processedURL = "file://" + currentSessionName + "/" + processedImage
-            processed = {arguments.algorithm + "-" + mlApproach: processedURL}
+            processedEntry = {arguments.algorithm + "-" + mlApproach: processedURL}
             segmentedURL = "file://" + currentSessionName + "/" + originalImage
             segmented = {arguments.algorithm: segmentedURL}
-            image = RawImage(url, lat, long, agl, acquired, segmented, processed, hash, None)
+
+            # The image does not have a human-readable name yet
+            imageName = constants.NAME_IMAGE + "-" + str(sequence)
+
+            image = RawImage(imageName, url, lat, long, agl, acquired, arguments.crop, segmented, processedEntry, hash, None)
             image.save(persistenceConnection)
+            # For blobs to point back to the parent
+            parentId = ObjectId(image.id)
         else:
             log.debug(f"Image {manipulated.hash} is already in DB")
             processedURL = "file://" + currentSessionName + "/" + processedImage
@@ -1582,6 +1620,39 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
             segmentedURL = "file://" + currentSessionName + "/" + originalImage
             imageInDB.addSegmented(arguments.algorithm, segmentedURL)
             imageInDB.save(persistenceConnection)
+            parentId = ObjectId(imageInDB.id)
+
+        # So at this point, the raw image, the segmented image, and the processed image should be in the DB
+        # Construct the list of all attributes
+        logger.reportIndex = False
+        for blobName, blobAttributes in manipulated.blobs.items():
+            log.debug(f"Inserting blob {blobName} of {originalImage} into DB")
+            allFactors = Factors()
+
+            allAttributes = {}
+            columns = allFactors.getColumns(None)
+            for factor in columns:
+                allAttributes[factor] = blobAttributes[factor]
+            #log.debug(f"Attribute list: {allAttributes}")
+            fileName = Path(originalImage)
+            blobFilename = str(fileName.with_suffix('')) + "-" + blobName
+            blobImage = logger.logImage(blobFilename, blobAttributes[constants.NAME_IMAGE])
+            blobURL = "file://" + currentSessionName + "/" + blobImage
+            # TODO: Not correct -- this should really be the location of the blob, not the image
+            lat = processed.latitude
+            long = processed.longitude
+            # This could be obtained from looking at the parent's image, but just for convenience, put it here.
+            # If the altitude on the command line overrides the image
+            if arguments.altitude > 0.0:
+                altitude = arguments.altitude
+            else:
+                altitude = processed.altitude
+            technique = mlApproach
+            hash = sha1(np.ascontiguousarray(blobAttributes[constants.NAME_IMAGE])).hexdigest()
+            classifiedAs = int(blobAttributes[constants.NAME_TYPE])
+            blobInDB = Blob(blobName, blobURL, lat, long, altitude, allAttributes, factors, technique, classifiedAs, parentId, hash, None)
+            blobInDB.save(persistenceConnection)
+        logger.reportIndex = True
 
         # Write out the crop images so we can use them later
         if arguments.xtract:

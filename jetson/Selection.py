@@ -11,6 +11,7 @@ from sklearn.feature_selection import f_classif
 from sklearn.feature_selection import RFE
 #from sklearn.linear_model import LogisticRegression
 from sklearn.decomposition import PCA
+import pickle
 
 import itertools
 import numpy as np
@@ -427,6 +428,41 @@ class All(Selection):
         for technique in self._selectionTechniques:
             technique.load(filename)
 
+class Maximums:
+    def __init__(self, filename: str):
+        self._filename = filename
+
+        self._maximums = {
+            KNNClassifier.name: {RESULT: 0, PARAMETERS: []},
+            LogisticRegressionClassifier.name: {RESULT: 0, PARAMETERS: []},
+            DecisionTree.name: {RESULT: 0, PARAMETERS: []},
+            RandomForest.name: {RESULT: 0, PARAMETERS: []},
+            GradientBoosting.name: {RESULT: 0, PARAMETERS: []},
+            SuppportVectorMachineClassifier.name: {RESULT: 0, PARAMETERS: []},
+            LDA.name: {RESULT: 0, PARAMETERS: []}
+        }
+
+
+        self._initialized = False
+
+    def read(self):
+        with open(self._filename, "rb") as results:
+            self._maximums = pickle.load(results)
+        self._initialized = True
+
+    def parameters(self, technique: str) -> ():
+        results = self._maximums[technique]
+        return results[RESULT], results[PARAMETERS]
+
+    def record(self, technique: str, score: float, parameters: []):
+        self._maximums[technique] = {RESULT: score, PARAMETERS: parameters}
+
+
+    def persist(self):
+        with open(self._filename, "ab") as results:
+            pickle.dump(self._maximums, results)
+
+
 
 if __name__ == "__main__":
     import argparse
@@ -438,7 +474,8 @@ if __name__ == "__main__":
     import itertools
     import more_itertools
     from threading import Thread, Semaphore
-#    from Logger import Logger
+    from typing import List
+    #    from Logger import Logger
     from Classifier import Classifier, LogisticRegressionClassifier, KNNClassifier, DecisionTree, RandomForest, GradientBoosting, SuppportVectorMachineClassifier, LDA
 
     from enum import Enum
@@ -457,6 +494,99 @@ if __name__ == "__main__":
         AUC = 1
 
     MAX_PARAMETERS = 10
+
+
+    class Status(Enum):
+        UNCLAIMED = 0
+        IN_PROGRESS = 1
+        COMPLETED = 2
+
+    # A single result
+    class IndividualResult:
+        def __init__(self, theTechnique: str):
+            # If the combination has been checked yet
+            self._checked = Status.UNCLAIMED
+            # The result of that check -- will be 0.0 if not yet complete
+            self._accuracy = 0.0
+            # The list of parameters to use
+            self._parameters = List[str]
+            self._technique = theTechnique
+
+        @property
+        def technique(self) -> str:
+            return self._technique
+
+        @technique.setter
+        def technique(self, theTechnique: str):
+            self._technique = theTechnique
+
+        @property
+        def parameters(self) -> []:
+            return self._parameters
+
+        @property
+        def status(self) -> Status:
+            return self._checked
+
+        def claim(self) -> []:
+            self._checked = Status.IN_PROGRESS
+            return self._parameters
+
+        def complete(self, result: float):
+            self._checked = Status.COMPLETED
+            self._accuracy = result
+
+
+    l: List[int]
+    class AllResults:
+        def __init__(self, theTechnique: str):
+            """
+            The results of checking
+            :param theTechnique: Name of the technique (KNN, SVM, etc.)
+            """
+            self._technique = theTechnique  # KNN, SVM, etc.
+            self._results = []              # List of results from Result class above
+            self._parameters = []           # List of lists -- all combinations of parameters
+
+        @property
+        def parameters(self) -> []:
+            return self._parameters
+
+        @parameters.setter
+        def parameters(self, theParameters: []):
+            self._parameters = theParameters
+            # Create the results list
+            for parameterList in self._parameters:
+                result = IndividualResult(self._technique)
+                self._results.append(result)
+
+        def getNextUnclaimed(self) -> int:
+            found = False
+            position = 0
+            combination = None
+            while not found and position < len(self._results):
+                combination = self._results[position]
+                if combination.status == Status.UNCLAIMED:
+                    found = True
+                    self._results[position].claim()
+                else:
+                    position += 1
+
+            return position
+
+        def recordResult(self, position: int, result: float):
+            self._results[position].complete(result)
+
+        def save(self, fileName: str):
+            dbfile = open(fileName, 'ab')
+            # source, destination
+            pickle.dump(self._results, dbfile)
+            dbfile.close()
+
+        def load(self, fileName: str):
+            dbfile = open(fileName, 'rb')
+            self._results = pickle.load(dbfile)
+            dbfile.close()
 
     # The maximum values for each technique
 
@@ -480,6 +610,25 @@ if __name__ == "__main__":
         LDA.name: {RESULT: 0, PARAMETERS: []}
     }
 
+    maximumsAccuracyEquivalent = {
+        KNNClassifier.name: {RESULT: 0, PARAMETERS: []},
+        LogisticRegressionClassifier.name: {RESULT: 0, PARAMETERS: []},
+        DecisionTree.name: {RESULT: 0, PARAMETERS: []},
+        RandomForest.name: {RESULT: 0, PARAMETERS: []},
+        GradientBoosting.name: {RESULT: 0, PARAMETERS: []},
+        SuppportVectorMachineClassifier.name: {RESULT: 0, PARAMETERS: []},
+        LDA.name: {RESULT: 0, PARAMETERS: []}
+    }
+
+    maximumsAUCEquivalent = {
+        KNNClassifier.name: {RESULT: 0, PARAMETERS: []},
+        LogisticRegressionClassifier.name: {RESULT: 0, PARAMETERS: []},
+        DecisionTree.name: {RESULT: 0, PARAMETERS: []},
+        RandomForest.name: {RESULT: 0, PARAMETERS: []},
+        GradientBoosting.name: {RESULT: 0, PARAMETERS: []},
+        SuppportVectorMachineClassifier.name: {RESULT: 0, PARAMETERS: []},
+        LDA.name: {RESULT: 0, PARAMETERS: []}
+    }
     resultsSemaphore = Semaphore()
 
     def recordMaximum(theTechnique: str, theResult: float, theCriteria: Criteria, theParameters: []):
@@ -490,7 +639,6 @@ if __name__ == "__main__":
         :param theResult: The float of the result (0..1)
         :param theParameters: An array of the parameters
         """
-        resultsSemaphore.acquire(blocking=True)
         if theCriteria == Criteria.ACCURACY:
             results = maximumsAccuracy[theTechnique]
             maximums = maximumsAccuracy
@@ -503,7 +651,6 @@ if __name__ == "__main__":
             logging.info(f"Global maximum found for {theTechnique}: {theResult} ({theParameters}) vs {results[RESULT]} ({results[PARAMETERS]}")
         else:
             logging.info(f"Local maximum found for {theTechnique}: {theResult} ({theParameters}) vs {results[RESULT]} ({results[PARAMETERS]}")
-        resultsSemaphore.release()
 
     def reportMaximums(baseDirectory: str, baseFilename: str):
         """
@@ -541,7 +688,9 @@ if __name__ == "__main__":
         currentCombination = 0
         for combination in parameters:
             currentCombination += 1
-            logger.info(f"{technique.name}: combination: {currentCombination} parameters: {combination}")
+            # Perhaps disk I/O is leading to poor performance, so issue a status statement only after 10000 sets
+            if currentCombination % 10000 == 0:
+                logger.info(f"{technique.name}: combination: {currentCombination} parameters: {combination}")
             technique.selections = combination
             technique.load(dataFile, stratify=False)
             technique.createModel(False)
@@ -554,14 +703,24 @@ if __name__ == "__main__":
                 meanClassificationRate = 0
             if meanClassificationRate > highestClassificationRate:
                 highestClassificationRate = meanClassificationRate
-                logger.info(f"Found new max for {technique.name}:{meanClassificationRate} using {combination}")
+                logger.info(f"Found new max for {technique.name} accuracy:{meanClassificationRate} using {combination}")
                 recordMaximum(technique.name, meanClassificationRate, Criteria.ACCURACY, combination)
                 reportMaximums(basePath, arguments.prefix)
+                resultsSemaphore.release()
+            elif meanClassificationRate == highestClassificationRate:
+                logger.info(f"Found equivalent for {technique.name:} accuracy: {meanClassificationRate} using {combination}")
+
             # AUC
             if technique.auc > highestAUC:
-                logger.info(f"Found new max for {technique.name}: {technique.auc} using {combination}")
+                highestAUC = technique.auc
+                resultsSemaphore.acquire(blocking=True)
+                logger.info(f"Found new max for {technique.name} auc: {technique.auc} using {combination}")
                 recordMaximum(technique.name, technique.auc, Criteria.AUC, combination)
                 reportMaximums(basePath, arguments.prefix)
+                resultsSemaphore.release()
+            elif technique.auc == highestAUC:
+                logger.info(f"Found equivalent for {technique.name} auc: {technique.auc} using {combination}")
+
 
     def startupLogger(configFile: str, outputFile: str):
         """
@@ -598,8 +757,13 @@ if __name__ == "__main__":
     parser.add_argument("-lf", "--logfile", action="store", default="weeds.log", help="Logging output file")
     parser.add_argument("-l", "--latex", action="store_true", required=False, default=False,
                         help="Output latex tables")
-    parser.add_argument("-o", "--optimal", action="store_true", required=False, default=False, help="Search for optimal parameters")
-    parser.add_argument("-c", "--consolidated", action="store_true", required=False, default=False, help="Show consolidated list of parameters")
+    actions = parser.add_mutually_exclusive_group()
+    actions.add_argument("-o", "--optimal", action="store_true", required=False, default=False, help="Search for optimal parameters")
+    actions.add_argument("-c", "--consolidated", action="store_true", required=False, default=False, help="Show consolidated list of parameters")
+    actions.add_argument("-t", "--target", action="store", required=False, type=str, help="Write parameter combinations to this file")
+
+    parser.add_argument("-m", "--maximums", action="store", required=False, help="Maximimum result file")
+
     parser.add_argument("-d", "--debug", action="store_true", required=False, default=False, help="Process a small subset of parameters")
     parser.add_argument("-p", "--prefix", action="store", required=False, default="maximums", help="Prefix for result files")
     parser.add_argument("-b", "--batch", action="store", required=False, type=int, default=500000, help="Batch size for parameter search")
@@ -630,6 +794,24 @@ if __name__ == "__main__":
     selector.create()
 
     dataDirectory = os.path.dirname(arguments.data)
+
+    if arguments.maximums is not None:
+        theMaximums = Maximums(arguments.maximums)
+        theMaximums.read()
+        theMaximums.persist()
+        sys.exit(0)
+
+    # Write out all the combinations to a file for later consumption
+    if arguments.target is not None:
+        selector.analyze(Output.NOTHING)
+        # The list of all the attributes to be analyzed
+        results = selector.results(unique=True)
+        combinations = itertools.combinations(results, MAX_PARAMETERS)
+        with open(arguments.target, "w") as parameters:
+            for result in combinations:
+                parameters.write(f"{result}")
+                parameters.write(f"\n")
+        sys.exit(0)
 
     # For each technique, find the optimal set of attributes
     if arguments.optimal:
