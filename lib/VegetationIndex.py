@@ -1,3 +1,4 @@
+from typing import Union
 from PIL import Image
 
 import cv2 as cv
@@ -327,7 +328,7 @@ class VegetationIndex:
 
         return TGI
 
-    def MaskFromIndex(self, index: np.ndarray, negate: bool, direction: int, threshold: () = None) -> np.ndarray:
+    def MaskFromIndexOriginal(self, index: np.ndarray, negate: bool, direction: int, threshold: () = None) -> np.ndarray:
         """
         Create a mask based on the index
         :param index:
@@ -366,6 +367,71 @@ class VegetationIndex:
             negated = finalMask
         else:
             thresholdedIndex = index < threshold1
+            #negated = np.logical_not(thresholdedIndex)
+            negated = thresholdedIndex
+            finalMask = negated
+
+        if negate:
+            finalMask = np.logical_not(thresholdedIndex)
+            #negated = finalMask
+
+        # Touch up the mask with some floodfill
+        filledMask = finalMask.copy().astype(np.uint8)
+        cv.floodFill(filledMask, None, (0,0),255)
+        filledMaskInverted = cv.bitwise_not(filledMask)
+        # finalMask = cv.bitwise_not(filledMaskInverted)
+        # #plt.imshow(finalMask, cmap='gray', vmin=0, vmax=1)
+        # #plt.show()
+        # As we apply this mask as multiplying, convert 255s to 1
+        filledMaskInverted = np.where(filledMaskInverted > 0, 1, filledMaskInverted)
+
+        self.mask = filledMaskInverted
+        finalMask = filledMaskInverted
+
+        negated = filledMaskInverted
+        #negated = np.logical_not(filledMaskInverted)
+        # End floodfill touch up
+
+
+        self.mask = negated
+
+
+        # FYI: the mask value returned here is not used
+        return finalMask, threshold
+
+    def MaskFromIndex(self, index: np.ndarray, negate: bool, direction: int, threshold: Union[int, None] = None) -> (np.ndarray, int):
+        """
+        Create a mask based on the index
+        :param negate: If the mask should be negated
+        :param direction: 0 = up, 1= down
+        :param index:
+        The vegetation index
+        :param threshold:
+        The threshold value to use. If not specified, Otsu's Binarization is used.
+        :return:
+        (The mask as a numpy array with RGB channels, threshold)
+        """
+
+        # TODO: This routine is a mess. Rewrite
+        # If a threshold is not supplied, use Otsu
+        if threshold == None:
+            # Convert to a grayscale#
+            greyScale = index.astype(np.uint8)
+            #ret, thresholdedImage = cv.threshold(greyScale,0,255,cv.THRESH_BINARY+cv.THRESH_OTSU)
+            ret, thresholdedImage = cv.threshold(greyScale, 0, 255, cv.THRESH_BINARY+cv.THRESH_OTSU)
+            threshold = ret
+            threshold1 = ret
+            threshold2 = -9999
+
+        # If the direction is 1, interpret the two thresholds as up, down
+        # To make this go back to the original implementation, set the second threshold to -9999
+
+        if direction > 0:
+            thresholdedIndex = index > threshold
+            finalMask = thresholdedIndex
+            negated = finalMask
+        else:
+            thresholdedIndex = index < threshold
             #negated = np.logical_not(thresholdedIndex)
             negated = thresholdedIndex
             finalMask = negated

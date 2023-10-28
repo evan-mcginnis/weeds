@@ -70,13 +70,18 @@ ML?=lr
 # Vegetation index algorithm
 INDEX?=ndi
 # should be one of: ndi tgi exg exr exgexr cive ngrdi veg com1 mexg com2 rgd
+DBHOST?=iron-chef.weeds.com
+DBPORT?=27017
+DBNAME?=weeds
 
 # Parameter Selection
-PARAMETERS?=all-parameters.csv
+# deprecated with move to .INI file
+#PARAMETERS?=all-parameters.csv
+
 # Thresholds
 # Originally
 #THRESHOLDS?="(130,0)"
-THRESHOLDS?="(128,0)"
+THRESHOLDS?=128
 THRESHOLDS-TGI?="(9,0)"
 # Contours
 CONTOURS?=-c
@@ -117,16 +122,26 @@ ifeq ($(ML), lda)
 	ALGFLAG = -lda
 endif
 
+# Crop in image -- not used for all that much
+CROP?=unknown
+# 0.0 indicates that the image EXIF should be used
+ALTITUDE?=0.0
+
 # Indicate that the system should produce treatment plans as an image
 TREATMENT?=-sp
 
 LOGFILE = jetson-right.log
 
+# Until the DB is really optional, this is a bit broken
 weeds:
-	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a $(INDEX) -t $(THRESHOLDS) -df $(TRAINING) $(ALGFLAG) -sc -op $(OPERATION) -lg $(LOG) -se $(PARAMETERS) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE)
+	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a $(INDEX) -t $(THRESHOLDS) -df $(TRAINING) $(ALGFLAG) -sc -op $(OPERATION) -lg $(LOG) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE)
 
+# This is the one to use
 weeds-to-db:
-	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a $(INDEX) -t $(THRESHOLDS) -df $(TRAINING) $(ALGFLAG) -sc -op $(OPERATION) -lg $(LOG) -se $(PARAMETERS) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE) -db
+	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a $(INDEX) -t $(THRESHOLDS) -df $(TRAINING) $(ALGFLAG) -sc -op $(OPERATION) -lg $(LOG) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE) -db -alt $(ALTITUDE) -cr $(CROP)
+
+weeds-plot:
+	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a $(INDEX) -t $(THRESHOLDS) -df $(TRAINING) $(ALGFLAG) -sc -op $(OPERATION) -lg $(LOG) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE) -db -alt $(ALTITUDE) -cr $(CROP) -p
 
 svm:
 	$(PYTHON) weeds.py -r ../../results/results.svm.csv -i $(INPUT) -o ../../results/output-svm -a $(INDEX) -t $(THRESHOLDS) -df $(TRAINING) -svm -sc -v -lg $(LOG) -se $(PARAMETERS) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE)
@@ -160,8 +175,8 @@ all-techniques: svm tree knn gradient lr forest
 weeds-extract:
 	$(PYTHON) weeds.py -x -i $(INPUT) -o $(OUTPUT) -a $(INDEX) -t $(THRESHOLDS) -df $(TRAINING) $(ALGFLAG) -sc -v -lg $(LOG) -se $(PARAMETERS) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE)
 
-weeds-plot:
-	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a $(INDEX) -t $(THRESHOLDS-TGI) -df $(TRAINING) $(ALGFLAG) -sc -v -lg $(LOG) -se $(PARAMETERS) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE) --plot
+#weeds-plot:
+#	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a $(INDEX) -t $(THRESHOLDS-TGI) -df $(TRAINING) $(ALGFLAG) -sc -v -lg $(LOG) -se $(PARAMETERS) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE) --plot
 
 weeds-glcm:
 	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a $(INDEX) -t $(THRESHOLDS-TGI) -df $(TRAINING) $(ALGFLAG) -sc -v -lg $(LOG) -se $(PARAMETERS) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE)

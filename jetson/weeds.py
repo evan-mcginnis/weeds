@@ -839,7 +839,7 @@ parser.add_argument("-spe", "--speed", action="store", default=1, type=int, help
 parser.add_argument("-stand", "--standalone", action="store_true", default=False,
                     help="Run standalone and just process the images")
 parser.add_argument("-st", "--strategy", action="store", required=False, default="CARTOON", help="Blob strategy")
-parser.add_argument("-t", "--threshold", action="store", type=tuple_type, default="(0,0)", help="Threshold tuple (x,y)")
+parser.add_argument("-t", "--threshold", action="store", type=int, default=0, help="Threshold for index mask")
 parser.add_argument("-op", "--operation", action="store", default=OPERATION_NORMAL, choices=allOperations, help="Operation")
 parser.add_argument("-x", "--xtract", action="store_true", default=False, help="Extract each crop plant into images")
 
