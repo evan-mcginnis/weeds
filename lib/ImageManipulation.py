@@ -27,6 +27,7 @@ from ImageLogger import ImageLogger
 import constants
 from GLCM import GLCM
 from HOG import HOG
+from LBP import LBP
 
 from hashlib import sha1
 
@@ -67,6 +68,12 @@ class ImageManipulation:
         self._imageAsCIELAB = None
         self._logger = logger
 
+        # Contours of the blobs
+        self._contours = None
+
+        # Threshold used in blob identification
+        self._threshold = -9999
+
         (self._maxY, self._maxX, self._depth) = img.shape
         self._centerLineY = int(self._maxY / 2)
 
@@ -95,6 +102,9 @@ class ImageManipulation:
     def binary(self) -> np.ndarray:
         return self._imageAsBinary
 
+    @property
+    def threshold(self) -> int:
+        return self._threshold
     @property
     def mmPerPixel(self) -> float:
         return self._mmPerPixel
@@ -431,6 +441,7 @@ class ImageManipulation:
         # ret,thresh = cv.threshold(self._cartooned,127,255,0)
         #ret, thresh = cv.threshold(self._imgAsGreyscale, 127, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)
         ret, thresh = cv.threshold(self._imgAsGreyscale, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)
+        self._threshold = thresh
         self.write(thresh, "threshold.jpg")
         kernel = np.ones((5, 5), np.uint8)
         # Debug -- eliminate erosion
@@ -687,6 +698,16 @@ class ImageManipulation:
         hog.computeAttributes()
         self._blobs = hog.blobs
 
+    def computeLBP(self):
+        """
+        LBP Computations for all objects in image
+        """
+        self.log.debug("LBP")
+
+        lbp = LBP(self._blobs, constants.NAME_GREYSCALE_IMAGE, 24, 8)
+        lbp.compute()
+        self._blobs = lbp.blobs
+
     def computeGLCM(self):
         """
         GLCM Computations for all objects in image.
@@ -936,6 +957,12 @@ class ImageManipulation:
             except ZeroDivisionError:
                 self.log.error("Division by zero in computeEccentricity")
                 blobAttributes[constants.NAME_ECCENTRICITY] = 0
+
+    def computeMiscShapeMetrics(self):
+        for blobName, blobAttributes in self._blobs.items():
+            # The convex hull and its perimeter
+            hull = cv.convexHull(blobAttributes[constants.NAME_CONTOUR])
+            blobAttributes[constants.NAME_CONVEX_HULL] = hull
 
     def computeRoundness(self):
         """
@@ -1260,14 +1287,34 @@ class ImageManipulation:
         """
         self.log.debug("Draw distances for weeds. Not yet implemented")
 
-    def drawBoxes(self, name: str, rectangles: [], decorations: []):
+    def drawBoxes(self, name: str, rectangles: [], decorations: [], convexHull=False):
         """
         Draw colored boxes around the blobs based on what type they are
         :param name: The name of the image
         :param rectangles: A list of rectangles surrounding the blobs
+        :param decorations:
+        :param convexHull: a convex hull or bounding bix should surround
         """
 
         cv.putText(self._image, name, (50, 75), cv.FONT_HERSHEY_SIMPLEX, 2.0, (255, 255, 255), 2)
+
+        # Convex hull
+        if convexHull:
+            #cv.drawContours(self._image, self._contours, -1, (255, 0, 0), 5, 8)
+            # create hull array for convex hull points
+            hull = []
+
+            # calculate points for each contour
+            for i in range(len(self._contours)):
+                # creating convex hull object for each contour
+                hull.append(cv.convexHull(self._contours[i], False))
+            for i in range(len(self._contours)):
+                color_contours = (0, 255, 0)  # green - color for contours
+                color = (255, 0, 0)  # blue - color for convex hull
+                # draw ith contour
+                # cv.drawContours(drawing, contours, i, color_contours, 1, 8, hierarchy)
+                # draw ith convex hull object
+                cv.drawContours(self._image, hull, i, COLOR_CROP, constants.SIZE_CONTOUR_LINE, 8)
 
         for rectName, rectAttributes in rectangles.items():
             (x, y, w, h) = rectAttributes[constants.NAME_LOCATION]
@@ -1288,7 +1335,14 @@ class ImageManipulation:
             # Not drawing the ignored type yields a cleaner image in the test set
 
             if type != constants.TYPE_IGNORED:
-                self._image = cv.rectangle(self._image, (x, y), (x + w, y + h), color, BOUNDING_BOX_THICKNESS)
+                # Draw a bounding rectangle around the blob
+                if not convexHull:
+                    self._image = cv.rectangle(self._image, (x, y), (x + w, y + h), color, BOUNDING_BOX_THICKNESS)
+                # draw a convex hull around the blob
+                else:
+                    _contours, _hierarchy = cv.findContours(self.threshold, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+
+
                 cv.circle(self._image, (cX, cY), 5, (255, 255, 255), -1)
                 location = "(" + str(cX) + "," + str(cY) + ")"
                 areaText = "Area: " + str(area)
