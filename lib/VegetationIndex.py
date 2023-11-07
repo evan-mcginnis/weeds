@@ -48,12 +48,13 @@ class VegetationIndex:
         self.greenBandMasked = np.empty([0,0], dtype=np.uint8)
         self.blueBandMasked = np.empty([0,0], dtype=np.uint8)
 
-        self.mask = np.empty([0,0])
+        self.mask = np.empty([0, 0])
 
         self._depthImage = None
 
         self.HSV_COLOR_THRESHOLD = 20
 
+        self._threshold = -9999
 
         # Band positions for openCV (BGR)
         self.CV_BLUE = 0
@@ -61,9 +62,9 @@ class VegetationIndex:
         self.CV_RED = 2
 
         # Lambda values for the vegetation indices
-        self.lambdaRed = 670 #nm
-        self.lambdaGreen = 550 #nm
-        self.lambdaBlue = 480 #nm
+        self.lambdaRed = 670  # nm
+        self.lambdaGreen = 550  # nm
+        self.lambdaBlue = 480  # nm
 
         self.ALG_NDI="ndi"
         self.ALG_TGI="tgi"
@@ -125,7 +126,11 @@ class VegetationIndex:
     def gpuSupported(self) -> bool:
         return self._gpuSupported
 
-    def Index(self, name: str)-> np.ndarray:
+    @property
+    def threshold(self) -> int:
+        return self._threshold
+
+    def Index(self, name: str) -> np.ndarray:
         """
         Compute the named index
         :param name:
@@ -328,7 +333,8 @@ class VegetationIndex:
 
         return TGI
 
-    def MaskFromIndexOriginal(self, index: np.ndarray, negate: bool, direction: int, threshold: () = None) -> np.ndarray:
+    # This is the version that accepts a tuple and considers up/down values
+    def MaskFromIndexTwoThresholds(self, index: np.ndarray, negate: bool, direction: int, threshold: () = None) -> np.ndarray:
         """
         Create a mask based on the index
         :param index:
@@ -402,36 +408,35 @@ class VegetationIndex:
     def MaskFromIndex(self, index: np.ndarray, negate: bool, direction: int, threshold: Union[int, None] = None) -> (np.ndarray, int):
         """
         Create a mask based on the index
+        :param index: The vegetation index
         :param negate: If the mask should be negated
         :param direction: 0 = up, 1= down
-        :param index:
-        The vegetation index
         :param threshold:
         The threshold value to use. If not specified, Otsu's Binarization is used.
         :return:
         (The mask as a numpy array with RGB channels, threshold)
         """
 
-        # TODO: This routine is a mess. Rewrite
         # If a threshold is not supplied, use Otsu
         if threshold == None:
             # Convert to a grayscale#
             greyScale = index.astype(np.uint8)
-            #ret, thresholdedImage = cv.threshold(greyScale,0,255,cv.THRESH_BINARY+cv.THRESH_OTSU)
-            ret, thresholdedImage = cv.threshold(greyScale, 0, 255, cv.THRESH_BINARY+cv.THRESH_OTSU)
-            threshold = ret
-            threshold1 = ret
-            threshold2 = -9999
+            #ret, thresholdedImage = cv.threshold(greyScale, 0, 255, cv.THRESH_BINARY+cv.THRESH_OTSU)
+            self._threshold, thresholdedImage = cv.threshold(greyScale, 0, 255, cv.THRESH_BINARY+cv.THRESH_TRIANGLE)
+            #th3 = cv.adaptiveThreshold(greyScale, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 11, 2)
+            thresholdUsed = self._threshold
+        else:
+            thresholdUsed = threshold
 
         # If the direction is 1, interpret the two thresholds as up, down
         # To make this go back to the original implementation, set the second threshold to -9999
 
         if direction > 0:
-            thresholdedIndex = index > threshold
+            thresholdedIndex = index > thresholdUsed
             finalMask = thresholdedIndex
             negated = finalMask
         else:
-            thresholdedIndex = index < threshold
+            thresholdedIndex = index < thresholdUsed
             #negated = np.logical_not(thresholdedIndex)
             negated = thresholdedIndex
             finalMask = negated
@@ -442,7 +447,7 @@ class VegetationIndex:
 
         # Touch up the mask with some floodfill
         filledMask = finalMask.copy().astype(np.uint8)
-        cv.floodFill(filledMask, None, (0,0),255)
+        cv.floodFill(filledMask, None, (0, 0), 255)
         filledMaskInverted = cv.bitwise_not(filledMask)
         # finalMask = cv.bitwise_not(filledMaskInverted)
         # #plt.imshow(finalMask, cmap='gray', vmin=0, vmax=1)
@@ -457,12 +462,11 @@ class VegetationIndex:
         #negated = np.logical_not(filledMaskInverted)
         # End floodfill touch up
 
-
         self.mask = negated
 
 
         # FYI: the mask value returned here is not used
-        return finalMask, threshold
+        return finalMask, thresholdUsed
 
     @property
     def imageMask(self):
