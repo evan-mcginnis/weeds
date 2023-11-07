@@ -116,6 +116,7 @@ NAME_BLUE_DIFFERENCE_MEAN   = "cb_mean"
 NAME_BLUE_DIFFERENCE_STDEV  = "cb_stddev"
 NAME_RED_DIFFERENCE_MEAN    = "cr_mean"
 NAME_RED_DIFFERENCE_STDEV   = "cr_stddev"
+NAME_CONVEX_HULL            = "hull"
 NAME_COMPACTNESS            = "compactness"
 NAME_ELONGATION             = "elongation"
 NAME_ECCENTRICITY           = "eccentricity"
@@ -155,6 +156,7 @@ NAME_GREYSCALE              = "greyscale"
 
 # G L C M
 NAME_ENERGY                 = "energy"
+NAME_ENTROPY                = "entropy"
 NAME_CORRELATION            = "correlation"
 NAME_DISSIMILARITY          = "dissimilarity"
 NAME_HOMOGENEITY            = "homogeneity"
@@ -169,6 +171,10 @@ NAME_HOG                    = "hog"
 NAME_STDDEV                 = "stddev"
 NAME_MEAN                   = "mean"
 NAME_VAR                    = "variance"
+
+# L B P
+NAME_LBP                    = "lbp"
+
 #
 # X M P P  R O O M S  A N D  J I D S
 #
@@ -249,6 +255,8 @@ KEYWORD_END_DATE = "end_date"
 KEYWORD_CROP = "crop"
 KEYWORD_ML_TECHNIQUE = "ml"
 KEYWORD_PARENT = "parent"
+
+KEYWORD_OUTPUT = "output"
 
 CAPTURE_STRATEGY_QUEUED = "queued"
 CAPTURE_STRATEGY_LIVE = "live"
@@ -333,6 +341,7 @@ PERF_SHAPES     = "shapes"
 PERF_UNDISTORT  = "undistort"
 PERF_GLCM       = "glcm"
 PERF_HOG        = "hog"
+PERF_LBP        = "lbp"
 
 PERF_SAVE_INTEL_DEPTH       = "save-intel-depth"
 PERF_SAVE_INTEL_RGB         = "save-intel-rgb"
@@ -392,6 +401,7 @@ PROPERTY_FACTOR_COLOR = "color"
 PROPERTY_FACTOR_GLCM = "glcm"
 PROPERTY_FACTOR_POSITION = "position"
 PROPERTY_FACTOR_SHAPE = "shape"
+PROPERTY_FACTOR_LBP = "lbp"
 
 # D E P T H
 PROPERTY_SECTION_DEPTH = "DEPTH"
