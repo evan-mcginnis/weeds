@@ -76,6 +76,7 @@ class CameraFile(Camera):
         :return:
         The image as a numpy array.  Raises EOFError when no more images exist
         """
+        imageName = ""
         if self._currentImage < len(self._flist):
             image = None
             if self._type == constants.ImageType.RGB.name:
@@ -89,6 +90,7 @@ class CameraFile(Camera):
                 self.log.error("Can't process type: {}".format(self._type))
 
             processed = ProcessedImage(constants.ImageType.RGB, image, 0)
+            processed.getMetadata(imageName)
 
             return processed
         # Raise an EOFError  when we get through the sequence of images
