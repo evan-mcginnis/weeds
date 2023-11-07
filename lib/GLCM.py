@@ -17,6 +17,8 @@ ANGLE = 0
 
 class GLCM:
     attributes = [constants.NAME_ENERGY,
+                  # skimage does not compute entropy
+                  # constants.NAME_ENTROPY,
                   constants.NAME_CONTRAST,
                   constants.NAME_DISSIMILARITY,
                   constants.NAME_HOMOGENEITY,
