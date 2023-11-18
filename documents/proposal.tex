@@ -6,6 +6,7 @@
 %%\documentclass[10pt]{report}
 %%\documentclass[letterpaper]{article}
 \documentclass[12pt]{article}
+\usepackage[hyperfootnotes=false]{hyperref}
 \usepackage{geometry}
 %\usepackage{xcolor}
 \usepackage[table]{xcolor}
@@ -141,6 +142,17 @@
 \usepackage{listings}  % http://en.wikibooks.org/wiki/LaTeX/Packages/Listings
 \usepackage{textcomp}
 
+% Table example start
+\usepackage{booktabs, makecell}
+\renewcommand\theadfont{\small\bfseries}
+\usepackage{siunitx}
+\usepackage{caption}
+
+% Additional packages here
+\usepackage{amsmath}
+\usepackage{pdflscape}
+% Table example end
+
 
 %%% The following lines set up using the listings package
 \renewcommand{\lstlistlistingname}{Code Listings}
@@ -233,7 +245,7 @@ contents={\begin{tikzpicture}[remember picture,overlay]
 \vspace*{1cm}
 \noindent
 %%\vspace*{0.4\textheight}
-\textcolor{white}{\Huge\textbf{\textsf{Classification of weed and crop vegetation in lettuce field}}}
+\textcolor{white}{\Huge\textbf{\textsf{Proposal for the Study of Weed/Crop\\Discrimination in Row Crops}}}
 \vspace*{2.5cm}\par
 \noindent
 \begin{minipage}{0.35\linewidth}
@@ -250,7 +262,7 @@ contents={\begin{tikzpicture}[remember picture,overlay]
 \vspace{5pt}
     \begin{abstract} 
 \setstretch{1.0}
-This paper proposes a study of classification of vegetation found within a lettuce field at various heights AGL. While there are generally two categories of vegetation encountered within a field: weed and crop, these categories do not quite connote the fate of the vegetation. \textit{Desired} and \textit{undesired} might be names that more accurately describe their fate. This study will examine the classification of images acquired close to ground level (such as would be acquired from a tractor-towed system) as well as images acquired from unmanned aerial vehicle flights at various altitudes.
+This paper proposes a study of classification of vegetation as weeds and crop of plants found within a \textit{Need cultivar name} (Spinach) and \textit{Need cultivar name} (Lettuce) fields at various heights AGL, and how those classifications can be used to produce high-precision treatment plans. This study will examine the classification of visible-light images acquired from unmanned aerial vehicle flights at various altitudes ranging from 3 to 30 meters. Specifically, the first phase will produce the optimal set of attributes for classification using seven different Machine Learning techniques at each altitude. The second phase will concentrate on the production of treatment plans from those classifications.  While this phase will produce treatment plans that can be explored with an application developed as part of this phase or executed by human referencing a summary (PDF) of the plan, extending these plans to automated treatment does not require substantial changes. The execution of a treatment plan is not explicitly addressed by this study.
     \end{abstract}
 \end{minipage}
 \end{titlepage}
@@ -269,779 +281,411 @@ This paper proposes a study of classification of vegetation found within a lettu
 {
 \setstretch{1.0}
 \begin{versionhistory}
-  \vhEntry{1.0}{1 May 2022}{EM}{Initial revision}
-  \vhEntry{1.1}{13 May 20022}{EM}{Added section on \textit{Field Activities}}
+  \vhEntry{1.0}{1 Aug 2023}{EM}{Initial revision}
+  \vhEntry{1.1}{7 Aug 2023}{EM}{Incorporate comments}
 \end{versionhistory}
 \newpage
 }
 
-%
-% B E G I N   T E M P L A T E   F R O M   W O R D
-%
 
 %
 % O V E R V I E W
 %
 
 \section{Overview}
-%This paper proposes a study of an automated weeding system for lettuce cultivars.  The automated weeding system will be proven at the Yuma agricultural center, and the conditions explored in this study (economic, field) will be used to reflect specific examples. 
-%There are two motivations for the exploration of automation for this use case: health of agricultural workers, and economics of manual labor. The link between exposure to synthetic herbicides and negative impacts on agricultural workers has been long been well established, and a direct impact of this proposal is to minimize that exposure. Personal protective equipment (PPE) is sometimes cited as a solution to minimizing exposure, but is more often adopted during the mixing phase of chemicals than it is during the application (\cite{Macfarlane2008-am}). Economically, the case for an automation solution involves two aspects: the availability of labor, and once found, the overall cost of that labor. There is little doubt that manual weeding is a tedious, difficult task. Even when recruited for, the costs for this labor put pressure on profit margins associated with the crop.  In Yuma, AZ, for example, the labor cost for manual weeding of an acre of lettuce often exceeds \$100 \cite{Siemens2021-vn} and the mean hourly wage is \$14.78 per hour per worker \cite{US_Bureau_of_Labor_Statistics2021-yi}.
-
 \label{section:proposal}
-This study will produce a commercially viable, tractor-mounted, automated weeding system for lettuce cultivars. The proposed system will obviate the need for manual weed treatment, and use two technologies to achieve this: machine learning and precision spraying. The commercial viability of this system will be assessed by both speed and accuracy. The automation achieved by the system must be both highly accurate (above 95\%) and  can perform the task of weed control at acceptable speeds. While the system described in this document will treat a single bed, the system will scale linearly to allow treatment of multiple beds without altering the forward speed of the tractor to accommodate the increased treatment area (around 200 ms per image is used as a target processing time to support a tractor speed of 4kph). \footnote{The phrase \textit{commercially viable} is, of course, a matter of opinion. The precision treatment system used in this system was qualified with a forward speed of 2 mph/3.22 kph}
-
-\section{Introduction}
-Manual weed control by mechanical means in row crops is expensive, and labor willing to perform this field work is increasingly hard to find. Alternatively, weed control using manual chemical application is not only expensive, but is a harm to both the environment and worker's health. 
-We are proposing an automated system that will lower costs and decrease threats to both worker health and the environment, all while achieving high treatment accuracy.  By integrating precision sprayers with new work in machine vision, weed/crop discrimination, and networked system design, this proposal will achieve these above. The mechanical components (enclosure as the electrical and pneumatic systems that support the precision sprayer) used in a field deployment and towed behind a tractor are already developed, and will not be addressed in depth by this proposal, but the sprayer is described in \citeauthor{Siemens2020-ds}'s developments in this area \parencite{Siemens2020-ds}. 
-This study will use morphological and color features to distinguish between crop and weeds, and weeds will be the target of subsequent treatment. There are three challenges that warrant attention here: separation of vegetation from background, feature extraction, and weed/crop discrimination,\\
-Aspects of this problem are well researched and documented. \citeauthor{Hamuda2016-dw} surveys the task of separation of vegetation and non-vegetated portions of visible light images, and that work will be used in this proposal \parencite{Hamuda2016-dw}. The disadvantages mentioned in that study of color-index based schemes, most notably changing lighting conditions leading to inconsistent results, and the expected dominant color of vegetation is green, will not be of concern for this work. As the lighting will be controlled---ambient light will be blocked, and artificial illumination used--- and both crop and weeds will be predominately green, the disadvantages detailed in that study will not be a significant factor in this one.\\
-There are two types of features to be considered: color and structural. \citeauthor{Sabzi2020-af} studies both of these feature types in a study of weed identification in a potato field \parencite{Sabzi2020-af}. Color feature evaluation was carried out in \textit{transformed} color spaces: Hue, Saturation, Intensity (HSI); Hue, Saturation, Value (HSV); Luminance, In-Phase, Quadrature (YIQ); and Luminance, blue - luminance, and red - luminance (YCbCr). Structural features were not heavily emphasized in this model, as the area-to-length ratio was the sole structural component considered. While the correct classification rate in that study exceeded 98\%, the field tests showed a commercially nonviable speed of 0.15 m/s. \footnote{The article detailing the study does not include sufficient details to form a theory on why the speed achieved is so slow. While illustrations indicate that image processing is executed with Matlab on a laptop, details of those components are missing.} \\
-Lin, in a study of corn and weed species identification, identifies key shape features, along with formulae for their determination that can then be exploited in discrimination: shape index and length-to-width ratio \parencite{Lin2017-xq}. Wirth, in a presentation on shape analysis, details aspects of (and formulae for) structural features of objects. Among these are: roundness, convexity, solidity, elongation, and compactness \parencite{Wirth2004-li}.\\
-Using both color and morphological features it is possible to achieve both the speed and accuracy required in weed identification. While research has shown that distinguishing crop from weeds is possible given sufficient computing resources, doing so in a field setting with limited computational power and at speeds considered commercially viable is not fully addressed. Coupling an image recognition system to a treatment system is often left as a exercise for the reader or mentioned as a possible application. This study will provide a complete solution.
-
-
-\subsection{Results}
-Analysis of a set of visible-light images\footnote{Image set of lettuce beds supplied by Dr. Mark Siemens, University of Arizona} shows that the general concepts of using a few features for object classification is viable (refer to Table~\ref{fig:learning}).
-
-{\renewcommand{\arraystretch}{2}%
-\begin{table}[H]
-	\centering
-   	 \begin{tabular}{  l  p{4cm}  p{5cm} }
-        	\toprule
-		\textbf{Method}      
-		& \textbf{Train}   
-		& \textbf{Test} \\\midrule
-		Logistic Regression
-		& 0.9790       
-		& 0.9787 \\\hline
-		KNN     
-		& $1.0$                    
-		& $0.86$ \\\hline
-		Decision Tree
-		& 1.0
-		& 0.96 \\\hline
-		Boosted Gradient     
-		& 1.0
-		& 0.957 \\\hline
-		Random Forest      
-		& 1.0
-		& 0.986 \\\hline
-		Support Vector
-		& 0.989
-		& 0.971 \\\hline
-       	 \bottomrule
-	\end{tabular}
-    	\caption[Various Machine Learning Algorithms]{Results of using various machine learning algorithms for weed recognition}
- 	 \label{fig:learning}
-\end{table}
-
-These results reflect the use of four attributes of each plant in the image:
-\begin{itemize}
-	\item{Length/Width Ratio, }
-	\item{Shape Index, an expression of how 'rough' the edges of the object are}
-	\item{YIQ In-phase mean, a measure of the average after a colorspace transformation}
-	\item{Normalized distance from the crop line, as weeds are often more distant from the crop line than are crop}
-\end{itemize}
-
-The image set used in this analysis had these characteristics:\footnote{\url{https://data.cyverse.org/dav-anon/iplant/home/evanmc/lettuce-images.zip}}
-\begin{itemize}
-	\item{Captured using a Samsung SM-G930V cameraphone}
-	\item{Taken at Yuma Research Center, Yuma AZ}
-	\item{Captured 18 Jan 2019}
-	\item{Captured using ambient light}
-	\item{2880x2160 pixels}
-\end{itemize}
-
-While encouraging, it is important to keep two points in mind when considering these results: 
-\begin{itemize}
-	\item{These results are for an image set taken at only a single point in the growth cycle. It may be the case that both color and morphological features of the vegetation may change over the development cycle. Models trained using images from one point in the cycle may not be as accurate when presented with images taken an a different point}
-	\item{Misclassification of a weed as a crop, while not optimal, does not have direct costs in terms of marketable crop. Mis-identified weeds are simply not treated. Misclassification of crop as weed has very direct costs, as marketable crop is mistakenly targeted for treatment, a mistake that has  monetary costs.}
-\end{itemize}
-
-As shown in Table~\ref{table:confusion}, we can see the cost of making an error.}
-
-%
-% C O N F U S I O N  M A T R I X
-%
- \begin{table}[ht]
-    \renewcommand{\arraystretch}{1.3}
-    \footnotesize
-    \setlength{\tabcolsep}{0pt}
-	\settowidth\rotheadsize{Predicted}
-    	\centering
-
-	%\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lc| *{2}{S[table-format=2.2]}| S[table-format=2.2]}
-	\begin{tabular*}{0.55\linewidth}{@{\extracolsep{\fill}}lc| *{2}{S[table-format=2.2]} | S[table-format=2.2]}
-    		\hline\hline
-   		\multicolumn{2}{l|}{}   &   \multicolumn{2}{c|}{Actual}                            \\
-   		\multicolumn{2}{c|}{}    & {Crop} & {Weed\ \ }  & {\bfseries Precision}\\ 
-    		\hline
-		\multirow{2}{*}{\rothead{\ \ \ \ \ Pred.}} 
-    			& Crop   & 28 &  2 &  .93   \\
-    			& Weed  & 6  & 201 &  .97\\
-    		\hline
- 		& \bfseries Recall\ \ 
-        	& \textbf{.82}         & .99         &           \\ 
-    		\hline\hline
-	\end{tabular*}
-	\caption[Confusion matrix for KNN]{In this confusion matrix for KNN, we can see that the misclassification of crop as weed drives the \textit{recall} metric to 82\%}
-	\label{table:confusion}
-
-% When we had only one table
-\end{table}
-
- \begin{table}[ht]
-    \renewcommand{\arraystretch}{1.3}
-    \footnotesize
-    \setlength{\tabcolsep}{0pt}
-	\settowidth\rotheadsize{Predicted}
-    	\centering
-	%\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lc| *{2}{S[table-format=2.2]}| S[table-format=2.2]}
-	\begin{tabular*}{0.55\linewidth}{@{\extracolsep{\fill}}lc| *{2}{S[table-format=2.2]} | S[table-format=2.2]}
-    		\hline\hline
-   		\multicolumn{2}{l|}{}   &   \multicolumn{2}{c|}{Actual}                            \\
-   		\multicolumn{2}{c|}{}    & {Crop} & {Weed\ \ }  & {\bfseries Precision}\\ 
-    		\hline
-		\multirow{2}{*}{\rothead{\ \ \ \ \ Pred.}} 
-    			& Crop   & 28 &  5 &  .85   \\
-    			& Weed  & 5  & 199 &  .98\\
-    		\hline
- 		& \bfseries Recall\ \ 
-        	& \textbf{.85}         & .98         &           \\ 
-    		\hline\hline
-	\end{tabular*}
-	\caption[Confusion matrix for Logistic Regression]{In this confusion matrix for Logistic Regression, we can see that the \textit{recall} is much closer for both KNN and Logistic Regression approaches than the overall accuracy values presented earlier.}
-	\label{table:confusion}
-\end{table}
-
-%
-% D I S C U S S I O N
-%
-
-
-\subsection{Discussion and Conclusion}
-These results show that it is possible to distinguish crop and weed in visible light images with one important caveat: the results reflect only a specific point in the development cycle. The shape or color of the crop may vary with time, so careful consideration must be made to the consistency of these features over time. Overall accuracy cannot be used as the sole metric when evaluating the performance of the learning approaches. Logistic Regression, for instance, has a much higher overall accuracy than does KNN, but using KNN yields much closer recall.  If we consider only the high-cost (monetarily) error, the two approaches are actually quite close.
-
-%Do not use abbreviations or insert tables, figures or references into your abstract. You abstract generally should not exceed about 300 words. 
+This study will produce sets of optimal parameters extracted from visible light images for various machine learning (ML) techniques acquired from various distances AGL in the first phase and will support the exploration of those classifications through a tablet-based application and the production of treatment plans in the second. The parameters extracted for each plant include various color, shape, and textural attributes. Features that may be significant at a low altitude (the shape of leaves, for example) may not be as significant at higher altitudes (as the shape of all leaves may tend to be much the same).
+ The scoring of the ML models will not be through examining overall accuracy, but by a cost-based model where the misclassification of a crop as a weed is more costly than misclassification of a weed as crop. While weeds that remain after a classification and treatment will continue to consume resources and compete with crop, creating indirect costs, the misclassification and subsequent treatment of a crop plant has direct cost. The second phase of this project will explore the production of treatment plans from classifications. Treatment plans can be explored by a user with an application, summarized into reports (PDF), and used in automated treatment systems.  While the second phase of this proposal will  produce plans that are focused on the first two, the infrastructure and classifications provided by the system will allow for further development in this area.
+\section{Location and Subject of Study}
+This study will be carried out at the University of Arizona Maricopa Agricultural Center (MAC).  Two adjacent fields and crops are targeted in the southeast section of the farm.\footnote{The spinach planting is overseen by Drs. Attalah and Elshikha, and will involve three separate water treatments: center-pivot, flood irrigation, and drip. As the drip treatment study area is unlikely to produce a heavy weed load, it will not be included in this study, as differentiating between crop and weeds is an intial goal of this study.  The lettuce planting is overseen by Dr. Channah Rock, and is already established at the time of this writing} The two fields are planted, respectively, with spinach (planting is planned for late November 2023) and Lettuce (already established).
  
- \newpage
+\section{Phase I}
+Phase I of this study will produce a prediction model for weeds that will exceed 80\% correct classification at altitudes of 10m AGL and lower. The model produced in this phase can be applied for fields with the same crop, regardless of when in the development cycle those predictions are made. However, the model produced in this phase will also be tested against images of the other crop. That is, there are six cases that will be reported in this phase:
+\begin{itemize}
+	\item{Trained on lettuce and tested on spinach}
+	\item{Trained on spinach and tested on spinach}
+	\item{Trained on lettuce and tested on lettuce}
+	\item{Trained on spinach and tested on spinach}
+	\item{Trained on lettuce and spinach and tested on spinach}
+	\item{Trained on lettuce and spinach and tested on lettuce}
+\end{itemize}
+These combinations fail to capture, however, the development stage aspect that will also be reported (e.g., can a model trained on features exhibited by an earlier development stage be used to accurately predict class membership of a later one)
 
-%
-% P R O B L E M
-%
- 
-\section{Problem Statement}
-Crop rows contain two sets of unwanted vegetation: marketable crop and undesired vegetation in the form of misplaced crop and weeds. Consider the row of lettuce illustrated by Figure~\ref{fig:weed-placement}. In these images the row contains weeds within the row itself (inter-row) and weeds not within the row. An additional complication seen in the inter-row example is that the weed is within close proximity to the crop. \\
-In Arizona, approximately 45,000-55,000 acres of lettuce are grown, with 95\% of that figure produced in Yuma County, the location of this study \parencite{Kerns1999-la}.
+%  & {KNN} & {RF} & {LR} & {LDA} & {DT} & {BG} & {KNN} & {RF} & {LR} & {LDA} & {DT} & {BG} & {KNN} & {RF} & {LR} & {LDA} & {DT} & {BG}\\
 
-Treatment of unwanted vegetation is executed using a high speed centimeter scale resolution sprayer already developed \parencite{Siemens2020-ds}, but vegetation targeted for elimination must not be \textit{too} close to the crop in order to avoid inadvertent damage.
 
-\begin{figure}[H]
+
+
+\subsection{Workflow}
+The workflow shown in Figure~\ref{fig:workflow} indicates the operations performed on each image, the details of which will be discussed in subsequent sections.
+\begin{figure}[h!]
 	\centering
-	\begin{subfigure}[]{.40\textwidth}
-		\includegraphics[width=1\linewidth]{./figures/weed-outside-row.jpg}
-		\caption{A row of lettuce with weed outside the crop row}
-		\label{fig:lettuce-row-with-weed-outside}
-	\end{subfigure}
-	\begin{subfigure}{.40\textwidth}
-		\centering
-		\includegraphics[width=1\linewidth]{./figures/weed-within-row.jpg}
-		\caption{A row of lettuce with weed within the crop row}
-		\label{fig:lettuce-row-with-weed-inside}
-	\end{subfigure}
-	\caption[Two cases of weed placement]{Two cases of weed placement}
-	\label{fig:weed-placement}
+	\includegraphics[width=0.8\linewidth]{./figures/workflow.drawio.png}
+	\caption[Classification Workflow]{Classification Workflow}
+	\label{fig:workflow}
 \end{figure}
 
+\subsection{Image Acquisition}
+\label{sec:acquisition}
+Image acqusition will be the only activity taking place in the field; all other activities are conducted within the context of an office or datacenter. Images will be acquired from two sources: manually via hand-held camera for distances below one meter AGL, and automatically via planned missions for a UAV for distances between 2 and 30 meters AGL.\footnote{While admittedly arbitrary, this will allow inclusion of image acquisition where extremely-low altitude flights of AUV may present too much risk to merit inclusion. The intent of manual acquisition is to approximate the perspective seen in tractor-towed solutions, where the camera is much closer to the ground. If the risk of having a UAV fly at a low altitude is acceptable, manual acquisition is not required} Image sets are acquired every two weeks during the crop development cycle and altitudes of 2m 5m, 10m, 15m, 20m, 25m, and 30m. Capturing images at varying altitudes is needed here to study the effects of feature significance with increased distance.
+UAV images will be obtained with a DJI Mavic Air 2S equipped with a 256GB flash drive and using its stock 20MP visible-light camera.\footnote{Not included in this proposal is the prospect of gathering multispectral data via the UAV. While this proposal discusses the processing of visible wavelengths of light, nothing precludes including that data.} Each image set acquisition will be preceded by the imaging of a color calibration target.  While it may be an end goal of this study to produce a system that is not affected by changes in lighting conditions brought on by time of day or ambient conditions affected by cloud cover, acquisition of a color plate image will allow color corrected images to be used. Figure \ref{fig:mission} illustrates a image acquisition mission at 3 meters AGL, capturing an area of approximately 0.5 ha.
 
-\subsection{Overview}
-
-\subsection{Research Question/Hypothesis}
-This study will seek the answers to three related questions:
-\begin{enumerate}
-\item{Is it possible to distinguish weeds from crop in visible light images?}
-\item{Is it possible to make such a distinction in the time required to support a commercially viable speed of treatment?}
-\item{Are the features used to make the distinction invariant over the growing season?}
-\end{enumerate}
-
-The first question is a more basic, but essential one. We are considering using only a subset of the features of objects withing a visible light image. Can the two sets of vegetation be distinguished using a subset of these attributes?
-\begin{itemize}
-	\item{Structural Features}
-	\begin{itemize}
-		\item{Distance to cropline, as weeds tend to be outside the crop}
-		\item{Total leaf area}
-		\item{Shape Index, the relationship between an object's perimeter and area}
-		\item{Features in HSI, HSV, YIQ, and YCbCr color spaces}
-		\item{Elongation, the ratio of length to width of the bounding box of an object}
-		\item{Eccentricity, the ratio of the length of an object's minor axis to its major axis}
-		\item{Solidity, the ratio of an object's area to its convex area}
-		\item{Convexity, the ratio of an object's convex perimeter to its perimeter}
-		\item{Compactness, the ratio of an object's area to a circle with the same perimeter}
-		\item{Length to width ratio, the ratio of the maximum eigenvector to the minimum eigenvector of the covariance matrix of the perimeter's (x,y) coordinates}
-		\item{Size Ratio}
-	\end{itemize}
-	\item{Color Features}
-	\begin{itemize}
-		\item{Components of HSI color-space}
-		\item{Components of HSV color-space}
-		\item{Components of YIQ color-space}
-	\end{itemize}
-\end{itemize}
-
-While it should be possible to distinguish the two sets of vegetation using these features given enough computing power, is it possible to do so in real time with compute power that is available in the field? Inexpensive Graphic Processing Units (GPUs) are commonly used in machine learning problems such as these, and a key part of this study will be to assess the applicability of this technology for the problem space. Achieving a target speed of a forward progress rate of 4 kph (or 2.49 mph.  A speed of 2 mph was used in \citeauthor{Siemens2020-ds}'s study for the high precision spray unit [\cite{Siemens2020-ds}].) sets the bounds on a compute time budget. The camera will be placed 17 inches (0.43 m) above the crop bed. Given an example camera with an 8mm focal length lens, an image size of 23 cm x 13 cm can be obtained.\footnote{Specifications for Basler 1920-25g camera were used in these calculations. That specific model is no longer produced, but the specifications will suffice for this case} In one second, the system must be capable of processing 4.82 images, giving a time budget of around 208 milliseconds per image to perform two tasks: distinguish between crop and weed, and form a treatment plan. While the exact numbers in the final system will deviate from those presented here, these frame the discussion and set a target processing speed.
-
-While much of the work discussed thus far has involved the mechanisms used to distinguish crop from weeds, the image processing workflow involves more steps that have not yet been discussed in detail. The overall workflow is outlined in Figure~\ref{fig:image-processing-workflow}
-\begin{figure}[H]
+\begin{figure}[h!]
 	\centering
-	\includegraphics[width=0.75\linewidth]{./figures/image-processing-workflow.jpg}
-	\caption{Image processing workflow}
-	\label{fig:image-processing-workflow}
+	\includegraphics[width=0.8\linewidth]{./figures/maricopa-drone-3m.jpg}
+	\caption[Semple UAV mission]{Sample UAV mission conducted at 3 meters capturing an area of approximately 0.5 ha. While this flight and capture orientation is not essential, this same mission plan will simply be repeated at higher altitudes.}
+	\label{fig:mission}
 \end{figure}
 
-%This workflow shows a crucial step
+Table \ref{tab:acquisition} provides a summary of some attributes relevant to the image capture at various distances AGL.  Of special note here is the battery requirements, which are noted in the number of batteries required to complete the mission at that particular distance AGL. While a lower altitude flight will likely require two batteries to complete to allow for a wide safety margin, the remaining flights can be completed on the same battery.\footnote{Power consumption from the UAV is dependent, of course on conditions such as wind, so times and battery requirements are not exact projections}
+The UAV has been equipped with a 256GB flash and has 8GB of internal storage. This total capacity far exceeds the projected storage requirements of even uncompressed images.\footnote{Digital Negatives (DNG), often referred to as \textit{raw images} is uncompressed sensor data. This sensor data can, of course, be converted to a much smaller, compressed format such as JPG, but can be more readily processed for color and exposure by programs such as Adobe Lightroom or Photoshop. It is a reasonable simplification to think of the storage requirements as a worst case scenario, as the storage of a less flexible, but smaller, format such as JPG, would allow for storage of significantly more images.  As an example, a DNG on the UAV selected would require around 24.5 MB, while an equivalent JPG would require 6.5 MB. Using the raw sensor data as part of the image processing workflow will have no impact on image quality -- in fact, converting raw sensor data to JPG is precisely what the UAV is doing. Retaining raw sensor data and then converting achieves the same goal.}
+\begin{table}[ht]
+	\centering
+    \caption{Image Acquisition Mission Characteristics}
+    \label{tab:acquisition}
+    \begin{tabular}[t]{llllll} 
+		\textbf{AGL} & \textbf{Photos} &\textbf{Storage (GB)} & \textbf{Time} & \textbf{Batteries} & \textbf{GSD (cm)}\\
+		\midrule
+		      3 & 554 & 13.6 & 20.37 & 2 & 0.06 \\
+		      10 & 42 & 1.0  & 2:50 & 1 & 0.14 \\
+		     15 & 18 & 0.4 & 2:17 & 1 & 0.28 \\
+		     20 & 7 & 0.2 & 1:30 & 1 & 0.43 \\
+		     25 & 6 & 0.1 & 1:30 &1 & 0.57 \\
+		     30 & 5 & 0.1 & 1:30 & 1 & 0.71
+    \end{tabular}
+\end{table}
 
- %\newpage
- 
-\section{Objective and Aims}
-The objective of this study is to not only answer the questions identified in the previous section, but to produce a viable system for field deployment. 
+Of special note here is the GSD captured by a single pixel within an image and the relationship to the features extracted.  In early stages of development vegetation may be only a few square cm in size. A 25 cm$^2$ plant would be represented by 35 pixels. While classification based on color attributes are not expected to be adversely affected, shape attributes are expected to be, as fine details of the shapes of both weeds and crop are not present in this resolution.
 
-\subsection{Specific Aims}
-The aims of this study will be to solve several problems in addition to the key questions posed earlier:
-\begin{itemize}
-	\item{Survey and develop image segmentation techniques that operate in the lighting conditions encountered in field conditions}
-	\item{Develop machine learning approaches to discriminate between crop and weed that operate within the targeted time budget}
-	\item{Design and integrate a system that will incorporate all aspects of the workflow shown in Figure~\ref{fig:image-processing-workflow}}
-\end{itemize}
-\newpage
 
+\subsection{Image Segmentation and Blob Identification}
+The details of the image segmentation techniques will be covered in-depth in a separate document, but several approaches will be evaluated to separate vegetated and non-vegetated pixels, including CIVE, Excess Green, Excess Red, NGRDI, Vegetative Index, and Triangular Greenness Index \parencite{Hunt2013-ih,Hamuda2016-dw}. These indices are used to create a mask that is then applied to the original source image to permit vegetation to show while masking details that are not relevant (ground pixels, stones, and other items that may appear in field conditions) The intent here is to remove all pixels that are not relevant to the task of distinguishing between crop and weed while leaving the vegetated pixels unmanipulated. At this, as with all steps, computational efficiency will be evaluated, as it is the goal to have the system operate in real-time.
+\begin{figure}[H]
+	\centering
+	\begin{subfigure}[h]{.20\textwidth}
+	  \centering
+	  \includegraphics[width=1\linewidth]{figures/original.jpg}
+	  \caption{Field view}
+	  \label{fig:original}
+	\end{subfigure}
+	\begin{subfigure}[h]{.20\textwidth}
+	  \centering
+	  \includegraphics[width=1\linewidth]{figures/original-mask.jpg}
+	  \caption{NDI mask}
+	  \label{fig:mask}
+	\end{subfigure}
+	\begin{subfigure}[h]{.20\textwidth}
+	  \centering
+	  \includegraphics[width=1\linewidth]{figures/original-masked.jpg}
+	  \caption{Mask applied}
+	  \label{fig:original-masked}
+	\end{subfigure}
+	\caption[Before and after segmentation]{Before and after segmentation. The original image is used to produce the mask subsequently applied to produce the final image with only vegetated pixels remaining. Note the absence of the stems seen in the weed in the lower portion of~\ref{fig:original-masked} -- this is made a bit more obvious with a close examination of the mask shown in~\ref{fig:mask}. The lack of stems will lead to a single plant being identified as multiple plants, but has no effect on the classification using the features identified as significant. This is expected to be encountered more frequently in images taken from lower distances AGL, as individual pixels capture portions of vegetation that are not as green as other portions of the vegetation.}
+	\label{fig:segmentation}
+\end{figure}
+%{\renewcommand{\arraystretch}{2}%
 %
-% L I T E R A T U R E  R E V I E W 
+%{
+%% This avoids the document line spacing affecting the contents of the table
+%\setstretch{1.0}
+%% Example to span two pages
+%\begin{longtable}{x{\dimexpr.25\columnwidth-2\tabcolsep}
+%                  x{\dimexpr.35\columnwidth-2\tabcolsep}
+%                  x{\dimexpr.4\columnwidth-2\tabcolsep}}
+%%\begin{hyphenrules}{nohyphenation}
+%    \caption{Visible light indices}\label{tab:example}  \\
+%\toprule
+%{\textbf{Index}} & {\textbf{Formula}} & {\textbf{Comment}}
+%\tabularnewline
+%\midrule
+%    \endfirsthead
+%%%%%
+%    \caption{Visible light indices (cont.)}\label{tab:example}  \\
+%\toprule
+%{\textbf{Index}} & {\textbf{Formula}} & {\textbf{Comment}}
+%\tabularnewline
+%\midrule
+%    \endhead
+%%%%%
+%\midrule[\heavyrulewidth]
+%\multicolumn{3}{r}{\footnotesize\itshape
+%                   Continued on the next page}
+%    \endfoot
+%%%%%
+%\bottomrule
+%    \endlastfoot
+%%%%%
+%		Triangular Greenness
+%		& \begin{minipage}[t]{0.3\textwidth}
+%			$R_{green} - \alpha R_{red} - \beta R_{blue}\\ \alpha = \frac {2(\lambda_{blue} - \lambda_{green})} {(\lambda_{blue} - \lambda_{red})}\\ 
+%		    	\beta = \frac {2(\lambda_{green} - \lambda_{red})} {(\lambda_{blue} - \lambda_{red})} $
+%		   \end{minipage}     
+%		& Corrects for camera calibration using the peak sensitivity
+%\tabularnewline\addlinespace
 %
-
-\section{Background and Significance}
-
-%\subsection{Herbicide Exposure}
-%Exposure to synthetic herbicides \cite{Rydz2021-ar}
-\subsection{Image Segmentation}
-Humuda discusses  algorithms to separate the vegetated portion of an image from non-vegetated portions \cite{Hamuda2016-dw}. Specifically, this review compares the efficacy of approaches based on color index in visible light images (Table~\ref{table:segmentation}). This paper details the formulae for various approaches. Hunt details an approach to segmentation that takes into account the responsiveness of the sensor \cite{Hunt2013-ih}.
-{\renewcommand{\arraystretch}{2}%
-
-{
-% This avoids the document line spacing affecting the contents of the table
-\setstretch{1.0}
-% Example to span two pages
-\begin{longtable}{x{\dimexpr.2\columnwidth-2\tabcolsep}
-                  x{\dimexpr.4\columnwidth-2\tabcolsep}
-                  x{\dimexpr.4\columnwidth-2\tabcolsep}}
-%\begin{hyphenrules}{nohyphenation}
-    \caption{Visible light indices}\label{tab:example}  \\
-\toprule
-{\textbf{Index}} & {\textbf{Formula}} & {\textbf{Comment}}
-\tabularnewline
-\midrule
-    \endfirsthead
-%%%%
-    \caption{Visible light indices (cont.)}\label{tab:example}  \\
-\toprule
-{\textbf{Index}} & {\textbf{Formula}} & {\textbf{Comment}}
-\tabularnewline
-\midrule
-    \endhead
-%%%%
-\midrule[\heavyrulewidth]
-\multicolumn{3}{r}{\footnotesize\itshape
-                   Continued on the next page}
-    \endfoot
-%%%%
-\bottomrule
-    \endlastfoot
-%%%%
-		Triangular Greenness
-		& \begin{minipage}[t]{0.3\textwidth}
-			$R_{green} - \alpha R_{red} - \beta R_{blue}\\ \alpha = \frac {2(\lambda_{blue} - \lambda_{green})} {(\lambda_{blue} - \lambda_{red})}\\ 
-		    	\beta = \frac {2(\lambda_{green} - \lambda_{red})} {(\lambda_{blue} - \lambda_{red})} $
-		   \end{minipage}     
-		& Corrects for camera calibration using the peak sensitivity
-\tabularnewline\addlinespace
-
-		Normalized Difference     
-		& $128 * \left( \left( \frac {(G - R)} {(G + R)} \right) + 1 \right) $                    
-		& The NDI index produces a near-binary image. 
-\tabularnewline\addlinespace
-
-		Excess Green      
-		& \begin{minipage}[t]{0.3\textwidth}
-			$R = \frac {R} {R_{max}}\\ G = \frac {G} {G_{max}}\\ B = \frac {B} {B_{max}}$ 
-		   \end{minipage}
-		& ExG provided a clear contrast between plants and soil 
-\tabularnewline\addlinespace
-
-		Excess Red      
-		& $1.3 R - G$ 
-		& inspired by the fact that there are 4\% blue, and 32\% green, compared with 64\% red cones in the retina of the human eye
-\tabularnewline\addlinespace
-
-		Color Index of Vegetation Extraction      
-		& $0.441 R - 0.811 G + 0.385 B + 18.78745$
-		& This method was proposed to separate green plants from soil background in order to evaluate the crop growing status.
-\tabularnewline\addlinespace
-
-		Excess Green - Excess Red   
-		& $ExG - ExR$ 
-		& ExG used to extract the plant region and ExR used to eliminate the background noise (soil and residue) where green–red material (stems, branches, or petioles) may exist
-\tabularnewline\addlinespace
-
-		Normalized Green-Red Difference    
-		& $\frac {(G - R)} {(G + R)}$ 
-		& The method of NGRDI was used to overcome the differences in exposure settings selected by the digital camera when acquiring aerial photography of the field. 
-\tabularnewline\addlinespace
-
-		Vegetative Index      
-		& $\frac {G} {R^aB^{(1-a)}}, a = 0.667$ 
-		& VEG has a significant advantage because it is robust to lighting change.
-\tabularnewline\addlinespace
-
-		Com1   
-		& $ExG + CIVE + ExGR + VEG$ 
-		& High computational cost --- does not perform well in high or low light levels
-\tabularnewline\addlinespace
-
-		Modified Excess Green      
-		& $1.262G - 0.884R = 0.311B$ 
-		& Does not perform well in high or low light levels. 
-\tabularnewline\addlinespace
-
-		Combined Indices 2      
-		& $0.36ExG + 0.47CIVE + 0.17VEG$ 
-		& Uses weighting factors to emphasize strengths of various approaches
-\tabularnewline\addlinespace
-
-\tabularnewline\addlinespace
-\label{table:segmentation}
-\end{longtable}
-}	
-% End example
-Otsu describes an approach to automatically select thresholds in images \cite{Otsu1979-io}. This technique is carried out on \textit{greyscale} images, not images with color information, so conversion to greyscale will be integrated into the image processing workflow. The technique is not particularly compute intensive, but details a mechanism for automatically choosing a threshold for segmentation, obviating the need for choosing this threshold manually. While the technique can indeed select a segmentation threshold, it tends to result in images that contain too much of the background. Subsequent processing of these images suffer from two problems: increased compute time (due to the presence of non-vegetated pixels) and the distortion of both shape and color feature computations.
-
-
+%		Normalized Difference     
+%		& $128 * \left( \left( \frac {(G - R)} {(G + R)} \right) + 1 \right) $                    
+%		& The NDI index produces a near-binary image. 
+%\tabularnewline\addlinespace
+%
+%		Excess Green      
+%		& \begin{minipage}[t]{0.3\textwidth}
+%			$R = \frac {R} {R_{max}}\\ G = \frac {G} {G_{max}}\\ B = \frac {B} {B_{max}}$ 
+%		   \end{minipage}
+%		& ExG provided a clear contrast between plants and soil 
+%\tabularnewline\addlinespace
+%
+%		Excess Red      
+%		& $1.3 R - G$ 
+%		& inspired by the fact that there are 4\% blue, and 32\% green, compared with 64\% red cones in the retina of the human eye
+%\tabularnewline\addlinespace
+%
+%		Color Index of Vegetation Extraction      
+%		& $0.441 R - 0.811 G + 0.385 B + 18.78745$
+%		& This method was proposed to separate green plants from soil background in order to evaluate the crop growing status.
+%\tabularnewline\addlinespace
+%
+%		Excess Green - Excess Red   
+%		& $ExG - ExR$ 
+%		& ExG used to extract the plant region and ExR used to eliminate the background noise (soil and residue) where green–red material (stems, branches, or petioles) may exist
+%\tabularnewline\addlinespace
+%
+%		Normalized Green-Red Difference    
+%		& $\frac {(G - R)} {(G + R)}$ 
+%		& The method of NGRDI was used to overcome the differences in exposure settings selected by the digital camera when acquiring aerial photography of the field. 
+%\tabularnewline\addlinespace
+%
+%		Vegetative Index      
+%		& $\frac {G} {R^aB^{(1-a)}}, a = 0.667$ 
+%		& VEG has a significant advantage because it is robust to lighting change.
+%\tabularnewline\addlinespace
+%
+%		Com1   
+%		& $ExG + CIVE + ExGR + VEG$ 
+%		& High computational cost --- does not perform well in high or low light levels
+%\tabularnewline\addlinespace
+%
+%		Modified Excess Green      
+%		& $1.262G - 0.884R = 0.311B$ 
+%		& Does not perform well in high or low light levels. 
+%\tabularnewline\addlinespace
+%
+%		Combined Indices 2      
+%		& $0.36ExG + 0.47CIVE + 0.17VEG$ 
+%		& Uses weighting factors to emphasize strengths of various approaches
+%%\tabularnewline\addlinespace
+%\label{table:segmentation}
 %\end{longtable}
-\subsection{Weed Identification}
-In the proposed workflow, two sets of features are extracted from vegetation in the images: structural and color. Wirth gives an overview of the structural shape features used in this study: compactness, elongation, eccentricity, roundness, convexity and solidity \cite{Wirth2004-li}. 
-Sabzi presents an analysis of factors for weed/crop discrimination that include both structural and color features \cite{Sabzi2020-af}. In that study, Sabzi identifies these features that produce a 98\% correct classification rate: saturation in the HSV \cite{Various_undated-yv} color space, the mean value of Hue in the HSI color space, the area to length ratio, the mean Chrominance component in the YCbCr \cite{Wikipedia_contributors2022-qd} color space, and the standard deviation of the in-phase component of the YIQ \cite{Various_undated-cz} color space.
-Hemming studies using both morphological and color features, concluding that color features increase the accuracy of using morphological features alone. \cite{Hemming2001-ue} \\
+%}
+Once the image contains only vegetated pixels, interrupted sections are presumed to be of the same plant.\footnote{This approach will not work well for situations where overlapping vegetation is frequently encountered (as would be expected for field crops) or where weeds and crop are in close proximity. This is the one of the primary motivations for focusing this study on crops where neither of these cases are commonly encountered, although proximal overlap of weeds and crop will certainly be encountered.} As contiguous regions of vegetated pixels are often referred to as \textit{blobs}, that is the term adopted within this document. A blob is simply an unclassified plant in this context, as processing the original image with an index has ensured that only vegetated pixels remain.
 
- \citeauthor{Sabzi2020-af} employs both color and morphological features in crop/weed discrimination\parencite{Sabzi2020-af}:
+
+
+\subsection{Feature Extraction}
+Identical sets of features are extracted from each feature set, regardless of altitude. The features of the vegetation considered here can be thought of as falling into three categories: color, structure, and texture.  Features represent only a single value for a blob, i.e., the mean value of the blob's hue is 0.7443 or the roundness of a blob is 0.5302.
+\subsubsection{Color}
+Color features involve the expression of the familiar Red, Green, and Blue wavelengths typically considered when discussing images, but also includes colorspaces less commonly discussed: Hue, Saturation, and Intensity (HSI); Hue, Saturation, and Value (HSV); YIQ; YCBCR; and CIElab. In each of these spaces, various expressions (mean, standard deviation) of a blob's channels will be treated as a feature. The standard deviation of the \textit{in-phase} values of a blob in the YIQ space, for instance, would be considered as an extracted feature.
+\subsubsection{Structure}
+Structural Features involve both expressions of a blob's shape (how close it is to being circular, for example) and a blob's surface (a leaf's surface, can be thought of as having quantifiable \textit{texture}).  Shape factors that will be computed include: an object's convex hull, elongation, perimeter, eccentricity, convexity, compactness, circularity, and shape index. (\cite{Lin2017-xq, Wirth2004-li}) Surface features can be expressed with textural metrics such as Grey Level Co-occurrence Matrix (GLCM) \parencite{Haralick1973-gr, Hall-Beyer2017-nx} While images are converted to greyscale to achieve the metrics \citeauthor{Haralick1973-gr} detail, the GLCM expressions will also be computed for each of the aforementioned color spaces. For instance, the expression of the \textit{energy} of the blob's \textit{hue} in the HSI colorspace is an example of a co-occurrence calculation used to describe the blob. The blob can also be described its gradients. Extracting information about these gradient using the Histogram of Oriented Gradients (HOG) and subsequently using that information in manipulations yields a descriptor for that blob.\parencite{Abouzahir2021-sd}. As outlined in \ref{sec:acquisition}, images will be acquired at different altitudes, and it is likely the case that the most significant features relevant for classification will not remain constant with increasing altitude. Shape metrics, for example, may be less significant at 10m than at 2m, given that fine edge details are not present in images taken from higher distances AGL.
+
+\subsection{Optimal Features}
+Using the aforementioned features, each blob has approximately 715 features to describe it. To find which of these features are significant to the classification technique several statistical technique will be employed to produce the top 10 most influential parameters: PCA, Recursive Elimination, Feature Importance, and Univariate Feature Selection. Choosing the top 10 most influential parameters is itself excessive, as PCA shows that only a few parameters are responsible for most of the variance seen. While the initial stages of the classification will use the top 10 features, analysis of even smaller sets will be done as well.
+\begin{figure}[h]
+	%\centering
+	\begin{subfigure}[h]{.48\textwidth}
+		  \centering
+		  \includegraphics[width=1\linewidth]{figures/pca.png}
+		  \caption{Features explaining variance}
+		  \label{fig:pca}
+	\end{subfigure}
+	\begin{subfigure}[h]{.32\textwidth}
+	  \centering
+	  	
+		{
+		\centering\settowidth\rotheadsize{\bfseries(our proposal)}
+		\renewcommand\theadalign{cl}\renewcommand\cellalign{cl}
+		\renewcommand\theadfont{\bfseries}
+		\renewcommand\tabcolsep{4pt}\renewcommand\arraystretch{1.25}
+		% Make this a bit smaller so it will fit on a page.  Still looks a bit nasty in that it extends to the edge of the page.
+		% It's that PCA line that is the trouble, as the values are just too long
+		\footnotesize
+		
+		\begin{longtable}[c]{
+		    |l |*{12}{c |} }%
+		    \hline
+		    %\diagbox[height=1.2\rotheadsize, width=\dimexpr\eqboxwidth{AB}+2\tabcolsep\relax]%
+		    %{\raisebox{1.2ex}{Feature}}{\raisebox{-5ex}{Feature}} &
+		    {\textbf{Feature}} & {\textbf{Importance Rank}}\\
+		    %\rothead{Tool X\\\mbox{(our proposal)}}\\
+		    \hline
+			hue                      &     0.505089 \\
+			saturation\_mean          &     0.209646 \\
+			in\_phase                 &     0.073444 \\
+			cb\_mean                  &     0.036392 \\
+			hog\_stddev               &     0.026874 \\
+			hog\_mean                 &     0.020135 \\
+			hog\_variance             &     0.017359 \\
+			greyscale\_homogeneity\_0  &     0.016602 \\
+			greyscale\_homogeneity\_45 &     0.014872 \\
+			greyscale\_homogeneity\_90 &     0.012052 \\	    
+		    
+		    \hline
+		    %\caption{Feature Importance Ranks using RFE with a Random Forest Classifier}
+		    %\label{fig:random-forest}
+		  \end{longtable}
+		 }
+	  \caption{PCA Variances}
+  %\label{fig:sub2}
+	\end{subfigure}
+\caption{Principal Component Analysis of Features}
+\label{fig:pca}
+\end{figure}
+
+
+Early work has shown that these four techniques yield a list of 36 unique parameters, and that use of the parameter set produced by one approach will yield poor results with one particular model, but excellent results with another. To arrive at the optimal set for each model, all combinations of the 36 parameters taken 10 at a time will be evaluated.\footnote{The combination of 36 parameters taken 10 at a time is a reasonably large number, 254,185,856.  As we are evaluating seven different  machine learning techniques, this yields 1,779,307,992 models that will be built and evaluated. As my home machine can build only 1.5 million models overnight, the university HPCC is more suitable for this phase. As evaluating that number of models requires several days of computation, it may be the case that feature selection techniques (and thus the search space) is reduced.} That is, a model will be built for each combination of unique parameters to determine the best set for each technique at each altitude.
+In this use case, \textit{Evaluated} is somewhat more complex than it first appears. While overall accuracy is certainly important, these models will be evaluated in terms of maximizing the true positive rate of the classification of weeds as weeds while minimizing the false positive rate of classifying crop as weeds. Evaluating the model using the Area Under the Curve (AUC) and Receiver Operating Characteristic (ROC) curves is insightful, but these approaches are not sensitive to the fact that a mistaken classification of weed as crop has a much lower impact than the mistaken classification of a crop as a weed.\\
+
+
+
+\subsection{Classification}
+The set of optimal parameters will be used for binary classification using various ML classification techniques: Random Forest, Linear Discriminant Analysis (LDA), Support Vector Machine (SVM), Decision Tree, Logistic Regression, and Gradient Boosting.\footnote{These techniques are the ones currently coded, but the cost of the addition of other techniques is fairly low (the addition of LDA, for instance, was fairly recent and was integrated into the existing within a few minutes). Incorporating a deep learning approach has a somewhat higher, but not overly disruptive cost. This list of techniques can be expanded without significant change to other workflow steps described.} The raw images gathered in the field will be annotated with these classifications and subsequently manually inspected and corrected.\\
+As more images are acquired across the data development cycle, the manually corrected training data set will grow larger and is expected to contain both crop and weed images at various stages of development. This holds true for crop in particular, as remediation will likely remove them from the image sets before they are fully developed. This dataset will then be used to classify vegetation in a subsequent development cycle. While the subsequent development cycle image acquisition will follow the same procedures, it is anticipated that the correct classification of weeds will not only be higher, but that the resulting training set can be generalized across the development cycle. That is, any point in second development cycle can use the training set from the first.
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=0.7\linewidth]{./figures/classification-rates.png}
+	\caption[Misclassification rates of various algorithms for sample images]{The correct and misclassification rates of various algorithms using a sample image set are shown here. While an overall accuracy of 95.7\% may sound impressive for the Boosted Gradient algorithm, considering the salient misclassification and correct classification rates, 24.1\% and 98.6\%, respectively, that algorithm does not support the accuracy needed in this use case, as the cost of the misclassification of crops as weeds is quite high.}
+	\label{fig:classification-rates}
+\end{figure}
+
+\subsection{Implementation Details}
+This phase of the project involves three compute platforms:
 \begin{itemize}
-	\item{gray level co-occurrence matrix (GLCM)}
-	\item{the standard deviation of saturation (S) component in HSV color space}
-	\item{difference of first and seventh moment invariants}
-	\item{mean value of hue component (H) in HSI color space} 
-	\item{area to length ratio}
-	\item{average blue-difference chrominance (Cb) component in YCbCr color space}
-	\item{standard deviation of in-phase (I) component in YIQ color space}
+	\item{Classification analysis will be done in R on a general-purpose desktop computer or laptop. No special equipment or software is required for this other than the use of R/R Studio itself.}
+	\item{Feature analysis will be done on the University of Arizona's High-Performance Compute Cluster (HPCC), using software written in Python. The software will use ML libraries provided by the scikit-learn offering, but has no other dependencies otherwise.}
+	\item{Images collected in the field will be segmented and classified on a single-board (SBC) running Linux (Seeed Studio Odyssey). While the details of this deployment will be provided in a separate document, this will involve: Docker, MongoDB, Python3, and scikit-learn.}
 \end{itemize}
+All the software for each of these platforms can be accessed through a GitHub repository. Making the data acquired and subsequently classified as part of this project available has not yet been finalized. All data (raw images, for instance) is kept in a database and easily exported, but no  firm plans are in place to expose the raw or processed images or to expose the database itself.
 
+\section{Phase II}
+This phase concentrates on the production of a treatment plan from the classification results. The treatment plan is intended for human consumption, noting the details that include the location (geographic and row/offset position) of each plant. While the implementation and analysis of an automated treatment system is beyond the scope of this study, this phase will demonstrate a workflow similar to what an automate system would employ.
+As there could be many hundreds of weeds within a single field, it is not likely that a report detailing the particulars of each weed would prove to be an effective mechanism. A treatment plan will instead be more of an exploratory tool for the data, allowing the user to drill down into data from the field level to an individual plant. To facilitate this sort of interaction, the simplified model shown in Figure \ref{fig:architecture} will be used. Here, the user explores the data via a tablet application, which, in turn, retrieves information through the back-end weed server and database\footnote{Implementation details are beyond the scope of this document, but it is reasonable to see this as a fairly standard three-tier deployment, with clean separation between user interface (the exploration application), business logic (the weed server), and data. The weed server exposes an API and is unaware of the details of exactly how this information will be used. Likewise, the application is unaware of how the information is stored or processed. While it may be the case that the server is realized as a Flask application and the data resides in a MongoDB, these are implementation details that have no impact on other application tiers.} Information in this database is populated by the classifier discussed in Phase I. The deployment of these components is fairly flexible.  While the user and tablet are in the field or office, other components can reside either within a hosted (i.e., cloud) or resident deployment. The deliverable in this phase is the tablet-based application through which the user views information about the crop and weeds.\footnote{While a phone-based application is possible, and is certainly not precluded from this architecture (indeed it would be a component that could coexist beside the tablet application), a phone application is not part of this proposal}
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=0.8\linewidth]{./figures/treatment-plan-explore.drawio.png}
+	\caption[Simplified View of System Architecture]{The user and tablet are typically present in the field or office, exploring the data, while the server, database, and classifier are present in the field or a hosted environment. The classification server accepts API requests from the tablet application, allowing the user to explore the treatment sets without tightly coupling the two. In this scenario, previously collected data, effectively making it an off-line solution.}
+	\label{fig:architecture}
+\end{figure}
 
-\newpage
+The tablet application will be realized using Python 3.8/PyQt5 and deployed on Microsoft Surface hardware. While Surface tablet will be used for deployment, a Windows 10 desktop can also be used. as that is where development will take place.
  
-\section{System}
-\label{section:system}
-
-The system consists of three major subsystems: image processing, odometry, and treatment. Of these subsystems, only the image processing and odometry systems are covered in this study. The treatment sub-system has been developed separately \cite{Siemens2020-ds}, and will not be explored in-depth in this proposal. While treatment is important to the overall efficacy of the system, the realization of the treatment through mechanics, chemical, or other means (lasers) will not have significant bearing on this proposal. The image processing system uses machine learning to distinguish weed from crop and will direct treatment of vegetation deemed to be a weed, and represents the bulk of this proposal. 
-
-The system will be realized as an integrated solution, towed behind a tractor, treating a single bed with two crop rows as it travels along the row.
-\begin{figure}[H]
+This deployment is not limited to human interaction, of course. If the human interaction were replaced by an automated remediation, the overall deployment is completely unchanged, as Figure \ref{fig:architecture-with-treatment} illustrates.
+\begin{figure}[h]
 	\centering
-	\includegraphics[width=0.4\linewidth]{./figures/system-in-field.jpg}
-	\caption[An elevation view of the system in the field]{An elevation view of the system in the field --- the system depicted here is towed along a single bed, treating weeds as the system makes forward progress.}
-	\label{fig:system-in-field}
+	\includegraphics[width=0.8\linewidth]{./figures/treatment-plan.drawio.png}
+	\caption[Simplified View of System Architecture]{If instead of exploring the data the focus is on the application of treatment -- as would be the case with a towed sprayer or drone system, the overall architecture is unchanged. In this deployment, nothing has changed with the server deployment, as it continues to service requests. In this more real-time solution, images are classified immediately after acquisition. It should be noted, however, that development of a real-time classification and treatment system is not within the scope of this project, only that this system lends itself to this deployment. While this figure illustrates the use of a towed solution, where components can be deployed on a small form factor PC, the solution can also be deployed on board a UAV's co-processing system. Some UAVs offered by DJI support such a co-processor, but integration that solution is a Phase III, beyond the scope of this work.}
+	\label{fig:architecture-with-treatment}
 \end{figure}
+%\subsection{Weed Geolocation}
+%For both the automated treatment and human exploration of treatment plans, accuracy of 1cm is desired.  That is, the location of a weed is not limited by a (row, edge-offset) location scheme, or a smartphone-level accuracy of 5m or so. Rather, the location of vegetation lend itself to precision treatment.
+%While image sets are augmented with high-precision geo-location data, this phase will also compare the ground-truth location data of weeds to the projected location recorded by drone.\footnote{Image sets that are manually acquired (hand-held phone pictures) will not include high-precision location data, and are not considered as part of this step} Aside from best practices such as a clear view of the sky or using a high-quality antenna, GPS location data can be improved by applying correction data. This will involve two new pieces of equipment: a Real Time Kinematics (RTK) base station transmitting corrections, and a rover (manually moved survey pole) within the field capable of using those corrections.\footnote{It is not the case that a low-accuracy GPS such as would be found in a phone would be suddenly improved with this data. Rather, the GPS must be capable of applying the corrections. I have such a base station on my roof and a rover on my desk. While off-the-shelf solutions are available, these can be built fairly inexpensively} The RTK base station will reside with 10km of the field location if correction is provided over an internet connection and within 300m if corrections are provided over a radio link. In either deployment scenario, the field personnel positions a GPS equipped survey pole, referred to as a \textit{rover}, in close proximity to the plant to record the location of each.\footnote{It remains to be seen if recording the location of the weed is a manual process or one where a user simply presses a button on a tablet application to record the location. Given my distrust of any manual process, it will likely be the latter, although that means more software to write. It is also not required that the plant in question are weeds, or are classified as such. The purpose of this step is to assess the positional difference between locations extracted from UAV images and that determined from a separate ground system.}
+%\begin{figure}[h]
+%	\centering
+%	\includegraphics[width=0.8\linewidth]{./figures/rtk-internet.drawio.png}
+%	\caption[RTK corrections delivered through Internet]{RTK corrections can be delivered through the Internet to a RTK-capable GPS receiver in the field if an Internet connected, bluetooth enabled cellphone with an NTRIP client is present near the GPS. The NTRIP client serves as a sort of bridge between corrections obtained from the Internet and the GPS. This deployment has a limitation that there can be at most 10km between the base station and rover.}
+%	\label{fig:rtk-internet}
+%\end{figure}
+%\begin{figure}[h]
+%	\centering
+%	\includegraphics[width=0.8\linewidth]{./figures/rtk-radio.drawio.png}
+%	\caption[RTK corrections delivered via Radio]{For locations with limited Internet connectivity, corrections are delivered directly to the RTK-capable GPS via a radio link. This deployment has a limitation that there can be at most 300m between the rover and base station with a clear line of sight between the two.}
+%	\label{fig:rtk-radio}
+%\end{figure}
+%
+%Irrespective of the location technique employed, a sample of vegetation location will be taken to ensure a 95\% confidence interval with a 5\% margin of error.
 
-The integrated system is composed of four components:
-\begin{itemize}
-\item{A machine-vision camera, contained in a protective housing, and mounted on a gimbal system}
-\item{An image processing system, where weeds within the images acquired by the camera and treatment plans formed}
-\item{A controller, whose duties are to interpret signals from the odometry system and to direct the treatment/sprayer subsystem}
-\item{A treatment subsystem, here, a high-precision sprayer}
-\end{itemize}
-
-Figure~\ref{fig:system-overview} illustrates how the system will be realized for a single-bed, two-row system. In this realization, some components are dedicated to a crop row (the camera and associated lighting) and some are shared as a central resource (the National Instruments RIO controller)
-\begin{figure}[H]
+\subsection{Timeline of Activities}
+Image acquisition will commence four weeks after planting and will take place every two weeks until harvest.\footnote{Capturing images every two weeks may be overkill, and may changes to a longer interval if no significant change is seen between captures. This should be considered as a worst-case schedule.} As the planting date has not been fixed at the time of this writing (but has tentatively targeted for the latter half of November 2023), the schedule will follow a T0 (planting) plus timing. An overview\footnote{The full agile board containing details beyond this list comprising the entire backlog is also available -- contact the author for access to: \href{https://evan-mcginnis.atlassian.net/jira/software/c/projects/WEED/boards/1}{Agile-Board}} of the activities and milestones is summarized by Table~\ref{tab:timeline}. As the study timeline and the academic timeline are inextricably linked, both are presented here, but as dates for the latter have not yet been scheduled, they are tentative and will be updated as needed.
+\begin{table}[ht]
 	\centering
-	\includegraphics[width=0.4\linewidth]{./figures/system-overview.jpg}
-	\caption[An overview of the system]{An overview of the system -- the system depicted here targets a single row, two crop-line crop bed}
-	\label{fig:system-overview}
-\end{figure}
+    \caption{Study timeline in elapsed weeks}
+    \label{tab:timeline}
+    \begin{tabular}[t]{lll} 
+		\textbf{T0+} & \textbf{Activity} &\textbf{Comments}\\
+		\midrule
+			4 & Image Collection & At MAC\\
+			6 & Image Collection & At MAC\\
+			8 & Image Collection & At MAC\\
+			10 & Image Collection & At MAC\\
+			12 & Image Collection & At MAC\\
+			14 & Image Collection & At MAC\\
+			16 & Image Collection & At MAC\\
+			17 & \textit{Initial Findings Ready} & \\
+			18 & Image Collection & At MAC\\
+			20 & Image Collection (If needed) & At MAC \\
+			22 & Image Collection (If needed) & At MAC \\
+			30 & Paper on classification ready for internal review & \\
+			36 & \textit{Phase II Treatment Map Ready} & \\
+			40 & Paper on color differences ready for internal review & \\
+    \end{tabular}
+\end{table}
+At the time of this writing it is not clear that the entire set of image captures will be conducted (as the Spinach crop may be entirely harvested by then, but an additional lettuce crop may be established)
+Of particular interest here is the time of initial findings. The initial findings will include items discussed in previous sections of this document: optimal features at each altitude for each technique. The images gathered from subsequent collections are not expected to materially change those findings, but those initial findings will be updated to incorporate data extracted from those image sets. The paper describing the classification of vegetation will be ready for internal review by the 30$^{th}$ week. This paper will not cover details of segmentation or implementation, but will present a fairly complete picture of Phase I results. The second paper is, unfortunately, less well defined, as the content will depend greatly on the problems encountered and characteristics of the crop. Two topics stand out from early work: prediction with the imbalanced data set found in the fields (e.g., there are much more crop plants than weeds in some plantings, as will be expected in the drip-irrigated spinach field in this study), and color differences between irrigation techniques (i.e., drip and center-pivot colors may vary).
 
-\subsection{Data Management}
-This proposal does not explicitly cover the fate of the data captured (images of vegetation) and treatment plans formed during operation, but it is anticipated that these items will be archived in a cloud (i.e., AWS) or research system (i.e., CyVerse), but the details of that are beyond the scope of this proposal. Those data can be used for two purposes:
-\begin{itemize}
-	\item{future work that does not involve real-time response, as well as the assessment of individual treatment sessions.}
-	\item{evaluation of shape and color features across the growing season}
-\end{itemize}
-It is this second use that will be integrated in this study. The extent to which the color and shape features are invariant across the growing season may affect the efficacy of the weed/crop discrimination.
-
-\subsection{Development Environment and Software Components}
-The software development environment will consist of:
-\begin{itemize}
-	\item{Microsoft Windows 10}
-	\item{PyCharm Python IDE version 2020.3}
-\end{itemize}
-It is not likely that the development environment will have any affect on the deployed product.  Development using different operating systems (Ubuntu, for example) may be used, but are not currently planned.
-All software will be developed using Python 3.8 with these software components:
-\begin{itemize}
-	\item{eJabberd XMPP Server -- While no alterations to this server will be made apart from customized options, this server will provide a framework for all communications between physical components.  As this is a critical component, both the concepts behind XMPP and its use here will be discussed in detail below.}
-	\item{Slix XMPP Client Library -- This client library will be used on all physical components to provide the connectivity to the XMPP server.}
-	\item{Scikit-Learn -- This client library will be used to supply the machine-learning implementations used in this project.}
-	\item{NumPy -- While early stages of this project will use NumPy to perform computations on data contained in images (particularly in image segmentation), the use of Numpy will be used only in the early stages of the project. As computation time becomes more critical, GPU programming libraries will be used instead to perform these calculations.}
-	\item{National Instruments daqmx Python Library -- This library will be used only on the Compact RIO platform, and provides the interface for reading from or writing to physical cards and communication lines within those cards.}
-	\item{Basler Pylon Python Library -- This library will be used to both control the machine vision camera and to extract images from a stream of images sent.}
-	\item{pyCUDA toolkit -- This toolkit is used to access the NVIDIA GPU to perform time sensitive calculations. This is the toolkit that will be used to eventually replace the tasks carried out by the NumPy library.}
-\end{itemize}
-While it is clear that physical components are important, they are not actually required. The final system, of course, will use physical hardware to do things like turn on a spray head or to capture an image, but in the context of development, hardware is simply a detail. In this context, the system is unable to distinguish between virtual and physical components, and software will use hardware capabilities if they are present. GPU programming is a good example of this. If a GPU is detected on the system, it is used; if it is not detected, the system continues to operate, albeit more slowly. 
-
-\subsection{Component Communication} 
-In this system, components communicate with each other through a publish-and-subscribe technique using Extensible Messaging and Presence Protocol (XMPP). While publish and subscribe communications support several basic models of communication: one-to-one, one-to-many, and many-to-many, it is this last technique of interest here. This technique uses a chat-room approach to communicating processes. In such a system, components simply announce findings, and whoever is interested in receiving those messages will do so and will possibly respond.  XMPP based systems have two important features, that while not directly exploited, is critical in systems: assured message delivery, and synchronized delivery. The latter is a bit more easily explained than the former---in these systems, all components who are interested in a message get in \textit{at the same time}. The former requires a bit more explanation: messages are guaranteed to make it to their destination, and this has implications beyond a system where communication is unimpaired and processes are running without error. Suppose that a process has crashed or that the network is impaired. Processes can 'catch up' on messages issued while they were down or communications interrupted. \\
-This also  lends itself to a \textit{loosely coupled} system, one in which the composition of the system can be quite easily altered. While not a direct goal of the work outlined here, this arrangement simplifies making the system components redundant and the entire system fault tolerant. Consider the arrangement where the processing of an image is carried out by one of a dozen processing subsystems. Inserting new processing components into a loosely coupled system is trivial.
-In Figure~\ref{fig:system-overview}, there are three different connections: Ethernet, Serial, and WiFi. Serial cables are used to provide point-to-point connections between the controller and the encoder and the emitters. The Ethernet and WiFi networks host the XMPP traffic the networked components use for communication. There are three chatrooms (or channels) in this system:
-\begin{itemize}
-	\item{Distance}
-	\item{Treatment}
-	\item{Administration}
-\end{itemize}
-The Odometry subsystem, for instance, may not be concerned at all with treatment computations, and does not subscribe to that communications channel. An important aspect of this communication is that interested parties receive messages simultaneously, and for the purposes of this system, this is key. The correct functioning of both the treatment and image processing systems are dependent on distance, and simultaneous delivery avoids much of the adjustments that would be required in messages were delivered in series.
-
-\subsection{Machine Vision - Basler Camera}
-The machine vision system hosts no software written as part of this project.  Its sole function is to continuously stream a set of images to the image processing subsystem\cite{noauthor_undated-tt}.  The acquisition of images in ambient light (daylight) is full of challenges, the most prominent of which is dealing with varying lighting conditions due to obstructions, cloud-cover, and time-of-day. In this system, images are acquired with all illumination supplied by LED lighting under controlled conditions. All external illumination (natural light from the sun and stray artificial light) is blocked by the housing of the system itself. While LED illumination has attributes well suited to systems that operate under field conditions (typically more rugged with a much lower Mean Time Between Failure (MTBF)), it is the illumination control that is of importance in this context.  Precise digital control of the power of the illumination (typically expressed in lux) without affecting the emitted spectrum, is key in this context to accurate image segmentation. In this system images are acquired continuously, but \textit{selected} from that stream only when the system has moved into the correct position.
-
-\subsection{Odometry - Rotary Encoder}
-\label{sec:odometry}
-The odometry subsystem consists of an incremental encoder used to detect changes in wheel position and the software that makes that determination and announces its findings to the rest of the system. The odometry subsystem software resides within the controller, interpreting signals it receives from the directly attached rotary encoder. As the system moves forward, the odometry system makes announcements of distance traveled that are in line with the precision of the treatment subsystem. 
-
-\subsection{Image Processing - NVIDIA Jetson}
-The image processing subsystem is hosted on an NVIDIA Jetson Nano platform, a standalone GPU, and has three responsibilities:
-\begin{enumerate}
-\item{Acquire images from a stream of images issued by the machine vision camera when the system has moved forward a specific distance}
-\item{Identify weeds in an acquired image}
-\item{Form and announce a treatment plan}
-\end{enumerate} 
-
-These components work in a loosely coordinated manner as illustrated in Figure~\ref{fig:uml-system}. In this example, we can see the odometry system announcing forward progress of the system, and only when the image processing system decides that the system has moved forward enough does it then acquire and process an image.
-
-\begin{figure}[H]
+\begin{table}[ht]
 	\centering
-	\includegraphics[width=0.75\linewidth]{./figures/uml-system-example.jpg}
-	\caption[An example of system conversations]{An example of system conversation---In XMPP based systems, components may simply make announcements (publish) to a Multi-User Chat (MUC, aka chatroom) and components with an interest in those announcements (subscribers) take action. Consider the odometry system. Its sole job is to simply announce that the system has moved forward one unit.}
-	\label{fig:uml-system}
-\end{figure}
+    \caption{Academic timeline}
+    \label{tab:timeline}
+    \begin{tabular}[t]{lll} 
+		\textbf{Date} & \textbf{Activity} &\textbf{Comments}\\
+		\midrule
+			December 2023 & Written Comprehensive & Not yet scheduled\\
+			February 2024 & Oral Comprehensive & Not yet scheduled\\
+			March 2025 & Thesis available for review & Tentative\\
+			April 2025 & Defense & Not yet scheduled\\
 
-This deployment platform is geared toward optimizing machine learning problems without the overhead of a CPU-based system hosting a GPU.
- 
-\subsection{Console}
-The console is the mechanism for an operator to interact with the system. Figure~\ref{fig:console-operator} illustrates a concept that allows an operator to:
-\begin{itemize}
-	\item{See the treatment plan currently being applied}
-	\item{See the current state of each sprayer}
-	\item{See overall statistics for a weeding session}
-	\item{Control weeded operations, starting and stopping as required}
-\end{itemize}
-	
-
-\begin{figure}[H]
-	\centering
-	\includegraphics[width=0.75\linewidth]{./figures/console-operator.png}
-	\caption[An operator's console]{An operator's console that presents an overview of the current system state. As operators are not concerned with detailed status of system components, the odometry system, for instance, would not appear here.  The console for a system engineer, however, might have a different set of components visible.}
-	\label{fig:console-operator}
-\end{figure}
-
-While it is unlikely that the final console will take on this exact form, a few guiding principles will guide the final design of this:
-\begin{itemize}
-	\item{The interface will have as few large controls as possible, for instance large, easily accessed buttons.}
-	\item{The interface will be internationalized (I18N), with Spanish and English interfaces the first two languages developed. \footnote{I18N is the process of forming messages that conform to the way users have indicated that they want to receive messages. If they indicate that they want interfaces to be in Spanish, messages are delivered in that form. This does not happen automatically, of course, but the internationalization of an interface must be planned for in an implementation. An oversimplification of this for those familiar with programming is that strings a user see never appear in the code.}}
-	\item{The interface will be optimized for use on mobile devices.}
-\end{itemize}
-
-Once again, we see an advantage of using a publish-subscribe mechanism of communication. The rest of the system has no knowledge that there is an operator's console, and can be developed without factoring that knowledge that it even exists. That is, the treatment system does not tell the console that sprayer \#4 has been activated, it simply announces that it has activated that sprayer.  The console reports the events it observes in the chatrooms --- chatrooms are where the components of the system carry out conversations about what is the system is doing.
-
-\subsection{Phasing}
-This work will be carried out in three phases:
-\begin{itemize}
-\item{Proof of concept: In this phase some fundamental questions are answered, such as \textit{can weeds and crops be distinguished using visible light images?}}.
-\item{Prototype: This phase concentrates on using physical hardware targeted for field use: a camera, an NVIDIA GPU, and a National Instruments Controller. A key question answered in this phase is \textit{can images be processed fast enough to support a commercially viable speed?}}
-\item{Production: This phases shifts the focus to the field, where the physical hardware integrated in the previous phase brought together with the existing mechanicals and is proven under real-world conditions.} 
-\end{itemize}
-
-\subsubsection{Proof of concept}
-This phase will explore and develop the basic approaches to image segmentation and crop/weed discrimination. The target images for this phase will come in two forms: image sets that have been collected in the field, and composed images where various weed placements are tested.
-\subsubsection{Prototype}
-This phase will integrate software with hardware that will be used in the field, and will integrate with the XMPP communications channel that will be used in the field. The prototype phase will encompass these activities: \\
-\begin{itemize}
-	\item{Complete the image recognition, odometry, and treatment solution subsystems}
-	\item{Integrate with the Basler machine vision camera}
-	\item{Port the image processing system to the NVIDIA Jetson and integrate with the hosted GPU}
-	\item{Port the odometry system to the National Instruments RIO}
-	\item{Port the treatment system to the National Instruments RIO}
-	\item{Integrate component communication}
-\end{itemize}
-\subsubsection{Production}
-This phase will have two activities: installation of the physical hardware in the field enclosure, and field testing of the system. This phase will encompass these activities:
-\begin{itemize}
-	\item{Modify the existing enclosure and install components discussed in Section~\ref{section:system}}
-	\item{Field test the integrated system}
-\end{itemize}
-\subsection{Field Tests}
-Field tests will be conducted at the Yuma Agricultural Center of the University of Arizona with the integrates system in two phases: data collection, and wet-runs. Prior to the execution of the data collection phase, however, two calibration activities will be carried out. Once executed, repeating this calibrations will not be required unless there there is a change in any physical equipment (this applies primarily to the vision and odometry subsystems).
-\subsubsection{Sensor+Lens Calibration}
-The objective of this phase is to determine the pixel to ground distance measurement when the weeding system is in a planting bed deemed 'typical'. This relationship is determined by the following steps\footnote{This calibration may not be required, as the relationship can be determined with some relatively simple equations. The ground sampling distance (GSD) will be $\approx$ \SI{0.02} {\centi\meter} per pixel, a figure that will not vary significantly even when the height of the planting bed varies by a few cm. As this figure far exceeds the precision of the emitter subsystem, it is not anticipated that even a small variation in this figure will have a negative impact on the system.}:
-\begin{enumerate}
-	\item{A calibration sheet with two green dots centered 4 cm apart is positioned directly beneath one camera}
-	\item{Execute a script that will take the image, find the dots, determine the center-to-center distance in pixels. This script will write out a calibration file used by the weeding system}
-\end{enumerate}
-No forward motion of the weeding system will be required for this stage of the calibration. Calculations or laboratory tests to determine this relationship can be done, of course, but as the distance from the bed to the sensor will likely differ from measurements in the laboratory or used in calculations, this relationship will be determined by this field procedure.  A somewhat related procedure, but one that will be performed under laboratory conditions is the characterization of the distortion introduced by the lens in images of a checkerboard test target. A detailed description of that calibration is beyond the scope of this proposal, but is well documented elsewhere and supported by the OpenCV library set used for various imaging functions.
-\subsubsection{Odometry Verification}
-The odometry system will be verified on a level, hard, dry surface, under controlled (i.e., enclosed shed or equivalent) using this procedure:
-\begin{enumerate}
-	\item{A tape measure is placed on the ground along the cropline and extended the length of a planting bed.}
-	\item{The weeding system is towed over the entire length at varying speeds including stops an backwards motion.}
-\end{enumerate}
-This test will compare actual ground distance to the values reported by the system.  As mentioned in Section~\ref{sec:odometry}, it is important that the odometry subsystem be accurate over the distance from the leading edge of the image captured to the emitter line, not accurate over the entire length of the planting bed.
-\begin{figure}[H]
-	\centering
-	\includegraphics[width=0.75\linewidth]{./figures/odometry-accuracy.jpg}
-	\caption[Accuracy required from odometry subsystem]{The odometery subsystem requires accuracy over only a portion of a planting bed, indicated by the red line in this diagram.  The accuracy over this distance must be +/- .5cm, twice the accuracy of the treatment subsystem.}
-	\label{fig:uml-system}
-\end{figure}
-An odometry verification mode of the system software will capture and annotate images, noting every 1cm in forward motion to allow manual verification of accuracy.  Annotated images of the tape are used to verify two things:
-\begin{enumerate}
-	\item{Image capture accuracy --- Every increment on the tape should be captured, factoring in 20\% overlap at the leading and trailing edges of the image. To correctly classify vegetation that is not fully shown in a single image it will be necessary to stitch adjacent images together.}
-	\item{Emitter distance accuracy --- The annotations in the images are not simply markers every 1cm. Rather, the image will be marked with the distance to the leading edge of the image captured by the odometry system.}
-\end{enumerate}
-\begin{figure}[H]
-	\centering
-	\includegraphics[width=0.75\linewidth]{./figures/test-distance.jpg}
-	\caption[Test for distance measurement from emitter]{Note: not to scale. The distance from the center of the emitter to the leading edge of the image captured by the vision system. This figure uses a distance of 100cm only for illustration purposes. The value used will reflect distances in the physical system.}
-	\label{fig:test-distance}
-\end{figure}
-
-While the absolute accuracy of this odometry system is calculated as noted by this equation:
-\begin{align}
-\frac {wheel\ circumference}  {rotational\ pulses},\  or\  \frac {92cm} {1000} = .092cm
-\end{align}
-annotating images with that sort of accuracy would result in too much visual clutter in the resulting image sets.
-
-This procedure will be repeated under field conditions, where wheel slippage is expected to detrimentally affect accurate measurement of distance. Under both conditions, accuracy will be assessed both over the entire distance of a planting bed and over multiples of the distance shown above. These tests will not produce calibration data; their only purpose is to asses and adjust the odometry system.
-\subsubsection{Data Collection}
-While each run of the system will produce usable data, these "dry" runs will involve only the collection of speed, timing, classification, and imagery. There is no need for a complete and integrated treatment subsystem in these tests, but this phase must be preceded by the calibration tests detailed previously.
- In these runs, the system will collect a series of crop row images, each taken with 20\% front overlap. The image capture strategy reflects a need to stitch consecutive images together before classification, avoiding the problem where the lack of a full view of an object prevents classification. The images collected in this phase will be used for training in future runs, so runs early in this phase are unlikely to be acceptably accurate. Accuracy is expected to improve and will gate the transition to the next phase. Accuracy rates for phase exit will be 3\% false identification of crop as weeds, and 95\% correct identification of weeds as weeds.
-The size of the each image set collected in this run will be dependent on several factors:
-\begin{enumerate}
-	\item{The size of the Region of Interest (ROI) --- the vision system proposed for this project (Basler) supports the notion of an ROI that may be a subset of the full capability of the sensor. Suppose that a strip above and below the crop line can be ignored. Capturing and processing this information may not be worthwhile.}
-	\item{The compression rate of the camera system --- there is a tradeoff between image quality and the amount of compression applied. A 5 mega-pixel image contains 15 MB of data, but may be only 1 MB after compression. The image produced by the Basler acA1920-gc camera, for instance is 452 KB.}
-	\item{The ground distance captured in each image}
-	\item{The length of each planting bed row and the number of rows}
-\end{enumerate}
-Each image footprint is dependent on selections made for the vision subsystem. Using the values for a Basler acA1920-gc with a 5mm focal length lens\footnote{This camera was the only one available to the author at the time of this writing, and may not be chosen for the final project}, the image captured has these characteristics:
-\begin{align}
-	x = \left( \frac {elevation} {focal\ length} \right) \ *\ sensor\ width,\ or\ \left( \frac {502mm} {5mm} \right) 4.2mm = \SI{437.388}{\milli\meter} \\
-	y = \left( \frac {elevation} {focal\ length} \right) \ *\ sensor\ height,\ or\ \left( \frac {502mm} {5mm} \right) 2.4mm = \SI{240.960}{\milli\meter}
-\end{align}
-The length of the planting bed and number of rows is variable, of course, but this proposal will assume there are four rows, each 20m in length. The total number of images is given by:
-\begin{align}
-	images = \frac {4 * 20m * \frac{1000mm} {1m}} {437.388mm * .8} = 228.63
-\end{align}
-The space needed for a single image capture set is:
-\begin{align}
-229\ images * \frac{\SI{452}{\kilo\byte}} {image} \approx \SI{103.5}{\mega\byte}
-\end{align}
-
-A \SI{64}{\giga\byte} flash drive on the Jetson will provide a minimum of \SI{40}{\giga\byte} of free space, enough for several image collections. It is not anticipated that this space will be used, however, as image sets will be automatically uploaded to CyVerse (for off-line analysis; this activity is not real-time) and deleted from local media upon the completion of a run and IP connectivity to CyVerse can be established.
-
-\subsubsection{Wet-Run} 
-This phase requires all subsystems to be functionally complete and integrated. During these runs, the identified weeds are treated with a tinted, non-toxic liquid.  Treatment efficacy and accuracy can be assessed in two ways:
-\begin{enumerate}
-	\item{Manually, by assessing the coverage of each plant by the treatment --- a manual assessment has the advantage of detailed inspection of each application, but suffers from the inevitable errors in any manual assessment.}
-	\item{Automatically, by capturing images of post-treatment vegetation --- This approach would processes post-treatment images either by capturing images in real-time after treatment or by performing an additional dry-run immediately after a treatment, collecting an image set that can be used.  Collection of images immediately after treatment would require a new set of cameras immediately after the treatment system, a requirement that may not be mechanically feasible due to physical space constraints. The additional dry-run approach will be used in this project.}
-\end{enumerate}
-The automatic assessment of spray requires an image segmentation geared toward the hue of the dye, allowing the separation of treated vegetation. Once segmented, each unwanted plant is scored based on the percentage of leaf area treated. Once sufficient accuracy is achieved, treatment will transition from dyed water to dyed herbicide. Until that accuracy in achieved, weeds will be treated by manual remediation. Treatment accuracy should not be conflated with classification accuracy. While the classification of vegetation is an indication of the fate of a plant (treated or not, the intent), treatment accuracy is an indication of what actually happened. In practice, of course, the treatment accuracy will be 100\%, even if the classification is incorrect.
-
+    \end{tabular}
+\end{table}
 
  \newpage
 %
 % W E A K N E S S E S
 %
-\section{Weaknesses of Study}
-This proposal has weaknesses in four areas: weed/crop discrimination under field conditions, weed/crop discrimination over the growth cycle, system redundancy, and information security.
+%\section{Weaknesses of Proposal}
+%This proposal has weaknesses in how the findings can be generalized to other row crops or locations where the weed population may differ. As the targeted crop is fixed, it may be the case that factors that are indicative of one crop (lettuce, for instance) hold the same significance for another (cotton, for instance). Likewise, the weed population encountered in one area may not be present in another. 
 
-\subsection{Weed/Crop Discrimination Under Field Conditions}
-While the concepts around this are explored in the proof of concept phase, the image sets used there are obtained under lighting conditions that will  not be encountered in the production phase. The structural features noted previously will probably be invariant to changes based on lighting -- how round an object is does not depend heavily on lighting conditions, for instance. Color features, however, may. Vegetation may exhibit different responses to LED light than to full-spectrum sunlight. If this is encountered, we plan to deal with this by either adjusting the aforementioned thresholds applied to a vegetation index, or to use an index more suited to the spectrum encountered.
+\newpage
+\section{Appendix A -- Implementation}
+\subsection{Development Environment}
+Software will be written in Python 3 and R in this environment:
 
-%\subsection{Weed/Crop Discrimination over the Grown Cycle}
-
-\subsection{Redundancy}
-The system described in this proposal has multiple single points of failure. In such a system, for instance, the failure of a shared resource -- such as the National Instruments RIO controller -- would render the entire system unusable. The failure of a resource dedicated to a task, but with a peer performing the same task -- such as processing the images along the right side of a row -- will result in the degradation of system, but not a complete failure.
-\begin{figure}[H]
-	\centering
-	\includegraphics[width=0.4\linewidth]{./figures/system-overview-Page-2.jpg}
-	\caption[An overview of a redundant system]{An overview of a redundant system, illustrating that there is no single point of failure}
-	\label{fig:system-overview-redundant}
-\end{figure}
-
-Figure~\ref{fig:system-overview-redundant} illustrates a system without a single point of failure. If a RIO controller fails, for example, the system can use the redundant controller. If an Ethernet switch fails or if a cable fails connecting a component, that component can use the redundant network. In these systems, there are redundancy decisions that can be made locally -- a link to a switch has failed and the other switch must be used --- and redundancy decisions that must be made system-wide -- the failure of a component hosting the messaging server, for instance. That the system shows three NVIDIA devices is indicative of the N+1 redundancy scheme used by such a system. This system can tolerate the loss of only one NVIDIA, as it must have a \textit{quorum} of members to form a redundancy group. It is beyond the scope of this proposal to discuss redundancy schemes in depth, and the overly broad statements here are not meant to be an analysis of failure scenarios. \\
-For the proposed system, we will characterize the risk by computing MTBF of the physical components (these may not be available for components, but are typically supplied by the vendor).  While it does not mitigate the risk, system components will perform extensive self-tests when the system is first brought up, as well as non-invasive self tests during system operation. These self test results will speed the identification of faulty components, leading to higher uptimes and simplifying field deployments.
- 
-\subsection{Information Security}
-This proposal does not address the information security of the system, and a full assessment of that topic is beyond the scope of this document. While this system does not control a high-value target, the opportunities for compromising the subsystems can not be ignored entirely. The final system will take some best-practices approach to system components:
 \begin{itemize}
-	\item{Minimize the attack surface by shutting down unneeded services}
-	\item{Using certificates in lieu of passwords for establishing communication}
-	\item{Encrypting all communications between components}
-	\item{Scanning the system with penetration testing software}
+	\item{OS: Windows 10}
+	\item{IDE: PyCharm 2022.3, RStudio 2023.03.0+386}
+	\item{Language: Python 3.8, R}
+	\item{Image Processing: OpenCV, Scikit-image}
+	\item{Machine Learning: Scikit Learn}
+	\item{UI Development: PyQt5}
 \end{itemize}
 
+While various Python and R libraries not noted will also be used, this set forms the core of what will be used.
 
-%\newpage
-%\section{Public Health Significance}
- 
-%\section{Budget}
-%\label{section:budget}
-%Table~\ref{table:budget} reflects the total expenditures involved in this study. While not broken down by year, it is anticipated that these expenditures will take place over two years. Amounts specified are in US\$.
-%\begin{table}[h]
-%\centering
-%\begin{tabular}{lrlr}
-% 	\toprule
-%	Salaries/Wages    &  & 2670.60 \\
-%	\midrule
-%	& Mechanicals & 1965.00 \\
-%	&Field Operator & 705.60 \\
-%	\midrule
-%	Travel & & 2241.72 \\
-%	\midrule
-%	& In State & 2241.72 \\
-%	\midrule
-%	Supplies & & 6789.00 \\
-%	\midrule
-%	\midrule
-%	Project subtotal & & 11701.32 \\
-%	\midrule
-%	Indirect Costs (53\%)\tablefootnote{This may not be required if separate funding is not obtained. If that is not the case, the project subtotal should be considered the grand total for the project.} & & 6201.70 \\
-%	\toprule
-%	\toprule
-%	\textsc{Total Project}                      & & \underline{18387.92} \\
-%
-%	\bottomrule
-%    \bottomrule                
-%\end{tabular}
-%\caption[Total Budget Breakdown]{A breakdown of expenditures for this study}
-%\label{table:budget}
-%\end{table}
-%
-%%
-%% S A L A R I E S
-%%
-%\subsection{Salaries and Wages}
-%Table~\ref{table:salaries} reflects the salary expenditures for this study.  The components discussed in Section~\ref{section:system} will need to be installed in the existing enclosure. To accommodate these components, mechanical modifications will be required and will be carried out at the Yuma Agricultural Research Center. Once a modified system is ready, an operator qualified to operate a tractor in a field setting will conduct test runs using the system at the Valley Farm site of the Yuma Agricultural Research center.
-%\begin{table}[H] % Force the table to show below the paragraph
-%\centering
-%\begin{tabular}{lrlrlrlrlrlrlr}
-% 	\toprule
-%	Role & Per Hour & Hours Per Week & Weeks & ERE & Subtotal \\
-%	\toprule
-%	Mechanicals & 25.00 & 20 & 3 & 31.0\% & 1965.00 \\
-%	Field Operator & 15.00 & 2 & 20 & 17.6\% & 705.60 \\
-%	\toprule
-%	\toprule
-%	\textsc{Total Salaries} & & & & & \underline{2670.60} \\
-%
-%	\bottomrule
-%    \bottomrule                
-%\end{tabular}
-%\caption[Salary Breakdown]{A breakdown of salaries for this study}
-%\label{table:salaries}
-%\end{table}
-%
-%%
-%% T R A V E L
-%%
-%
-%\subsection{Travel}
-%Travel funds dedicated for in-state travel represent 6 trips to Yuma, Arizona to oversee physical system integration of the automated system and to oversee and collect data from field trials. These activities both take place at the University of Arizona Yuma Agricultural Center.
-%\begin{table}[H] % Force the table to show below the paragraph
-%\centering
-%\begin{tabular}{lrlr}
-% 	\toprule
-%	\toprule
-%	6 Trips to Yuma, AZ & & 2241.72 \\
-%	\midrule
-%	& Vehicle Rental for 2 days per trip @ \$67.31 & 1407.72 \\
-%	& Lodging for 1 day per trip @ \$94.00 & 564.00 \\
-%	& M\&IE for 2 days per trip @ \$45.00 & 270.00 \\
-%	\toprule
-%	\toprule
-%	\textsc{Total Travel}                      & & \underline{2241.72} \\
-%	\bottomrule
-%    \bottomrule                
-%\end{tabular}
-%\caption[Travel Budget Breakdown]{A breakdown of travel expenditures for this study}
-%\label{table:travel}
-%\end{table}
+\subsection{Deployment Environment}
+While the software developed is not tightly coupled to a specific OS, the deployment environment will consist of:
+\begin{itemize}
+	\item{Linux kernel 5.4 (Ubuntu distribution)}
+	\item{Docker 24.0.2}
+	\item{MongoDB 4.4.5 Community Edition}
+	\item{NGINX 1.24.0}
+\end{itemize}
 
-%
-% S U P P L I E S
-%
-\section{Supplies}
-\label{section:supplies}
-Table~\ref{table:supplies} reflects the supply expenditures for this proposal. All of the supplies here represent the Bill of Materials (BOM) of the final system, and will be installed in the existing enclosure. These supplies are required to support the completion of the \textit{deployment} phase detailed in Section~\ref{section:phases}.\\
-
-\begin{table}[H] % Force the table to show below the paragraph
-\centering
-\begin{tabular}{lrlr}
- 	\toprule
- 	Item & Quantity & Price \\
- 	\midrule
-	Heavy Duty TRD-GK Rotary Encoder & 1 & 269.00 \\
-	NVIDIA Jetson & 2 @ 459 &918.00 \\
-	NVIDIA Jetson Enclosure &2 @ 25 & 50.00 \\
-	LED Lamps & 4 @ 150 & 600.00 \\
-	National Instruments CompactRIO&1& 1567.00 \\
-	9411 Module for RIO &1& 372.00 \\
-	9403 Module for RIO &1& 656.00 \\
-	Cables &6+& 75.00 \\
-	Basler ACE2 Machine Vision Camera &2 @ 730& 1460.00  \\
-	Computar C-Mount Lens &2 @ 320& 640.00 \\
-	POE+ Ethernet Switch &1& 50.00 \\
-	WiFi Outdoor Access Point &1& 70.00 \\
-	Encoder Power Supply &1& 12.00 \\
-	NVIDIA Jetson Power Supply &2 @ 25& 50.00 \\
-	\midrule
-	\midrule
-	\textsc{Total Supplies}                      & & \underline{6789.00} \\
-	\bottomrule
-    \bottomrule                
-\end{tabular}
-\caption[Supply Budget Breakdown]{A breakdown of supply expenditures for the deployment stage of this study}
-\label{table:supplies}
-\end{table}
+While an Ubuntu distribution is shown in the list above, deploying the solution to Windows or Centos does not require substantial changes. This flexibility is what will allow the migration of the software from a deployment in the author's office to one where the AUV hosts all software.  Some DJI models, for example, allow the addition of a GPU or CPU based system nearly identical to the one used in testing.
 
 
 
 
-%\end{table}
-
-%REFERENCES
-%Use the Vancouver Style of referencing. This is found at this website:
-%http://www.ncbi.nlm.nih.gov/books/bv.fcgi?rid=citmed.TOC&depth=2 or a less detailed website:
-%http://www.nlm.nih.gov/bsd/uniform_requirements.html
-%
-%References should be numbered consecutively in the order in which they are first mentioned in the text. Identify references in text, tables, and legends by Arabic numerals in parentheses. The titles of journals should be abbreviated according to the style used in Index Medicus. Consult the list of Journals Indexed for MEDLINE, published annually as a separate publication by the National Library of Medicine. The list can also be obtained through the Library's web site..
 
 
 
- 
-
-
-% 
-% E N D  T E M P L A T E  F R O M  W O R D
-%
 
 \newpage
 {
