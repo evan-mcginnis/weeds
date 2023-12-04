@@ -284,6 +284,7 @@ This paper proposes a study of classification of vegetation as weeds and crop of
   \vhEntry{1.0}{1 Aug 2023}{EM}{Initial revision}
   \vhEntry{1.1}{7 Aug 2023}{EM}{Incorporate comments}
   \vhEntry{1.1}{30 Nov 2023}{EM}{Incorporate comments and remove lettuce references. Revise introduction and add section on color correction.}
+  \vhEntry{1.2}{5 Dec 2023}{EM}{Add text on observing over growth cycle to introduction.}
 \end{versionhistory}
 \newpage
 }
@@ -324,6 +325,8 @@ This study will take a different approach, and will produce sets of optimal para
  The discovery of the optimal set at each altitude will involve the University of Arizona's High Performance Compute Cluster to build and assess models built with the most significant subset of parameters extracted for all techniques mentioned.
  
 While exposing it is not a direct output of this study, this word will also produce a labeled dataset hosted within a database that can be used in subsequent work. This dataset is supported by utility scripts and an API that allows production of datasets for a given crop, distance AGL, location, or time. Use of databases may be present in the studies examined for this proposal, but those studies offered, at best, ``data used in this study is available on request''. Consequently, it is difficult to say with any certainty how the data is managed. 
+ 
+ A search for studies involving classification across the development cycle has not yielded ones that provide insights. While studies identifying factors and distance from the ground are readily found, considering classification across the crop development cycle is not. That is, existing studies detail the classification \textit{at a single point in time}, not across the growth cycle. While this is complicated a bit by the fact that weeds are typically not permitted to have an uninterrupted development cycle, the desired vegetation is. Changes within the crop of color, texture, or shape over time is not considered in the classification. This study will also seek to answer a secondary question: \textit{How do the factors used in classification change over time?}
  
  The second phase of this project will explore the production of treatment plans from classifications. Treatment plans can be explored by a user with an application, summarized into reports (PDF), and used in automated treatment systems.  While the second phase of this proposal will  produce plans that are focused on the first two, the infrastructure and classifications provided by the system will allow for further development in this area.
 
