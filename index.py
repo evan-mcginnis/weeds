@@ -3,6 +3,7 @@
 #
 
 import argparse
+import math
 import sys
 from typing import Callable
 
@@ -49,7 +50,8 @@ parser.add_argument("-n", "--nonegate", action="store_true", default=False, help
 parser.add_argument("-t", "--threshold", action="store", type=tuple_type, default="(0,0)", help="Threshold tuple (x,y)")
 parser.add_argument("-m", "--mask", action="store_true", default=False, help="Mask only -- no processing")
 parser.add_argument("-d", "--direction", action="store", default=1, type=int, help="Direction 1 or -1")
-parser.add_argument("-g", "--gsd", action="store", default=2.74, type=float, help="Ground Sampling Distance")
+parser.add_argument("-g", "--gsd", action="store", default=2.62,type=float, help="Ground Sampling Distance")
+parser.add_argument("-c", "--contours", action="store_true", default=False, help="Draw contours on original image")
 # parser.add_argument("-c", "--contours", action="store_true", default=False, help="Show contours on images")
 # parser.add_argument("-d", "--decorations", action="store", type=str, default="all", help="Decorations on output images (all and none are shortcuts)")
 # parser.add_argument("-df", "--data", action="store", help="Name of the data in CSV for use in logistic regression or KNN")
@@ -96,12 +98,12 @@ thresholds = {ALG_NDI: (130,0),
               ALG_EXR: (35, 5),
               ALG_CIVE: (30,0),
               ALG_EXGEXR: (0,0),
-              ALG_NGRDI: (10,0),
+              ALG_NGRDI: (0,-9999),
               ALG_VEG: (1.25,0),
-              ALG_COM1: (-100,0),
+              ALG_COM1: (0,-9999),
               ALG_MEXG: (25,0),
               ALG_COM2: (15,0),
-              ALG_TGI: (300,-15)} # Revisit
+              ALG_TGI: (0,-9999)} # Revisit
 
 indices = {ALG_NDI: {"short": ALG_NDI, "create": veg.NDI, "negate": True, "threshold": thresholds[ALG_NDI], "direction": 1},
            ALG_EXG: {"short": ALG_EXG, "create": veg.ExG, "negate": True, "threshold": thresholds[ALG_EXG], "direction": 1},
@@ -127,7 +129,7 @@ _algorithms = [ALG_NDI,
               ALG_COM2,
               ALG_TGI]
 
-#_algorithms = [ALG_TGI]
+#_algorithms = [ALG_COM1]
 
 #
 # self.computations = {self.ALG_NDI     : {"description": "Normalized Difference", "create": self.NDI, "threshold": thresholds["NDI"]},
@@ -220,7 +222,7 @@ def plotTransect(image, title):
     x = np.arange(0, yLen, 1)
     #plt.style.use('ggplot')
     plt.figure(figsize=(20,10))
-    plt.title("Transect across river")
+    plt.title(title)
     plt.xlabel('Distance')
     plt.ylabel('Pixel Value')
     plt.plot(x, image[:,0], color='red', label="Red")
@@ -312,16 +314,43 @@ try:
                 cv.imwrite(arguments.output + "/" + "processed-with-" + algorithm + ".jpg", image)
                 veg.ShowStats(image)
                 # The results hold the area calculation
-                results[i] = veg.GetImageStats(image) * arguments.gsd
+                results[i] = (veg.GetImageStats(image) * arguments.gsd) / 10000
                 i += 1
                 algorithms.append(algorithm)
+                # Draw contours on original image
+                if arguments.contours:
+                    manipulated = ImageManipulation(image, imageNumber)
+                    # Convert to greyscale
+                    greyScaleImage = manipulated.toGreyscale()
+                    # Wherever we find a non-zero pixel, put red in an image
+                    #imgNP = np.array(self.img).astype(dtype=np.int16)
+                    redBand = rawImage[:, :, 2]
+                    greenBand = rawImage[:, :, 1]
+                    blueBand = rawImage[:, :, 0]
+                    #redImage = np.zeros_like(rawImage)
+                    redBand = np.where(greyScaleImage > 0, 255, 0)
+                    greenBand = np.where(greyScaleImage > 0, 0, 0)
+                    blueBand = np.where(greyScaleImage > 0, 0, 0)
+                    redImage = cv.merge((blueBand, greenBand, redBand))
+                    # Blend the red image and the original
+                    redImage = redImage.astype(dtype=np.uint8)
+                    result = cv.addWeighted(rawImage,.75, redImage, .25, 0)
+                    cv.imwrite(arguments.output + "/" + "contours-for-" + algorithm + ".jpg", result)
+                    #contours = manipulated.findContours(50)
+                    # Draw contours on the original image
+                    #manipulated.image = rawImage
+                    #manipulated.drawContours(False)
+                    #cv.imwrite(arguments.output + "/" + "contours-for-" + algorithm + ".jpg", manipulated.image[109043:123257,56612:106613])
+                    #cv.imwrite(arguments.output + "/" + "contours-for-" + algorithm + ".jpg", manipulated.image[1:7000,1:7000])
+
 
         xs = np.arange(0, len(results), 1)
         #x_pos = [i for i, _ in enumerate(algorithms)]
         plt.figure(figsize=(10,5))
         plt.title("Vegetated Area")
         plt.xlabel('Algorithm')
-        plt.ylabel('Vegetated Area (CM)')
+        plt.ylabel('Vegetated Area ($M^2$)')
+        plt.ticklabel_format(useOffset=False, style='plain')
         plt.bar(algorithms, results)
         plt.savefig(arguments.output + "/" + "bar-counts.jpg")
         plt.show()
@@ -378,7 +407,8 @@ try:
 
     if arguments.plot:
         plot3D(index[8000:8250,12000:12250], arguments.algorithm)
-        plotTransect(image[9690,6170:8440], 'Transect')
+        plotTransect(image[9690,6170:8440], 'Transect of River')
+        plotTransect(image[9690,0:image.shape[1]], 'Transect of Image')
 
     ImageManipulation.show("Masked", image)
     cv.imwrite(arguments.output + ".jpg", image)

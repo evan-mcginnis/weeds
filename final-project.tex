@@ -158,7 +158,7 @@ contents={\begin{tikzpicture}[remember picture,overlay]
 \vspace*{1cm}
 \noindent
 %%\vspace*{0.4\textheight}
-\textcolor{white}{\Huge\textbf{\textsf{Vegetation Monitoring along the\\ Santa Cruz River}}}
+\textcolor{white}{\Huge\textbf{\textsf{Application of Vegetation Indices\\2D and 3D data}}}
 \vspace*{2.5cm}\par
 \noindent
 \begin{minipage}{0.35\linewidth}
@@ -195,9 +195,9 @@ This study was conducted along the Santa Cruz River near the intersection of Sil
 \item Exposure Mode: Program AE
 \item ISO: 100
 \item Location: 32.308939, -111.049764
-\item AGL: 100 meters
+\item AGL: 90 and 100 meters
 \item Camera: DJI FC6310S
-\item Ground Sampling Distance: 2.56 cm\footnote{This is a weighted sample average for reasons that will be discussed in subsequent paragraphs}
+\item Ground Sampling Distance: 2.62 cm\footnote{This is the value from the Pix4D quality report, as the flights are at two different altitudes}
 \end{itemize}
 
 
@@ -208,9 +208,9 @@ This study was conducted along the Santa Cruz River near the intersection of Sil
   \label{fig:flight} 
 \end{figure}
 
-Figure~\ref{fig:flight} shows the flight paths executed for this flight, and a few problems are immediately obvious on closer inspection. While the intent was to have the entire study area covered in a double-grid pattern, a double grid pattern was used in approximately $\frac {1} {3}$ of the study area. Unfortunately, the flight control system crashed after only completing a small area, requiring the use of a second flight control system where a double-grid pattern was not applied. Subsequent processing of the imagery acquired is the result of combining these two image sets, with $\frac {1} {3}$ of the flight at 100 meters giving a ground sampling distance of 2.74 cm and $\frac {2} {3}$ of the flight at 90 meters, giving a ground sampling distance of 2.47 cm. The sky was clear with minimal wind during the flights. A nearby fire that produced large amounts of smoke did not affect the flight area with obscuring haze.
+Figure~\ref{fig:flight} shows the flight paths executed for this flight, and a few problems are immediately obvious on closer inspection. While the intent was to have the entire study area covered in a double-grid pattern, a double grid pattern was used in approximately $\frac {1} {3}$ of the study area. Unfortunately, the flight control system crashed after only completing a small area, requiring the use of a second flight control system where a double-grid pattern was not applied. Subsequent processing of the imagery acquired is the result of combining these two image sets, with $\frac {1} {3}$ of the flight at 100 meters giving a ground sampling distance of 2.74 cm and $\frac {2} {3}$ of the flight at 90 meters, giving a ground sampling distance of 2.47 cm. These two data sets were combined, giving the GSD shown. The sky was clear with minimal wind during the flights. A nearby fire that produced large amounts of smoke did not affect the flight area with obscuring haze.
 
-The images were initially processed with Pix4D TODO: Version Number??? to produce an initial point cloud and orthomosaic. Subsequent processing was done with software written by the author and with verification with R (version 4.1.1) and RStudio (version 2021.09.0 Build 351). (Both Python and R sources are available in the GitHub repository referenced in the appendix)
+The images were initially processed with Pix4D to produce an initial point cloud and orthomosaic. Subsequent processing was done with software written by the author and with verification with R (version 4.1.1) and RStudio (version 2021.09.0 Build 351). (Both Python and R sources are available in the GitHub repository referenced in the appendix)
 
 The workflow follows this sequence:
 \begin{enumerate}
@@ -392,7 +392,7 @@ Most of implementation of these index algorithms are provided by the author, wit
 \section{Segmentation of Point Clouds}
 Vegetation indices can also be applied to point clouds with a few items of note:
 \begin{itemize}
-\item{The values for the RGB points may be substatially different than those seen in the orthomosaic.}
+\item{The values for the RGB points may be substatially different than those seen in the orthomosaic In the example shown here, the threshold used with the index was 5000 -- contrasted with the value of 130.}
 \item{Automatic selection of the threshold is a bit more complicated, as the technique mentioned (Otsu) involved a grey-scale image, something not present here}
 \item{Point clouds involve many more points than an orthomosaic for the same study area, and processing time will be substatially longer}
 \end{itemize}
@@ -431,37 +431,37 @@ It is worth mentioning here that processing the study area point cloud could not
 & \textbf{Area}   
 & \textbf{Comment} \\\midrule
 Triangular Greenness
-&  
+&  2525104
 & \\\hline
 Normalized Difference     
-&                   
+&   2806857
 &   Picks up too much of the bright areas. (includes river)\\\hline
 Excess Green      
-& 
+& 2452001
 & \\\hline
 Excess Red      
-& 
+& 2962501
 &  Tends to pick up too much redness in ground. (includes river)\\\hline
 Color Index of Vegetation Extraction      
-& 
+& 497783
 & Does not include river\\\hline
 Excess Green - Excess Red   
-& 
+& 2411091
 & Includes river \\\hline
 Normalized Green-Red Difference    
-& 
+& 3345184
 & Includes River\\\hline
 Vegetative Index      
-& 
+& 1004538
 & Does not include river\\\hline
 Modified Excess Green      
-& 
+& 1331686
 & Does not include river\\\hline
 Combined Indices 1  
-&  
+&  131424
 & Does not pick up all the vegetation (does not include river)\\\hline    
 Combined Indices 2      
-&  
+&  1543544
 & Picks up even light colored vegetation, even unhealthy (does not include river)\\\hline    
 
         \bottomrule
@@ -528,6 +528,169 @@ Combined Indices 2
 \caption{Results of processing the study area with various indices}
 \end{figure}
 
+\section{Accuracy Assessment}
+Systematically assessing the accuracy of the beyond the scope of this paper, but discussed extensively elsewhere \cite{Barati2011-oj}. Overlaying the vegetated areas revealed through the indices (depicted in red) with the original images reveals Figure~\ref{fig:overlays}. In this subset, we can compare the original images with the segmentation approaches.
+
+\subsection{CIVE}
+The CIVE index does not capture portions of the same plant, leading to a large underestimation in plant area.
+\begin{figure}[H]
+	\centering
+	\includegraphics[height=5cm]{figures/detail-cive-overlay.jpg}
+	\caption{Detail of the CIVE overlay}
+	\label{fig:detail-cive}
+\end{figure}
+
+\subsection{TGI}
+The TGI index does a good job of detecting vegetation within the plant, and does not exhibit false positives within shadow areas. As Figure~\ref{fig:detail-tgi} shows, the shadow above the isolated tree does not indicate that it was counted as vegetation. However, this index does exlude vegetation that is lower green but additional ground work is required to determine it if is living (the vegetation in the top right of the image).
+\begin{figure}[H]
+	\centering
+	\includegraphics[height=5cm]{figures/detail-tgi-overlay.jpg}
+	\caption{Detail of the TGI overlay}
+	\label{fig:detail-tgi}
+\end{figure}
+
+\subsection{COM2}
+The COM2 index does a good job of detecting vegetation within the plant, and does not exhibit false positives within shadow areas. As Figure~\ref{fig:detail-tgi} shows, however, this index does not capture portions of the same plant.
+\begin{figure}[H]
+	\centering
+	\includegraphics[height=5cm]{figures/detail-com2-overlay.jpg}
+	\caption{Detail of the COM2 overlay}
+	\label{fig:detail-com2}
+\end{figure}
+
+\subsection{Excessive Green}
+The ExG index does a good job of detecting vegetation within the plant, and does not exhibit false positives within shadow areas. As Figure~\ref{fig:detail-exg} shows, however, this index tends to include bright sand in the midst of trees. It is possible that this is a reflection of the tree reflectance, but bears further investigation. Other bright sandy areas are not incorrectly marked as vegetation.
+\begin{figure}[H]
+	\centering
+	\includegraphics[height=5cm]{figures/detail-exg-overlay.jpg}
+	\caption{Detail of the Excessive Green overlay}
+	\label{fig:detail-exg}
+\end{figure}
+
+\subsection{Excessive Green Excessive Red}
+The ExGExR index does a good job of detecting vegetation within the plant, and does not exhibit false positives within shadow areas. As Figure~\ref{fig:detail-exgexr} shows, however, this index fails to include vegetation with a light hue.
+\begin{figure}[H]
+	\centering
+	\includegraphics[height=5cm]{figures/detail-exgexr-overlay.jpg}
+	\caption{Detail of the Excessive Green Excessive Red overlay}
+	\label{fig:detail-exgexr}
+\end{figure}
+
+\subsection{Excessive Red}
+Overall, this index captures much of the vegetation, but as Figure~\ref{fig:detail-exr} shows, this index fails to include vegetation that is fully green. While the detail shown in this picture is well beyond the range of the river, it seems consistently colored.
+\begin{figure}[H]
+	\centering
+	\includegraphics[height=5cm]{figures/detail-exr-overlay.jpg}
+	\caption{Detail of the Excessive Red overlay}
+	\label{fig:detail-exr}
+\end{figure}
+
+\subsection{Modified Excess Green}
+It is useful here to contrast this index with the results seen in the same area, As Figure~\ref{fig:detail-mexg} shows, this index does capture vegetation that is fully green, but then fails to capture vegetation around it (likely due to the red band content of the vegetation.
+\begin{figure}[H]
+	\centering
+	\includegraphics[height=5cm]{figures/detail-mexg-overlay.jpg}
+	\caption{Detail of the Modified Excessive Green overlay}
+	\label{fig:detail-mexg}
+\end{figure}
+
+\subsection{Normalized Difference}
+The NDI index captures most of the vegetation with few exceptions. As Figure~\ref{fig:detail-ndi} shows, this index tends to fail to capture lightly colored vegetation.
+\begin{figure}[H]
+	\centering
+	\includegraphics[height=5cm]{figures/detail-ndi-overlay.jpg}
+	\caption{Detail of the Normalized Difference overlay}
+	\label{fig:detail-ndi}
+\end{figure}
+
+\subsection{Normalized Green Red Difference}
+The NGRDI index captures most of the vegetation but tends to also capture portions of the image without vegetation. As Figure~\ref{fig:detail-ngrdi} shows, this index captures brightly colored sand areas devoid of vegetation, distorting calculations of vegetation coverage.
+\begin{figure}[H]
+	\centering
+	\includegraphics[height=5cm]{figures/detail-ngrdi-overlay.jpg}
+	\caption{Detail of the Normalized Green Red Difference overlay}
+	\label{fig:detail-ngrdi}
+\end{figure}
+
+\subsection{Triangular Greenness}
+The TGI index captures most of the vegetation with few problems seen. Examining the area other indices did not perform satisfactorily  Figure~\ref{fig:detail-tgi} shows that the TGI index captured most vegetation in the area. 
+\begin{figure}[H]
+	\centering
+	\includegraphics[height=5cm]{figures/detail-tgi-overlay.jpg}
+	\caption{Detail of the Triangular Greenness overlay}
+	\label{fig:detail-tgi}
+\end{figure}
+
+\subsection{Vegetative}
+The Vegetative index failed to capture large amounts of vegetation, as Figure~\ref{fig:detail-veg} reveals 
+\begin{figure}[H]
+	\centering
+	\includegraphics[height=5cm]{figures/detail-veg-overlay.jpg}
+	\caption{Detail of the Vegetative overlay}
+	\label{fig:detail-veg}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\begin{subfigure}{.32\textwidth}
+	\centering
+	\includegraphics[width=1\linewidth]{figures/contours-for-com2.jpg}
+	\caption{COM2}
+\end{subfigure}
+\begin{subfigure}{.32\textwidth}
+	\centering
+	\includegraphics[width=1\linewidth]{figures/contours-for-exg.jpg}
+	\caption{Excess Green}
+\end{subfigure}
+\begin{subfigure}{.32\textwidth}
+	\centering
+	\includegraphics[width=1\linewidth]{figures/contours-for-cive.jpg}
+	\caption{CIVE}
+\end{subfigure}
+\begin{subfigure}{.32\textwidth}
+	\centering
+	\includegraphics[width=1\linewidth]{figures/contours-for-com1.jpg}
+	\caption{COM1}
+\end{subfigure}
+\begin{subfigure}{.32\textwidth}
+	\centering
+	\includegraphics[width=1\linewidth]{figures/contours-for-exgexr.jpg}
+	\caption{ExgExr}
+\end{subfigure}
+\begin{subfigure}{.32\textwidth}
+	\centering
+	\includegraphics[width=1\linewidth]{figures/contours-for-exr.jpg}
+	\caption{Excess Red}
+\end{subfigure}
+\begin{subfigure}{.32\textwidth}
+	\centering
+	\includegraphics[width=1\linewidth]{figures/contours-for-mexg.jpg}
+	\caption{Modified Excess Green}
+\end{subfigure}
+\begin{subfigure}{.32\textwidth}
+	\centering
+	\includegraphics[width=1\linewidth]{figures/contours-for-ndi.jpg}
+	\caption{NDI}
+\end{subfigure}
+\begin{subfigure}{.32\textwidth}
+	\centering
+	\includegraphics[width=1\linewidth]{figures/contours-for-ngrdi.jpg}
+	\caption{NGRDI}
+\end{subfigure}
+\begin{subfigure}{.32\textwidth}
+	\centering
+	\includegraphics[width=1\linewidth]{figures/contours-for-tgi.jpg}
+	\caption{TGI}
+\end{subfigure}
+\begin{subfigure}{.32\textwidth}
+	\centering
+	\includegraphics[width=1\linewidth]{figures/contours-for-veg.jpg}
+	\caption{VEG}
+\end{subfigure}
+\caption{Shaded overlays of study area with various indices. Red areas indicate vegetation.}
+\label{fig:overlays}
+\end{figure}
+
 %
 % C O N C L U S I O N S
 %
@@ -535,7 +698,7 @@ Combined Indices 2
 In this paper, we have explored using the application of vegetation indices to both 2D and 3D data as a part of a workflow to estimate vegetation area and volume. Of course, this is only a snapshot of one data. The data acquisition  and subsequent processing must be repeated across seasons to evaluate vegetation coverage.  The methods here, however, will suffer from a few items:
 \begin{itemize}
 \item{Lighting conditions will vary between data sets acquired on different dates. It may be the case that some indices are sensitive to these effects and will yield different results even when processing the same area}
-\item{Manual selection of a threshold point across seasons may yield misleading results.  The selection of the threshold for2D data can be automated, but 
+\item{Manual selection of a threshold point across seasons may yield misleading results.  The selection of the threshold for2D data can be automated, but }
 \end{itemize}
 
 

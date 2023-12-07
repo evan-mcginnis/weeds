@@ -194,7 +194,7 @@ try:
                         indices.get(arguments.algorithm).get("direction"),
                         indices.get(arguments.algorithm).get("threshold"))
     #mask, threshold = veg.MaskFromIndex(index, not arguments.nonegate, 1, arguments.threshold)
-    veg.applyLargeMask()
+    veg.applyLargeMask(True)
     #image = veg.GetImage()
     las.red = veg.redMasked
     las.green = veg.greenMasked

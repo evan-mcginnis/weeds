@@ -92,6 +92,12 @@ class ImageManipulation:
     def image(self):
         return self._image
 
+    # Use this with caution. This is intended for the use case where we want to do things
+    # with the original image
+    @image.setter
+    def image(self, newImage: np.ndarray):
+        self._image = newImage
+
     @property
     def hsv(self):
         return self._imgAsHSV
@@ -379,6 +385,100 @@ class ImageManipulation:
         """
         return sizeOfTarget / sizeOfLargest
 
+    def findContours(self, threshold: int) -> []:
+        """
+        Find the contours in the image
+        :param threshold: The minimum size of an object
+        :return: The contour
+        """
+        self.toGreyscale()
+        #self.show("grey", self._imgAsGreyscale)
+        #self.write(self._imgAsGreyscale, "greyscale.jpg")
+
+        self.cartoon()
+        #self.show("cartooned", self._cartooned)
+        #self.write(self._image, "original.jpg")
+        #self.write(self._cartooned, "cartooned.jpg")
+
+        #self.write(self._image, "index.jpg")
+
+        # Convert to binary image
+        # Works
+        #ret,thresh = cv.threshold(self._cartooned,127,255,0)
+        ret,thresh = cv.threshold(self._imgAsGreyscale, 127,255,cv.THRESH_BINARY+cv.THRESH_OTSU)
+        self.write(thresh, "threshold.jpg")
+        kernel = np.ones((5,5),np.uint8)
+        erosion = cv.erode(self._cartooned, kernel,iterations = 4)
+        #erosion = cv.erode(erosion, kernel,iterations = 3)
+        #self.write(erosion, "erosion.jpg")
+        erosion = cv.dilate(erosion,kernel,iterations = 3) # originally 3
+
+        closing = cv.morphologyEx(erosion, cv.MORPH_CLOSE, kernel)
+        self.write(closing, "closing.jpg")
+        #self.show("binary", erosion)
+        self.write(erosion, "binary.jpg")
+        self._imageAsBinary = erosion
+
+        # Originally
+        # candidate = erosion
+
+        largestName = "unknown"
+        area = 0
+        candidate = closing
+        self.write(candidate, "candidate.jpg")
+        # find contours in the binary image
+        #im2, contours, hierarchy = cv.findContours(thresh,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
+        # We don't need the hierarchy at this point, so the RETR_EXTERNAL seems faster
+        #contours, hierarchy = cv.findContours(erosion,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
+        contours, hierarchy = cv.findContours(candidate,cv.RETR_TREE,cv.CHAIN_APPROX_NONE)
+
+        self._contours = contours
+        # Calculate the area of each box
+        i = 0
+        largest = 0
+        for c in contours:
+            M = cv.moments(c)
+
+            if M["m00"] != 0:
+                cX = int(M["m10"] / M["m00"])
+                cY = int(M["m01"] / M["m00"])
+            else:
+                cX, cY = 0, 0
+
+            x,y,w,h = cv.boundingRect(c)
+            # The area of the bounding rectangle
+            #area = w*h
+            # The area of the vegetation
+            area = cv.contourArea(c)
+            type = constants.TYPE_UNKNOWN
+            location = (x,y,w,h)
+            center = (cX,cY)
+            reason = constants.REASON_UNKNOWN
+            hue = 0.0
+            saturationMean = 0.0
+            yiqStdDeviation = 0.0
+            blueDifferenceMean = 0.0
+
+            infoAboutBlob = {constants.NAME_LOCATION: location,
+                             constants.NAME_CENTER: center,
+                             constants.NAME_AREA: area,
+                             constants.NAME_TYPE: type,
+                             constants.NAME_CONTOUR: c,
+                             constants.NAME_REASON: reason,
+                             constants.NAME_NEIGHBOR_COUNT: 0,
+                             constants.NAME_HUE: hue,
+                             constants.NAME_SATURATION: saturationMean,
+                             constants.NAME_I_YIQ: yiqStdDeviation,
+                             constants.NAME_BLUE_DIFFERENCE: blueDifferenceMean}
+
+            name = "blob" + str(i)
+            # Ignore items in the image that are smaller in area than the
+            # threshold.  Things in shadow and noise will be identified as shapes
+            if area > threshold:
+                self._blobs[name] = infoAboutBlob
+            i = i + 1
+
+        return self._contours
 
     def findBlobs(self, threshold : int) -> ([], np.ndarray, {}, str):
         """
@@ -964,13 +1064,16 @@ class ImageManipulation:
         #                    2)
 
 
-    def drawContours(self):
+    def drawContours(self, filled: bool=False):
         """
         Draw the contours on the image
         """
         for blobName, blobAttributes in self._blobs.items():
             contour = blobAttributes[constants.NAME_CONTOUR]
-            cv.drawContours(self._image, contour, contourIdx=-1, color=(255,0,0),thickness=5)
+            if filled:
+                cv.fillPoly(self._image, pts=[contour], color=(255,0,0))
+            else:
+                cv.drawContours(self._image, contour, contourIdx=-1, color=(255,0,0),thickness=2)
         # self._contours_image = np.zeros(self._image.shape, np.uint8)
         # cv.drawContours(self._contours_image, self._contours, contourIdx=-1, color=(255,0,0),thickness=2)
         # cv.imwrite("contours.jpg", self._contours_image)

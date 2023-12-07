@@ -108,7 +108,7 @@ class VegetationIndex:
         return(algorithm["create"]())
 
     def GetImageStats(self, target: np.ndarray):
-        nonZeroCells = np.count_nonzero(target > 0, keepdims=False)
+        nonZeroCells = np.count_nonzero(target, keepdims=False)
         count = (target != 0.0).sum()
         return nonZeroCells
 
@@ -393,7 +393,7 @@ class VegetationIndex:
 
         return
 
-    def applyLargeMask(self) -> bool:
+    def applyLargeMask(self, zeroed: bool=False) -> bool:
         """
         Applies the mask for really large images where numpy would complain.
         Warning: this is very slow for large matrices.
@@ -407,6 +407,8 @@ class VegetationIndex:
         self.blueBandMasked = [reading * mask for reading,mask in pairs]
         pairs = zip(self.greenBand, self.mask)
         self.greenBandMasked = [reading * mask for reading,mask in pairs]
+        if zeroed:
+
         result = True
 
         return result
