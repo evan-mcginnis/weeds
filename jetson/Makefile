@@ -3,6 +3,7 @@
 #
 clean:
 	rm -f *.log*
+	rm -f *.pickle
 	#rm -rf ../output/*
 
 requirements:
@@ -81,8 +82,14 @@ DBNAME?=weeds
 # Thresholds
 # Originally
 #THRESHOLDS?="(130,0)"
-THRESHOLDS?=128
-THRESHOLDS-TGI?="(9,0)"
+ifeq ($(THRESHOLDS),otsu)
+	THRESHOLDFLAG=
+else
+	THRESHOLDS?=128
+	THRESHOLDS-TGI?="(9,0)"
+	THRESHOLDFLAG = -t $(THRESHOLDS)
+endif
+
 # Contours
 CONTOURS?=-c
 # Standlone
@@ -138,11 +145,16 @@ weeds:
 
 # This is the one to use
 weeds-to-db:
-	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a $(INDEX) -t $(THRESHOLDS) -df $(TRAINING) $(ALGFLAG) -sc -op $(OPERATION) -lg $(LOG) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE) -db -alt $(ALTITUDE) -cr $(CROP)
+	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a $(INDEX) $(THRESHOLDFLAG) -df $(TRAINING) $(ALGFLAG) -sc -op $(OPERATION) -lg $(LOG) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE) -db -alt $(ALTITUDE) -cr $(CROP)
+
+weeds-with-hull:
+	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a $(INDEX) $(THRESHOLDFLAG) -df $(TRAINING) $(ALGFLAG) -sc -op $(OPERATION) -lg $(LOG) -d $(DECORATIONS) -ini $(INI) $(STANDALONE) -db -alt $(ALTITUDE) -cr $(CROP) --hull
 
 weeds-plot:
-	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a $(INDEX) -t $(THRESHOLDS) -df $(TRAINING) $(ALGFLAG) -sc -op $(OPERATION) -lg $(LOG) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE) -db -alt $(ALTITUDE) -cr $(CROP) -p
+	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a $(INDEX) $(THRESHOLDFLAG) -df $(TRAINING) $(ALGFLAG) -sc -op $(OPERATION) -lg $(LOG) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE) -db -alt $(ALTITUDE) -cr $(CROP) -p
 
+optimal:
+	$(PYTHON) Selection.py -df results-current.csv -fs ALL -f 7 -c 5 -o
 svm:
 	$(PYTHON) weeds.py -r ../../results/results.svm.csv -i $(INPUT) -o ../../results/output-svm -a $(INDEX) -t $(THRESHOLDS) -df $(TRAINING) -svm -sc -v -lg $(LOG) -se $(PARAMETERS) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE)
 	mv $(LOGFILE) ../../results/output-svm.log

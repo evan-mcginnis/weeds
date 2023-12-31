@@ -12,7 +12,7 @@ from sklearn.feature_selection import RFE
 #from sklearn.linear_model import LogisticRegression
 from sklearn.decomposition import PCA
 import pickle
-
+from typing import List
 import itertools
 import numpy as np
 import pandas as pd
@@ -25,6 +25,8 @@ from Factors import Factors
 from enum import Enum
 
 from numpy import set_printoptions
+
+import random
 
 # Types of analysis
 SELECTION_VARIANCE    = "variance"
@@ -110,7 +112,6 @@ class Selection(ABC):
         if not os.path.isfile(filename):
             raise FileNotFoundError(filename)
 
-        self.log.info("Load training file")
         # Works
         # self._df = pd.read_csv(filename,
         #                        usecols=[constants.NAME_RATIO,
@@ -133,6 +134,7 @@ class Selection(ABC):
         #                                 constants.NAME_CONTRAST,
         #                                 constants.NAME_TYPE])
         self._df = pd.read_csv(filename, usecols=self._columns)
+        self.log.info("Loaded training file")
 
         # Keep a copy of this -- we will use this elsewhere
         self._rawData = self._df
@@ -310,7 +312,10 @@ class Univariate(Selection):
         self._name = "Univariate"
 
     def create(self):
-        self._test = SelectKBest(score_func=f_classif, k="all")
+        try:
+            self._test = SelectKBest(score_func=f_classif, k="all")
+        except UserWarning as r:
+            self.log.error(f"{self._name}: {r}")
         return
 
     def analyze(self, outputFormat: Output) -> np.ndarray:
@@ -378,8 +383,8 @@ class All(Selection):
         #self._selectionTechniques = [self._variance, self._recursive, self._pca, self._importance, self._univariate]
         # This is the original
         #self._selectionTechniques = [self._recursive, self._pca, self._importance, self._univariate]
-        # This is the debug list
-        self._selectionTechniques = [self._recursive, self._pca]
+        # This is the debug list -- recursive is very slow & univariate encounters errors
+        self._selectionTechniques = [self._recursive, self._pca, self._importance, self._univariate]
 
 
     def create(self):
@@ -387,6 +392,7 @@ class All(Selection):
         Call all the create functions for the techniques
         """
         for technique in self._selectionTechniques:
+            self.log.debug(f"Preparing selection technique: {technique.name}")
             technique.maxFactors = self.maxFactors
             technique.create()
 
@@ -428,6 +434,16 @@ class All(Selection):
         for technique in self._selectionTechniques:
             technique.load(filename)
 
+class Criteria(Enum):
+    ACCURACY = 0
+    AUC = 1
+
+
+
+class Status(Enum):
+    UNCLAIMED = -1
+    IN_PROGRESS = 0
+    COMPLETED = 1
 class Maximums:
     def __init__(self, filename: str):
         self._filename = filename
@@ -462,7 +478,164 @@ class Maximums:
         with open(self._filename, "ab") as results:
             pickle.dump(self._maximums, results)
 
+class IndividualResult:
+    def __init__(self, theTechnique: str):
+        # If the combination has been checked yet
+        self._checked = Status.UNCLAIMED
+        # The result of that check -- will be -1.0 if not yet complete
+        self._accuracy = -1.0
+        # The list of parameters to use
+        self._parameters = List[str]
+        self._technique = theTechnique
+        self._id = -1
 
+    @property
+    def id(self) -> int:
+        return self._id
+
+    @id.setter
+    def id(self, theId: int):
+        if theId < 0:
+            raise ValueError("ID must be 0 or greater")
+        self._id = theId
+
+    @property
+    def technique(self) -> str:
+        return self._technique
+
+    @technique.setter
+    def technique(self, theTechnique: str):
+        self._technique = theTechnique
+
+    @property
+    def accuracy(self) -> float:
+        return self._accuracy
+
+    @property
+    def parameters(self) -> []:
+        return self._parameters
+
+    @parameters.setter
+    def parameters(self, theParameters: []):
+        self._parameters = theParameters
+
+    @property
+    def status(self) -> Status:
+        return self._checked
+
+    def claim(self) -> []:
+        self._checked = Status.IN_PROGRESS
+        return self._parameters
+
+    def complete(self, result: float):
+        self._checked = Status.COMPLETED
+        self._accuracy = result
+
+    def __str__(self) -> str:
+        theString = f"Accuracy: {self._accuracy} Parameters: {self._parameters}"
+        return theString
+
+class AllResults:
+    def __init__(self, theTechnique: str):
+        """
+        The results of checking
+        :param theTechnique: Name of the technique (KNN, SVM, etc.)
+        """
+        self._technique = theTechnique  # KNN, SVM, etc.
+        self._results = []  # List of results from Result class above
+        self._parameters = []           # List of lists -- all combinations of parameters
+        self._lastClaimedPosition = 0
+        self._batches = 1
+        self._lastClaimedPositionInBatch = [0]
+
+    @property
+    def batches(self) -> int:
+        """
+        The number of batches of results
+        :return:
+        """
+        return self._batches
+
+    @batches.setter
+    def batches(self, theBatches: int):
+        """
+        Set the number of batches considered.  Resets the claimed positions to the beginning of the batch
+        :param theBatches:
+        """
+        self._batches = theBatches
+        self._lastClaimedPositionInBatch = [0] * theBatches
+        for batch in range(theBatches):
+            self._lastClaimedPositionInBatch[batch] = batch * int(len(self._results) / theBatches)
+
+
+    @property
+    def results(self) -> []:
+        return self._results
+
+    @property
+    def parameters(self) -> []:
+        return self._parameters
+
+    @parameters.setter
+    def parameters(self, theParameters: []):
+        self._parameters = theParameters
+        id = 0
+        # Create the results list
+        for parameterList in self._parameters:
+            result = IndividualResult(self._technique)
+            result.id = id
+            result.parameters = parameterList
+            self._results.append(result)
+            id += 1
+
+    def getNextUnclaimed(self, batch: int) -> IndividualResult:
+        """
+        Claim the next unclaimed combination
+        :return: Individual result or None
+        """
+        found = False
+        combination = None
+        if batch not in range(self._batches):
+            raise ValueError(f"Batch size given as {batch} must be between 0 and {self._batches}")
+        # The lower bound of the range to search
+        lowerBound = int(batch * int((len(self._results) / self._batches)))
+        upperBound = int(lowerBound + int(len(self._results) / self._batches))
+        position = lowerBound
+        #print(f"Processing positions between {lowerBound} and {upperBound}")
+        while True:
+            combination = self._results[self._lastClaimedPositionInBatch[batch]]
+            if combination.status == Status.UNCLAIMED:
+                self._results[self._lastClaimedPositionInBatch[batch]].claim()
+                self._lastClaimedPositionInBatch[batch] = position
+                break
+            else:
+                position += 1
+                self._lastClaimedPositionInBatch[batch] += 1
+                combination = None
+                if self._lastClaimedPositionInBatch[batch] == len(self._results):
+                    break
+
+        return combination
+
+    def recordResult(self, combination: IndividualResult, result: float):
+        self._results[combination.id].complete(result)
+
+    def save(self, fileName: str):
+        dbfile = open(fileName, 'wb')
+        # source, destination
+        pickle.dump(self._results, dbfile)
+        dbfile.close()
+
+    def load(self, fileName: str):
+        dbfile = open(fileName, 'rb')
+        self._results = pickle.load(dbfile)
+        dbfile.close()
+
+
+    def print(self):
+        print(f"Technique: {self._technique}")
+        for result in self._results:
+            print(f"Score: {result.accuracy} Status: {result.status} Parameters: {result.parameters}")
 
 if __name__ == "__main__":
     import argparse
@@ -477,116 +650,24 @@ if __name__ == "__main__":
     from typing import List
     #    from Logger import Logger
     from Classifier import Classifier, LogisticRegressionClassifier, KNNClassifier, DecisionTree, RandomForest, GradientBoosting, SuppportVectorMachineClassifier, LDA
-
+    from Performance import Performance
     from enum import Enum
 
     selector = None
     TECHNIQUE = "TECHNIQUE"
     RESULT = "RESULT"
     PARAMETERS = "PARAMETERS"
+    l: List[int]
+
+    MAX_PARAMETERS = 10
 
     STRATEGY_ACCURACY = "accuracy"
     STRATEGY_AUC = "auc"
     allStrategies = [STRATEGY_ACCURACY, STRATEGY_AUC]
 
-    class Criteria(Enum):
-        ACCURACY = 0
-        AUC = 1
 
-    MAX_PARAMETERS = 10
-
-
-    class Status(Enum):
-        UNCLAIMED = 0
-        IN_PROGRESS = 1
-        COMPLETED = 2
 
     # A single result
-    class IndividualResult:
-        def __init__(self, theTechnique: str):
-            # If the combination has been checked yet
-            self._checked = Status.UNCLAIMED
-            # The result of that check -- will be 0.0 if not yet complete
-            self._accuracy = 0.0
-            # The list of parameters to use
-            self._parameters = List[str]
-            self._technique = theTechnique
-
-        @property
-        def technique(self) -> str:
-            return self._technique
-
-        @technique.setter
-        def technique(self, theTechnique: str):
-            self._technique = theTechnique
-
-        @property
-        def parameters(self) -> []:
-            return self._parameters
-
-        @property
-        def status(self) -> Status:
-            return self._checked
-
-        def claim(self) -> []:
-            self._checked = Status.IN_PROGRESS
-            return self._parameters
-
-        def complete(self, result: float):
-            self._checked = Status.COMPLETED
-            self._accuracy = result
-
-
-    l: List[int]
-    class AllResults:
-        def __init__(self, theTechnique: str):
-            """
-            The results of checking
-            :param theTechnique: Name of the technique (KNN, SVM, etc.)
-            """
-            self._technique = theTechnique  # KNN, SVM, etc.
-            self._results = []              # List of results from Result class above
-            self._parameters = []           # List of lists -- all combinations of parameters
-
-        @property
-        def parameters(self) -> []:
-            return self._parameters
-
-        @parameters.setter
-        def parameters(self, theParameters: []):
-            self._parameters = theParameters
-            # Create the results list
-            for parameterList in self._parameters:
-                result = IndividualResult(self._technique)
-                self._results.append(result)
-
-        def getNextUnclaimed(self) -> int:
-            found = False
-            position = 0
-            combination = None
-            while not found and position < len(self._results):
-                combination = self._results[position]
-                if combination.status == Status.UNCLAIMED:
-                    found = True
-                    self._results[position].claim()
-                else:
-                    position += 1
-
-            return position
-
-        def recordResult(self, position: int, result: float):
-            self._results[position].complete(result)
-
-        def save(self, fileName: str):
-            dbfile = open(fileName, 'ab')
-            # source, destination
-            pickle.dump(self._results, dbfile)
-            dbfile.close()
-
-        def load(self, fileName: str):
-            dbfile = open(fileName, 'rb')
-            self._results = pickle.load(dbfile)
-            dbfile.close()
 
     # The maximum values for each technique
 
@@ -753,13 +834,13 @@ if __name__ == "__main__":
     parser.add_argument("-fs", "--selection", action="store", required=True, choices=Selection.supportedSelections(),
                         help="Feature selection")
     parser.add_argument("-f", "--factors", type=int, required=False, default=10)
-    parser.add_argument("-lg", "--logging", action="store", default="info-logging.yaml", help="Logging configuration file")
+    parser.add_argument("-lg", "--logging", action="store", default="debug-logging.yaml", help="Logging configuration file")
     parser.add_argument("-lf", "--logfile", action="store", default="weeds.log", help="Logging output file")
     parser.add_argument("-l", "--latex", action="store_true", required=False, default=False,
                         help="Output latex tables")
     actions = parser.add_mutually_exclusive_group()
     actions.add_argument("-o", "--optimal", action="store_true", required=False, default=False, help="Search for optimal parameters")
-    actions.add_argument("-c", "--consolidated", action="store_true", required=False, default=False, help="Show consolidated list of parameters")
+    actions.add_argument("-co", "--consolidated", action="store_true", required=False, default=False, help="Show consolidated list of parameters")
     actions.add_argument("-t", "--target", action="store", required=False, type=str, help="Write parameter combinations to this file")
 
     parser.add_argument("-m", "--maximums", action="store", required=False, help="Maximimum result file")
@@ -767,6 +848,9 @@ if __name__ == "__main__":
     parser.add_argument("-d", "--debug", action="store_true", required=False, default=False, help="Process a small subset of parameters")
     parser.add_argument("-p", "--prefix", action="store", required=False, default="maximums", help="Prefix for result files")
     parser.add_argument("-b", "--batch", action="store", required=False, type=int, default=500000, help="Batch size for parameter search")
+    parser.add_argument("-c", "--chunks", action="store", required=False, type=int, default=1, help="Number of chunks")
+    parser.add_argument("-P", "--performance", action="store", type=str, default="performance.csv",
+                        help="Name of performance file")
 
     # selectionCriteria = parser.add_mutually_exclusive_group()
     # selectionCriteria.add_argument("-a", "--auc", action="store_true", default=False, help="Use AUC for scoring")
@@ -775,6 +859,12 @@ if __name__ == "__main__":
     arguments = parser.parse_args()
 
     logger = startupLogger(arguments.logging, arguments.logfile)
+
+    performance = Performance(arguments.performance)
+    (performanceOK, performanceDiagnostics) = performance.initialize()
+    if not performanceOK:
+        print(performanceDiagnostics)
+        sys.exit(1)
 
     if arguments.selection == SELECTION_UNIVARIATE:
         selector = Univariate()
@@ -815,17 +905,18 @@ if __name__ == "__main__":
 
     # For each technique, find the optimal set of attributes
     if arguments.optimal:
+        # TODO: This is a very slow method
         selector.analyze(Output.NOTHING)
         results = []
         if arguments.debug:
             logger.warning("Processing reduced subset")
-            results = ["hue", "cb_mean", "hog_mean", "greyscale_homogeneity_90"]
+            results = ["hue", "cb_mean", "hog_mean", "greyscale_homogeneity_90", "compactness"]
             maxParameters = 3
-            combinationsPerBatch = 1
+            combinationsPerBatch = 2
         else:
             # The list of all the attributes to be analyzed
             results = selector.results(unique=True)
-            maxParameters = MAX_PARAMETERS
+            maxParameters = arguments.factors
             combinationsPerBatch = arguments.batch
 
 
@@ -836,7 +927,7 @@ if __name__ == "__main__":
         #chunks2 = more_itertools.batched(combinations2, combinationsPerBatch)
         #allChunks = list(chunks2)
         allCombinations = list(combinations2)
-        logger.info(f"Search space is {len(allCombinations)} combinations")
+        logger.info(f"Search space is {len(allCombinations)} combinations from {len(results)} taken {maxParameters} at a time")
 
         # allCombinations = list(combinations)
         # combinations_1, combinations_2 = itertools.tee(allCombinations, 2)
@@ -844,6 +935,31 @@ if __name__ == "__main__":
 
         allTechniques = [RandomForest(), KNNClassifier(), GradientBoosting(), LogisticRegressionClassifier(), DecisionTree(), SuppportVectorMachineClassifier(), LDA()]
         allTechniquesNames = [x.name for x in allTechniques]
+
+        # Temporary: Create the result files
+        allResultsForATechnique = {}
+        for technique in allTechniquesNames:
+            logger.debug(f"Technique: {technique}")
+            allResultsForATechnique[technique] = AllResults(technique)
+            allResultsForATechnique[technique].parameters = allCombinations
+            allResultsForATechnique[technique].batches = arguments.chunks
+            print("Claiming first combination")
+            for batch in range(arguments.chunks):
+                logger.debug(f"Processing batch: {batch}")
+                combination = allResultsForATechnique[technique].getNextUnclaimed(batch)
+                accuracy = random.uniform(0.0, 100.0)
+                while combination is not None:
+                    if random.randint(1, 10) > 5:
+                        allResultsForATechnique[technique].recordResult(combination, random.uniform(0.0, 100.0))
+                    performance.start()
+                    combination = allResultsForATechnique[technique].getNextUnclaimed(batch)
+                    performance.stopAndRecord("OPTIMAL")
+                    if combination is not None and combination.id % 10000 == 0:
+                        logger.debug(f"Claimed combination {combination.id}")
+            allResultsForATechnique[technique].save(technique + ".pickle")
+        sys.exit(-1)
+
+        # End temporary
 
         # print(f"Total Combinations: {len(allCombinations)}")
         #
