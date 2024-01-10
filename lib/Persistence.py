@@ -629,15 +629,25 @@ class RawImage:
     @classmethod
     def findByParameters(cls, connection: Mongo, **kwargs) -> List['RawImage']:
         """
-        Locates an image with the given parameters
+        Locates an image with the given parameters. Note that if the beginning and ending altitude or date is
+        specified, both must be. If AGL is not specified, distances up to 900 are included. If acquisition dote
+        is not specified, all dates are included.
         :param connection:
-        :return: list of raw images or None
+        :keyword float begin_agl: Begin AGL
+        :keyword float end_agl: End AGL
+        :keyword str begin_date: Begin date in the form YYYY-MM-DD
+        :keyword str end_date: End date in the form YYYY-MM-DD
+        :return: list of RawImages images or None
         """
 
         query = ""
-        # by date range
+        # The default is for all distances AGL up to 900
         beginAGL = 0
-        endAGL = 0
+        endAGL = 900
+
+        # The default is for all dates
+        beginDate = datetime.strptime("0001-01-01", "%Y-%m-%d")
+        endDate = datetime.strptime("9999-12-31", "%Y-%m-%d")
         beginSpecified = False
         endSpecified = False
         images = []
@@ -700,7 +710,7 @@ class RawImage:
                 images.append(image)
         else:
             # TODO: This is a placeholder
-            pass
+            raise ValueError("The only supported connection type is mongodb")
 
         return images
 

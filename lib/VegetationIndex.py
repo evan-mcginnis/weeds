@@ -421,7 +421,9 @@ class VegetationIndex:
         if threshold == None:
             # Convert to a grayscale#
             greyScale = index.astype(np.uint8)
+            # Original
             #ret, thresholdedImage = cv.threshold(greyScale, 0, 255, cv.THRESH_BINARY+cv.THRESH_OTSU)
+            # Triangle
             self._threshold, thresholdedImage = cv.threshold(greyScale, 0, 255, cv.THRESH_BINARY+cv.THRESH_TRIANGLE)
             #th3 = cv.adaptiveThreshold(greyScale, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 11, 2)
             thresholdUsed = self._threshold
