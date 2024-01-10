@@ -34,7 +34,11 @@ class Factors:
             # TODO: Create a new category, something like PROPERTY_FACTOR_STATS for both GLCM and HOG
             [constants.PROPERTY_FACTOR_GLCM, constants.NAME_HOG + constants.DELIMETER + constants.NAME_STDDEV],
             [constants.PROPERTY_FACTOR_GLCM, constants.NAME_HOG + constants.DELIMETER + constants.NAME_MEAN],
-            [constants.PROPERTY_FACTOR_GLCM, constants.NAME_HOG + constants.DELIMETER + constants.NAME_VAR]
+            [constants.PROPERTY_FACTOR_GLCM, constants.NAME_HOG + constants.DELIMETER + constants.NAME_VAR],
+            # Local Binary Pattern
+            [constants.PROPERTY_FACTOR_LBP, constants.NAME_LBP + constants.DELIMETER + constants.NAME_STDDEV],
+            [constants.PROPERTY_FACTOR_LBP, constants.NAME_LBP + constants.DELIMETER + constants.NAME_MEAN],
+            [constants.PROPERTY_FACTOR_LBP, constants.NAME_LBP + constants.DELIMETER + constants.NAME_VAR]
         ]
 
         # The factors that need to be expanded with their angles
@@ -227,6 +231,7 @@ if __name__ == "__main__":
     print(f"Shape: {allFactors.getColumns([constants.PROPERTY_FACTOR_SHAPE])}")
     print(f"Color: {allFactors.getColumns([constants.PROPERTY_FACTOR_COLOR])}")
     print(f"GLCM: {allFactors.getColumns([constants.PROPERTY_FACTOR_GLCM])}")
+    print(f"LBP: {allFactors.getColumns([constants.PROPERTY_FACTOR_LBP])}")
     print(f"Position: {allFactors.getColumns([constants.PROPERTY_FACTOR_POSITION])}")
     print(f"Color and GLCM: {allFactors.getColumns([constants.PROPERTY_FACTOR_COLOR, constants.PROPERTY_FACTOR_GLCM])}")
     print(f"All: {allFactors.getColumns(None)}")

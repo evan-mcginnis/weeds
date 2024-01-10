@@ -16,7 +16,7 @@ from typing import List
 import itertools
 import numpy as np
 import pandas as pd
-#import logging
+import logging
 import matplotlib.pyplot as plt
 import os
 
@@ -25,6 +25,7 @@ from Factors import Factors
 from enum import Enum
 
 from numpy import set_printoptions
+from imblearn.over_sampling import SMOTE, ADASYN
 
 import random
 
@@ -73,6 +74,7 @@ class Selection(ABC):
 
         self._results = pd.DataFrame(columns=self._columns)
         self._uniqueResults = pd.DataFrame()
+        self._df = pd.DataFrame()
 
         return
 
@@ -106,6 +108,17 @@ class Selection(ABC):
     @property
     def rawData(self):
         return self._rawData
+
+    def correctImbalance(self):
+        """
+        Correct imbalance between majority and minority classes in dataset.
+        """
+        sm = SMOTE(random_state=2)
+        X_train_res, y_train_res = sm.fit_sample(self._, y_train.ravel())
+
+    def analyzeImbalance(self) -> pd.Series:
+        counts = self._df['type'].value_counts()
+        return counts
 
     def load(self, filename: str):
         # Confirm the file exists
@@ -532,7 +545,7 @@ class IndividualResult:
         self._accuracy = result
 
     def __str__(self) -> str:
-        theString = f"Accuracy: {self._accuracy} Parameters: {self._parameters}"
+        theString = f"{self._checked}:{self._accuracy}:{self._parameters}"
         return theString
 
 class AllResults:
@@ -650,6 +663,8 @@ if __name__ == "__main__":
     from typing import List
     #    from Logger import Logger
     from Classifier import Classifier, LogisticRegressionClassifier, KNNClassifier, DecisionTree, RandomForest, GradientBoosting, SuppportVectorMachineClassifier, LDA
+    from Classifier import MLP
+    from Classifier import ClassifierFactory
     from Performance import Performance
     from enum import Enum
 
@@ -657,6 +672,7 @@ if __name__ == "__main__":
     TECHNIQUE = "TECHNIQUE"
     RESULT = "RESULT"
     PARAMETERS = "PARAMETERS"
+    MAXIMUM = "maximum"
     l: List[int]
 
     MAX_PARAMETERS = 10
@@ -678,7 +694,8 @@ if __name__ == "__main__":
         RandomForest.name: {RESULT: 0, PARAMETERS: []},
         GradientBoosting.name: {RESULT: 0, PARAMETERS: []},
         SuppportVectorMachineClassifier.name: {RESULT: 0, PARAMETERS: []},
-        LDA.name: {RESULT: 0, PARAMETERS: []}
+        LDA.name: {RESULT: 0, PARAMETERS: []},
+        MLP.name: {RESULT: 0, PARAMETERS: []}
     }
 
     maximumsAUC = {
@@ -688,7 +705,8 @@ if __name__ == "__main__":
         RandomForest.name: {RESULT: 0, PARAMETERS: []},
         GradientBoosting.name: {RESULT: 0, PARAMETERS: []},
         SuppportVectorMachineClassifier.name: {RESULT: 0, PARAMETERS: []},
-        LDA.name: {RESULT: 0, PARAMETERS: []}
+        LDA.name: {RESULT: 0, PARAMETERS: []},
+        MLP.name: {RESULT: 0, PARAMETERS: []}
     }
 
     maximumsAccuracyEquivalent = {
@@ -698,7 +716,8 @@ if __name__ == "__main__":
         RandomForest.name: {RESULT: 0, PARAMETERS: []},
         GradientBoosting.name: {RESULT: 0, PARAMETERS: []},
         SuppportVectorMachineClassifier.name: {RESULT: 0, PARAMETERS: []},
-        LDA.name: {RESULT: 0, PARAMETERS: []}
+        LDA.name: {RESULT: 0, PARAMETERS: []},
+        MLP.name: {RESULT: 0, PARAMETERS: []}
     }
 
     maximumsAUCEquivalent = {
@@ -708,7 +727,8 @@ if __name__ == "__main__":
         RandomForest.name: {RESULT: 0, PARAMETERS: []},
         GradientBoosting.name: {RESULT: 0, PARAMETERS: []},
         SuppportVectorMachineClassifier.name: {RESULT: 0, PARAMETERS: []},
-        LDA.name: {RESULT: 0, PARAMETERS: []}
+        LDA.name: {RESULT: 0, PARAMETERS: []},
+        MLP.name: {RESULT: 0, PARAMETERS: []}
     }
     resultsSemaphore = Semaphore()
 
@@ -743,50 +763,63 @@ if __name__ == "__main__":
         resultsFilename = os.path.join(baseDirectory, filename)
         with open(resultsFilename, "w") as results:
             for technique, details in maximumsAccuracy.items():
-                results.write(f"{technique}:{details[RESULT]} {details[PARAMETERS]}\n")
+                results.write(f"{technique}:{details[RESULT]}:{details[PARAMETERS]}\n")
 
         filename = baseFilename + '.auc.txt'
         resultsFilename = os.path.join(baseDirectory, filename)
         with open(resultsFilename, "w") as results:
             for technique, details in maximumsAUC.items():
-                results.write(f"{technique}:{details[RESULT]} {details[PARAMETERS]}\n")
+                results.write(f"{technique}:{details[RESULT]}:{details[PARAMETERS]}\n")
 
     # def outputMaximums(format: Output):
     #     maximumsDF = pd.DataFrame(maximumsAccuracy)
 
-    def searchForParameters(technique: Classifier, dataFile: str, parameters: [], basePath: str):
+    def searchForParameters(algorithm: str, dataFile: str, batch: int, basePath: str):
         """
 
-        :param strategy:
-        :param basePath:
-        :param technique:
+        :param algorithm:
         :param dataFile:
-        :param parameters:
+        :param batch:
+        :param basePath:
         """
-        logger.info(f"Search using {technique.name} in {len(parameters)} combinations")
+        logger.info(f"Search using {algorithm} in batch {batch}")
         highestClassificationRate = 0.0
         highestAUC = 0.0
         currentCombination = 0
-        for combination in parameters:
+        while True:
+            technique = ClassifierFactory(algorithm)
+            resultsSemaphore.acquire(blocking=True)
+            combination = allResultsForATechnique[technique.name].getNextUnclaimed(batch)
+            resultsSemaphore.release()
+            if combination is None:
+                break
             currentCombination += 1
             # Perhaps disk I/O is leading to poor performance, so issue a status statement only after 10000 sets
             if currentCombination % 10000 == 0:
-                logger.info(f"{technique.name}: combination: {currentCombination} parameters: {combination}")
-            technique.selections = combination
+                logger.info(f"{technique.name}: combination: {currentCombination} parameters: {combination.parameters}")
+            technique.selections = combination.parameters
             technique.load(dataFile, stratify=False)
             technique.createModel(False)
 
+            logger.debug(f"Technique: {technique.name} Combination: {currentCombination} Accuracy: {technique.accuracy()}")
             # Accuracy
-            if len(classifier.scores) > 0:
-                meanClassificationRate = sum(classifier.scores) / len(classifier.scores)
+            if technique.accuracy() > 0:
+                resultsSemaphore.acquire(blocking=True)
+                #anClassificationRate = sum(technique.scores) / len(technique.scores)
+                meanClassificationRate = technique.accuracy()
+                logger.info(f"{technique.name}: combination: {currentCombination} scores: {technique.scores} parameters: {combination.parameters} accuracy: {meanClassificationRate}")
+                allResultsForATechnique[technique.name].recordResult(combination, meanClassificationRate)
+                allResultsForATechnique[technique.name].save(arguments.prefix + constants.DELIMETER + technique.name + ".pickle")
+                resultsSemaphore.release()
             else:
                 logger.error(f"Length of scores is zero. Proceeding")
                 meanClassificationRate = 0
+
             if meanClassificationRate > highestClassificationRate:
                 highestClassificationRate = meanClassificationRate
                 logger.info(f"Found new max for {technique.name} accuracy:{meanClassificationRate} using {combination}")
                 recordMaximum(technique.name, meanClassificationRate, Criteria.ACCURACY, combination)
-                reportMaximums(basePath, arguments.prefix)
+                reportMaximums(basePath, arguments.prefix + constants.DELIMETER + MAXIMUM)
                 resultsSemaphore.release()
             elif meanClassificationRate == highestClassificationRate:
                 logger.info(f"Found equivalent for {technique.name:} accuracy: {meanClassificationRate} using {combination}")
@@ -797,10 +830,12 @@ if __name__ == "__main__":
                 resultsSemaphore.acquire(blocking=True)
                 logger.info(f"Found new max for {technique.name} auc: {technique.auc} using {combination}")
                 recordMaximum(technique.name, technique.auc, Criteria.AUC, combination)
-                reportMaximums(basePath, arguments.prefix)
+                reportMaximums(basePath, arguments.prefix + constants.DELIMETER + MAXIMUM)
                 resultsSemaphore.release()
             elif technique.auc == highestAUC:
                 logger.info(f"Found equivalent for {technique.name} auc: {technique.auc} using {combination}")
+
+            technique.reset()
 
 
     def startupLogger(configFile: str, outputFile: str):
@@ -846,7 +881,7 @@ if __name__ == "__main__":
     parser.add_argument("-m", "--maximums", action="store", required=False, help="Maximimum result file")
 
     parser.add_argument("-d", "--debug", action="store_true", required=False, default=False, help="Process a small subset of parameters")
-    parser.add_argument("-p", "--prefix", action="store", required=False, default="maximums", help="Prefix for result files")
+    parser.add_argument("-p", "--prefix", action="store", required=True, help="Prefix for result files")
     parser.add_argument("-b", "--batch", action="store", required=False, type=int, default=500000, help="Batch size for parameter search")
     parser.add_argument("-c", "--chunks", action="store", required=False, type=int, default=1, help="Number of chunks")
     parser.add_argument("-P", "--performance", action="store", type=str, default="performance.csv",
@@ -933,31 +968,32 @@ if __name__ == "__main__":
         # combinations_1, combinations_2 = itertools.tee(allCombinations, 2)
 
 
-        allTechniques = [RandomForest(), KNNClassifier(), GradientBoosting(), LogisticRegressionClassifier(), DecisionTree(), SuppportVectorMachineClassifier(), LDA()]
+        allTechniques = [RandomForest(), KNNClassifier(), GradientBoosting(), LogisticRegressionClassifier(), DecisionTree(), SuppportVectorMachineClassifier(), LDA(), MLP()]
+        #allTechniques = [KNNClassifier(), RandomForest(), GradientBoosting(), LogisticRegressionClassifier(), DecisionTree(), LDA()]
         allTechniquesNames = [x.name for x in allTechniques]
 
         # Temporary: Create the result files
         allResultsForATechnique = {}
-        for technique in allTechniquesNames:
-            logger.debug(f"Technique: {technique}")
-            allResultsForATechnique[technique] = AllResults(technique)
-            allResultsForATechnique[technique].parameters = allCombinations
-            allResultsForATechnique[technique].batches = arguments.chunks
-            print("Claiming first combination")
-            for batch in range(arguments.chunks):
-                logger.debug(f"Processing batch: {batch}")
-                combination = allResultsForATechnique[technique].getNextUnclaimed(batch)
-                accuracy = random.uniform(0.0, 100.0)
-                while combination is not None:
-                    if random.randint(1, 10) > 5:
-                        allResultsForATechnique[technique].recordResult(combination, random.uniform(0.0, 100.0))
-                    performance.start()
-                    combination = allResultsForATechnique[technique].getNextUnclaimed(batch)
-                    performance.stopAndRecord("OPTIMAL")
-                    if combination is not None and combination.id % 10000 == 0:
-                        logger.debug(f"Claimed combination {combination.id}")
-            allResultsForATechnique[technique].save(technique + ".pickle")
-        sys.exit(-1)
+        # for technique in allTechniquesNames:
+        #     logger.debug(f"Technique: {technique}")
+        #     allResultsForATechnique[technique] = AllResults(technique)
+        #     allResultsForATechnique[technique].parameters = allCombinations
+        #     allResultsForATechnique[technique].batches = arguments.chunks
+        #     print("Claiming first combination")
+        #     for batch in range(arguments.chunks):
+        #         logger.debug(f"Processing batch: {batch}")
+        #         combination = allResultsForATechnique[technique].getNextUnclaimed(batch)
+        #         accuracy = random.uniform(0.0, 100.0)
+        #         while combination is not None:
+        #             if random.randint(1, 10) > 5:
+        #                 allResultsForATechnique[technique].recordResult(combination, random.uniform(0.0, 100.0))
+        #             performance.start()
+        #             combination = allResultsForATechnique[technique].getNextUnclaimed(batch)
+        #             performance.stopAndRecord("OPTIMAL")
+        #             if combination is not None and combination.id % 10000 == 0:
+        #                 logger.debug(f"Claimed combination {combination.id}")
+        #     allResultsForATechnique[technique].save(technique + ".pickle")
+        # sys.exit(-1)
 
         # End temporary
 
@@ -975,29 +1011,34 @@ if __name__ == "__main__":
         threading.stack_size(1024 * 128)
         classifierID = 0
         chunkID = 0
-        for chunk in chunks:
-            for classifier in allTechniques:
-                subset = list(chunk)
-                logger.info(f"Technique: {classifier.name}-{classifierID} searching list of length: {len(subset)}")
+        for technique in allTechniquesNames:
+            logger.debug(f"Technique: {technique}")
+            allResultsForATechnique[technique] = AllResults(technique)
+            allResultsForATechnique[technique].parameters = allCombinations
+            allResultsForATechnique[technique].batches = arguments.chunks
+        for classifier in allTechniques:
+            for chunk in range(arguments.chunks):
+                logger.info(f"Technique: {classifier.name}-{classifierID} searching batch {chunk}")
                 # For debugging, don't actually launch the threads
                 search = Thread(name=classifier.name + constants.DELIMETER + str(chunkID),
                                 target=searchForParameters,
-                                args=(classifier, arguments.data, subset, dataDirectory,))
+                                args=(classifier.name, arguments.data, chunk, dataDirectory,))
+
                 search.daemon = True
                 threads.append(search)
                 search.start()
                 # This is arbitrary but required to avoid errors in startup, it would seem.
                 time.sleep(2)
                 #searchForParameters(classifier, arguments.data, allCombinations, dataDirectory)
-                classifierID += 1
-            chunkID += 1
+                chunkID += 1
+            classifierID += 1
 
         # Wait for the threads to finish
         logger.info(f"Wait for {len(threads)} threads to finish")
         for x in threads:
             x.join()
 
-        print(f"Maximums reported in: {os.path.join(dataDirectory, arguments.prefix)}")
+        print(f"Maximums reported in: {os.path.join(dataDirectory, arguments.prefix + constants.DELIMETER + MAXIMUM)}")
         if arguments.latex:
             # Accuracy
             longCaption = "Optimal Parameters by Technique (Accuracy)"

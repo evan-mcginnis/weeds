@@ -128,6 +128,9 @@ endif
 ifeq ($(ML), lda)
 	ALGFLAG = -lda
 endif
+ifeq ($(ML), mlp)
+	ALGFLAG = -mlp
+endif
 
 # Crop in image -- not used for all that much
 CROP?=unknown
@@ -153,8 +156,13 @@ weeds-with-hull:
 weeds-plot:
 	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a $(INDEX) $(THRESHOLDFLAG) -df $(TRAINING) $(ALGFLAG) -sc -op $(OPERATION) -lg $(LOG) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE) -db -alt $(ALTITUDE) -cr $(CROP) -p
 
+report:
+	$(PYTHON) analyze.py -df results-current.csv
+
 optimal:
-	$(PYTHON) Selection.py -df results-current.csv -fs ALL -f 7 -c 5 -o
+	$(PYTHON) Selection.py -df results-current.csv -fs ALL -f 4 -c 1 -o -p "4-parameters"
+	$(PYTHON) Selection.py -df results-current.csv -fs ALL -f 5 -c 1 -o -p "5-parameters"
+	$(PYTHON) Selection.py -df results-current.csv -fs ALL -f 6 -c 1 -o -p "6-parameters"
 svm:
 	$(PYTHON) weeds.py -r ../../results/results.svm.csv -i $(INPUT) -o ../../results/output-svm -a $(INDEX) -t $(THRESHOLDS) -df $(TRAINING) -svm -sc -v -lg $(LOG) -se $(PARAMETERS) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE)
 	mv $(LOGFILE) ../../results/output-svm.log

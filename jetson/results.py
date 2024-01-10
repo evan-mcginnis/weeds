@@ -10,15 +10,27 @@ from Selection import AllResults
 from Selection import IndividualResult
 from Selection import Status
 
-def insertInTopN(candidate: IndividualResult, topN: []) -> []:
+def insertInTopN(candidate: IndividualResult, topN: [], equivalentN: []) -> []:
+    """
+    Insert the candidate into the top N or the equivalent N
+    :param candidate:
+    :param topN:
+    :param equivalentN:
+    :return:
+    """
     replaced = False
     for i in range(len(topN)):
         #print(f"Compare {candidate.accuracy} vs {topN[i].accuracy}")
-        if candidate.accuracy > topN[i].accuracy:
-            print(f"Found new max {candidate.accuracy} for position {i}")
-            topN[i] = candidate
+        if candidate.accuracy == topN[i].accuracy:
+            #print(f"Found equivalent: {candidate.accuracy} for position {i}")
+            equivalentN[i].append(candidate)
             break
-    return topN
+        if candidate.accuracy > topN[i].accuracy:
+            #print(f"Found new max {candidate.accuracy} for position {i}")
+            topN[i] = candidate
+            equivalentN[i] = []
+            break
+    return topN, equivalentN
 
 parser = argparse.ArgumentParser("Results file operation")
 
@@ -40,6 +52,7 @@ if arguments.operation == OPERATION_SHOW:
     else:
         # The top Individual results
         topN = [IndividualResult("XXX")] * arguments.n
+        equivalentN = [list()] * arguments.n
 
         # The lowest and highest results seen
         lowestResultInTopN = 0.0
@@ -52,6 +65,7 @@ if arguments.operation == OPERATION_SHOW:
 
         results = allResultsForTechnique.results
         for result in results:
+            #print(result)
             # populate the first N positions
             if position < arguments.n:
                 if result.status == Status.COMPLETED:
@@ -62,6 +76,12 @@ if arguments.operation == OPERATION_SHOW:
                     position += 1
             else:
                 if result.status == Status.COMPLETED:
-                    topN = insertInTopN(result, topN)
-        for result in topN:
-            print(result)
+                    topN, equivalentN = insertInTopN(result, topN, equivalentN)
+
+        print(f"Top {arguments.n} of {len(results)}")
+        for result in range(len(topN)):
+            print(f"{topN[result]} Equivalents: {len(equivalentN[result])}")
+        # print(f"Equivalents")
+        # for equivalent in equivalentN:
+        #     for result in equivalent:
+        #         print(result)

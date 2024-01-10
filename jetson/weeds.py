@@ -47,7 +47,7 @@ from VegetationIndex import VegetationIndex
 from ImageManipulation import ImageManipulation
 from ImageLogger import ImageLogger
 from Classifier import Classifier, LogisticRegressionClassifier, KNNClassifier, DecisionTree, RandomForest, \
-    GradientBoosting, SuppportVectorMachineClassifier, LDA
+    GradientBoosting, SuppportVectorMachineClassifier, LDA, MLP
 from OptionsFile import OptionsFile
 from Reporting import Reporting
 from Treatment import Treatment
@@ -776,6 +776,8 @@ parser.add_argument("-a", '--algorithm', action="store", help="Vegetation Index 
                     choices=veg.GetSupportedAlgorithms(),
                     default="ngrdi")
 parser.add_argument("-c", "--contours", action="store_true", default=False, help="Show contours on images")
+parser.add_argument("-ch", "--hull", action="store_true", default=False, help="Show convex hull instead of bounding box")
+parser.add_argument("-cl", "--cropline", action="store_true", default=False, help="Detect and show cropline in image")
 parser.add_argument("-d", "--decorations", action="store", type=str, default="all",
                     help="Decorations on output images (all and none are shortcuts)")
 
@@ -791,7 +793,7 @@ parser.add_argument("-alt", "--altitude", action="store", required=False, defaul
 # functionGroup.add_argument("-w", "--weeds", action="store_true", default=False, help="Classify and treat weeds")
 # functionGroup.add_argument("-e", "--emitter", action="store_true", default=False, help="Assess treatment post emitters")
 
-parser.add_argument("-cr", "--crop", action="store", required=False, default="guayule", choices=["cotton", "guayule", "unknown"], help="Crop in the image")
+parser.add_argument("-cr", "--crop", action="store", required=False, default="lettuce", choices=["cotton", "guayule", "spinach", "cantaloupe", "unknown"], help="Crop in the image")
 parser.add_argument("-df", "--data", action="store",
                     help="Name of the data in CSV for use in logistic regression or KNN")
 parser.add_argument("-e", "--edge", action="store_true", default=False, help="Ignore items at edge of image")
@@ -819,6 +821,8 @@ group.add_argument("-g", "--gradient", action="store_true", default=False,
                    help="Predict using gradient boosting. Requires data file to be specified")
 group.add_argument("-svm", "--support", action="store_true", default=False,
                    help="Predict using support vector machine. Requires data file to be specified")
+group.add_argument("-mlp", "--perceptron", action="store_true", default=False,
+                   help="Predict using multi-layer perceptron. Requires data file to be specified")
 parser.add_argument("-im", "--image", action="store", default=200, type=int, help="Horizontal length of image")
 parser.add_argument("-lg", "--logging", action="store", default="logging.ini", help="Logging configuration file")
 parser.add_argument("-m", "--mask", action="store_true", default=False, help="Mask only -- no processing")
@@ -839,7 +843,7 @@ parser.add_argument("-spe", "--speed", action="store", default=1, type=int, help
 parser.add_argument("-stand", "--standalone", action="store_true", default=False,
                     help="Run standalone and just process the images")
 parser.add_argument("-st", "--strategy", action="store", required=False, default="CARTOON", help="Blob strategy")
-parser.add_argument("-t", "--threshold", action="store", type=int, default=0, help="Threshold for index mask")
+parser.add_argument("-t", "--threshold", action="store", type=int, required=False, help="Threshold for index mask")
 parser.add_argument("-op", "--operation", action="store", default=OPERATION_NORMAL, choices=allOperations, help="Operation")
 parser.add_argument("-x", "--xtract", action="store_true", default=False, help="Extract each crop plant into images")
 
@@ -856,7 +860,7 @@ decorations = [item for item in arguments.decorations.split(',')]
 
 (logger, log) = startupLogger(outputDirectory)
 
-if (arguments.logistic or arguments.knn or arguments.tree or arguments.forest or arguments.lda) and arguments.data is None:
+if (arguments.logistic or arguments.knn or arguments.tree or arguments.forest or arguments.lda or arguments.perceptron) and arguments.data is None:
     print("Data file is not specified.")
     sys.exit(1)
 
@@ -1158,12 +1162,21 @@ elif arguments.support:
 elif arguments.lda:
     classifier = LDA()
     # Load selected parameters
+    # classifier.loadSelections(arguments.selection)
+    classifier.selections = selections
+    classifier.load(arguments.data, stratify=False)
+    classifier.createModel(arguments.score)
+    # classifier.visualize()
+    mlApproach = "lda"
+elif arguments.perceptron:
+    classifier = MLP()
+    # Load selected parameters
     #classifier.loadSelections(arguments.selection)
     classifier.selections = selections
     classifier.load(arguments.data, stratify=False)
     classifier.createModel(arguments.score)
     #classifier.visualize()
-    mlApproach = "lda"
+    mlApproach = "mlp"
 else:
     # TODO: This should be HeuristicClassifier
     classifier = Classifier()
@@ -1352,14 +1365,25 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
         index = veg.Index(arguments.algorithm)
         performance.stopAndRecord(constants.PERF_INDEX)
 
-        # ImageManipulation.show("index", index)
-        # cv.imwrite("index.jpg", index)
-        if arguments.plot:
-            plot3D(index, 145, arguments.algorithm)
+
 
         # Get the mask
         # mask, threshold = veg.MaskFromIndex(index, True, 1, results.threshold)
-        mask, threshold = veg.MaskFromIndex(index, not arguments.nonegate, 1, arguments.threshold)
+        if arguments.threshold is not None:
+            thresholdForMask = arguments.threshold
+        else:
+            thresholdForMask = None
+
+        mask, threshold = veg.MaskFromIndex(index, not arguments.nonegate, 1, thresholdForMask)
+        log.debug(f"Use threshold: {threshold}")
+        normalized = np.zeros_like(mask)
+        finalMask = cv.normalize(mask, normalized, 0, 255, cv.NORM_MINMAX)
+        logger.logImage("mask", finalMask)
+
+        # ImageManipulation.show("index", index)
+        # cv.imwrite("index.jpg", index)
+        if arguments.plot:
+            plot3D(index, threshold, arguments.algorithm)
 
         veg.applyMask()
         # This is the slow call
@@ -1467,6 +1491,10 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
         manipulated.computeHOG()
         performance.stopAndRecord(constants.PERF_HOG)
 
+        # L B P
+        performance.start()
+        manipulated.computeLBP()
+        performance.stopAndRecord(constants.PERF_LBP)
 
         # New image analysis based on readings here:
         # http://www.cyto.purdue.edu/cdroms/micro2/content/education/wirth10.pdf
@@ -1478,6 +1506,7 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
         manipulated.computeRoundness()
         manipulated.computeConvexity()
         manipulated.computeSolidity()
+        manipulated.computeMiscShapeMetrics()
         performance.stopAndRecord(constants.PERF_SHAPES)
 
         # # GLCM attributes
@@ -1532,7 +1561,7 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
         performance.stopAndRecord(constants.PERF_MEAN)
 
         # Use either heuristics or logistic regression
-        if arguments.logistic or arguments.knn or arguments.tree or arguments.forest or arguments.gradient or arguments.support or arguments.lda:
+        if arguments.logistic or arguments.knn or arguments.tree or arguments.forest or arguments.gradient or arguments.support or arguments.lda or arguments.perceptron:
             performance.start()
             classifier.classify()
             performance.stopAndRecord(constants.PERF_CLASSIFY)
@@ -1544,17 +1573,25 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
 
         # Draw boxes around the images we found with decorations for attributes selected
         # manipulated.drawBoundingBoxes(contours)
-        manipulated.drawBoxes(manipulated.name, classifiedBlobs, featuresToShow)
+        manipulated.drawBoxes(manipulated.name, classifiedBlobs, featuresToShow, arguments.hull)
 
         # Eliminate vegetation we would damage
         classifier.classifyByDamage(classifiedBlobs)
 
-        # logger.logImage("cropline", manipulated.croplineImage)
-        # This is using the hough transform which we abandoned as a technique
-        # manipulated.detectLines()
-        # TODO: Draw crop line as part of image decoration
-        manipulated.drawCropline()
-        # logger.logImage("crop-line", manipulated.croplineImage)
+        #
+        # C R O P L I N E S
+        #
+        if arguments.cropline:
+            manipulated.substituteRectanglesForVegetation()
+            logger.logImage("rectangles", manipulated.croplineImage)
+            # This is using the hough transform which we abandoned as a technique
+            manipulated.detectLines()
+            logger.logImage("cropline", manipulated.cropline_image)
+
+            # TODO: Draw crop line as part of image decoration
+            manipulated.drawCropline()
+            # logger.logImage("crop-line", manipulated.croplineImage)
+
         if arguments.contours:
             manipulated.drawContours()
 

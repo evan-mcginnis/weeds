@@ -5,11 +5,13 @@ import csv
 #import random
 
 import constants
+from constants import Score
 #import cv2 as cv
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import logging
+import warnings
 from sklearn.model_selection import train_test_split, cross_validate, cross_val_score, cross_val_score
 from sklearn.linear_model import LogisticRegression
 from sklearn.neighbors import KNeighborsClassifier
@@ -20,9 +22,12 @@ from sklearn.calibration import CalibratedClassifierCV
 from sklearn.svm import LinearSVC
 from sklearn.metrics import roc_curve
 from sklearn.metrics import auc
+from sklearn.neural_network import MLPClassifier
 
+from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import RepeatedStratifiedKFold
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.exceptions import ConvergenceWarning
 
 from abc import ABC, abstractmethod
 
@@ -33,6 +38,7 @@ class Classifier:
 
     def __init__(self):
 
+        self._model = None
         self._df = pd.DataFrame()
         self._rawData = pd.DataFrame()
 
@@ -42,6 +48,9 @@ class Classifier:
         self._yTest = []
         # The actual type of the blob
         self._actual = []
+
+        # Scoring
+        self._scoring = Score.UNDEFINED
 
         # ROC items
         self._fpr = 0.0
@@ -66,6 +75,7 @@ class Classifier:
         # # Backpropogation
         # self._ann.setTrainMethod(cv.ml.ANN_MLP_BACKPROP, 0.1, 0.1)
         # self._ann.setTermCriteria((cv.TERM_CRITERIA_MAX_ITER | cv.TERM_CRITERIA_EPS, 100, 1.0))
+        self._scaler = StandardScaler()
         return
 
     # ANN Support routines start
@@ -116,6 +126,25 @@ class Classifier:
     # @property
     # def name(self):
     #     return self._name
+
+    @property
+    def scoring(self) -> Score:
+        """
+        The current scoring model of the classifier
+        :return: Score
+        """
+        return self._scoring
+    @scoring.setter
+    def scoring(self, theScoring: Score):
+        """
+        Set the scoring model for the classifier
+        :param theScoring:
+        """
+        self._scoring = theScoring
+
+    def accuracy(self) -> float:
+        self._model.predict(self._xTest)
+        return self._model.score(self._xTest, self._yTest)
 
     @property
     def auc(self) -> float:
@@ -365,13 +394,85 @@ class Classifier:
         plt.xlabel('False Positive Rate')
         plt.title(f'ROC Curve of {self.name}')
         plt.show()
+
+    def createModel(self, score: bool):
+        raise NotImplementedError
+
+    def reset(self):
+        self._model = None
+
+class MLP(Classifier):
+    name = "MLP"
+
+    def __init__(self):
+        super().__init__()
+        self._xTrainScaled = None
+        self._xTestScaled = None
+
+    def createModel(self, score: Score):
+        # Scale the data
+        xTrainAsList = self._xTrain.values.tolist()
+        self._scaler.fit(xTrainAsList)
+        #self._scaler.fit(self._xTrain)
+        self._xTrainScaled = self._scaler.transform(xTrainAsList)
+        # Keeping this as a numpy array is causing problems
+        #scaledXTrain = self._scaler.transform(self._xTrain)
+        xTestAsList = self._xTest.values.tolist()
+        self._xTestScaled = self._scaler.transform(xTestAsList)
+
+        # The lbfgs solver runs into problems
+        self._model = MLPClassifier(solver='adam', max_iter=5000, alpha=1e-5, hidden_layer_sizes=(5, 2), random_state=1)
+        with warnings.catch_warnings():
+            warnings.filterwarnings('error')
+            try:
+                # Use the scaled data
+                self._model.fit(self._xTrainScaled, self._yTrain)
+                # self._model.fit(self._xTrain, self._yTrain)
+            except ConvergenceWarning:
+                self.log.error(f"Failed to converge: {self._selections}")
+
+        self._scores = cross_val_score(self._model, self._x.values.tolist(), self._y)
+        #self._scores = cross_val_score(self._model, self._x, self._y)
+
+        self._y_scores = self._model.predict_proba(self._xTestScaled)
+        self._fpr, self._tpr, self._threshold = roc_curve(self._yTest, self._y_scores[:, 1])
+        self._auc = auc(self._fpr, self._tpr)
+
+        if score:
+            self.log.debug(f"MLP cross validation scores: {self._scores}")
+
+            print("Multi-layer perceptron")
+            print(self._model.predict(self._xTest))
+            print("Training Score: {:.3f}".format(self._model.score(self._xTrain, self._yTrain)))
+            print("Testing Score: %s" % self._model.score(self._xTest, self._yTest))
+
+    # Overload the function for the MLP to reference the scaled data
+    def accuracy(self) -> float:
+        self._model.predict(self._xTestScaled)
+        return self._model.score(self._xTestScaled, self._yTest)
+
+    def classify(self):
+        self.log.debug(f"Classify by MLP")
+        #super().classify(constants.REASON_MLP)
+        self._prepareData()
+
+        predictions = self._model.predict(self._blobsInView)
+         # Mark up the current view
+        i = 0
+        for blobName, blobAttributes in self._blobs.items():
+            if blobAttributes[constants.NAME_REASON] != constants.REASON_AT_EDGE:
+                blobAttributes[constants.NAME_TYPE] = predictions[i]
+                blobAttributes[constants.NAME_REASON] = constants.REASON_RANDOM_FOREST
+            i = i + 1
+        return
+
 class LDA(Classifier):
     name = "LDA"
 
     def __init__(self):
         super().__init__()
 
-    def createModel(self, score: bool):
+    def createModel(self, score: Score):
         """
         Create an LDA model
         :param score: True indicates a text output of the score
@@ -440,7 +541,9 @@ class SuppportVectorMachineClassifier(Classifier):
         # # Split up the data
         # X_train, X_test, y_train, y_test = train_test_split(self._df,y,train_size=0.4)
 
-        self._model = LinearSVC()
+        # The default of 1000 iterations fails to converge
+        # dual==True fails to converge
+        self._model = LinearSVC(dual=False, max_iter=10000)
         self._model.fit(self._xTrain, self._yTrain)
 
         self._scores = cross_val_score(self._model, self._x, self._y)
@@ -581,34 +684,34 @@ class KNNClassifier(Classifier):
 
     def createModel(self, score: bool):
 
-        self._knnModel = KNeighborsClassifier(n_neighbors=5)
+        self._model = KNeighborsClassifier(n_neighbors=5)
         #model = forest.fit(train_fold, train_y.values.ravel())
-        self._knnModel.fit(self._xTrain, pd.DataFrame(self._yTrain).values.ravel())
+        self._model.fit(self._xTrain, pd.DataFrame(self._yTrain).values.ravel())
 
-        self._scores = cross_val_score(self._knnModel, self._x, self._y)
+        self._scores = cross_val_score(self._model, self._x, self._y)
 
-        self._y_scores = self._knnModel.predict_proba(self._xTest)
+        self._y_scores = self._model.predict_proba(self._xTest)
         self._fpr, self._tpr, self._threshold = roc_curve(self._yTest, self._y_scores[:, 1])
         self._auc = auc(self._fpr, self._tpr)
 
         if score:
             self.log.debug(f"KNN Cross validation scores: {self._scores}")
-            yPred = self._knnModel.predict(self._xTest)
+            yPred = self._model.predict(self._xTest)
             print("K Neighbors prediction:\n", yPred)
 
-            print("Training Score: {:.3f}".format(self._knnModel.score(self._xTrain, self._yTrain)))
-            print("Testing Score: {:.2f}\n".format(self._knnModel.score(self._xTest, self._yTest)))
+            print("Training Score: {:.3f}".format(self._model.score(self._xTrain, self._yTrain)))
+            print("Testing Score: {:.2f}\n".format(self._model.score(self._xTest, self._yTest)))
 
 
     def classify(self):
-        if self._knnModel is None:
+        if self._model is None:
             return
 
         # Make a dataframe out of the current view
         self._prepareData()
 
         # Predict the types
-        predictions = self._knnModel.predict(self._blobsInView)
+        predictions = self._model.predict(self._blobsInView)
 
         # Mark up the current view
         i = 0
@@ -678,26 +781,26 @@ class RandomForest(Classifier):
 
     def createModel(self, score: bool):
         #self._classifier = RandomForestClassifier(n_estimators=1000, max_features=1, random_state=2, n_jobs=-1)
-        self._classifier = RandomForestClassifier(n_estimators=1000, max_features=1, random_state=2, n_jobs=-1)
-        self._classifier.fit(self._xTrain, self._yTrain)
+        self._model = RandomForestClassifier(n_estimators=1000, max_features=1, random_state=2, n_jobs=-1)
+        self._model.fit(self._xTrain, self._yTrain)
 
-        self._scores = cross_val_score(self._classifier, self._x, self._y, n_jobs=-1)
+        self._scores = cross_val_score(self._model, self._x, self._y, n_jobs=-1)
 
-        self._y_scores = self._classifier.predict_proba(self._xTest)
+        self._y_scores = self._model.predict_proba(self._xTest)
         self._fpr, self._tpr, self._threshold = roc_curve(self._yTest, self._y_scores[:, 1])
         self._auc = auc(self._fpr, self._tpr)
 
         if score:
             self.log.debug(f"Random Forest cross validation scores: {self._scores}")
 
-            print("Training Score: {:.3f}".format(self._classifier.score(self._xTrain, self._yTrain)))
-            print("Testing Score: {:.3f}".format(self._classifier.score(self._xTest, self._yTest)))
+            print("Training Score: {:.3f}".format(self._model.score(self._xTrain, self._yTrain)))
+            print("Testing Score: {:.3f}".format(self._model.score(self._xTest, self._yTest)))
         return
 
     def classify(self):
         self._prepareData()
 
-        predictions = self._classifier.predict(self._blobsInView)
+        predictions = self._model.predict(self._blobsInView)
                 # Mark up the current view
         i = 0
         for blobName, blobAttributes in self._blobs.items():
@@ -714,20 +817,20 @@ class GradientBoosting(Classifier):
         super().__init__()
 
     def createModel(self, score: bool):
-        self._classifier = GradientBoostingClassifier(random_state=0, max_depth=4)
-        self._classifier.fit(self._xTrain, self._yTrain)
+        self._model = GradientBoostingClassifier(random_state=0, max_depth=4)
+        self._model.fit(self._xTrain, self._yTrain)
 
-        self._scores = cross_val_score(self._classifier, self._x, self._y)
+        self._scores = cross_val_score(self._model, self._x, self._y)
 
-        self._y_scores = self._classifier.predict_proba(self._xTest)
+        self._y_scores = self._model.predict_proba(self._xTest)
         self._fpr, self._tpr, self._threshold = roc_curve(self._yTest, self._y_scores[:, 1])
         self._auc = auc(self._fpr, self._tpr)
 
         if score:
             self.log.debug(f"Gradient Boosting cross validation scores: {self._scores}")
 
-            print("Training Score: {:.3f}".format(self._classifier.score(self._xTrain, self._yTrain)))
-            print("Testing Score: {:.3f}".format(self._classifier.score(self._xTest, self._yTest)))
+            print("Training Score: {:.3f}".format(self._model.score(self._xTrain, self._yTrain)))
+            print("Testing Score: {:.3f}".format(self._model.score(self._xTest, self._yTest)))
 
 
     def classify(self):
@@ -749,3 +852,17 @@ class SVM(Classifier):
         return
 
 
+def ClassifierFactory(technique: str) -> Classifier:
+
+    classifiers = {
+        RandomForest.name: RandomForest,
+        GradientBoosting.name: GradientBoosting,
+        LDA.name: LDA,
+        MLP.name: MLP,
+        SuppportVectorMachineClassifier.name: SuppportVectorMachineClassifier,
+        LogisticRegressionClassifier.name: LogisticRegressionClassifier,
+        KNNClassifier.name: KNNClassifier,
+        DecisionTree.name: DecisionTree
+    }
+
+    return classifiers[technique]()
