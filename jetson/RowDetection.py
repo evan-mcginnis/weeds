@@ -38,9 +38,9 @@ class RowDetection:
         # For line detection
         self.rho = rho or 1
         self.theta = theta or np.pi / 180
-        self.threshold = threshold or 50
-        self.minLineLength = minLineLength or 50
-        self.maxLineGap = maxLineGap or 10
+        self.threshold = threshold or 30
+        self.minLineLength = minLineLength or 75
+        self.maxLineGap = maxLineGap or 1500
 
         self.markupColors = (0, 0, 255)
 
@@ -80,6 +80,7 @@ class RowDetection:
         """
         Detect lines in the loaded image that has already had edges identified
         """
+
         # The probabilistic method
         self.linesP = cv.HoughLinesP(self.dst,
                                      self.rho,
@@ -88,6 +89,10 @@ class RowDetection:
                                      None,
                                      self.minLineLength,
                                      self.maxLineGap)
+        if self.linesP is None:
+            print("Did not detect any lines")
+        else:
+            print(f"Detected {len(self.linesP)} lines")
         # The standard method
         self.lines = cv.HoughLines(self.dst, 1, np.pi / 180, 150, None, 0, 0)
 
@@ -127,9 +132,14 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser("Weed recognition system")
     parser.add_argument('-i', '--input', action="store", required=True, help="Images to process")
+    parser.add_argument("-o", "--output", action="store", required=False, default=".", help="Output directory")
+    parser.add_argument("-r", "--rho", action="store", required=False, type=float, default=1, help="Rho")
+    parser.add_argument("-t", "--theta", action="store", required=False, type=float, default=np.pi / 180, help="Theta")
+    parser.add_argument("-th", "--threshold", action="store", required=False, type=int, default=50, help="Threshold")
+    parser.add_argument("-p", "--process", action="store_true", required=False, default=False, help="Process image")
     arguments = parser.parse_args()
 
-    row_detector = RowDetection(threshold1=300)
+    row_detector = RowDetection(threshold1=200)
     #row_detector.load("overhead.jpg")
     #image = "sudoku.png"
     #image = "overhead.jpg"
@@ -139,17 +149,21 @@ if __name__ == "__main__":
     # imAsNp[:,:,1] *=0
     # imAsNp[:,:,2] *=0
     # img = Image.fromarray(imAsNp)
-    img = cv.imread(arguments.input, cv.CV_8UC1)
-    th3 = cv.adaptiveThreshold(img, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 11, 2)
-    cv.imshow("Threshold", th3)
+    if arguments.process:
+        img = cv.imread(arguments.input, cv.CV_8UC1)
+        th3 = cv.adaptiveThreshold(img, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 11, 2)
+        cv.imshow("Threshold", th3)
 
     if not row_detector.load(arguments.input):
         row_detector.detectEdges()
         row_detector.detectLines()
         row_detector.markupOriginal()
 
-        cv.imshow("Source", row_detector.getOriginal())
-        cv.imshow("Detected Lines (in red) - Standard Hough Line Transform", row_detector.getMarkedUp2())
-        cv.imshow("Detected YLines (in red) - Probabilistic Line Transform", row_detector.getMarkedUp())
-        cv.imshow("Edges", row_detector.get_dst())
-        cv.waitKey()
+        if arguments.output is not None:
+            cv.imwrite(arguments.output, row_detector.getMarkedUp())
+        else:
+            cv.imshow("Source", row_detector.getOriginal())
+            cv.imshow("Detected Lines (in red) - Standard Hough Line Transform", row_detector.getMarkedUp2())
+            cv.imshow("Detected Lines (in red) - Probabilistic Line Transform", row_detector.getMarkedUp())
+            cv.imshow("Edges", row_detector.get_dst())
+            cv.waitKey()
