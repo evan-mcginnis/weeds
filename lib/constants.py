@@ -303,8 +303,9 @@ REASON_RANDOM_FOREST = 6
 REASON_GRADIENT = 7
 REASON_SVM = 8
 REASON_LDA = 9
-REASON_TOO_CLOSE = 10
-REASONS = ["Unknown", "At Edge", "Size", "Logistic", "KNN", "Decision Tree", "Random Forest", "Gradient", "SVM", "LDA", "Too Close"]
+REASON_MLP = 10
+REASON_TOO_CLOSE = 11
+REASONS = ["Unknown", "At Edge", "Size", "Logistic", "KNN", "Decision Tree", "Random Forest", "Gradient", "SVM", "LDA", "MLP", "Too Close"]
 
 # TYPES of vegetation
 TYPE_DESIRED = 0
@@ -697,5 +698,12 @@ class ProcessResult(Enum):
 class Strategy(Enum):
     CARTOON = 0
     PROCESSED = 1
+
+class Score(Enum):
+    UNDEFINED = 0
+    ROC = 1
+    ACCURACY = 2
+
+
 
 
