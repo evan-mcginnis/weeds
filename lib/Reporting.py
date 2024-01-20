@@ -146,6 +146,7 @@ class Reporting:
             return False, "Unable to write file " + self._filename
 
         newdf = self._blobDF[(self._blobDF.type == constants.TYPE_DESIRED) | (self._blobDF.type == constants.TYPE_UNDESIRED)]
+        newdf[constants.NAME_NUMBER] = range(1, len(self._blobDF) + 1)
         newdf.to_csv("results-from-dataframe.csv", encoding="UTF-8", index=False)
 
         self._normalize()

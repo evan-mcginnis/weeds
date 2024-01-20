@@ -25,7 +25,7 @@ from Factors import Factors
 from enum import Enum
 
 from numpy import set_printoptions
-from imblearn.over_sampling import SMOTE, ADASYN
+
 
 import random
 
@@ -109,16 +109,7 @@ class Selection(ABC):
     def rawData(self):
         return self._rawData
 
-    def correctImbalance(self):
-        """
-        Correct imbalance between majority and minority classes in dataset.
-        """
-        sm = SMOTE(random_state=2)
-        X_train_res, y_train_res = sm.fit_sample(self._, y_train.ravel())
 
-    def analyzeImbalance(self) -> pd.Series:
-        counts = self._df['type'].value_counts()
-        return counts
 
     def load(self, filename: str):
         # Confirm the file exists
@@ -345,10 +336,10 @@ class Univariate(Selection):
 
         try:
             fit = self._test.fit(x, y)
-        except UserWarning:
-            self.log.error("User warning")
-        except RuntimeWarning:
-            self.log.error("Runtime warning")
+        except UserWarning as uWarning:
+            self.log.error(f"f{uWarning}")
+        except RuntimeWarning as rWarning:
+            self.log.error(f"{rWarning}")
 
         set_printoptions(precision=3, suppress=True, linewidth=120)
         results = {}
@@ -799,6 +790,7 @@ if __name__ == "__main__":
                 logger.info(f"{technique.name}: combination: {currentCombination} parameters: {combination.parameters}")
             technique.selections = combination.parameters
             technique.load(dataFile, stratify=False)
+            technique.correctImbalance()
             technique.createModel(False)
 
             logger.debug(f"Technique: {technique.name} Combination: {currentCombination} Accuracy: {technique.accuracy()}")

@@ -3,6 +3,9 @@
 #
 clean:
 	rm -f *.log*
+
+clean-all:
+	rm -f *.log*
 	rm -f *.pickle
 	#rm -rf ../output/*
 
@@ -105,7 +108,7 @@ INI=standalone.ini
 OPERATION?=normal
 
 # Clean this up a bit, reducing the ML algorithm to one parameter
-ALGFLAG=-k
+ALGFLAG = unknown
 
 ifeq ($(ML),knn)
 	ALGFLAG = -k
@@ -131,6 +134,7 @@ endif
 ifeq ($(ML), mlp)
 	ALGFLAG = -mlp
 endif
+
 
 # Crop in image -- not used for all that much
 CROP?=unknown

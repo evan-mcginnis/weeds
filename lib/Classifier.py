@@ -2,6 +2,8 @@
 # C L A S S I F I E R
 #
 import csv
+import random
+
 #import random
 
 import constants
@@ -29,9 +31,28 @@ from sklearn.model_selection import RepeatedStratifiedKFold
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.exceptions import ConvergenceWarning
 
+from imblearn.over_sampling import SMOTE, ADASYN, BorderlineSMOTE, KMeansSMOTE, SVMSMOTE
+from WeedExceptions import ProcessingError
 from abc import ABC, abstractmethod
 
 import os.path
+from enum import Enum
+
+class Subset(Enum):
+    TRAIN = 0
+    TEST = 1
+    ALL = 2
+
+class Type(Enum):
+    CROP = 0
+    WEED = 1
+
+class ImbalanceCorrection(Enum):
+    SMOTE = 0
+    ADASYN = 1
+    BORDERLINE = 2
+    KMEANS = 3
+    SVM = 4
 
 class Classifier:
     name = "Base"
@@ -65,6 +86,10 @@ class Classifier:
         self._scores = []
         self._name = "Base"
         self._loaded = False
+
+        self._correctImbalance = False
+        self._correctImbalanceAlgorithm = ImbalanceCorrection.SMOTE
+        self._desiredImbalanceRatio = 1.0
 
         self.log = logging.getLogger(__name__)
         # # The ANN for the classifier
@@ -123,9 +148,159 @@ class Classifier:
     #     return
     # ANN support routines end
 
-    # @property
-    # def name(self):
-    #     return self._name
+    @classmethod
+    def correctionAlgorithms(cls) -> []:
+        """
+        Supported algorithms for imbalance correction
+        :return: list of names
+        """
+        choices = []
+        for choice in ImbalanceCorrection:
+            choices.append(choice.name)
+        return choices
+
+    @property
+    def minority(self) -> float:
+        return self._desiredImbalanceRatio
+
+    @minority.setter
+    def minority(self, desiredMinority: float):
+        if desiredMinority < 0.0 or desiredMinority > 1.0:
+            raise AttributeError(f"Minority {desiredMinority} not within range 0..1")
+        self._desiredImbalanceRatio = desiredMinority
+
+    @property
+    def correct(self) -> bool:
+        """
+        Correct imbalances in dataset
+        :return:
+        """
+        return self._correctImbalance
+
+    @correct.setter
+    def correct(self, theCorrection: bool):
+        self._correctImbalance = theCorrection
+
+    @property
+    def correctionAlgorithm(self) -> ImbalanceCorrection:
+        """
+        The algorithm used in correction
+        :return:
+        """
+        return self._correctImbalanceAlgorithm
+
+    @correctionAlgorithm.setter
+    def correctionAlgorithm(self, theAlgorithm: ImbalanceCorrection):
+        self._correctImbalanceAlgorithm = theAlgorithm
+
+    def createImbalance(self, percentage: float, location: Subset):
+        """
+        Create an imbalance in the data set -- should be called before a split
+        :param location: Create imbalance in train, test, or all
+        :param percentage: percentage between 0..1 of the minority class that remains
+        """
+        self.log.debug(f"Imbalance before creation: {self.imbalanceRatio(location)}")
+        if location == Subset.ALL:
+            candidates = self._df.index[self._df[constants.NAME_TYPE] == 1].tolist()
+            indicesToDrop = []
+            random.seed(42)
+            for index in candidates:
+                if random.random() > percentage:
+                    indicesToDrop.append(index)
+            self._df.drop(index=indicesToDrop, inplace=True)
+            self.log.debug(f"Created imbalance in {location.name} by dropping {indicesToDrop}")
+        elif location == Subset.TRAIN:
+            candidates = self._yTrain.index[self._yTrain == 1].tolist()
+            indicesToDrop = []
+            random.seed(42)
+            for index in candidates:
+                if random.random() > percentage:
+                    indicesToDrop.append(index)
+            self._xTrain.drop(index=indicesToDrop, inplace=True)
+            self._yTrain.drop(index=indicesToDrop, inplace=True)
+            self.log.debug(f"Created imbalance in {location.name} by dropping {indicesToDrop}")
+        else:
+            self.log.error(f"Unable to create imbalance in subset of data")
+        self.log.debug(f"Imbalance after: {self.imbalanceRatio(location)}")
+
+    def correctImbalance(self, location: Subset):
+        """
+        Correct imbalance between majority and minority classes in dataset.
+        This updates the training dataset.
+        Should be called only after the training split.
+        """
+        # Follow the explanation here:
+        # https://stackoverflow.com/questions/15065833/imbalance-in-scikit-learn
+        # if not self._loaded:
+        #     raise ProcessingError("Data must be loaded before imbalances can be corrected")
+
+        # debug the correction
+        # df = pd.DataFrame(self._xTrain)
+        # df.to_csv("before-imbalance-correction.csv")
+
+        self.log.debug(f"Correcting imbalance in {location.name} using {self._correctImbalanceAlgorithm.name}  Currently {self.imbalanceRatio(location)}")
+
+        if self._correctImbalanceAlgorithm == ImbalanceCorrection.SMOTE:
+            corrector = SMOTE(random_state=2)
+        elif self._correctImbalanceAlgorithm == ImbalanceCorrection.ADASYN:
+            corrector = ADASYN(random_state=2)
+        elif self._correctImbalanceAlgorithm == ImbalanceCorrection.BORDERLINE:
+            corrector = BorderlineSMOTE(random_state=2)
+        elif self._correctImbalanceAlgorithm == ImbalanceCorrection.KMEANS:
+            corrector = KMeansSMOTE(random_state=2)
+        elif self._correctImbalanceAlgorithm == ImbalanceCorrection.SVM:
+            corrector = SVMSMOTE(random_state=2)
+        else:
+            raise AttributeError(f"Requested algorithm not supported: {self._correctImbalanceAlgorithm}")
+
+
+        if location == Subset.TRAIN:
+            self._xTrain, self._yTrain = corrector.fit_resample(self._xTrain, self._yTrain)
+        elif location == Subset.ALL:
+            raise NotImplementedError("Unable to correct entire dataset")
+        elif location == Subset.TEST:
+            raise NotImplementedError("Unable to correct test subset")
+        else:
+            raise AttributeError(f"Unknown location {location}")
+
+        self.log.debug(f"Corrected imbalance.  Currently {self.imbalanceRatio(location)}")
+
+
+        # debug the correction
+        # df = pd.DataFrame(self._xTrain)
+        # df.to_csv("after-imbalance-correction.csv")
+
+
+    def imbalanceRatio(self, location: Subset) -> str:
+        """
+        The imbalance ratio between the majority and minority classes
+        :return:
+        """
+        # if not self._loaded:
+        #     raise ProcessingError("Data must be loaded before imbalances can be corrected")
+
+        unique = []
+        counts = []
+
+        if location == Subset.TRAIN:
+            counts = self._yTrain.value_counts()
+        elif location == Subset.ALL:
+            y = self._df.type
+            counts = y.value_counts()
+        elif location == Subset.TEST:
+            # The counts of the classes
+            unique, counts = np.unique(self._yTest, return_counts=True)
+        else:
+            raise NotImplementedError(f"Unknown location: {location}")
+
+        self.log.debug(f"Class counts: {counts}")
+        # There should be only 2 counts for the two classes
+        assert len(counts) == 2
+
+        #ratio = str(max(counts[0], counts[1])) + ':' + str(min(counts[0], counts[1])) + ' (' + str(max(counts[0], counts[1]) / min(counts[0], counts[1])) + ')'
+        ratio = str(counts[0]) + ':' + str(counts[1]) + ' ' + Type(0).name + ':' + Type(1).name + ' (' + str(counts[0] / counts[1]) + ')'
+
+        return ratio
 
     @property
     def scoring(self) -> Score:
@@ -134,6 +309,7 @@ class Classifier:
         :return: Score
         """
         return self._scoring
+
     @scoring.setter
     def scoring(self, theScoring: Score):
         """
@@ -303,7 +479,11 @@ class Classifier:
         self._df = pd.read_csv(filename, usecols=s)
 
         # Keep a copy of this -- we will use this elsewhere
-        self._rawData = self._df
+        self._rawData = self._df.copy(deep=True)
+
+        # Create the imbalance before anything else is done
+        #if self._desiredImbalanceRatio != 1.0:
+        #    self.createImbalance(self._desiredImbalanceRatio, Subset.TRAIN)
 
         # Extract the type -- there should be only two, desired and undesired
         y = self._df.type
@@ -312,6 +492,7 @@ class Classifier:
         self._df.drop("type", axis='columns', inplace=True)
         self._x = self._df
         # Drop any data that is not part of the factors we want to consider
+
 
         # Split up the data
         if stratify:
@@ -322,6 +503,14 @@ class Classifier:
         self._yTrain = y_train
         self._xTest = X_test
         self._yTest = y_test
+
+        # Create the imbalance before anything else is done
+        if self._desiredImbalanceRatio != 1.0:
+            self.createImbalance(self._desiredImbalanceRatio, Subset.TRAIN)
+
+        if self._correctImbalance:
+            self.correctImbalance(Subset.TRAIN)
+
         self._loaded = True
 
     def _prepareData(self ):
@@ -421,7 +610,7 @@ class MLP(Classifier):
         self._xTestScaled = self._scaler.transform(xTestAsList)
 
         # The lbfgs solver runs into problems
-        self._model = MLPClassifier(solver='adam', max_iter=5000, alpha=1e-5, hidden_layer_sizes=(5, 2), random_state=1)
+        self._model = MLPClassifier(solver='adam', max_iter=5000, alpha=1e-5, hidden_layer_sizes=(20), random_state=1)
         with warnings.catch_warnings():
             warnings.filterwarnings('error')
             try:

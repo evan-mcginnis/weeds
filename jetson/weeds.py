@@ -68,13 +68,15 @@ from Persistence import RawImage
 from Persistence import Blob
 from Factors import Factors
 from Metadata import Metadata
+from Classifier import ImbalanceCorrection
 
 SQUARE_SIZE = 40
 
 # Operations
 OPERATION_VISUALIZE         = "visualize"
 OPERATION_NORMAL            = "normal"
-allOperations = [OPERATION_NORMAL, OPERATION_VISUALIZE]
+OPERATION_EVALUATE          = "evaluate"
+allOperations = [OPERATION_NORMAL, OPERATION_VISUALIZE, OPERATION_EVALUATE]
 
 #
 # W A R N I N G
@@ -804,6 +806,11 @@ parser.add_argument('-i', '--input', action="store", required=False, help="Image
 parser.add_argument("-gr", "--grab", action="store_true", default=False,
                     help="Just grab images. No processing")
 
+# Imbalance in data
+parser.add_argument('-mi', '--minority', action="store", required=False, type=float, default=1.0, help="Adjust minority class to represent this percentage")
+parser.add_argument("-ic", '--correct', action="store_true", required=False, default=False, help="Correct data imbalance")
+parser.add_argument("-ia", '--imbalance', action="store", required=False, choices=Classifier.correctionAlgorithms(), default='SMOTE', help="Data imbalance algorithm")
+
 group = parser.add_mutually_exclusive_group()
 parser.add_argument('-ini', '--ini', action="store", required=False, default=constants.PROPERTY_FILENAME,
                     help="Options INI")
@@ -1107,6 +1114,9 @@ if arguments.logistic:
         classifier = LogisticRegressionClassifier()
         #classifier.loadSelections(arguments.selection)
         classifier.selections = selections
+        classifier.correct = arguments.correct
+        classifier.correctionAlgorithm = ImbalanceCorrection[arguments.imbalance]
+        classifier.minority = arguments.minority
         log.debug(f"Loaded selections: {classifier.selections}")
         classifier.load(arguments.data, stratify=False)
         classifier.createModel(arguments.score)
@@ -1182,9 +1192,14 @@ else:
     classifier = Classifier()
     print("Classify using heuristics\n")
 
+
 # If this is just to visualize, exit afterwards
 if arguments.operation == OPERATION_VISUALIZE:
     classifier.visualize()
+    sys.exit(0)
+
+# Likewise, if this is just to evaluate the model
+if arguments.operation == OPERATION_EVALUATE:
     sys.exit(0)
 
 # These are the attributes that will decorate objects in the images
@@ -1562,6 +1577,7 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
 
         # Use either heuristics or logistic regression
         if arguments.logistic or arguments.knn or arguments.tree or arguments.forest or arguments.gradient or arguments.support or arguments.lda or arguments.perceptron:
+            log.debug(f"Classify by {mlApproach}")
             performance.start()
             classifier.classify()
             performance.stopAndRecord(constants.PERF_CLASSIFY)
