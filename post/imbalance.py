@@ -14,6 +14,7 @@ from Classifier import Classifier
 from Classifier import LogisticRegressionClassifier, KNNClassifier, DecisionTree, RandomForest, \
     GradientBoosting, SuppportVectorMachineClassifier, LDA, MLP
 from Classifier import ClassificationTechniques
+from Classifier import Subset
 from OptionsFile import OptionsFile
 import constants
 
@@ -22,18 +23,18 @@ import logging.config
 
 class Imbalances:
     def __init__(self):
-        self._df = pd.DataFrame(columns=['classification', 'correction', 'minority', 'accuracy'])
+        self._df = pd.DataFrame(columns=['classification', 'correction', 'minority', 'auc'])
         self._results = []
 
     def recordResult(self,
                      classificationTechnique: str,
                      correctionTechnique: str,
                      minorityClassRepresentation: float,
-                     classificationAccuracy: float):
+                     auc: float):
         self._results.append({'classification': classificationTechnique,
                              'correction': correctionTechnique,
                              'minority': minorityClassRepresentation,
-                             'accuracy': classificationAccuracy})
+                             'auc': auc})
 
     def write(self, outputFile: str):
         self._df = pd.DataFrame(self._results)
@@ -45,11 +46,14 @@ imbalanceCorrectionChoices.append("ALL")
 classificationChoices = [i.name.lower() for i in ClassificationTechniques]
 classificationChoices.append("ALL")
 
+subsetChoices = [i.name.lower() for i in Subset]
+
 parser = argparse.ArgumentParser("Imbalance analysis")
 
 parser.add_argument('-o', '--output', action="store", required=False, default="imbalance.csv", help="Output CSV")
 parser.add_argument('-a', '--algorithm', action="store", required=False, default=ImbalanceCorrection.SMOTE.name, choices=imbalanceCorrectionChoices)
 parser.add_argument('-c', '--classifier', action="store", required=False, default=LogisticRegressionClassifier.name, choices=classificationChoices)
+parser.add_argument('-s', '--subset', action="store", required=False, default=Subset.TRAIN.name, choices=subsetChoices, help="Subset to apply correction")
 parser.add_argument('-ini', '--ini', action="store", required=False, default=constants.PROPERTY_FILENAME, help="Options INI")
 parser.add_argument('-mi', '--minority', action="store", required=False, type=float, default=0.2, help="Adjust minority class to represent this percentage")
 parser.add_argument("-lg", "--logging", action="store", default="logging.ini", help="Logging configuration file")
@@ -90,6 +94,8 @@ for classificationAlgorithm in classificationChoices:
             classifier = classifierFactory(classificationAlgorithm)
             classifier.selections = selections
             classifier.correct = True
+            classifier.correctSubset = Subset[arguments.subset.upper()]
+            classifier.writeDatasetToDisk = True
             classifier.correctionAlgorithm = ImbalanceCorrection[imbalanceAlgorithm.upper()]
             classifier.minority = minority
             log.debug(f"Loaded selections: {classifier.selections}")
@@ -102,7 +108,7 @@ for classificationAlgorithm in classificationChoices:
             results.recordResult(classificationAlgorithm,
                                  imbalanceAlgorithm,
                                  minority,
-                                 classifier.accuracy())
+                                 classifier.auc)
 
 results.write("imbalance.csv")
 

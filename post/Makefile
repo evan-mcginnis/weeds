@@ -9,4 +9,10 @@ review_ui.py: review.ui
 
 
 clean:
-	rm *.log.*
+	rm -f *.log
+	rm -f imbalance.csv
+
+# All imbalance techniques
+
+imbalance:
+	python ./imbalance.py -d ../jetson/training-from-dataframe.csv -ini ../jetson/standalone.ini -lg ../jetson/standalone-logging.ini -a ALL --classifier ALL
