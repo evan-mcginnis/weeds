@@ -1,3 +1,4 @@
 progress.ini
 *.csv
+*.jpg
 __pycache__/
