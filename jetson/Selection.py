@@ -655,7 +655,7 @@ if __name__ == "__main__":
     #    from Logger import Logger
     from Classifier import Classifier, LogisticRegressionClassifier, KNNClassifier, DecisionTree, RandomForest, GradientBoosting, SuppportVectorMachineClassifier, LDA
     from Classifier import MLP
-    from Classifier import ClassifierFactory
+    from Classifier import classifierFactory
     from Performance import Performance
     from enum import Enum
 
@@ -778,7 +778,7 @@ if __name__ == "__main__":
         highestAUC = 0.0
         currentCombination = 0
         while True:
-            technique = ClassifierFactory(algorithm)
+            technique = classifierFactory(algorithm)
             resultsSemaphore.acquire(blocking=True)
             combination = allResultsForATechnique[technique.name].getNextUnclaimed(batch)
             resultsSemaphore.release()
