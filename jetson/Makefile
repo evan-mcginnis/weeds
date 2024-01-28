@@ -78,6 +78,17 @@ DBHOST?=iron-chef.weeds.com
 DBPORT?=27017
 DBNAME?=weeds
 
+# Corrections
+SUBSET?=ALL
+MINORITY?=1.0
+CORRECTION?=NONE
+ifeq (CORRECTION,NONE)
+	CORRECTIONFLAGS=
+else
+	CORRECTIONFLAGS= --correct  --minority $(MINORITY) --imbalance $(CORRECTION) --subset $(SUBSET)
+endif
+
+
 # Parameter Selection
 # deprecated with move to .INI file
 #PARAMETERS?=all-parameters.csv
@@ -152,7 +163,7 @@ weeds:
 
 # This is the one to use
 weeds-to-db:
-	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a $(INDEX) $(THRESHOLDFLAG) -df $(TRAINING) $(ALGFLAG) -sc -op $(OPERATION) -lg $(LOG) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE) -db -alt $(ALTITUDE) -cr $(CROP)
+	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a $(INDEX) $(THRESHOLDFLAG) -df $(TRAINING) $(ALGFLAG) -sc -op $(OPERATION) -lg $(LOG) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE) -db -alt $(ALTITUDE) -cr $(CROP) $(CORRECTIONFLAGS)
 
 weeds-with-hull:
 	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a $(INDEX) $(THRESHOLDFLAG) -df $(TRAINING) $(ALGFLAG) -sc -op $(OPERATION) -lg $(LOG) -d $(DECORATIONS) -ini $(INI) $(STANDALONE) -db -alt $(ALTITUDE) -cr $(CROP) --hull

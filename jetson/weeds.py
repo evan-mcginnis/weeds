@@ -48,6 +48,7 @@ from ImageManipulation import ImageManipulation
 from ImageLogger import ImageLogger
 from Classifier import Classifier, LogisticRegressionClassifier, KNNClassifier, DecisionTree, RandomForest, \
     GradientBoosting, SuppportVectorMachineClassifier, LDA, MLP
+from Classifier import Subset
 from OptionsFile import OptionsFile
 from Reporting import Reporting
 from Treatment import Treatment
@@ -810,6 +811,7 @@ parser.add_argument("-gr", "--grab", action="store_true", default=False,
 parser.add_argument('-mi', '--minority', action="store", required=False, type=float, default=1.0, help="Adjust minority class to represent this percentage")
 parser.add_argument("-ic", '--correct', action="store_true", required=False, default=False, help="Correct data imbalance")
 parser.add_argument("-ia", '--imbalance', action="store", required=False, choices=Classifier.correctionAlgorithms(), default='SMOTE', help="Data imbalance algorithm")
+parser.add_argument("-sub", "--subset", action="store", required=False, default=Subset.TRAIN.name.lower(), choices=[i.name.lower() for i in Subset])
 
 group = parser.add_mutually_exclusive_group()
 parser.add_argument('-ini', '--ini', action="store", required=False, default=constants.PROPERTY_FILENAME,
@@ -1117,6 +1119,7 @@ if arguments.logistic:
         classifier.correct = arguments.correct
         classifier.correctionAlgorithm = ImbalanceCorrection[arguments.imbalance]
         classifier.minority = arguments.minority
+        classifier.correctSubset = Subset[arguments.subset.upper()]
         log.debug(f"Loaded selections: {classifier.selections}")
         classifier.load(arguments.data, stratify=False)
         classifier.createModel(arguments.score)
