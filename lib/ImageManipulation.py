@@ -681,7 +681,7 @@ class ImageManipulation:
                                                True)
                 if distance < self._minDistanceToContour:
                     self.log.debug("Point is {} away from contour".format(distance))
-                # Determine if the blob has has a parent
+                # Determine if the blob has as a parent
                 # if name in self._blobs:
                 #     attributes = self._blobs[name]
                 #     attributes[constants.NAME_TYPE] = constants.TYPE_UNTREATED
@@ -1036,16 +1036,18 @@ class ImageManipulation:
 
     def substituteRectanglesForVegetation(self):
         """
-        Deprecated. Do not use this method.
         Using the identified centers of where the vegetation, draw low height rectangles
         that are later used for crop line detection
         """
+        self.log.debug(f"Substitute rectangles for image with {len(self._blobs)} blobs")
         self.cropline_image = np.zeros(self._image.shape, np.uint8)
-        for blobName, blobAttributes in self._cropRowCandidates.items():
+        #for blobName, blobAttributes in self._cropRowCandidates.items():
+        for blobName, blobAttributes in self._blobs.items():
             (x, y, w, h) = blobAttributes[constants.NAME_LOCATION]
             (x, y) = blobAttributes[constants.NAME_CENTER]
             # cv.circle(self.blank_image,(x,y),1, (255,255,255), -1)
-            self.cropline_image = cv.rectangle(self.cropline_image, (x, y), (x + 100, y + 30), (255, 255, 255), 2)
+            #self.cropline_image = cv.rectangle(self.cropline_image, (x, y), (x + 100, y + 30), (255, 255, 255), 2)
+            self.cropline_image = cv.rectangle(self.cropline_image, (x, y), (x + 10, y + 10), (255, 255, 255), -1)
 
         # filename = "candidates-" + str(uuid.uuid4()) + ".jpg"
 
@@ -1053,7 +1055,8 @@ class ImageManipulation:
 
     def detectLines(self):
         """
-        Deprecated. Do not use this method.
+        Detect croplines in the current image, Use probabilistic Hough transform
+        The resulting lines are in the lines and linesP variables
         """
         dst = cv.Canny(self.cropline_image, 50, 200, None, 3)
         cv.imwrite("edges.jpg", dst)
@@ -1061,15 +1064,19 @@ class ImageManipulation:
         # This allows for some plants in the crop line to be slightly offset from other plants
         # in the same row
         # What is needed is to detect roughly horizontal lines
-        self.linesP = cv.HoughLinesP(dst, 1, np.pi / 120, 50, None, minLineLength=100, maxLineGap=1500)
+        rho = 1
+        theta = np.pi / 180
+        threshold = 30
+        self.linesP = cv.HoughLinesP(dst, rho, theta, threshold, None, minLineLength=75, maxLineGap=1500)
+        self.log.debug(f"Detected {len(self.linesP)} croplines")
 
         self.lines = cv.HoughLines(dst, 50, np.pi / 2, 200)
 
-        # if self.linesP is not None:
-        #     for i in range(0, len(self.linesP)):
-        #         l = self.linesP[i][0]
-        #         cv.line(self.cropline_image, (l[0], l[1]), (l[2], l[3]), (0, 0, 255), 3, cv.LINE_AA)
-        # cv.imwrite("crop-lines.jpg", self.cropline_image)
+        if self.linesP is not None:
+            for i in range(0, len(self.linesP)):
+                l = self.linesP[i][0]
+                cv.line(self.cropline_image, (l[0], l[1]), (l[2], l[3]), (0, 0, 255), 3, cv.LINE_AA)
+        #cv.imwrite("crop-lines.jpg", self.cropline_image)
 
     def angleOf(self, p1: (), p2: ()) -> float:
         """
