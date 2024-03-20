@@ -91,6 +91,7 @@ class CameraFile(Camera):
 
             processed = ProcessedImage(constants.ImageType.RGB, image, 0)
             processed.getMetadata(imageName)
+            processed.source = imageName
 
             return processed
         # Raise an EOFError  when we get through the sequence of images
