@@ -1,5 +1,7 @@
 from typing import Union
 from PIL import Image
+import colorsys
+
 
 import cv2 as cv
 import matplotlib.pyplot as plt
@@ -56,6 +58,9 @@ class VegetationIndex:
 
         self._threshold = -9999
 
+        self.img = None
+        self._imageFromPil = None
+
         # Band positions for openCV (BGR)
         self.CV_BLUE = 0
         self.CV_GREEN = 1
@@ -79,6 +84,7 @@ class VegetationIndex:
         self.ALG_COM2="com2"
         self.ALG_RGD="rgd"
         self.ALG_SI="si"
+        self.ALG_DGCI="dgci"
 
         self.algorithms = [self.ALG_NDI,
                            self.ALG_TGI,
@@ -93,7 +99,8 @@ class VegetationIndex:
                            self.ALG_COM2,
                            self.ALG_TGI,
                            self.ALG_RGD,
-                           self.ALG_SI]
+                           self.ALG_SI,
+                           self.ALG_DGCI]
 
         thresholds = {"NDI": 0,
                       "EXG": 200,
@@ -105,7 +112,8 @@ class VegetationIndex:
                       "COM1": 300,
                       "MEXG": 10,
                       "COM2": 40,
-                      "TGI": 0}
+                      "TGI": 0,
+                      "DGCI": 0.5}
 
         self.computations = {self.ALG_NDI     : {"description": "Normalized Difference", "create": self.NDI, "threshold": thresholds["NDI"]},
                              self.ALG_EXG     : {"description": "Excess Green", "create": self.ExG, "threshold": thresholds["EXG"]},
@@ -120,6 +128,7 @@ class VegetationIndex:
                              self.ALG_TGI     : {"description": "TGI", "create": self.TGI, "threshold": thresholds["TGI"]},
                              self.ALG_RGD     : {"description": "Red Green Dots", "create": self.redGreenDots, "threshold": 0},
                              self.ALG_SI      : {"description": "Blue Spray Indicator", "create": self.SI, "threshold": 0},
+                             self.ALG_DGCI      : {"description": "Dark Greed Color", "create": self.DGCI, "threshold": thresholds["DGCI"]}
                              }
 
     @property
@@ -194,7 +203,7 @@ class VegetationIndex:
         """
         self._depth = DepthImage(depth)
 
-    def SetImage(self, image):
+    def SetImage(self, image: np.ndarray):
         normalized = np.zeros_like(image)
         finalImage = cv.normalize(image,  normalized, 0, 255, cv.NORM_MINMAX)
         self.img = finalImage
@@ -222,6 +231,10 @@ class VegetationIndex:
             self.greenBand = self.imgNP[:, :, self.CV_GREEN]
             self.blueBand = self.imgNP[:, :, self.CV_BLUE]
 
+    # This is just a hack so we can debug the DGCI code
+    def TemporaryLoad(self, location: str):
+        self._imageFromPil = Image.open(location)
+
     def Load(self, location: str):
         # TODO: Make this work for URLs
         # s = requests.Session()
@@ -231,6 +244,9 @@ class VegetationIndex:
         # print(resp)
 
         self.img = cv.imread(location,cv.IMREAD_COLOR)
+
+        # https://github.com/mcelrjo/pygreenturf/blob/master/pyGreenTurf_0.2.5.py
+        self._imageFromPil = Image.open(location)
 
         # Original
         # self.imgNP = np.array(self.img).astype(dtype=np.int16)
@@ -683,6 +699,126 @@ class VegetationIndex:
         #res = cv.bitwise_and(self.img,self.img, mask= mask)
         return mask
 
+    # https://github.com/mcelrjo/pygreenturf/blob/master/pyGreenTurf_0.2.5.py
+
+    # This is a very slow routine -- this should be farmed out to the GPU
+    def DGCI(self) -> np.ndarray:
+        """
+        Compute the Dark Green Color Index.
+        This is not particularly useful as an index for mask creation/segmentation, but the values here to indicate
+        chlorophyll levels may be useful.
+        :return:
+        """
+        sat = []
+        val = []
+
+        assert(self._imageFromPil is not None)
+
+        imgArray = np.array(self._imageFromPil)
+        dgci = np.zeros_like(self.img[:, :, 0], dtype=float)
+        height, width, channels = np.shape(self.img)
+
+        hueAngles = []
+        for x in range(height):
+            for y in range(width):
+                # print j[0], j[1], j[2]
+
+                h, s, v = colorsys.rgb_to_hsv(imgArray[x, y, 0] / 255., imgArray[x, y, 1] / 255., imgArray[x, y, 2] / 255.)
+                #h, s, v = colorsys.rgb_to_hsv(float(j[0]) / 255., float(j[1]) / 255., float(j[2]) / 255.)
+                hue = h * 360
+                hueAngles.append(hue)
+                sat.append(s)
+                val.append(v)
+                dgciAtPoint = ((((hue - 60.0) / 60.0) + (1.0 - s) + (1.0 - v)) / 3.0)
+                dgci[x][y] = dgciAtPoint
+
+        return dgci
+
+    def _DGCI(self) -> np.ndarray:
+
+        height, width, channels = np.shape(self.img)
+        # Confirm this is a color image
+        assert channels == 3
+
+        img = self.img
+        dgci = np.zeros_like(img[:, :, 0], dtype=float)
+
+        imgAsHLS = cv.cvtColor(self.img.astype(np.uint8), cv.COLOR_BGR2HSV)
+
+        for x in range(height):
+            for y in range(width):
+                hue = imgAsHLS[x, y, 0]
+                saturation = imgAsHLS[x, y, 1]
+                luminance = imgAsHLS[x, y, 2]
+                dgciAtPoint = (((hue - 60) / 60) + (1 - saturation) + (1 - luminance)) / 3
+                #print(f"HLS ({hue},{saturation},{luminance}) DGCI {dgciAtPoint}")
+
+                dgci[x][y] = dgciAtPoint
+        return dgci
+
+    def _old_DGCI(self) -> np.ndarray:
+        """
+        Compute the Dark Green Color Index (DGCI)
+        :return:
+        """
+        # Formula from this article
+        # https://www.petiolepro.com/blog/dark-green-colour-index-dgci-a-new-measurement-of-chlorophyll/
+        # DGCI = {(hue − 60)/60 + (1 − saturation) + (1 − brightness)}/3
+        img = self.img
+        height, width, channels = np.shape(self.img)
+
+        # Confirm this is a color image
+        assert channels == 3
+
+        # Use this as guidance
+        # https://acsess-onlinelibrary-wiley-com.ezproxy4.library.arizona.edu/doi/10.2135/cropsci2003.9430
+        # Normalize values in range (0..1)
+        bgrNormalized = self.img.astype(np.uint8) / 255
+
+        dgci = np.zeros_like(img[:, :, 0])
+
+        for x in range(height):
+            for y in range(width):
+                b, g, r = bgrNormalized[x, y]
+                maximum = max(r, g, b)
+                minimum = min(r, g, b)
+
+                # H U E
+                # There seem to be 3 different formulae depending on which channel is max
+
+                # Avoid division by zero
+                maximum += 0.00001
+
+                if maximum != minimum:
+                    # Red is max
+                    if max(b, g, r) == r:
+                        h = 60 * ((g - b) / (maximum - minimum))
+                    # Green is max
+                    elif max(b, g, r) == g:
+                        h = 60 * (2.0 + (b - r) * (maximum - minimum))
+                    # Blue is max
+                    elif max(b, g, r) == b:
+                        h = 60 * (4.0 + (r - g) * (maximum - minimum))
+                    else:
+                        assert False
+                else:
+                    h = 0
+
+                # L I G H T N E S S
+                lightness = maximum
+
+                # S A T U R A T I O N
+                saturation = (maximum - minimum) / maximum
+
+                dgciAtPoint = ((h - 60) / 60 + (1 - saturation) + (1 - lightness)) / 3
+
+                dgci[x][y] = dgciAtPoint
+        print("DGCI Calculated")
+        return dgci
+
+
+
+
 
     #
     # Not really an index for things found in nature, but intended for the colored dots
@@ -831,7 +967,8 @@ if __name__ == "__main__":
                #"Combined Index 2": {"short": "COM2", "create": utility.COM2, "negate": True, "threshold": threholds["COM2"], "direction": -1},
                "Combined Index 2": {"short": "COM2", "create": utility.COM2, "negate": False, "threshold": None, "direction": 1},
                "Triangulation Greenness Index": {"short": "TGI", "create": utility.TGI, "negate": False, "threshold": threholds["TGI"], "direction": 1},
-               "Depth Index": {"short": "DI", "create": utility.DI, "negate": False, "threshold": threholds["TGI"], "direction": 1}}
+               "Depth Index": {"short": "DI", "create": utility.DI, "negate": False, "threshold": threholds["TGI"], "direction": 1},
+                "Dark Green Color Index": {"short": "DGCI", "create": utility.DGCI, "negate": False, "threshold": threholds["DGCI"], "direction": 1}}
 
     # Debug the implementations:
     indices = {
