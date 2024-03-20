@@ -44,11 +44,14 @@ class Output(Enum):
 
 class Selection(ABC):
 
-    def __init__(self):
+    def __init__(self, subset=""):
         allFactors = Factors()
         self._rawData = np.ndarray
         self.log = logging.getLogger(__name__)
         self._columns = allFactors.getColumns([constants.PROPERTY_FACTOR_COLOR, constants.PROPERTY_FACTOR_GLCM])
+        # If we are in the middle of adding a new reading, this creates a bit og a problem,
+        # So if a restricted subset is specified, use that -- otherwise, load everything
+        #self._columns = allFactors.getColumns(None)
         self._columns.append(constants.NAME_TYPE)
         self._maxFactors = 10
         self._name = ""
@@ -213,7 +216,8 @@ class PrincipalComponentAnalysis(Selection):
         x = features[:, 0:self._rawData.shape[1] - 1]
         y = features[:, self._rawData.shape[1] - 1]
         # Originally, the number of components was lower than the number of samples
-        # pca = PCA(n_components=len(self._columns) - 1)
+        #pca = PCA(n_components=len(self._columns) - 1)
+        #print(f"PCA: Shape of data {self._rawData.shape} Columns {len(self._columns)} Y {len(y)}")
         pca = PCA(n_components=min(len(self._columns) - 1, len(y)))
         fit = pca.fit(x)
         if outputFormat == Output.TEXT:
@@ -643,7 +647,7 @@ class AllResults:
 
 if __name__ == "__main__":
     import argparse
-    import yaml
+    import math
     import sys
     import time
     import logging
@@ -786,11 +790,11 @@ if __name__ == "__main__":
                 break
             currentCombination += 1
             # Perhaps disk I/O is leading to poor performance, so issue a status statement only after 10000 sets
-            if currentCombination % 10000 == 0:
+            if currentCombination % 100 == 0:
                 logger.info(f"{technique.name}: combination: {currentCombination} parameters: {combination.parameters}")
             technique.selections = combination.parameters
             technique.load(dataFile, stratify=False)
-            technique.correctImbalance()
+            #technique.correctImbalance()
             technique.createModel(False)
 
             logger.debug(f"Technique: {technique.name} Combination: {currentCombination} Accuracy: {technique.accuracy()}")
@@ -837,53 +841,47 @@ if __name__ == "__main__":
         :param outputDirectory: The output directory for the images
         :return: The image logger instance
         """
-
-        # The command line argument contains the name of the YAML configuration file.
-
-        # Confirm the YAML file exists
+        # Confirm the INI exists
         if not os.path.isfile(configFile):
-            print("Unable to access logging configuration file {}".format(configFile))
+            print("Unable to access logging configuration file {}".format(arguments.logging))
             sys.exit(1)
 
         # Initialize logging
-        with open(arguments.logging, "rt") as f:
-            config = yaml.safe_load(f.read())
-            config['handlers']['file_handler']['filename'] = outputFile
-            logging.config.dictConfig(config)
-            theLogger = logging.getLogger(__name__)
-        return theLogger
+        logging.config.fileConfig(configFile)
+        log = logging.getLogger("jetson")
 
+        return log
 
     parser = argparse.ArgumentParser("Feature selection")
 
-    parser.add_argument("-df", "--data", action="store", required=True,
-                        help="Name of the data in CSV for use in logistic regression or KNN")
-    parser.add_argument("-fs", "--selection", action="store", required=True, choices=Selection.supportedSelections(),
-                        help="Feature selection")
+    parser.add_argument("-df", "--data", action="store", required=True, help="Name of the data in CSV to evaluate")
+    parser.add_argument("-fs", "--selection", action="store", required=True, choices=Selection.supportedSelections(), help="Feature selection")
     parser.add_argument("-f", "--factors", type=int, required=False, default=10)
-    parser.add_argument("-lg", "--logging", action="store", default="debug-logging.yaml", help="Logging configuration file")
+    parser.add_argument("-lg", "--logging", action="store", default="logging.ini", help="Logging configuration file")
     parser.add_argument("-lf", "--logfile", action="store", default="weeds.log", help="Logging output file")
-    parser.add_argument("-l", "--latex", action="store_true", required=False, default=False,
-                        help="Output latex tables")
+    parser.add_argument("-l", "--latex", action="store_true", required=False, default=False, help="Output latex tables")
     actions = parser.add_mutually_exclusive_group()
     actions.add_argument("-o", "--optimal", action="store_true", required=False, default=False, help="Search for optimal parameters")
     actions.add_argument("-co", "--consolidated", action="store_true", required=False, default=False, help="Show consolidated list of parameters")
     actions.add_argument("-t", "--target", action="store", required=False, type=str, help="Write parameter combinations to this file")
 
-    parser.add_argument("-m", "--maximums", action="store", required=False, help="Maximimum result file")
-
-    parser.add_argument("-d", "--debug", action="store_true", required=False, default=False, help="Process a small subset of parameters")
-    parser.add_argument("-p", "--prefix", action="store", required=True, help="Prefix for result files")
-    parser.add_argument("-b", "--batch", action="store", required=False, type=int, default=500000, help="Batch size for parameter search")
-    parser.add_argument("-c", "--chunks", action="store", required=False, type=int, default=1, help="Number of chunks")
-    parser.add_argument("-P", "--performance", action="store", type=str, default="performance.csv",
-                        help="Name of performance file")
+    parser.add_argument("-m", "--maximums", action="store", required=False, help="(Optimal) Maximum result file")
+    parser.add_argument("-d", "--debug", action="store_true", required=False, default=False, help="(Optimal) Process a small subset of parameters")
+    parser.add_argument("-p", "--prefix", action="store", required=False, help="(Optimal) Prefix for result files (Required for optimal)")
+    parser.add_argument("-b", "--batch", action="store", required=False, type=int, default=500000, help="(Optimal) Batch size for parameter search")
+    #parser.add_argument("-c", "--chunks", action="store", required=False, type=int, default=1, help="(Optimal) Number of chunks")
+    parser.add_argument("-P", "--performance", action="store", type=str, default="performance.csv", help="Name of performance file")
 
     # selectionCriteria = parser.add_mutually_exclusive_group()
     # selectionCriteria.add_argument("-a", "--auc", action="store_true", default=False, help="Use AUC for scoring")
     # selectionCriteria.add_argument("-s", "--accuracy", action="store_true", default=False, help="Use model accuracy for scoring")
 
     arguments = parser.parse_args()
+
+    if arguments.optimal:
+        if arguments.prefix is None:
+            print(f"Searching for optimal parameters requires prefix specified")
+            exit(1)
 
     logger = startupLogger(arguments.logging, arguments.logfile)
 
@@ -923,9 +921,11 @@ if __name__ == "__main__":
         selector.analyze(Output.NOTHING)
         # The list of all the attributes to be analyzed
         results = selector.results(unique=True)
-        combinations = itertools.combinations(results, MAX_PARAMETERS)
+        combinations = itertools.combinations(results, arguments.factors)
+        allCombinations = list(combinations)
+        logger.info(f"Search space is {len(allCombinations)} combinations from {len(results)} taken {arguments.factors} at a time")
         with open(arguments.target, "w") as parameters:
-            for result in combinations:
+            for result in allCombinations:
                 parameters.write(f"{result}")
                 parameters.write(f"\n")
         sys.exit(0)
@@ -966,50 +966,23 @@ if __name__ == "__main__":
 
         # Temporary: Create the result files
         allResultsForATechnique = {}
-        # for technique in allTechniquesNames:
-        #     logger.debug(f"Technique: {technique}")
-        #     allResultsForATechnique[technique] = AllResults(technique)
-        #     allResultsForATechnique[technique].parameters = allCombinations
-        #     allResultsForATechnique[technique].batches = arguments.chunks
-        #     print("Claiming first combination")
-        #     for batch in range(arguments.chunks):
-        #         logger.debug(f"Processing batch: {batch}")
-        #         combination = allResultsForATechnique[technique].getNextUnclaimed(batch)
-        #         accuracy = random.uniform(0.0, 100.0)
-        #         while combination is not None:
-        #             if random.randint(1, 10) > 5:
-        #                 allResultsForATechnique[technique].recordResult(combination, random.uniform(0.0, 100.0))
-        #             performance.start()
-        #             combination = allResultsForATechnique[technique].getNextUnclaimed(batch)
-        #             performance.stopAndRecord("OPTIMAL")
-        #             if combination is not None and combination.id % 10000 == 0:
-        #                 logger.debug(f"Claimed combination {combination.id}")
-        #     allResultsForATechnique[technique].save(technique + ".pickle")
-        # sys.exit(-1)
-
-        # End temporary
-
-        # print(f"Total Combinations: {len(allCombinations)}")
-        #
-        # # Determine the number of groups needed.  Use a small value for debugging
-        # if len(allCombinations) > 1000:
-        #     groups = int(len(allCombinations) / 1000000)
-        # else:
-        #     groups = 2
-        #
-        # chunks = more_itertools.batched(combinations_1, groups)
 
         threads = list()
         threading.stack_size(1024 * 128)
         classifierID = 0
         chunkID = 0
+        # Decide how many batches we have
+        totalBatches = int(math.ceil(len(allCombinations) / arguments.batch))
+        logger.debug(f"Processing {totalBatches} batch(es)")
         for technique in allTechniquesNames:
             logger.debug(f"Technique: {technique}")
             allResultsForATechnique[technique] = AllResults(technique)
             allResultsForATechnique[technique].parameters = allCombinations
-            allResultsForATechnique[technique].batches = arguments.chunks
+            allResultsForATechnique[technique].batches = totalBatches
+
+        # Use all the techniques
         for classifier in allTechniques:
-            for chunk in range(arguments.chunks):
+            for chunk in range(totalBatches):
                 logger.info(f"Technique: {classifier.name}-{classifierID} searching batch {chunk}")
                 # For debugging, don't actually launch the threads
                 search = Thread(name=classifier.name + constants.DELIMETER + str(chunkID),
@@ -1045,7 +1018,8 @@ if __name__ == "__main__":
             i = 0
             for technique, result in maximumsAccuracy.items():
                 accuracy = result[RESULT]
-                parameters = [parameter for parameter in result[PARAMETERS]]
+                #parameters = [parameter for parameter in result[PARAMETERS]]
+                parameters = list(result[PARAMETERS].parameters)
                 print(f"{technique}: Accuracy: {accuracy} {parameters}")
                 parameters.insert(0, accuracy)
                 arr[i] = parameters
@@ -1068,7 +1042,8 @@ if __name__ == "__main__":
             i = 0
             for technique, result in maximumsAUC.items():
                 accuracy = result[RESULT]
-                parameters = [parameter for parameter in result[PARAMETERS]]
+                #parameters = [parameter for parameter in result[PARAMETERS]]
+                parameters = list(result[PARAMETERS].parameters)
                 print(f"{technique}: AUC: {accuracy} {parameters}")
                 parameters.insert(0, accuracy)
                 arr[i] = parameters
