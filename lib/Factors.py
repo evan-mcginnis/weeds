@@ -14,7 +14,9 @@ class Factors:
         self._angles = [0, np.pi/4, np.pi/2, 3 * np.pi/4, np.pi]
 
         # This is one longer than the angles so we can have the average as well
-        self._angleNames = ["", "45", "90", "135", "180", constants.NAME_AVERAGE]
+        #self._angleNames = ["", "45", "90", "135", "180", constants.NAME_AVERAGE]
+        # Just the average to avoid orientation issues
+        self._angleNames = [constants.NAME_AVERAGE]
 
         # The final list of factors -- the ones here do not have angles associated with them
         allFactors = [
@@ -25,11 +27,13 @@ class Factors:
             [constants.PROPERTY_FACTOR_SHAPE, constants.NAME_ECCENTRICITY],
             [constants.PROPERTY_FACTOR_SHAPE, constants.NAME_ROUNDNESS],
             [constants.PROPERTY_FACTOR_SHAPE, constants.NAME_SOLIDITY],
+            [constants.PROPERTY_FACTOR_SHAPE, constants.NAME_BENDING],
+            [constants.PROPERTY_FACTOR_SHAPE, constants.NAME_RADIAL_VAR],
             [constants.PROPERTY_FACTOR_COLOR, constants.NAME_HUE],
             [constants.PROPERTY_FACTOR_COLOR, constants.NAME_SATURATION],
             [constants.PROPERTY_FACTOR_COLOR, constants.NAME_I_YIQ],
             [constants.PROPERTY_FACTOR_COLOR, constants.NAME_BLUE_DIFFERENCE],
-            [constants.PROPERTY_FACTOR_POSITION, constants.NAME_DISTANCE],
+            #[constants.PROPERTY_FACTOR_POSITION, constants.NAME_DISTANCE],
             [constants.PROPERTY_FACTOR_POSITION, constants.NAME_DISTANCE_NORMALIZED],
             # TODO: Create a new category, something like PROPERTY_FACTOR_STATS for both GLCM and HOG
             [constants.PROPERTY_FACTOR_GLCM, constants.NAME_HOG + constants.DELIMETER + constants.NAME_STDDEV],
@@ -120,7 +124,6 @@ class Factors:
             [constants.PROPERTY_FACTOR_GLCM, constants.NAME_BLUE + constants.DELIMETER + constants.NAME_CONTRAST],
             [constants.PROPERTY_FACTOR_GLCM, constants.NAME_BLUE + constants.DELIMETER + constants.NAME_DISSIMILARITY],
             [constants.PROPERTY_FACTOR_GLCM, constants.NAME_BLUE + constants.DELIMETER + constants.NAME_ASM],
-            [constants.PROPERTY_FACTOR_GLCM, constants.NAME_BLUE + constants.DELIMETER + constants.NAME_CORRELATION],
             # Green
             [constants.PROPERTY_FACTOR_GLCM, constants.NAME_GREEN + constants.DELIMETER + constants.NAME_CORRELATION],
             [constants.PROPERTY_FACTOR_GLCM, constants.NAME_GREEN + constants.DELIMETER + constants.NAME_HOMOGENEITY],
@@ -128,7 +131,6 @@ class Factors:
             [constants.PROPERTY_FACTOR_GLCM, constants.NAME_GREEN + constants.DELIMETER + constants.NAME_CONTRAST],
             [constants.PROPERTY_FACTOR_GLCM, constants.NAME_GREEN + constants.DELIMETER + constants.NAME_DISSIMILARITY],
             [constants.PROPERTY_FACTOR_GLCM, constants.NAME_GREEN + constants.DELIMETER + constants.NAME_ASM],
-            [constants.PROPERTY_FACTOR_GLCM, constants.NAME_GREEN + constants.DELIMETER + constants.NAME_CORRELATION],
             # Red
             [constants.PROPERTY_FACTOR_GLCM, constants.NAME_RED + constants.DELIMETER + constants.NAME_CORRELATION],
             [constants.PROPERTY_FACTOR_GLCM, constants.NAME_RED + constants.DELIMETER + constants.NAME_HOMOGENEITY],
@@ -183,7 +185,7 @@ class Factors:
 
         # Add in the GLCM factors
         for factor in _factorsWithAngles:
-            for angleName in GLCM.angleNames:
+            for angleName in GLCM.anglesAvailable:
                 factorWithAngleName = [factor[0], factor[1] + constants.DELIMETER + angleName]
                 allFactors.append(factorWithAngleName)
 

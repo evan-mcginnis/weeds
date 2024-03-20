@@ -84,6 +84,7 @@ class ImageManipulation:
 
         self._hash = sha1(numpy.ascontiguousarray(img)).hexdigest()
 
+
     # def init(self):
     #     self._cvimage = cv.cvtColor(self._image)
 
@@ -793,12 +794,12 @@ class ImageManipulation:
         self._blobs = glcm.blobs
 
         self.log.debug("GLCM: CIELAB L")
-        glcm = GLCM(self._blobs, constants.NAME_IMAGE_CIELAB, PREFIX=constants.NAME_CIELAB_L, BAND=2)
+        glcm = GLCM(self._blobs, constants.NAME_IMAGE_CIELAB, PREFIX=constants.NAME_CIELAB_L, BAND=0)
         glcm.computeAttributes()
         self._blobs = glcm.blobs
 
         self.log.debug("GLCM: CIELAB A")
-        glcm = GLCM(self._blobs, constants.NAME_IMAGE_CIELAB, PREFIX=constants.NAME_CIELAB_A, BAND=2)
+        glcm = GLCM(self._blobs, constants.NAME_IMAGE_CIELAB, PREFIX=constants.NAME_CIELAB_A, BAND=1)
         glcm.computeAttributes()
         self._blobs = glcm.blobs
 
@@ -902,6 +903,241 @@ class ImageManipulation:
 
         return
 
+    def _computeBoundaryChain(self):
+        """
+        Compute the boundary chain for all blobs and store as a blob attribute
+        """
+        # Chain codes
+        codes = [[3, 2, 1], [4, 99, 0], [5, 6, 7]]
+        translations = {-1: 0, 0: 1, 1: 2}
+        for blobName, blobAttributes in self._blobs.items():
+            contour = blobAttributes[constants.NAME_CONTOUR]
+            boundaryChain = []
+            # Testing
+            # contourPoints = [[[0, 0]], [[0, 1]], [[1, 2]], [[2, 2]], [[3, 1]], [[4, 0]], [[5, 0]], [[6, 1]], [[7, 2]]]
+            # contour = np.array(contourPoints)
+            for coordinate in range(len(contour) - 1):
+                if contour[coordinate, 0, 0] > contour[coordinate + 1, 0, 0]:
+                    #xDifference = contour[coordinate, 0, 0] - contour[coordinate + 1, 0, 0]
+                    i = 0
+                elif contour[coordinate, 0, 0] < contour[coordinate + 1, 0, 0]:
+                    #xDifference = contour[coordinate + 1, 0, 0] - contour[coordinate, 0, 0]
+                    i = 2
+                else:
+                    i = 1
+                if contour[coordinate, 0, 1] < contour[coordinate + 1, 0, 1]:
+                    #yDifference = contour[coordinate + 1, 0, 1] - contour[coordinate, 0, 1]
+                    j = 0
+                elif contour[coordinate, 0, 1] > contour[coordinate + 1, 0, 1]:
+                    #yDifference = contour[coordinate + 1, 0, 1] - contour[coordinate, 0, 1]
+                    j = 2
+                else:
+                    j = 1
+
+                #print(f"({contour[coordinate, 0, 0]},{contour[coordinate, 0, 1]}) differences ({xDifference}, {yDifference}))")
+                boundaryChain.append(codes[j][i])
+            blobAttributes[constants.NAME_BOUNDARY_CHAIN] = boundaryChain
+            self.log.debug(f"Boundary chain computed for perimeter")
+
+    def computeKslope(self, k: int):
+        """
+        Compute the k-slope array of boundaries for blobs in the image.
+        Stores the result in constants.NAME_KSLOPE attribute
+        :param k: The k for calculation -- must be even
+        """
+        # Make certain the k value given is even
+        assert(k % 2 == 0)
+
+        for blobName, blobAttributes in self._blobs.items():
+            contour = blobAttributes[constants.NAME_CONTOUR]
+            # Testing
+            # contourPoints = [[[0, 0]], [[0, 1]], [[1, 2]], [[2, 2]], [[3, 1]], [[4, 0]], [[5, 0]], [[6, 1]], [[7, 2]]]
+            # contour = np.array(contourPoints)
+            # The contour chain contains every point, but we want to base on points that are regularly spaced apart.
+            # The exact number of samples depends on the length of the chain
+            pointsForEveryDegree = len(contour) / 360
+            spacing = pointsForEveryDegree / k
+            slopes = []
+            for coordinate in range(int(k/2) - 1, len(contour) - int(k/2) - 1, k):
+                point1 = contour[coordinate + int(k/2), 0]
+                point2 = contour[coordinate - int(k/2), 0]
+                if point1[1] - point2[1] != 0:
+                    try:
+                        slope = math.atan((point1[0] - point2[0]) / (point1[1] - point2[1]))
+                    except ZeroDivisionError:
+                        # Horizontal slope is taken a 0
+                        slope = 0
+                else:
+                    slope = 0
+
+                slopes.append(slope)
+
+            blobAttributes[constants.NAME_KSLOPE] = slopes
+        self.log.debug(f"k-slope computed for perimeter")
+
+
+    def computeKcurvature(self, k: int):
+        """
+        Compute the k-curvature array of boundaries for blobs in the image.
+        Stores the result in constants.NAME_KCURVATURE attribute
+
+        :param k:
+        """
+        for blobName, blobAttributes in self._blobs.items():
+            contour = blobAttributes[constants.NAME_CONTOUR]
+            # Testing
+            # contourPoints = [[[0, 0]], [[0, 1]], [[1, 2]], [[2, 2]], [[3, 1]], [[4, 0]], [[5, 0]], [[6, 1]], [[7, 2]]]
+            # contour = np.array(contourPoints)
+            slopes = []
+            curvature = []
+            # Sample the shape as if it were a circle
+            for coordinate in range(k - 1, len(contour) - k - 1, k):
+
+                # A P P R O X I M A T I O N
+                # Method 1 using approximation of the curve
+                #
+                pointOriginal = contour[coordinate, 0]
+                point1 = contour[coordinate + k, 0]
+                point2 = contour[coordinate - k, 0]
+                if point2[1] - pointOriginal[1] != 0:
+                    try:
+                        slope1 = math.atan((point2[0] - pointOriginal[0]) / (point2[1] - pointOriginal[1]))
+                    except ZeroDivisionError:
+                        # Horizontal slope is taken a 0
+                        slope1 = 0
+                else:
+                    slope1 = 0
+
+                if pointOriginal[1] - point1[1] != 0:
+                    try:
+                        slope2 = math.atan((pointOriginal[0] - point1[0]) / (pointOriginal[1] - point1[1]))
+                    except ZeroDivisionError:
+                        # Horizontal slope is taken a 0
+                        slope2 = 0
+                else:
+                    slope2 = 0
+
+                slopes.append(slope1 - slope2)
+
+            # C A L C U L A T I O N
+            #
+            # Method 2 based algorithm from this text @ 10.4.2
+            # https://www.sciencedirect.com/book/9781558608610/digital-geometry
+            # Klette, R., & Rosenfeld, A.(2004).
+            # Digital Geometry: Geometric Methods for Digital Picture Analysis (1st ed.)[675].
+            # Elsevier Science & Technology.
+
+            stride = k
+            # Adapted from https://stackoverflow.com/questions/32629806/how-can-i-calculate-the-curvature-of-an-extracted-contour-by-opencv
+            assert stride < len(contour), "stride must be shorter than length of contour"
+
+            self.log.debug(f"Compute k-curvature for contour of length {len(contour)}")
+            for i in range(len(contour)):
+                before = i - stride + len(contour) if i - stride < 0 else i - stride
+                after = i + stride - len(contour) if i + stride >= len(contour) else i + stride
+
+                f1x, f1y = (contour[after, 0] - contour[before, 0]) / stride
+                f2x, f2y = (contour[after, 0] - 2 * contour[i, 0] + contour[before, 0]) / stride ** 2
+                denominator = (f1x ** 2 + f1y ** 2) ** 3 + 1e-11
+
+                denominator += 1e-12
+                curvature_at_i = np.sqrt(4 * (f2y * f1x - f2x * f1y) ** 2 / denominator)
+
+                curvature.append(curvature_at_i)
+
+
+            blobAttributes[constants.NAME_KCURVATURE] = curvature
+            blobAttributes[constants.NAME_KCURVATURE_APPROXIMATE] = slopes
+            self._k = k
+        self.log.debug(f"k-curvature computed for perimeter")
+
+    def visualize(self, attribute: str):
+
+        if attribute == constants.NAME_KCURVATURE_APPROXIMATE or attribute == constants.NAME_KCURVATURE:
+            for blobName, blobAttributes in self._blobs.items():
+                slopes = blobAttributes[attribute]
+                plt.figure(figsize=(10, 10))
+                ax = plt.subplot(111, polar=True)  # Create subplot
+                plt.grid(color='#888888')  # Color the grid
+                ax.set_theta_zero_location('N')  # Set zero to North
+                # ax.set_theta_direction(-1)  # Reverse the rotation
+                # ax.set_xticklabels(['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'], color='#666666',
+                #                    fontsize=8)  # Customize the xtick labels
+                ax.spines['polar'].set_visible(False)  # Show or hide the plot spine
+                # ax.set_axis_bgcolor('#111111')
+
+                # plt.xlabel(f"kappa = {self._k}")
+                # plt.ylabel(f"k approximation")
+                # plt.hlines(0, 0, len(slopes), colors="red")
+                plt.title(f"{blobName} {attribute}")
+                # plt.plot(slopes)
+
+
+                theta = np.deg2rad(np.arange(0, 360, 360/len(slopes)))
+
+                # plotting the polar coordinates on the system
+                plt.polar(theta, slopes, marker='o')
+                plt.show()
+
+    def computeBendingEnergy(self):
+        """
+        Compute the bending energy for all blobs and store as a blob attribute.
+        Bending Energy is stored in constants.NAME_BENDING attribute
+        """
+        self._computeBoundaryChain()
+        self.computeKslope(6)
+        self.computeKcurvature(6)
+        # self.visualize(constants.NAME_KCURVATURE)
+        for blobName, blobAttributes in self._blobs.items():
+            slopes = np.array(blobAttributes[constants.NAME_KCURVATURE])
+            bending = np.sum(slopes**2) / len(slopes)
+            totalCurvature = np.sum(abs(slopes)) / len(slopes)
+            blobAttributes[constants.NAME_BENDING] = bending
+            blobAttributes[constants.NAME_ABSCURVATURE] = totalCurvature
+            self.log.debug(f"Bending energy for {blobName}: {bending}")
+            self.log.debug(f"Total absolute curvature for {blobName}: {totalCurvature}")
+
+
+    def computeRadialDistances(self):
+
+        for blobName, blobAttributes in self._blobs.items():
+            contour = blobAttributes[constants.NAME_CONTOUR]
+            #avgX = np.average(contour[:, 0, 1])
+            #avgY = np.average(contour[:, 0, 0])
+            centroid = blobAttributes[constants.NAME_CENTER]
+
+            distances = []
+            maxDistance = 0
+            for coordinate in range(len(contour)):
+                point = contour[coordinate, 0]
+                distance = math.sqrt((point[1] - centroid[1])**2 + (point[0] - centroid[0])**2)
+                distances.append(distance)
+                if distance > maxDistance:
+                    maxDistance = distance
+
+            distancesDF = np.array(distances)
+            blobAttributes[constants.NAME_RADIAL_DISTANCE] = distancesDF
+            normRadialDistance = distancesDF / maxDistance
+            blobAttributes[constants.NAME_RADIAL_NORM] = normRadialDistance
+            normRadialAverage = np.average(normRadialDistance)
+            blobAttributes[constants.NAME_RADIAL_AVG] = normRadialAverage
+            blobAttributes[constants.NAME_RADIAL_VAR] = np.var(blobAttributes[constants.NAME_RADIAL_NORM])
+            crossings = np.where(normRadialDistance > normRadialAverage)
+            # Get the percentage  of crossings of the mean from the tuple returned
+            percentCrossings = len(crossings[0]) / len(normRadialDistance)
+            blobAttributes[constants.NAME_RADIAL_CROSSINGS_PCT] = percentCrossings
+            self.log.debug(f"Radial distances (sample): {distances[0]} {distances[1]}")
+            self.log.debug(f"Radial variance: {blobAttributes[constants.NAME_RADIAL_VAR]}")
+            self.log.debug(f"Radial crossings percentage: {percentCrossings}")
+
+
+    def computeFourier(self):
+
+        # We need a rectangular shape for these values, so use the bounding
+        # box for each blob.  This has a problem with vegetation that appears in the image,
+        # so this might get a bit messy.
+        for blobName, blobAttributes in self._blobs.items():
+            pass
     def computeCompactness(self):
         """
         The compactness of an object is given by 4 * pi * area / perimeter^2
