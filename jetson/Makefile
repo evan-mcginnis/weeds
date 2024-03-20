@@ -82,7 +82,7 @@ DBNAME?=weeds
 SUBSET?=ALL
 MINORITY?=1.0
 CORRECTION?=NONE
-ifeq (CORRECTION,NONE)
+ifeq ($(CORRECTION),NONE)
 	CORRECTIONFLAGS=
 else
 	CORRECTIONFLAGS= --correct  --minority $(MINORITY) --imbalance $(CORRECTION) --subset $(SUBSET)
@@ -117,6 +117,9 @@ INI=standalone.ini
 
 # Operation
 OPERATION?=normal
+
+# Imbalance
+IMBALANCE?=
 
 # Clean this up a bit, reducing the ML algorithm to one parameter
 ALGFLAG = unknown
@@ -175,9 +178,9 @@ report:
 	$(PYTHON) analyze.py -df results-current.csv
 
 optimal:
-	$(PYTHON) Selection.py -df results-current.csv -fs ALL -f 4 -c 1 -o -p "4-parameters"
-	$(PYTHON) Selection.py -df results-current.csv -fs ALL -f 5 -c 1 -o -p "5-parameters"
-	$(PYTHON) Selection.py -df results-current.csv -fs ALL -f 6 -c 1 -o -p "6-parameters"
+	$(PYTHON) Selection.py -df $(TRAINING) -fs ALL -f 4 -c 1 -o -p "4-parameters"
+	$(PYTHON) Selection.py -df $(TRAINING) -fs ALL -f 5 -c 1 -o -p "5-parameters"
+	$(PYTHON) Selection.py -df $(TRAINING) -fs ALL -f 6 -c 1 -o -p "6-parameters"
 svm:
 	$(PYTHON) weeds.py -r ../../results/results.svm.csv -i $(INPUT) -o ../../results/output-svm -a $(INDEX) -t $(THRESHOLDS) -df $(TRAINING) -svm -sc -v -lg $(LOG) -se $(PARAMETERS) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE)
 	mv $(LOGFILE) ../../results/output-svm.log
