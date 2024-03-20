@@ -66,21 +66,15 @@ if arguments.operation == OPERATION_SHOW:
         results = allResultsForTechnique.results
         for result in results:
             #print(result)
-            # populate the first N positions
-            if position < arguments.n:
-                if result.status == Status.COMPLETED:
-                    topN[position] = result
-                    if result.accuracy < lowestAccuracy:
-                        lowestAccuracy = result.accuracy
-                        lowestAccuracyPosition = position
-                    position += 1
+            if result.status == Status.COMPLETED:
+                topN, equivalentN = insertInTopN(result, topN, equivalentN)
             else:
-                if result.status == Status.COMPLETED:
-                    topN, equivalentN = insertInTopN(result, topN, equivalentN)
+                print("Something is wrong: results are not complete")
 
         print(f"Top {arguments.n} of {len(results)}")
-        for result in range(len(topN)):
-            print(f"{topN[result]} Equivalents: {len(equivalentN[result])}")
+        for i in range(len(topN)):
+            if topN[i].status != Status.UNCLAIMED:
+                print(f"{topN[i]} Equivalents: {len(equivalentN[i])}")
         # print(f"Equivalents")
         # for equivalent in equivalentN:
         #     for result in equivalent:
