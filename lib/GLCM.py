@@ -27,6 +27,7 @@ class GLCM:
 
     angles = [0, np.pi / 4, np.pi / 2, 3 * np.pi / 4, np.pi]
     angleNames = ["0", "45", "90", "135", "180", "avg"]
+    anglesAvailable = ["avg"]
 
     def __init__(self, blobs: {}, selectedImage: str, **kwargs):
         """
@@ -97,14 +98,15 @@ class GLCM:
                     for angle in range(len(GLCM.angles)):
                         # Insert the angle/attribute into the result table: i.e., yiq_i_90_energy
                         name = self._prefix + glcmAttribute + constants.DELIMETER + self.angleNames[angle]
-                        blobAttributes[name] = attribute[angle]
+                        # Don't put the intermediate angles in the result
+                        #blobAttributes[name] = attribute[angle]
                         total += attribute[angle]
                         # This is quite noisy
                         # self._log.debug(f"GLCM {name}: {attribute[angle]}")
 
-                    # Add in the average to make the observation rotationally independant
+                    # Add in the average to make the observation rotationally independent
                     name = self._prefix + glcmAttribute + constants.DELIMETER + constants.NAME_AVERAGE
-                    blobAttributes[name] = total / len(GLCM.angleNames)
+                    blobAttributes[name] = total / len(GLCM.angles)
 
                 else:
                     self._log.warning(f"GLCM: Empty array {np.shape(img)}")
