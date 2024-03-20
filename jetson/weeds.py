@@ -783,6 +783,7 @@ parser.add_argument("-ch", "--hull", action="store_true", default=False, help="S
 parser.add_argument("-cl", "--cropline", action="store_true", default=False, help="Detect and show cropline in image")
 parser.add_argument("-d", "--decorations", action="store", type=str, default="all",
                     help="Decorations on output images (all and none are shortcuts)")
+parser.add_argument("-plain", "--plain", action="store_true", default=False, help="Plain")
 
 # Database specifications
 parser.add_argument("-db", "--database", action="store_true", required=False, default=False, help="Store results in DB")
@@ -1029,7 +1030,7 @@ def plot3D(index: np.ndarray, planeLocation: int, title: str):
         return
 
     # I can get plotly to work only with square arrays, not rectangular, so just take a subset
-    subset = index[0:1500, 0:1500]
+    subset = index[0:2100, 0:2100]
     log.debug("Index is {}".format(index.shape))
     log.debug("Subset is {}".format(subset.shape))
     xi = np.linspace(0, subset.shape[0], num=subset.shape[0])
@@ -1198,7 +1199,9 @@ else:
 
 # If this is just to visualize, exit afterwards
 if arguments.operation == OPERATION_VISUALIZE:
-    classifier.visualize()
+    #classifier.visualize()
+    classifier.visualizeFolds()
+
     sys.exit(0)
 
 # Likewise, if this is just to evaluate the model
@@ -1365,6 +1368,7 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
 
         # ImageManipulation.show("Source",image)
         veg.SetImage(rawImage)
+        veg.TemporaryLoad(processed.source)
 
         performance.stopAndRecord(constants.PERF_ACQUIRE_BASLER_RGB)
 
@@ -1507,7 +1511,6 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
         # H O G
         performance.start()
         manipulated.computeHOG()
-        performance.stopAndRecord(constants.PERF_HOG)
 
         # L B P
         performance.start()
@@ -1525,6 +1528,8 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
         manipulated.computeConvexity()
         manipulated.computeSolidity()
         manipulated.computeMiscShapeMetrics()
+        manipulated.computeBendingEnergy()
+        manipulated.computeRadialDistances()
         performance.stopAndRecord(constants.PERF_SHAPES)
 
         # # GLCM attributes
@@ -1591,8 +1596,8 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
             performance.stopAndRecord(constants.PERF_CLASSIFY)
 
         # Draw boxes around the images we found with decorations for attributes selected
-        # manipulated.drawBoundingBoxes(contours)
-        manipulated.drawBoxes(manipulated.name, classifiedBlobs, featuresToShow, arguments.hull)
+        if not arguments.plain:
+            manipulated.drawBoxes(manipulated.name, classifiedBlobs, featuresToShow, arguments.hull)
 
         # Eliminate vegetation we would damage
         classifier.classifyByDamage(classifiedBlobs)
