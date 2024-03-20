@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import logging
 import warnings
-from sklearn.model_selection import train_test_split, cross_validate, cross_val_score, cross_val_score
+from sklearn.model_selection import train_test_split, cross_validate, cross_val_score, cross_val_score, StratifiedKFold
 from sklearn.linear_model import LogisticRegression
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.tree import DecisionTreeClassifier
@@ -42,6 +42,7 @@ class Subset(Enum):
     TRAIN = 0
     TEST = 1
     ALL = 2
+    NONE = 3
 
 class Type(Enum):
     CROP = 0
@@ -53,6 +54,22 @@ class ImbalanceCorrection(Enum):
     BORDERLINE = 2
     KMEANS = 3
     SVM = 4
+
+    def __str__(self):
+        return self.name
+
+class ClassificationTechniques(Enum):
+    KNN = 0
+    RANDOMFOREST = 1
+    DECISIONTREE = 2
+    SVM = 3
+    LDA = 4
+    MLP = 5
+    LOGISTIC = 6
+    GRADIENT = 7
+
+    def __str__(self):
+        return self.name
 
 class Classifier:
     name = "Base"
@@ -88,8 +105,10 @@ class Classifier:
         self._loaded = False
 
         self._correctImbalance = False
+        self._writeDatasetToDisk = False
         self._correctImbalanceAlgorithm = ImbalanceCorrection.SMOTE
         self._desiredImbalanceRatio = 1.0
+        self._correctSubset = Subset.TRAIN
 
         self.log = logging.getLogger(__name__)
         # # The ANN for the classifier
@@ -160,6 +179,22 @@ class Classifier:
         return choices
 
     @property
+    def correctSubset(self) -> Subset:
+        return self._correctSubset
+
+    @correctSubset.setter
+    def correctSubset(self, theSubset: Subset):
+        self._correctSubset = theSubset
+
+    @property
+    def writeDatasetToDisk(self) -> bool:
+        return self._writeDatasetToDisk
+
+    @writeDatasetToDisk.setter
+    def writeDatasetToDisk(self, writeData: bool):
+        self._writeDatasetToDisk = writeData
+
+    @property
     def minority(self) -> float:
         return self._desiredImbalanceRatio
 
@@ -201,7 +236,7 @@ class Classifier:
         """
         self.log.debug(f"Imbalance before creation: {self.imbalanceRatio(location)}")
         if location == Subset.ALL:
-            candidates = self._df.index[self._df[constants.NAME_TYPE] == 1].tolist()
+            candidates = self._df.index[self._df[constants.NAME_TYPE] == 0].tolist()
             indicesToDrop = []
             random.seed(42)
             for index in candidates:
@@ -219,11 +254,13 @@ class Classifier:
             self._xTrain.drop(index=indicesToDrop, inplace=True)
             self._yTrain.drop(index=indicesToDrop, inplace=True)
             self.log.debug(f"Created imbalance in {location.name} by dropping {indicesToDrop}")
+        elif location == Subset.NONE:
+            return
         else:
             self.log.error(f"Unable to create imbalance in subset of data")
         self.log.debug(f"Imbalance after: {self.imbalanceRatio(location)}")
 
-    def correctImbalance(self, location: Subset):
+    def correctImbalance(self, location: Subset = Subset.NONE):
         """
         Correct imbalance between majority and minority classes in dataset.
         This updates the training dataset.
@@ -251,15 +288,17 @@ class Classifier:
         elif self._correctImbalanceAlgorithm == ImbalanceCorrection.SVM:
             corrector = SVMSMOTE(random_state=2)
         else:
-            raise AttributeError(f"Requested algorithm not supported: {self._correctImbalanceAlgorithm}")
+            raise AttributeError(f"Requested algorithm not supported: {self._correctImbalanceAlgorithm.name}")
 
 
         if location == Subset.TRAIN:
             self._xTrain, self._yTrain = corrector.fit_resample(self._xTrain, self._yTrain)
         elif location == Subset.ALL:
-            raise NotImplementedError("Unable to correct entire dataset")
+            self._x, self._y = corrector.fit_resample(self._x, self._y)
         elif location == Subset.TEST:
             raise NotImplementedError("Unable to correct test subset")
+        elif location == Subset.NONE:
+            self.log.debug("No subset selected for correction")
         else:
             raise AttributeError(f"Unknown location {location}")
 
@@ -285,22 +324,26 @@ class Classifier:
         if location == Subset.TRAIN:
             counts = self._yTrain.value_counts()
         elif location == Subset.ALL:
-            y = self._df.type
-            counts = y.value_counts()
+            counts = self._y.value_counts()
         elif location == Subset.TEST:
             # The counts of the classes
             unique, counts = np.unique(self._yTest, return_counts=True)
+        elif location == Subset.NONE:
+            return "0"
         else:
             raise NotImplementedError(f"Unknown location: {location}")
 
-        self.log.debug(f"Class counts: {counts}")
+        #self.log.debug(f"Class counts: {counts}")
         # There should be only 2 counts for the two classes
         assert len(counts) == 2
 
-        #ratio = str(max(counts[0], counts[1])) + ':' + str(min(counts[0], counts[1])) + ' (' + str(max(counts[0], counts[1]) / min(counts[0], counts[1])) + ')'
         ratio = str(counts[0]) + ':' + str(counts[1]) + ' ' + Type(0).name + ':' + Type(1).name + ' (' + str(counts[0] / counts[1]) + ')'
 
         return ratio
+
+    @property
+    def model(self):
+        return self._model
 
     @property
     def scoring(self) -> Score:
@@ -321,6 +364,29 @@ class Classifier:
     def accuracy(self) -> float:
         self._model.predict(self._xTest)
         return self._model.score(self._xTest, self._yTest)
+
+    def averageOfCrossValidation(self) -> float:
+        """
+        The average of the model cross validations
+        :return:
+        """
+        return sum(self._scores) / len(self._scores)
+
+    @property
+    def tpr(self) -> float:
+        """
+        The true positive rate
+        :return:
+        """
+        return self._tpr
+
+    @property
+    def fpr(self) -> float:
+        """
+        The false positive rate
+        :return:
+        """
+        return self._fpr
 
     @property
     def auc(self) -> float:
@@ -430,17 +496,21 @@ class Classifier:
         :param filename:
         :return:
         """
-        if not os.path.isfile(filename):
-            raise FileNotFoundError
 
-        self.log.info("Load parameter selections")
-        # The selection file is just a single line of CSV
-        with open(filename) as f:
-            reader = csv.reader(f)
-            row = next(reader)
-        self._selections = row
+        # This is no longer needed, as we get the selections from the INI file
+        raise NotImplementedError
 
-        return True
+        # if not os.path.isfile(filename):
+        #     raise FileNotFoundError
+        #
+        # self.log.info("Load parameter selections")
+        # # The selection file is just a single line of CSV
+        # with open(filename) as f:
+        #     reader = csv.reader(f)
+        #     row = next(reader)
+        # self._selections = row
+
+        # return True
 
     @property
     def selections(self) -> []:
@@ -481,18 +551,28 @@ class Classifier:
         # Keep a copy of this -- we will use this elsewhere
         self._rawData = self._df.copy(deep=True)
 
-        # Create the imbalance before anything else is done
-        #if self._desiredImbalanceRatio != 1.0:
-        #    self.createImbalance(self._desiredImbalanceRatio, Subset.TRAIN)
-
         # Extract the type -- there should be only two, desired and undesired
         y = self._df.type
         self._y = y
         # Drop the type column
         self._df.drop("type", axis='columns', inplace=True)
+        # Sort by the column names, so the train columns and the features extracted match.
+        # Mixing up the order does not cause a failure in scikit-learn, but this is required.
+        self._df.sort_index(axis=1, inplace=True)
+
         self._x = self._df
         # Drop any data that is not part of the factors we want to consider
 
+        #self.log.debug(f"Entire dataset imbalance before correction: {self.imbalanceRatio(Subset.ALL)}")
+
+        if self._writeDatasetToDisk:
+            df = pd.DataFrame(self._xTrain, columns=s)
+            df.type = self._yTrain
+            df.to_csv(f"before-{self._correctImbalanceAlgorithm.name.lower()}-{self._desiredImbalanceRatio:.2f}-correction.csv")
+
+        # If we want the entire dataset corrected, do so before the split into train and test
+        if self._correctImbalance and self._correctSubset == Subset.ALL:
+            self.correctImbalance(Subset.ALL)
 
         # Split up the data
         if stratify:
@@ -508,8 +588,15 @@ class Classifier:
         if self._desiredImbalanceRatio != 1.0:
             self.createImbalance(self._desiredImbalanceRatio, Subset.TRAIN)
 
-        if self._correctImbalance:
+
+        # If we are correcting just the train portion, that should be done after the split
+        if self._correctImbalance and self._correctSubset == Subset.TRAIN:
             self.correctImbalance(Subset.TRAIN)
+
+        if self._writeDatasetToDisk:
+            df = pd.DataFrame(self._xTrain, columns=s)
+            df.type = self._yTrain
+            df.to_csv(f"after-{self._correctImbalanceAlgorithm.name.lower()}-{self._desiredImbalanceRatio:.2f}-correction.csv")
 
         self._loaded = True
 
@@ -542,14 +629,15 @@ class Classifier:
             #                  blobAttributes[constants.NAME_HUE],
             #                  blobAttributes[constants.NAME_I_YIQ]])
             # This is the Color+GLCM version 23 May 2023
-            Xfeatures.append([blobAttributes[constants.NAME_SATURATION],
-                             blobAttributes[constants.NAME_I_YIQ],
-                             blobAttributes[constants.NAME_BLUE_DIFFERENCE],
-                             blobAttributes[constants.NAME_GREYSCALE + constants.DELIMETER + constants.NAME_HOMOGENEITY + constants.DELIMETER + "0"],
-                             blobAttributes[constants.NAME_GREYSCALE + constants.DELIMETER + constants.NAME_ENERGY + constants.DELIMETER + "0"],
-                             blobAttributes[constants.NAME_GREYSCALE + constants.DELIMETER + constants.NAME_CONTRAST + constants.DELIMETER + "0"],
-                             blobAttributes[constants.NAME_GREYSCALE + constants.DELIMETER + constants.NAME_DISSIMILARITY + constants.DELIMETER + "0"],
-                             blobAttributes[constants.NAME_GREYSCALE + constants.DELIMETER + constants.NAME_ASM + constants.DELIMETER + "0"]])
+            # 27 Feb 2024 Not needed
+            # Xfeatures.append([blobAttributes[constants.NAME_SATURATION],
+            #                  blobAttributes[constants.NAME_I_YIQ],
+            #                  blobAttributes[constants.NAME_BLUE_DIFFERENCE],
+            #                  blobAttributes[constants.NAME_GREYSCALE + constants.DELIMETER + constants.NAME_HOMOGENEITY + constants.DELIMETER + "0"],
+            #                  blobAttributes[constants.NAME_GREYSCALE + constants.DELIMETER + constants.NAME_ENERGY + constants.DELIMETER + "0"],
+            #                  blobAttributes[constants.NAME_GREYSCALE + constants.DELIMETER + constants.NAME_CONTRAST + constants.DELIMETER + "0"],
+            #                  blobAttributes[constants.NAME_GREYSCALE + constants.DELIMETER + constants.NAME_DISSIMILARITY + constants.DELIMETER + "0"],
+            #                  blobAttributes[constants.NAME_GREYSCALE + constants.DELIMETER + constants.NAME_ASM + constants.DELIMETER + "0"]])
 
             # Construct the dataframe we will use
             #self._blobsInView = pd.DataFrame(features, columns=('ratio', 'shape', 'distance','normalized_distance', 'hue'))
@@ -571,6 +659,7 @@ class Classifier:
                                                                  constants.NAME_ASM))
             # Create a dataframe from the with the column names we want and the feature values
             self._blobsInView = pd.DataFrame(features, columns=selectedFeatureNames)
+            self._blobsInView.sort_index(axis=1, inplace=True)
 
     def visualize(self):
         plt.title(f'{self.name} Receiver Operating Characteristic')
@@ -584,6 +673,61 @@ class Classifier:
         plt.title(f'ROC Curve of {self.name}')
         plt.show()
 
+    def visualizeFolds(self):
+        # Adapted from:
+        # https://stackoverflow.com/questions/57708023/plotting-the-roc-curve-of-k-fold-cross-validation
+
+        cv = StratifiedKFold(n_splits=5)
+        #classifier = SVC(kernel='sigmoid', probability=True, random_state=0)
+
+        tprs = []
+        aucs = []
+        mean_fpr = np.linspace(0, 1, 100)
+        plt.figure(figsize=(10, 10))
+        i = 0
+        # Original
+        #for train, test in cv.split(X_train_res, y_train_res):
+        #self._xTrain.reset_index(inplace=True)
+        #self._yTrain = self._yTrain.reset_index()
+        for train, test in cv.split(self._x, self._y):
+            # Original
+            # probas_ = classifier.fit(X_train_res[train], y_train_res[train]).predict_proba(X_train_res[test])
+            probas_ = self._model.fit(self._x.iloc[train], self._y.iloc[train]).predict_proba(self._x.iloc[test])
+            # Compute ROC curve and area the curve
+            fpr, tpr, thresholds = roc_curve(self._y[test], probas_[:, 1])
+            tprs.append(np.interp(mean_fpr, fpr, tpr))
+            tprs[-1][0] = 0.0
+            roc_auc = auc(fpr, tpr)
+            aucs.append(roc_auc)
+            plt.plot(fpr, tpr, lw=1, alpha=0.3,
+                     label='ROC fold %d (AUC = %0.2f)' % (i, roc_auc))
+
+            i += 1
+        plt.plot([0, 1], [0, 1], linestyle='--', lw=2, color='r',
+                 label='Chance', alpha=.8)
+
+        mean_tpr = np.mean(tprs, axis=0)
+        mean_tpr[-1] = 1.0
+        mean_auc = auc(mean_fpr, mean_tpr)
+        std_auc = np.std(aucs)
+        plt.plot(mean_fpr, mean_tpr, color='b',
+                 label=r'Mean ROC (AUC = %0.2f $\pm$ %0.2f)' % (mean_auc, std_auc),
+                 lw=2, alpha=.8)
+
+        std_tpr = np.std(tprs, axis=0)
+        tprs_upper = np.minimum(mean_tpr + std_tpr, 1)
+        tprs_lower = np.maximum(mean_tpr - std_tpr, 0)
+        plt.fill_between(mean_fpr, tprs_lower, tprs_upper, color='grey', alpha=.2,
+                         label=r'$\pm$ 1 std. dev.')
+
+        plt.xlim([-0.01, 1.01])
+        plt.ylim([-0.01, 1.01])
+        plt.xlabel('False Positive Rate', fontsize=18)
+        plt.ylabel('True Positive Rate', fontsize=18)
+        plt.title(f'Cross-Validation ROC of {self.name}', fontsize=18)
+        plt.legend(loc="lower right", prop={'size': 15})
+        plt.show()
+
     def createModel(self, score: bool):
         raise NotImplementedError
 
@@ -591,7 +735,7 @@ class Classifier:
         self._model = None
 
 class MLP(Classifier):
-    name = "MLP"
+    name = ClassificationTechniques.MLP.name
 
     def __init__(self):
         super().__init__()
@@ -656,7 +800,7 @@ class MLP(Classifier):
         return
 
 class LDA(Classifier):
-    name = "LDA"
+    name = ClassificationTechniques.LDA.name
 
     def __init__(self):
         super().__init__()
@@ -689,7 +833,7 @@ class LDA(Classifier):
         if self._model is None:
             return
 
-        self.log.info("Classify by support vector machine")
+        self.log.info("Classify by LDA")
         self._prepareData()
 
         # Make the predictions using the model trained
@@ -705,7 +849,7 @@ class LDA(Classifier):
         return
 
 class SuppportVectorMachineClassifier(Classifier):
-    name = "SVM"
+    name = ClassificationTechniques.SVM.name
 
     def __init__(self):
         super().__init__()
@@ -782,7 +926,7 @@ class SuppportVectorMachineClassifier(Classifier):
 
 
 class LogisticRegressionClassifier(Classifier):
-    name = "LogisticRegression"
+    name = ClassificationTechniques.LOGISTIC.name
 
     def __init__(self):
         super().__init__()
@@ -866,7 +1010,7 @@ class LogisticRegressionClassifier(Classifier):
         return
 
 class KNNClassifier(Classifier):
-    name = "KNN"
+    name = ClassificationTechniques.KNN.name
 
     def __init__(self):
         super().__init__()
@@ -886,10 +1030,10 @@ class KNNClassifier(Classifier):
         if score:
             self.log.debug(f"KNN Cross validation scores: {self._scores}")
             yPred = self._model.predict(self._xTest)
-            print("K Neighbors prediction:\n", yPred)
+            self.log.debug(f"K Neighbors prediction:\n{yPred}")
 
-            print("Training Score: {:.3f}".format(self._model.score(self._xTrain, self._yTrain)))
-            print("Testing Score: {:.2f}\n".format(self._model.score(self._xTest, self._yTest)))
+            self.log.debug("Training Score: {:.3f}".format(self._model.score(self._xTrain, self._yTrain)))
+            self.log.debug("Testing Score: {:.2f}\n".format(self._model.score(self._xTest, self._yTest)))
 
 
     def classify(self):
@@ -914,7 +1058,7 @@ class KNNClassifier(Classifier):
 
 
 class DecisionTree(Classifier):
-    name = "DecisionTree"
+    name = ClassificationTechniques.DECISIONTREE.name
 
     def __init__(self):
         super().__init__()
@@ -963,7 +1107,7 @@ class DecisionTree(Classifier):
         return
 
 class RandomForest(Classifier):
-    name = "RandomForest"
+    name = ClassificationTechniques.RANDOMFOREST.name
 
     def __init__(self):
         super().__init__()
@@ -1000,7 +1144,7 @@ class RandomForest(Classifier):
         return
 
 class GradientBoosting(Classifier):
-    name = "GradientBoosting"
+    name = ClassificationTechniques.GRADIENT.name
 
     def __init__(self):
         super().__init__()
@@ -1041,17 +1185,18 @@ class SVM(Classifier):
         return
 
 
-def ClassifierFactory(technique: str) -> Classifier:
+
+def classifierFactory(technique: str) -> Classifier:
 
     classifiers = {
-        RandomForest.name: RandomForest,
-        GradientBoosting.name: GradientBoosting,
-        LDA.name: LDA,
-        MLP.name: MLP,
-        SuppportVectorMachineClassifier.name: SuppportVectorMachineClassifier,
-        LogisticRegressionClassifier.name: LogisticRegressionClassifier,
-        KNNClassifier.name: KNNClassifier,
-        DecisionTree.name: DecisionTree
+        RandomForest.name.upper(): RandomForest,
+        GradientBoosting.name.upper(): GradientBoosting,
+        LDA.name.upper(): LDA,
+        MLP.name.upper(): MLP,
+        SuppportVectorMachineClassifier.name.upper(): SuppportVectorMachineClassifier,
+        LogisticRegressionClassifier.name.upper(): LogisticRegressionClassifier,
+        KNNClassifier.name.upper(): KNNClassifier,
+        DecisionTree.name.upper(): DecisionTree
     }
 
     return classifiers[technique]()
