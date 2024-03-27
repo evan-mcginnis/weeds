@@ -47,7 +47,7 @@ from VegetationIndex import VegetationIndex
 from ImageManipulation import ImageManipulation
 from ImageLogger import ImageLogger
 from Classifier import Classifier, LogisticRegressionClassifier, KNNClassifier, DecisionTree, RandomForest, \
-    GradientBoosting, SuppportVectorMachineClassifier, LDA, MLP
+    GradientBoosting, SuppportVectorMachineClassifier, LDA, MLP, ExtraTrees
 from Classifier import Subset
 from OptionsFile import OptionsFile
 from Reporting import Reporting
@@ -833,6 +833,8 @@ group.add_argument("-svm", "--support", action="store_true", default=False,
                    help="Predict using support vector machine. Requires data file to be specified")
 group.add_argument("-mlp", "--perceptron", action="store_true", default=False,
                    help="Predict using multi-layer perceptron. Requires data file to be specified")
+group.add_argument("-extra", "--extra", action="store_true", default=False,
+                   help="Predict using extra trees. Requires data file to be specified")
 parser.add_argument("-im", "--image", action="store", default=200, type=int, help="Horizontal length of image")
 parser.add_argument("-lg", "--logging", action="store", default="logging.ini", help="Logging configuration file")
 parser.add_argument("-m", "--mask", action="store_true", default=False, help="Mask only -- no processing")
@@ -1191,6 +1193,15 @@ elif arguments.perceptron:
     classifier.createModel(arguments.score)
     #classifier.visualize()
     mlApproach = "mlp"
+elif arguments.extra:
+    classifier = ExtraTrees()
+    # Load selected parameters
+    #classifier.loadSelections(arguments.selection)
+    classifier.selections = selections
+    classifier.load(arguments.data, stratify=False)
+    classifier.createModel(arguments.score)
+    #classifier.visualize()
+    mlApproach = "extra"
 else:
     # TODO: This should be HeuristicClassifier
     classifier = Classifier()
@@ -1584,7 +1595,7 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
         performance.stopAndRecord(constants.PERF_MEAN)
 
         # Use either heuristics or logistic regression
-        if arguments.logistic or arguments.knn or arguments.tree or arguments.forest or arguments.gradient or arguments.support or arguments.lda or arguments.perceptron:
+        if arguments.logistic or arguments.knn or arguments.tree or arguments.forest or arguments.gradient or arguments.support or arguments.lda or arguments.perceptron or arguments.extra:
             log.debug(f"Classify by {mlApproach}")
             performance.start()
             classifier.classify()

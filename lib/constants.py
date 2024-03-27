@@ -315,8 +315,9 @@ REASON_GRADIENT = 7
 REASON_SVM = 8
 REASON_LDA = 9
 REASON_MLP = 10
+REASON_EXTRA = 11
 REASON_TOO_CLOSE = 11
-REASONS = ["Unknown", "At Edge", "Size", "Logistic", "KNN", "Decision Tree", "Random Forest", "Gradient", "SVM", "LDA", "MLP", "Too Close"]
+REASONS = ["Unknown", "At Edge", "Size", "Logistic", "KNN", "Decision Tree", "Random Forest", "Gradient", "SVM", "LDA", "MLP", "EXTRA", "Too Close"]
 
 # TYPES of vegetation
 TYPE_DESIRED = 0

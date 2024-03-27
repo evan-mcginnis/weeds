@@ -14,12 +14,13 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import logging
 import warnings
-from sklearn.model_selection import train_test_split, cross_validate, cross_val_score, cross_val_score, StratifiedKFold
+from sklearn.model_selection import train_test_split, cross_validate, cross_val_score, cross_val_score, KFold, StratifiedKFold
 from sklearn.linear_model import LogisticRegression
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.ensemble import ExtraTreesClassifier
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.svm import LinearSVC
 from sklearn.metrics import roc_curve
@@ -67,6 +68,7 @@ class ClassificationTechniques(Enum):
     MLP = 5
     LOGISTIC = 6
     GRADIENT = 7
+    EXTRA = 8
 
     def __str__(self):
         return self.name
@@ -362,14 +364,17 @@ class Classifier:
         self._scoring = theScoring
 
     def accuracy(self) -> float:
-        self._model.predict(self._xTest)
-        return self._model.score(self._xTest, self._yTest)
+        # Original code for only one split
+        # self._model.predict(self._xTest)
+        # return self._model.score(self._xTest, self._yTest)
+        return self.averageOfCrossValidation()
 
     def averageOfCrossValidation(self) -> float:
         """
         The average of the model cross validations
         :return:
         """
+        assert (len(self._scores) > 0)
         return sum(self._scores) / len(self._scores)
 
     @property
@@ -1170,18 +1175,62 @@ class GradientBoosting(Classifier):
         super().classify(constants.REASON_GRADIENT)
         return
 
-class SVM(Classifier):
+class ExtraTrees(Classifier):
+    name = ClassificationTechniques.EXTRA.name
+
+    def __init__(self):
+        super().__init__()
 
     def createModel(self, score: bool):
-        raise NotImplementedError
+        #X, y = make_classification(n_samples=500, n_features=10, random_state=seed, n_informative=6, n_redundant=4)
+        self._model = ExtraTreesClassifier(n_estimators=100, random_state=42)
+        self._model.fit(self._xTrain, self._yTrain)
+        # evaluate using cross-validation
+        cv = KFold(n_splits=10, random_state=42, shuffle=True)
+        self._scores = cross_val_score(self._model, self._xTrain, self._yTrain, scoring='accuracy', cv=cv, n_jobs=-1)
+
+        self._y_scores = self._model.predict_proba(self._xTest)
+        self._fpr, self._tpr, self._threshold = roc_curve(self._yTest, self._y_scores[:, 1])
+        self._auc = auc(self._fpr, self._tpr)
+
+        if score:
+            self.log.debug(f"Extra trees cross validation scores: {np.mean(self._scores)}")
+            self.log.debug("Training Score: {:.3f}".format(self._model.score(self._xTrain, self._yTrain)))
+            self.log.debug("Testing Score: {:.3f}".format(self._model.score(self._xTest, self._yTest)))
+
+    # def createModel(self, score: bool):
+    #     self._model = GradientBoostingClassifier(random_state=0, max_depth=4)
+    #     self._model.fit(self._xTrain, self._yTrain)
+    #
+    #     self._scores = cross_val_score(self._model, self._x, self._y)
+    #
+    #     self._y_scores = self._model.predict_proba(self._xTest)
+    #     self._fpr, self._tpr, self._threshold = roc_curve(self._yTest, self._y_scores[:, 1])
+    #     self._auc = auc(self._fpr, self._tpr)
+    #
+    #     if score:
+    #         self.log.debug(f"Gradient Boosting cross validation scores: {self._scores}")
+    #
+    #         print("Training Score: {:.3f}".format(self._model.score(self._xTrain, self._yTrain)))
+    #         print("Testing Score: {:.3f}".format(self._model.score(self._xTest, self._yTest)))
 
 
-    def visualize(self):
-        raise NotImplementedError
-        return
+    # def classify(self):
+    #     super().classify(constants.REASON_EXTRA)
+    #     return
 
     def classify(self):
-        raise NotImplementedError
+
+        self._prepareData()
+
+        predictions = self._model.predict(self._blobsInView)
+                # Mark up the current view
+        i = 0
+        for blobName, blobAttributes in self._blobs.items():
+            if blobAttributes[constants.NAME_REASON] != constants.REASON_AT_EDGE:
+                blobAttributes[constants.NAME_TYPE] = predictions[i]
+                blobAttributes[constants.NAME_REASON] = constants.REASON_DECISION_TREE
+            i = i + 1
         return
 
 
@@ -1196,7 +1245,8 @@ def classifierFactory(technique: str) -> Classifier:
         SuppportVectorMachineClassifier.name.upper(): SuppportVectorMachineClassifier,
         LogisticRegressionClassifier.name.upper(): LogisticRegressionClassifier,
         KNNClassifier.name.upper(): KNNClassifier,
-        DecisionTree.name.upper(): DecisionTree
+        DecisionTree.name.upper(): DecisionTree,
+        ExtraTrees.name.upper(): ExtraTrees
     }
 
     return classifiers[technique]()
