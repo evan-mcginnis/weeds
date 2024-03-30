@@ -160,6 +160,12 @@ TREATMENT?=-sp
 
 LOGFILE = jetson-right.log
 
+# Training
+TRAINING?=results-reviewed.csv
+
+# FACTORS
+FACTORS?=4
+
 # Until the DB is really optional, this is a bit broken
 weeds:
 	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a $(INDEX) -t $(THRESHOLDS) -df $(TRAINING) $(ALGFLAG) -sc -op $(OPERATION) -lg $(LOG) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE)
@@ -176,6 +182,9 @@ weeds-plot:
 
 report:
 	$(PYTHON) analyze.py -df results-current.csv
+
+selections:
+	$(PYTHON) Selection.py -df $(TRAINING) -fs ALL -f $(FACTORS) -l -lg logging.ini -of PICKLE
 
 optimal:
 	$(PYTHON) Selection.py -df $(TRAINING) -fs ALL -f 4 -c 1 -o -p "4-parameters"

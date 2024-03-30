@@ -1,9 +1,14 @@
 #
 # F E A T U R E  S E L E C T I O N
 #
+# Needed to prevent errors in type hints in member method parameters that use the enclosing class
+from __future__ import annotations
+
 import threading
+import math
 from abc import ABC, abstractmethod
 from collections import OrderedDict
+from collections import Counter
 
 from sklearn.ensemble import ExtraTreesClassifier, RandomForestClassifier
 from sklearn.feature_selection import SelectKBest
@@ -41,6 +46,12 @@ class Output(Enum):
     NOTHING = 0
     TEXT = 1
     LATEX = 2
+    CSV = 3
+    PICKLE = 4
+
+class Criteria(Enum):
+    ACCURACY = 0
+    AUC = 1
 
 class Selection(ABC):
 
@@ -48,7 +59,9 @@ class Selection(ABC):
         allFactors = Factors()
         self._rawData = np.ndarray
         self.log = logging.getLogger(__name__)
+        # Debuging -- this was the original
         self._columns = allFactors.getColumns([constants.PROPERTY_FACTOR_COLOR, constants.PROPERTY_FACTOR_GLCM])
+        #self._columns = allFactors.getColumns([constants.PROPERTY_FACTOR_COLOR, constants.PROPERTY_FACTOR_GLCM, constants.PROPERTY_FACTOR_SHAPE])
         # If we are in the middle of adding a new reading, this creates a bit og a problem,
         # So if a restricted subset is specified, use that -- otherwise, load everything
         #self._columns = allFactors.getColumns(None)
@@ -146,6 +159,12 @@ class Selection(ABC):
         # Keep a copy of this -- we will use this elsewhere
         self._rawData = self._df
 
+    def _output(self, format: Output, shortCaption, longCaption: str):
+        if format == Output.LATEX:
+            self.outputLatex(shortCaption, longCaption)
+        elif format == Output.TEXT:
+            print(f"{self._results}")
+
     def outputLatex(self, shortCaption: str, longCaption: str):
         # Transform the frame so we can fit the output on a page
         self._results = self._results.transpose()
@@ -159,7 +178,7 @@ class Selection(ABC):
         # Drop any data that is not part of the factors we want to consider
         # TODO: Put references to height
 
-
+# https://www.geeksforgeeks.org/ml-extra-tree-classifier-for-feature-selection/
 class FeatureImportance(Selection):
     def __init__(self):
         super().__init__()
@@ -169,7 +188,7 @@ class FeatureImportance(Selection):
     def create(self):
         return
 
-    def analyze(self, outputFormat: Output):
+    def analyze(self, outputFormat: Output, **kwargs):
         features = self._rawData.values
         # x is everything
         # y is just the type
@@ -177,7 +196,7 @@ class FeatureImportance(Selection):
         y = features[:, self._rawData.shape[1] - 1]
 
         # feature extraction
-        model = ExtraTreesClassifier(n_estimators=10)
+        model = ExtraTreesClassifier(n_estimators=10, random_state=42)
         model.fit(x, y)
         # print(model.feature_importances_)
 
@@ -198,8 +217,10 @@ class FeatureImportance(Selection):
         sortedResults = OrderedDict(sorted(results.items(), key=lambda t: t[1], reverse=True)[:self._maxFactors])
         self._results = pd.DataFrame([sortedResults])
 
-        if outputFormat == Output.LATEX:
-            self.outputLatex("Feature importances", "Feature Importances")
+        self._output(outputFormat, "Feature Importances", "Feature Importances")
+
+        # if outputFormat == Output.LATEX:
+        #     self.outputLatex("Feature importances", "Feature Importances")
 
 class PrincipalComponentAnalysis(Selection):
     def __init__(self):
@@ -326,11 +347,11 @@ class Univariate(Selection):
             self.log.error(f"{self._name}: {r}")
         return
 
-    def analyze(self, outputFormat: Output) -> np.ndarray:
+    def analyze(self, outputFormat: Output, **kwargs) -> np.ndarray:
         # Get the names of the features
         blobs = self._rawData
         names = blobs.columns.values.tolist()
-        self.log.debug("Candidates for feature selection: {}".format(names))
+        #self.log.debug("Candidates for feature selection: {}".format(names))
 
         features = blobs.values
         # x is everything
@@ -404,11 +425,16 @@ class All(Selection):
             technique.maxFactors = self.maxFactors
             technique.create()
 
-    def analyze(self, outputFormat: Output):
+    def analyze(self, outputFormat: Output, **kwargs):
         """
         Call all the analyze functions for the techniques
         :param outputFormat:
         """
+        if "prefix" in kwargs:
+            prefix = kwargs["prefix"]
+        else:
+            prefix = "parameters"
+
         consolidated = []
         i = 0
         consolidatedTable = pd.DataFrame(np.nan, index=range(len(self._selectionTechniques)), columns=range(self._maxFactors))
@@ -433,6 +459,11 @@ class All(Selection):
             # headers.insert(0, "Rank")
             print(f"{consolidatedTable.T.to_latex(longtable=True, index_names=True, caption=(longCaption, shortCaption), header=headers)}")
             consolidatedTable.to_latex()
+        elif outputFormat == Output.CSV:
+            consolidatedTable.to_csv('parameters.csv', header=False)
+        elif outputFormat == Output.PICKLE:
+            consolidatedTable.to_pickle(prefix + ".pickle")
+
 
     def load(self, filename: str):
         """
@@ -463,7 +494,9 @@ class Maximums:
             RandomForest.name: {RESULT: 0, PARAMETERS: []},
             GradientBoosting.name: {RESULT: 0, PARAMETERS: []},
             SuppportVectorMachineClassifier.name: {RESULT: 0, PARAMETERS: []},
-            LDA.name: {RESULT: 0, PARAMETERS: []}
+            LDA.name: {RESULT: 0, PARAMETERS: []},
+            MLP.name: {RESULT: 0, PARAMETERS: []},
+            ExtraTrees.name: {RESULT: 0, PARAMETERS: []}
         }
 
 
@@ -487,15 +520,22 @@ class Maximums:
             pickle.dump(self._maximums, results)
 
 class IndividualResult:
-    def __init__(self, theTechnique: str):
+    def __init__(self, **kwargs):
         # If the combination has been checked yet
         self._checked = Status.UNCLAIMED
         # The result of that check -- will be -1.0 if not yet complete
         self._accuracy = -1.0
+        self._auc = -1.0
         # The list of parameters to use
         self._parameters = List[str]
-        self._technique = theTechnique
         self._id = -1
+        # The number of results to expect
+        self._resultsExpected = len(Criteria)
+
+        if "technique" in kwargs:
+            self._technique = kwargs["technique"]
+        else:
+            self._technique = "XXX"
 
     @property
     def id(self) -> int:
@@ -520,6 +560,10 @@ class IndividualResult:
         return self._accuracy
 
     @property
+    def auc(self) -> float:
+        return self._auc
+
+    @property
     def parameters(self) -> []:
         return self._parameters
 
@@ -535,21 +579,48 @@ class IndividualResult:
         self._checked = Status.IN_PROGRESS
         return self._parameters
 
-    def complete(self, result: float):
-        self._checked = Status.COMPLETED
-        self._accuracy = result
+    def complete(self, criterion: Criteria, result: float):
+        """
+        Mark the completion for a criteria
+        :param criterion: The criteria for a result
+        :param result: The value for the criteria
+        """
+        self._resultsExpected -= 1
+        if self._resultsExpected == 0:
+            self._checked = Status.COMPLETED
+        if criterion == Criteria.ACCURACY:
+            self._accuracy = result
+        elif criterion == Criteria.AUC:
+            self._auc = result
+
+    # Adapted from https://stackoverflow.com/questions/14720324/compute-the-similarity-between-two-lists
+
+    def _cosineSimilarity(self, c1: Counter, c2: Counter) -> float:
+        terms = set(c1).union(c2)
+        dotprod = sum(c1.get(k, 0) * c2.get(k, 0) for k in terms)
+        magA = math.sqrt(sum(c1.get(k, 0) ** 2 for k in terms))
+        magB = math.sqrt(sum(c2.get(k, 0) ** 2 for k in terms))
+        return dotprod / (magA * magB)
+
+    def similarity(self, target: IndividualResult) -> float:
+        return self._cosineSimilarity(Counter(self._parameters), Counter(target.parameters))
+
 
     def __str__(self) -> str:
         theString = f"{self._checked}:{self._accuracy}:{self._parameters}"
         return theString
 
 class AllResults:
-    def __init__(self, theTechnique: str):
+    def __init__(self, **kwargs):
         """
         The results of checking
         :param theTechnique: Name of the technique (KNN, SVM, etc.)
         """
-        self._technique = theTechnique  # KNN, SVM, etc.
+        if "technique" in kwargs:
+            self._technique = kwargs["technique"]
+        else:
+            self._technique = "XXX"
+
         self._results = []  # List of results from Result class above
         self._parameters = []           # List of lists -- all combinations of parameters
         self._lastClaimedPosition = 0
@@ -590,7 +661,7 @@ class AllResults:
         id = 0
         # Create the results list
         for parameterList in self._parameters:
-            result = IndividualResult(self._technique)
+            result = IndividualResult(technique=self._technique)
             result.id = id
             result.parameters = parameterList
             self._results.append(result)
@@ -624,9 +695,8 @@ class AllResults:
                     break
 
         return combination
-
-    def recordResult(self, combination: IndividualResult, result: float):
-        self._results[combination.id].complete(result)
+    def recordResult(self, combination: IndividualResult, criterion: Criteria, result: float):
+        self._results[combination.id].complete(criterion, result)
 
     def save(self, fileName: str):
         dbfile = open(fileName, 'wb')
@@ -658,7 +728,7 @@ if __name__ == "__main__":
     from typing import List
     #    from Logger import Logger
     from Classifier import Classifier, LogisticRegressionClassifier, KNNClassifier, DecisionTree, RandomForest, GradientBoosting, SuppportVectorMachineClassifier, LDA
-    from Classifier import MLP
+    from Classifier import MLP, ExtraTrees
     from Classifier import classifierFactory
     from Performance import Performance
     from enum import Enum
@@ -690,7 +760,8 @@ if __name__ == "__main__":
         GradientBoosting.name: {RESULT: 0, PARAMETERS: []},
         SuppportVectorMachineClassifier.name: {RESULT: 0, PARAMETERS: []},
         LDA.name: {RESULT: 0, PARAMETERS: []},
-        MLP.name: {RESULT: 0, PARAMETERS: []}
+        MLP.name: {RESULT: 0, PARAMETERS: []},
+        ExtraTrees.name: {RESULT: 0, PARAMETERS: []}
     }
 
     maximumsAUC = {
@@ -701,7 +772,8 @@ if __name__ == "__main__":
         GradientBoosting.name: {RESULT: 0, PARAMETERS: []},
         SuppportVectorMachineClassifier.name: {RESULT: 0, PARAMETERS: []},
         LDA.name: {RESULT: 0, PARAMETERS: []},
-        MLP.name: {RESULT: 0, PARAMETERS: []}
+        MLP.name: {RESULT: 0, PARAMETERS: []},
+        ExtraTrees.name: {RESULT: 0, PARAMETERS: []}
     }
 
     maximumsAccuracyEquivalent = {
@@ -712,7 +784,8 @@ if __name__ == "__main__":
         GradientBoosting.name: {RESULT: 0, PARAMETERS: []},
         SuppportVectorMachineClassifier.name: {RESULT: 0, PARAMETERS: []},
         LDA.name: {RESULT: 0, PARAMETERS: []},
-        MLP.name: {RESULT: 0, PARAMETERS: []}
+        MLP.name: {RESULT: 0, PARAMETERS: []},
+        ExtraTrees.name: {RESULT: 0, PARAMETERS: []}
     }
 
     maximumsAUCEquivalent = {
@@ -723,7 +796,8 @@ if __name__ == "__main__":
         GradientBoosting.name: {RESULT: 0, PARAMETERS: []},
         SuppportVectorMachineClassifier.name: {RESULT: 0, PARAMETERS: []},
         LDA.name: {RESULT: 0, PARAMETERS: []},
-        MLP.name: {RESULT: 0, PARAMETERS: []}
+        MLP.name: {RESULT: 0, PARAMETERS: []},
+        ExtraTrees.name: {RESULT: 0, PARAMETERS: []}
     }
     resultsSemaphore = Semaphore()
 
@@ -804,8 +878,8 @@ if __name__ == "__main__":
                 #anClassificationRate = sum(technique.scores) / len(technique.scores)
                 meanClassificationRate = technique.accuracy()
                 logger.info(f"{technique.name}: combination: {currentCombination} scores: {technique.scores} parameters: {combination.parameters} accuracy: {meanClassificationRate}")
-                allResultsForATechnique[technique.name].recordResult(combination, meanClassificationRate)
-                allResultsForATechnique[technique.name].save(arguments.prefix + constants.DELIMETER + technique.name + ".pickle")
+                allResultsForATechnique[technique.name].recordResult(combination, Criteria.ACCURACY, meanClassificationRate)
+                allResultsForATechnique[technique.name].save(arguments.prefix + constants.DELIMETER + STRATEGY_ACCURACY + constants.DELIMETER + technique.name + ".pickle")
                 resultsSemaphore.release()
             else:
                 logger.error(f"Length of scores is zero. Proceeding")
@@ -821,6 +895,11 @@ if __name__ == "__main__":
                 logger.info(f"Found equivalent for {technique.name:} accuracy: {meanClassificationRate} using {combination}")
 
             # AUC
+            if technique.auc > 0:
+                logger.info(f"{technique.name}: combination: {currentCombination} scores: {technique.scores} parameters: {combination.parameters} auc: {technique.auc}")
+                allResultsForATechnique[technique.name].recordResult(combination, Criteria.AUC, technique.auc)
+                allResultsForATechnique[technique.name].save(arguments.prefix + constants.DELIMETER + STRATEGY_AUC + constants.DELIMETER + technique.name + ".pickle")
+
             if technique.auc > highestAUC:
                 highestAUC = technique.auc
                 resultsSemaphore.acquire(blocking=True)
@@ -852,6 +931,8 @@ if __name__ == "__main__":
 
         return log
 
+    outputChoices = [c.name for c in Output]
+
     parser = argparse.ArgumentParser("Feature selection")
 
     parser.add_argument("-df", "--data", action="store", required=True, help="Name of the data in CSV to evaluate")
@@ -865,9 +946,10 @@ if __name__ == "__main__":
     actions.add_argument("-co", "--consolidated", action="store_true", required=False, default=False, help="Show consolidated list of parameters")
     actions.add_argument("-t", "--target", action="store", required=False, type=str, help="Write parameter combinations to this file")
 
+    parser.add_argument("-of", "--outputformat", action="store", required=False, default=Output.LATEX.name, choices=outputChoices, help="Output format")
     parser.add_argument("-m", "--maximums", action="store", required=False, help="(Optimal) Maximum result file")
     parser.add_argument("-d", "--debug", action="store_true", required=False, default=False, help="(Optimal) Process a small subset of parameters")
-    parser.add_argument("-p", "--prefix", action="store", required=False, help="(Optimal) Prefix for result files (Required for optimal)")
+    parser.add_argument("-p", "--prefix", action="store", required=False, default="parameters", help="(Optimal) Prefix for result files (Required for optimal)")
     parser.add_argument("-b", "--batch", action="store", required=False, type=int, default=500000, help="(Optimal) Batch size for parameter search")
     #parser.add_argument("-c", "--chunks", action="store", required=False, type=int, default=1, help="(Optimal) Number of chunks")
     parser.add_argument("-P", "--performance", action="store", type=str, default="performance.csv", help="Name of performance file")
@@ -960,7 +1042,7 @@ if __name__ == "__main__":
         # combinations_1, combinations_2 = itertools.tee(allCombinations, 2)
 
 
-        allTechniques = [RandomForest(), KNNClassifier(), GradientBoosting(), LogisticRegressionClassifier(), DecisionTree(), SuppportVectorMachineClassifier(), LDA(), MLP()]
+        allTechniques = [RandomForest(), KNNClassifier(), GradientBoosting(), LogisticRegressionClassifier(), DecisionTree(), SuppportVectorMachineClassifier(), LDA(), MLP(), ExtraTrees()]
         #allTechniques = [KNNClassifier(), RandomForest(), GradientBoosting(), LogisticRegressionClassifier(), DecisionTree(), LDA()]
         allTechniquesNames = [x.name for x in allTechniques]
 
@@ -976,14 +1058,14 @@ if __name__ == "__main__":
         logger.debug(f"Processing {totalBatches} batch(es)")
         for technique in allTechniquesNames:
             logger.debug(f"Technique: {technique}")
-            allResultsForATechnique[technique] = AllResults(technique)
+            allResultsForATechnique[technique] = AllResults(technique=technique)
             allResultsForATechnique[technique].parameters = allCombinations
             allResultsForATechnique[technique].batches = totalBatches
 
         # Use all the techniques
         for classifier in allTechniques:
             for chunk in range(totalBatches):
-                logger.info(f"Technique: {classifier.name}-{classifierID} searching batch {chunk}")
+                logger.info(f"Technique-id: {classifier.name}-{classifierID} searching batch {chunk}")
                 # For debugging, don't actually launch the threads
                 search = Thread(name=classifier.name + constants.DELIMETER + str(chunkID),
                                 target=searchForParameters,
@@ -1018,12 +1100,15 @@ if __name__ == "__main__":
             i = 0
             for technique, result in maximumsAccuracy.items():
                 accuracy = result[RESULT]
-                #parameters = [parameter for parameter in result[PARAMETERS]]
-                parameters = list(result[PARAMETERS].parameters)
-                print(f"{technique}: Accuracy: {accuracy} {parameters}")
-                parameters.insert(0, accuracy)
-                arr[i] = parameters
-                i += 1
+                if accuracy > 0:
+                    #parameters = [parameter for parameter in result[PARAMETERS]]
+                    parameters = list(result[PARAMETERS].parameters)
+                    print(f"{technique}: Accuracy: {accuracy} {parameters}")
+                    parameters.insert(0, accuracy)
+                    arr[i] = parameters
+                    i += 1
+                else:
+                    print(f"{technique}: Shows no accuracy. Not normal.")
             dfMaximums = pd.DataFrame(arr)
             print("---------- begin latex ---------------")
             print(f"{dfMaximums.T.to_latex(longtable=True, index_names=False, index=False, caption=(longCaption, shortCaption), label='table:optimal-accuracy', header=allTechniquesNames)}")
@@ -1064,4 +1149,4 @@ if __name__ == "__main__":
         results = selector.results(unique=True)
         print(f"{results}")
     else:
-        selector.analyze(Output.LATEX if arguments.latex else Output.TEXT)
+        selector.analyze(Output[arguments.outputformat], prefix=arguments.prefix)
