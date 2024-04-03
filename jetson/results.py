@@ -89,6 +89,10 @@ arguments = parser.parse_args()
 
 criteria = Criteria[arguments.criteria]
 
+if arguments.similarity is not None and arguments.computed is None:
+    print("Computed parameters must be specified if similarity is")
+    exit(-1)
+
 # Find data files for each technique
 files = []
 if arguments.prefix is not None:
@@ -183,7 +187,7 @@ if arguments.similarity is not None:
     exit(0)
 
 
-if arguments.format is not None:
+if arguments.output is not None:
     if arguments.n == -1:
         for result in allResults:
             result.print()

@@ -54,7 +54,7 @@ class Reporting:
         factors = Factors()
 
         # All the factors
-        self._columns = factors.getColumns(None)
+        self._columns = factors.getColumns([], [])
 
         # Columns to exclude from translations like normalizing values
         self._exclude = [constants.NAME_NAME, constants.NAME_NUMBER, constants.NAME_TYPE]

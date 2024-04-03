@@ -158,6 +158,7 @@ NAME_IMAGE_CIELAB           = "cielab"
 
 # Column names in pandas
 COLUMN_NAME_VALUE           = "value"
+COLUMN_NAME_SUBTYPE         = "subtype"
 COLUMN_NAME_TYPE            = "type"
 COLUMN_NAME_FACTOR          = "factor"
 
@@ -412,9 +413,11 @@ PROPERTY_SERIAL_RIGHT = "SERIAL-RIGHT"
 # I M A G E  P R O C E S S I N G
 PROPERTY_FACTOR_COLOR = "color"
 PROPERTY_FACTOR_GLCM = "glcm"
+PROPERTY_FACTOR_LBP = "lbp"
 PROPERTY_FACTOR_POSITION = "position"
 PROPERTY_FACTOR_SHAPE = "shape"
-PROPERTY_FACTOR_LBP = "lbp"
+PROPERTY_FACTOR_TEXTURE = "texture"
+
 
 # D E P T H
 PROPERTY_SECTION_DEPTH = "DEPTH"

@@ -166,6 +166,14 @@ TRAINING?=results-reviewed.csv
 # FACTORS
 FACTORS?=4
 
+PREFIX?=reviewed
+
+FORMAT?=PICKLE
+
+TYPE?=all
+
+SUBTYPE?=all
+
 # Until the DB is really optional, this is a bit broken
 weeds:
 	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a $(INDEX) -t $(THRESHOLDS) -df $(TRAINING) $(ALGFLAG) -sc -op $(OPERATION) -lg $(LOG) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE)
@@ -183,13 +191,14 @@ weeds-plot:
 report:
 	$(PYTHON) analyze.py -df results-current.csv
 
+# Report the selections to a file that can then be subsequently read
 selections:
-	$(PYTHON) Selection.py -df $(TRAINING) -fs ALL -f $(FACTORS) -l -lg logging.ini -of PICKLE
+	$(PYTHON) Selection.py -df $(TRAINING) -fs ALL -f $(FACTORS) -l -lg logging.ini -of $(FORMAT) -ty $(TYPE) -s $(SUBTYPE)
 
+# Iterate over all the factors taken N at a time to find the optimum
 optimal:
-	$(PYTHON) Selection.py -df $(TRAINING) -fs ALL -f 4 -c 1 -o -p "4-parameters"
-	$(PYTHON) Selection.py -df $(TRAINING) -fs ALL -f 5 -c 1 -o -p "5-parameters"
-	$(PYTHON) Selection.py -df $(TRAINING) -fs ALL -f 6 -c 1 -o -p "6-parameters"
+	$(PYTHON) Selection.py -df $(TRAINING) -fs ALL -f $(FACTORS) -l -lg logging.ini -p $(PREFIX) -o -ty $(TYPE)
+
 svm:
 	$(PYTHON) weeds.py -r ../../results/results.svm.csv -i $(INPUT) -o ../../results/output-svm -a $(INDEX) -t $(THRESHOLDS) -df $(TRAINING) -svm -sc -v -lg $(LOG) -se $(PARAMETERS) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE)
 	mv $(LOGFILE) ../../results/output-svm.log

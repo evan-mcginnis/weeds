@@ -3,6 +3,7 @@
 #
 # Needed to prevent errors in type hints in member method parameters that use the enclosing class
 from __future__ import annotations
+from typing import List
 
 import threading
 import math
@@ -27,6 +28,9 @@ import os
 
 import constants
 from Factors import Factors
+from Factors import FactorTypes
+from Factors import FactorSubtypes
+
 from enum import Enum
 
 from numpy import set_printoptions
@@ -55,44 +59,68 @@ class Criteria(Enum):
 
 class Selection(ABC):
 
-    def __init__(self, subset=""):
-        allFactors = Factors()
+    def __init__(self):
+        self._allFactors = Factors()
         self._rawData = np.ndarray
         self.log = logging.getLogger(__name__)
         # Debuging -- this was the original
-        self._columns = allFactors.getColumns([constants.PROPERTY_FACTOR_COLOR, constants.PROPERTY_FACTOR_GLCM])
-        #self._columns = allFactors.getColumns([constants.PROPERTY_FACTOR_COLOR, constants.PROPERTY_FACTOR_GLCM, constants.PROPERTY_FACTOR_SHAPE])
+        #self._columns = allFactors.getColumns([constants.PROPERTY_FACTOR_COLOR, constants.PROPERTY_FACTOR_GLCM])
+        #self._columns = self._allFactors.getColumns([constants.PROPERTY_FACTOR_COLOR, constants.PROPERTY_FACTOR_GLCM, constants.PROPERTY_FACTOR_LBP, constants.PROPERTY_FACTOR_SHAPE], [])
+        self._columns = self._allFactors.getColumns([FactorTypes.COLOR.name, FactorTypes.SHAPE.name, FactorTypes.TEXTURE.name], [])
         # If we are in the middle of adding a new reading, this creates a bit og a problem,
         # So if a restricted subset is specified, use that -- otherwise, load everything
         #self._columns = allFactors.getColumns(None)
         self._columns.append(constants.NAME_TYPE)
         self._maxFactors = 10
         self._name = ""
-        # self._columns = [constants.NAME_RATIO,
-        #                  constants.NAME_SHAPE_INDEX,
-        #                  constants.NAME_DISTANCE,
-        #                  constants.NAME_DISTANCE_NORMALIZED,
-        #                  constants.NAME_HUE,
-        #                  constants.NAME_SATURATION,
-        #                  constants.NAME_I_YIQ,
-        #                  constants.NAME_COMPACTNESS,
-        #                  constants.NAME_ELONGATION,
-        #                  constants.NAME_ECCENTRICITY,
-        #                  constants.NAME_ROUNDNESS,
-        #                  constants.NAME_SOLIDITY,
-        #                  # GLCM
-        #                  constants.NAME_HOMOGENEITY,
-        #                  constants.NAME_ENERGY,
-        #                  constants.NAME_DISSIMILARITY,
-        #                  constants.NAME_ASM,
-        #                  constants.NAME_CONTRAST,
-        #                  constants.NAME_TYPE]
+
+        # The factors used to get th column names -- by default this is everything
+        self._types = [e for e in FactorTypes]
+        self._subtypes = [e for e in FactorSubtypes]
+
 
         self._results = pd.DataFrame(columns=self._columns)
         self._uniqueResults = pd.DataFrame()
         self._df = pd.DataFrame()
 
         return
+
+    @property
+    def attributeTypes(self) -> List[FactorTypes]:
+        """
+        The list of attributes types used in classification
+        :return: list of Factors
+        """
+        return self._types
+
+    @property
+    def attributeSubtypes(self) -> List[FactorSubtypes]:
+        """
+        The list of attributes types used in classification
+        :return: list of FactorsSubtypes
+        """
+        return self._subtypes
+
+    @attributeTypes.setter
+    def attributeTypes(self, theAttributes: List[FactorTypes]):
+        """
+        Set the list of attribute types used in classification
+        :param theAttributes: list of FactorTypes
+        """
+        # Make certain this is a list of strings
+        # assert(isinstance(theAttributes, list))
+        # assert(all(isinstance(s, FactorTypes) for s in theAttributes))
+
+        self._types = theAttributes
+
+    @attributeSubtypes.setter
+    def attributeSubtypes(self, theAttributes: List[FactorSubtypes]):
+        """
+        Set the list of attribute subtypes used in classification
+        :param theAttributes: list of FactorSubtypes
+        """
+
+        self._subtypes = theAttributes
 
     @staticmethod
     def supportedSelections():
@@ -128,6 +156,11 @@ class Selection(ABC):
 
 
     def load(self, filename: str):
+
+        # Get the column names used & append the type name
+        self._columns = self._allFactors.getColumns(self._types, self._subtypes)
+        self._columns.append(constants.NAME_TYPE)
+
         # Confirm the file exists
         if not os.path.isfile(filename):
             raise FileNotFoundError(filename)
@@ -464,13 +497,18 @@ class All(Selection):
         elif outputFormat == Output.PICKLE:
             consolidatedTable.to_pickle(prefix + ".pickle")
 
-
     def load(self, filename: str):
         """
         Load the data for all the techniques
         :param filename: Training data
         """
+
         for technique in self._selectionTechniques:
+            # Set the attributeTypes for the technique before loading of the data, as that is the default
+            # In each of the techniques
+            technique._columns = self._columns
+            technique.attributeTypes = self.attributeTypes
+            technique.attributeSubtypes = self.attributeSubtypes
             technique.load(filename)
 
 class Criteria(Enum):
@@ -746,7 +784,14 @@ if __name__ == "__main__":
     STRATEGY_AUC = "auc"
     allStrategies = [STRATEGY_ACCURACY, STRATEGY_AUC]
 
+    # The attribute types for the selection technique -- with 'all' added in for a shortcut
+    attributeTypes = [e for e in FactorTypes]
+    attributeChoices = [e.name for e in FactorTypes]
+    attributeChoices.append(constants.NAME_ALL)
 
+    attributeSubtypes = [e for e in FactorSubtypes]
+    attributeSubtypeChoices = [e.name for e in FactorSubtypes]
+    attributeSubtypeChoices.append(constants.NAME_ALL)
 
     # A single result
 
@@ -935,21 +980,25 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser("Feature selection")
 
+    parser.add_argument("-d", "--debug", action="store_true", required=False, default=False, help="(Optimal) Process a small subset of parameters")
     parser.add_argument("-df", "--data", action="store", required=True, help="Name of the data in CSV to evaluate")
     parser.add_argument("-fs", "--selection", action="store", required=True, choices=Selection.supportedSelections(), help="Feature selection")
     parser.add_argument("-f", "--factors", type=int, required=False, default=10)
     parser.add_argument("-lg", "--logging", action="store", default="logging.ini", help="Logging configuration file")
     parser.add_argument("-lf", "--logfile", action="store", default="weeds.log", help="Logging output file")
     parser.add_argument("-l", "--latex", action="store_true", required=False, default=False, help="Output latex tables")
+
     actions = parser.add_mutually_exclusive_group()
     actions.add_argument("-o", "--optimal", action="store_true", required=False, default=False, help="Search for optimal parameters")
     actions.add_argument("-co", "--consolidated", action="store_true", required=False, default=False, help="Show consolidated list of parameters")
     actions.add_argument("-t", "--target", action="store", required=False, type=str, help="Write parameter combinations to this file")
 
-    parser.add_argument("-of", "--outputformat", action="store", required=False, default=Output.LATEX.name, choices=outputChoices, help="Output format")
+
     parser.add_argument("-m", "--maximums", action="store", required=False, help="(Optimal) Maximum result file")
-    parser.add_argument("-d", "--debug", action="store_true", required=False, default=False, help="(Optimal) Process a small subset of parameters")
+    parser.add_argument("-of", "--outputformat", action="store", required=False, default=Output.LATEX.name, choices=outputChoices, help="Output format")
     parser.add_argument("-p", "--prefix", action="store", required=False, default="parameters", help="(Optimal) Prefix for result files (Required for optimal)")
+    parser.add_argument("-s", "--subtypes", action="store", required=False, default=constants.NAME_ALL, nargs='*', choices=attributeSubtypeChoices, help="Attribute types used")
+    parser.add_argument("-ty", "--types", action="store", required=False, default=constants.NAME_ALL, nargs='*', choices=attributeChoices, help="Attribute types used")
     parser.add_argument("-b", "--batch", action="store", required=False, type=int, default=500000, help="(Optimal) Batch size for parameter search")
     #parser.add_argument("-c", "--chunks", action="store", required=False, type=int, default=1, help="(Optimal) Number of chunks")
     parser.add_argument("-P", "--performance", action="store", type=str, default="performance.csv", help="Name of performance file")
@@ -986,7 +1035,19 @@ if __name__ == "__main__":
     elif arguments.selection == SELECTION_ALL:
         selector = All()
 
+    if constants.NAME_ALL in arguments.types:
+        typesUsed = attributeTypes
+    else:
+        typesUsed = [FactorTypes[e] for e in arguments.types]
+
+    if constants.NAME_ALL in arguments.subtypes:
+        subtypesUsed = attributeSubtypes
+    else:
+        subtypesUsed = [FactorSubtypes[e] for e in arguments.subtypes]
+
     selector.maxFactors = arguments.factors
+    selector.attributeTypes = typesUsed
+    selector.attributeSubtypes = subtypesUsed
     selector.load(arguments.data)
     selector.create()
 
