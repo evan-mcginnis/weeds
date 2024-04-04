@@ -1702,7 +1702,7 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
             allFactors = Factors()
 
             allAttributes = {}
-            columns = allFactors.getColumns(None)
+            columns = allFactors.getColumns([], [])
             for factor in columns:
                 allAttributes[factor] = blobAttributes[factor]
             #log.debug(f"Attribute list: {allAttributes}")
