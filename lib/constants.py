@@ -36,6 +36,8 @@ FILENAME_ORIGINAL = "segmented"
 FILENAME_INTEL_RGB = "rgb"
 FILENAME_INTEL_DEPTH = "depth"
 FILENAME_DUMMY = "dummy"
+FILENAME_NORMALIZED = "normalized"
+FILENAME_DATAFRAME = "dataframe"
 
 IP_NONE = "NONE"
 
