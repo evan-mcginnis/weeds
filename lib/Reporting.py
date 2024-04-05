@@ -13,12 +13,15 @@ from Factors import Factors
 class Reporting:
     def __init__(self, filename: str):
         """
-        A reporting instance.
-
+        Reporting -- mostly used for writing out results
+        :param filename: The base filename with no extension
         """
         self._blobs = {}
         self.log = logging.getLogger(__name__)
         self._filename = filename
+        self._resultsFilename = self._filename + constants.EXTENSION_CSV
+        self._normalizedFilename = self._filename + constants.DELIMETER + constants.FILENAME_NORMALIZED + constants.EXTENSION_CSV
+        self._dataframeFilename = self._filename + constants.DELIMETER + constants.FILENAME_DATAFRAME + constants.EXTENSION_CSV
 
         self._columns = [constants.NAME_NAME,
                          constants.NAME_NUMBER,
@@ -71,13 +74,19 @@ class Reporting:
         return self._blobs
 
     def initialize(self) -> (bool, str):
-        try:
-            file = open(self._filename, "w")
-            file.truncate(0)
-            file.close()
-        except PermissionError as p:
-            self.log.error("Permission denied for file: " + self._filename)
-            return False, "Unable to write file " + self._filename
+        """
+        Initialize reporting by conforming access to and truncating files
+        :return: (bool, str)
+        """
+        for filename in [self._resultsFilename, self._normalizedFilename]:
+            try:
+                file = open(filename, "w")
+                file.truncate(0)
+                file.close()
+            except PermissionError as p:
+                self.log.error("Permission denied for file: " + filename)
+                return False, "Unable to write file " + filename
+
         return True, "OK"
 
     def addBlobs(self, sequence: int, blobs: {}):
@@ -140,18 +149,18 @@ class Reporting:
         :param filename:  The fully qualified name of the file.
         """
         try:
-            file = open(self._filename, "w")
+            file = open(self._resultsFilename, "w")
         except PermissionError as p:
             self.log.error("Permission denied for file: " + self._filename)
             return False, "Unable to write file " + self._filename
 
         newdf = self._blobDF[(self._blobDF.type == constants.TYPE_DESIRED) | (self._blobDF.type == constants.TYPE_UNDESIRED)]
         newdf[constants.NAME_NUMBER] = range(1, len(self._blobDF) + 1)
-        newdf.to_csv("results-from-dataframe.csv", encoding="UTF-8", index=False)
+        newdf.to_csv(self._dataframeFilename, encoding="UTF-8", index=False)
 
         self._normalize()
         newdf = self._blobDF[(self._blobDF.type == constants.TYPE_DESIRED) | (self._blobDF.type == constants.TYPE_UNDESIRED)]
-        newdf.to_csv("normalized.csv", encoding="UTF-8", index=False)
+        newdf.to_csv(self._normalizedFilename, encoding="UTF-8", index=False)
         blobNumber = 1
         file.write("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n".format(constants.NAME_NAME,
                                                                                           constants.NAME_NUMBER,
