@@ -318,8 +318,8 @@ class CameraDepth(Camera):
                 self._pipelineDepthRGB.start(self._configDepthRGB)
                 self._sensor = self._pipelineDepthRGB.get_active_profile().get_device().query_sensors()[1]
                 exposure = self._sensor.get_option(rs.option.exposure)
-                self._sensor.set_option(rs.option.exposure, self._exposure)
-                self.log.debug("Set intel exposure to {}. Currently {}".format(self._exposure, exposure))
+                # self._sensor.set_option(rs.option.exposure, self._exposure)
+                # self.log.debug("Set intel exposure to {}. Currently {}".format(self._exposure, exposure))
                 self._capturing = True
                 try:
                     self._state.toCapture()
@@ -352,10 +352,10 @@ class CameraDepth(Camera):
                         break
 
                     # Remove the RGB Capture
-                    # _currentRGB = f.get_color_frame()
-                    # if not _currentRGB or not _currentDepth:
-                    #     self.log.error("Failed to capture both RGB and depth")
-                    #     break
+                    _currentRGB = f.get_color_frame()
+                    if not _currentRGB or not _currentDepth:
+                        self.log.error("Failed to capture both RGB and depth")
+                        break
 
                     # Convert the depth data to a numpy array.
                     self._depth = np.asanyarray(_currentDepth.get_data())
@@ -620,7 +620,7 @@ if __name__ == "__main__":
     acquire.start()
 
     # Wait for items in the queue to appear
-    time.sleep(10)
+    time.sleep(2)
     #acquire.join()
 
 
