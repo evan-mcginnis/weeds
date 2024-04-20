@@ -10,14 +10,14 @@ import os
 import glob
 from exif import Image
 
-from GPSUtilities import GPSUtilities
-from OptionsFile import OptionsFile
+# from GPSUtilities import GPSUtilities
+# from OptionsFile import OptionsFile
 
 import numpy as np
-import pandas as pd
-from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QDialogButtonBox
-from PyQt5 import QtGui, QtCore
+# import pandas as pd
+# from PyQt5.QtCore import Qt
+# from PyQt5.QtWidgets import QDialogButtonBox
+# from PyQt5 import QtGui, QtCore
 
 from OptionsFile import OptionsFile
 import logging
@@ -28,9 +28,9 @@ import constants
 from PIL import Image, ImageQt
 
 from PyQt5 import QtWidgets
-from PyQt5.QtGui import *
-from PyQt5.QtWidgets import *
-from PyQt5.QtCore import *
+# from PyQt5.QtGui import *
+# from PyQt5.QtWidgets import *
+# from PyQt5.QtCore import *
 
 from UI435 import Ui_MainWindow
 
