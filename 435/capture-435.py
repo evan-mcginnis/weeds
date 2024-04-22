@@ -27,14 +27,22 @@ import constants
 
 from PIL import Image, ImageQt
 
+from PyQt5 import Qt
+from PyQt5 import QtGui
 from PyQt5 import QtWidgets
-# from PyQt5.QtGui import *
+from PyQt5.QtGui import *
 # from PyQt5.QtWidgets import *
 # from PyQt5.QtCore import *
 
 from UI435 import Ui_MainWindow
 
 from CameraDepth import CameraDepth
+
+import os
+
+OUTPUT = "output"
+DEFAULT_OUTPUT = "."
+
 
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def __init__(self, camera: CameraDepth, *args, **kwargs):
@@ -46,6 +54,22 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         self.takePictureButton.clicked.connect(self.takePicture)
 
+        self._outputDirectory = DEFAULT_OUTPUT
+
+    @property
+    def outputDirectory(self) -> str:
+        return self._outputDirectory
+
+    @outputDirectory.setter
+    def outputDirectory(self, theDirectory: str):
+        self._outputDirectory = theDirectory
+
+    def initialize(self):
+        pass
+        # myPixmap = QtGui.QPixmap(_fromUtf8('image.jpg'))
+        # myScaledPixmap = myPixmap.scaled(self.label.size(), Qt.KeepAspectRatio)
+        # self.label.setPixmap(myScaledPixmap)
+
     def takePicture(self):
         self._currentImageNumber += 1
         print(f"Take picture: {self._currentImageNumber}")
@@ -56,12 +80,16 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         depthImage = processedImage.depth
 
         log.debug("Saving image")
-        np.save("depth" + constants.DELIMETER + str(self._currentImageNumber) + constants.EXTENSION_NPY, depthImage)
+        depthFileName = f"depth{constants.DELIMETER}{self._currentImageNumber:3}{constants.EXTENSION_NPY}"
+        depthFQN = os.path.join(self._outputDirectory, depthFileName)
+        np.save(depthFQN, depthImage)
 
         image = Image.fromarray(rgbImage)
         if image.mode != 'RGB':
             image = image.convert('RGB')
-        image.save("rgb" + constants.DELIMETER + str(self._currentImageNumber) + constants.EXTENSION_IMAGE)
+        rgbFileName = f"rgb{constants.DELIMETER}{self._currentImageNumber:3}{constants.EXTENSION_IMAGE}"
+        rgbFQN = os.path.join(self._outputDirectory, rgbFileName)
+        image.save(rgbFQN)
 
         # convert data to QImage using PIL
 
@@ -102,7 +130,7 @@ def takeImages(camera: CameraDepth):
 parser = argparse.ArgumentParser("Intel 435 Capture")
 
 parser.add_argument('-o', '--output', action="store", required=True, help="Output directory ")
-parser.add_argument('-l', '--logging', action="store", required=False, default="logging.ini", help="Log file configuration")
+parser.add_argument('-l', '--logging', action="store", required=True, help="Log file configuration")
 arguments = parser.parse_args()
 
 logging.config.fileConfig(arguments.logging)
@@ -120,6 +148,7 @@ acquire.start()
 app = QtWidgets.QApplication(sys.argv)
 
 window = MainWindow(camera)
+window.outputDirectory = arguments.output
 
 app.aboutToQuit.connect(window.exitHandler)
 

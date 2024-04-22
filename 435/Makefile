@@ -9,6 +9,9 @@ requirements:
 requirements-install:
 	pip3 install -r requirements.txt
 
+run:
+	python capture-435.py -l ..\jetson\logging.ini -o ..\..\test-images
+
 clean:
 	rm *.log*
 
