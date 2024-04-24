@@ -55,6 +55,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.takePictureButton.clicked.connect(self.takePicture)
 
         self._outputDirectory = DEFAULT_OUTPUT
+        self._currentRGBFileName = None
+        self._currentDepthFileName = None
 
     @property
     def outputDirectory(self) -> str:
@@ -65,13 +67,29 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self._outputDirectory = theDirectory
 
     def initialize(self):
-        pass
+
+        width = self.takePictureButton.sizeHint().width() + 20
+        self.takePictureButton.setFixedSize(width, width)
+
         # myPixmap = QtGui.QPixmap(_fromUtf8('image.jpg'))
         # myScaledPixmap = myPixmap.scaled(self.label.size(), Qt.KeepAspectRatio)
         # self.label.setPixmap(myScaledPixmap)
 
-    def takePicture(self):
+    def incrementPictureCount(self):
+
         self._currentImageNumber += 1
+        self.imageCount.display(self._currentImageNumber)
+
+    def displayPicture(self, captureType: constants.Capture):
+
+        if captureType == constants.Capture.RGB:
+            if self._currentRGBFileName is None:
+                return
+            else:
+                pix = QPixmap(self._currentRGBFileName)
+                self.rgbImage.setPixmap(pix)
+
+    def takePicture(self):
         print(f"Take picture: {self._currentImageNumber}")
 
         # Grab the image
@@ -80,17 +98,21 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         depthImage = processedImage.depth
 
         log.debug("Saving image")
-        depthFileName = f"depth{constants.DELIMETER}{self._currentImageNumber:3}{constants.EXTENSION_NPY}"
+        depthFileName = f"depth{constants.DELIMETER}{self._currentImageNumber:03}{constants.EXTENSION_NPY}"
         depthFQN = os.path.join(self._outputDirectory, depthFileName)
         np.save(depthFQN, depthImage)
+        self._currentDepthFileName = depthFQN
 
         image = Image.fromarray(rgbImage)
         if image.mode != 'RGB':
             image = image.convert('RGB')
-        rgbFileName = f"rgb{constants.DELIMETER}{self._currentImageNumber:3}{constants.EXTENSION_IMAGE}"
+        rgbFileName = f"rgb{constants.DELIMETER}{self._currentImageNumber:03}{constants.EXTENSION_IMAGE}"
         rgbFQN = os.path.join(self._outputDirectory, rgbFileName)
         image.save(rgbFQN)
+        self._currentRGBFileName = rgbFQN
 
+        self.incrementPictureCount()
+        self.displayPicture(constants.Capture.RGB)
         # convert data to QImage using PIL
 
         # img = Image.fromarray(rgbImage, mode='RGB')
@@ -149,6 +171,7 @@ app = QtWidgets.QApplication(sys.argv)
 
 window = MainWindow(camera)
 window.outputDirectory = arguments.output
+window.initialize()
 
 app.aboutToQuit.connect(window.exitHandler)
 
