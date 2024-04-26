@@ -25,6 +25,7 @@ from DepthImage import DepthImage
 
 import pyrealsense2 as rs
 import numpy as np
+import json
 
 from RealSense import RealSense
 
@@ -48,7 +49,8 @@ class CameraDepth(Camera):
         self._camera = None
         self.log = logging.getLogger(__name__)
         self._capturing = False
-        self._images = deque(maxlen=constants.IMAGE_QUEUE_LEN)
+        #self._images = deque(maxlen=constants.IMAGE_QUEUE_LEN)
+        self._images = deque(maxlen=5)
 
         self._serial = None
         self._pipeline = None
@@ -91,7 +93,6 @@ class CameraDepth(Camera):
             self._serial = str(kwargs[constants.KEYWORD_SERIAL])
         except KeyError as key:
             self.log.info("The serial number of the device is not specified by keyword: {}  Using the first device".format(constants.KEYWORD_SERIAL))
-
         # The configuration of the depth camera
         try:
             self._config = kwargs[constants.KEYWORD_CONFIGURATION]
@@ -104,10 +105,22 @@ class CameraDepth(Camera):
             self.log.warning("The exposure is not specified with keyword: {}. Using defaults.".format(constants.KEYWORD_EXPOSURE))
             self._exposure = constants.DEFAULT_EXPOSURE
 
-        return
+        self._agl = 0.0
 
     def __str__(self):
         return str(self.__dict__)
+
+    @property
+    def capturing(self) -> bool:
+        return self._capturing
+
+    @property
+    def agl(self) -> float:
+        """
+        Distance in meters from ground (assumes camera is pointed at ground)
+        :return: average distance of image
+        """
+        return self._agl
 
     @property
     def gsd(self) -> float:
@@ -151,6 +164,9 @@ class CameraDepth(Camera):
 
         return self._connected
 
+    @property
+    def initialized(self) -> bool:
+        return self._initialized
 
     def initializeCapture(self):
 
@@ -175,7 +191,7 @@ class CameraDepth(Camera):
             # Enable depth stream to capture 1280x720, 6 FPS
             self._pipelineDepthRGB = rs.pipeline()
             self._configDepthRGB = rs.config()
-                
+
 
             if self._serial is not None:
                 # Choose the device based on serial number
@@ -230,6 +246,8 @@ class CameraDepth(Camera):
             except ResourceWarning:
                 self.log.error("Unable to open {} for writing.".format(self._acceleration_log))
 
+        if self._config is not None:
+            pass
         self.log.debug("Depth Camera initialized")
 
         # try:
@@ -315,11 +333,25 @@ class CameraDepth(Camera):
         elif self._captureType == constants.Capture.DEPTH_RGB:
             self.log.debug("Begin grab of depth/RGB stream")
             try:
-                self._pipelineDepthRGB.start(self._configDepthRGB)
+                cfg = self._pipelineDepthRGB.start(self._configDepthRGB)
                 self._sensor = self._pipelineDepthRGB.get_active_profile().get_device().query_sensors()[1]
                 exposure = self._sensor.get_option(rs.option.exposure)
                 # self._sensor.set_option(rs.option.exposure, self._exposure)
                 # self.log.debug("Set intel exposure to {}. Currently {}".format(self._exposure, exposure))
+
+                # Load the custom settings for the camera
+                if self._config is not None:
+                    self.log.debug(f"Loading custom parameters from {self._config}")
+                    jsonObj = json.load(open(self._config))
+                    json_string = str(jsonObj).replace("'", '\"')
+                    device = cfg.get_device()
+                    advnc_mode = rs.rs400_advanced_mode(device)
+                    advnc_mode.load_json(json_string)
+                else:
+                    print(f"Auto exposure: {self._sensor.get_option(rs.option.enable_auto_exposure)}")
+                    #self._sensor.set_option(RS2_OPTION_ENABLE_AUTO_EXPOSURE, 0);
+
+
                 self._capturing = True
                 try:
                     self._state.toCapture()
@@ -362,13 +394,14 @@ class CameraDepth(Camera):
                     self._RGB = np.asanyarray(_currentRGB.get_data())
 
                     # Put the image and the depth in the queue
-                    self.log.debug("Depth image non-zero count: {}/{}".format(np.count_nonzero(self._depth), self._depth.size))
+                    #self.log.debug("Depth image non-zero count: {}/{}".format(np.count_nonzero(self._depth), self._depth.size))
                     # The intention here is to eventually have the best image, but for now, the first few images have
                     # all zeros. Not sure why
                     # TODO: Determine why images have nothing but zeros
                     if np.count_nonzero(self._depth) != 0:
                         processed = TimestampedImage(self._RGB, self._depth, time.time())
                         self._images.append(processed)
+                        self._agl = self._depth.mean()
                 except Exception as e:
                     self.log.fatal("Failed to capture depth frame")
                     self.log.fatal(e)
@@ -574,12 +607,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser("Depth Camera Utility")
 
     parser.add_argument('-s', '--single', action="store", required=True, help="Take a single picture")
-    parser.add_argument('-c', '--camera', action="store", required=False, help="Serial number of target device")
+    parser.add_argument('-sn', '--serial', action="store", required=False, help="Serial number of target device")
     parser.add_argument('-l', '--logging', action="store", required=False, default="logging.ini", help="Log file configuration")
     parser.add_argument('-p', '--performance', action="store", required=False, default="camera.csv", help="Performance file")
     parser.add_argument('-o', '--options', action="store", required=False, default=constants.PROPERTY_FILENAME, help="Options INI")
     parser.add_argument('-i', '--info', action="store_true", required=False, default=False)
     parser.add_argument('-t', '--type', action="store", required=True, choices=[constants.Capture.DEPTH_RGB.name.lower(), constants.Capture.IMU.name.lower(), constants.Capture.RGB.name.lower()])
+    parser.add_argument('-c', '--config', action="store", required=False, help="Configuration file name")
     arguments = parser.parse_args()
 
     # Initialize logging
@@ -606,8 +640,8 @@ if __name__ == "__main__":
     if arguments.type == constants.Capture.IMU.name.lower():
         camera = CameraDepth(constants.Capture.IMU, gyro=constants.PARAM_FILE_GYRO, acceleration=constants.PARAM_FILE_ACCELERATION)
     elif arguments.type == constants.Capture.DEPTH_RGB.name.lower():
-        #camera = CameraDepth(constants.Capture.DEPTH, serial=arguments.camera)
-        camera = CameraDepth(constants.Capture.DEPTH_RGB)
+        #camera = CameraDepth(constants.Capture.DEPTH, serial=arguments.serial)
+        camera = CameraDepth(constants.Capture.DEPTH_RGB, config=arguments.config)
     elif arguments.type == constants.Capture.RGB.name.lower():
         camera = CameraDepth(constants.Capture.RGB)
 
@@ -620,7 +654,7 @@ if __name__ == "__main__":
     acquire.start()
 
     # Wait for items in the queue to appear
-    time.sleep(2)
+    time.sleep(10)
     #acquire.join()
 
 

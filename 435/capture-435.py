@@ -89,6 +89,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                 pix = QPixmap(self._currentRGBFileName)
                 self.rgbImage.setPixmap(pix)
 
+    def displayDistance(self, distance: float):
+
+        self.distanceToGround.display(distance)
+
     def takePicture(self):
         print(f"Take picture: {self._currentImageNumber}")
 
@@ -113,6 +117,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         self.incrementPictureCount()
         self.displayPicture(constants.Capture.RGB)
+        self.displayDistance(self._camera.agl)
         # convert data to QImage using PIL
 
         # img = Image.fromarray(rgbImage, mode='RGB')
@@ -147,6 +152,21 @@ def takeImages(camera: CameraDepth):
     else:
         rc = -1
 
+def updateStatus(camera: CameraDepth, window: MainWindow):
+
+    while not camera.initialized:
+        print("Waiting for camera initialization")
+        time.sleep(5)
+    while not camera.capturing:
+        print("Wait for capturing to begin")
+        time.sleep(.25)
+    while camera.capturing:
+        # Show the distance to the target
+        window.displayDistance(camera.agl)
+        time.sleep(3)
+    print("Capture stopped")
+
+
 
 
 parser = argparse.ArgumentParser("Intel 435 Capture")
@@ -174,6 +194,9 @@ window.outputDirectory = arguments.output
 window.initialize()
 
 app.aboutToQuit.connect(window.exitHandler)
+
+update = threading.Thread(name=constants.THREAD_NAME_ACQUIRE, target=updateStatus, args=(camera, window))
+update.start()
 
 
 #window.setStatus()
