@@ -27,14 +27,22 @@ import constants
 
 from PIL import Image, ImageQt
 
+from PyQt5 import Qt
+from PyQt5 import QtGui
 from PyQt5 import QtWidgets
-# from PyQt5.QtGui import *
+from PyQt5.QtGui import *
 # from PyQt5.QtWidgets import *
 # from PyQt5.QtCore import *
 
 from UI435 import Ui_MainWindow
 
 from CameraDepth import CameraDepth
+
+import os
+
+OUTPUT = "output"
+DEFAULT_OUTPUT = "."
+
 
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def __init__(self, camera: CameraDepth, *args, **kwargs):
@@ -46,8 +54,46 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         self.takePictureButton.clicked.connect(self.takePicture)
 
-    def takePicture(self):
+        self._outputDirectory = DEFAULT_OUTPUT
+        self._currentRGBFileName = None
+        self._currentDepthFileName = None
+
+    @property
+    def outputDirectory(self) -> str:
+        return self._outputDirectory
+
+    @outputDirectory.setter
+    def outputDirectory(self, theDirectory: str):
+        self._outputDirectory = theDirectory
+
+    def initialize(self):
+
+        width = self.takePictureButton.sizeHint().width() + 20
+        self.takePictureButton.setFixedSize(width, width)
+
+        # myPixmap = QtGui.QPixmap(_fromUtf8('image.jpg'))
+        # myScaledPixmap = myPixmap.scaled(self.label.size(), Qt.KeepAspectRatio)
+        # self.label.setPixmap(myScaledPixmap)
+
+    def incrementPictureCount(self):
+
         self._currentImageNumber += 1
+        self.imageCount.display(self._currentImageNumber)
+
+    def displayPicture(self, captureType: constants.Capture):
+
+        if captureType == constants.Capture.RGB:
+            if self._currentRGBFileName is None:
+                return
+            else:
+                pix = QPixmap(self._currentRGBFileName)
+                self.rgbImage.setPixmap(pix)
+
+    def displayDistance(self, distance: float):
+
+        self.distanceToGround.display(distance)
+
+    def takePicture(self):
         print(f"Take picture: {self._currentImageNumber}")
 
         # Grab the image
@@ -56,13 +102,22 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         depthImage = processedImage.depth
 
         log.debug("Saving image")
-        np.save("depth" + constants.DELIMETER + str(self._currentImageNumber) + constants.EXTENSION_NPY, depthImage)
+        depthFileName = f"depth{constants.DELIMETER}{self._currentImageNumber:03}{constants.EXTENSION_NPY}"
+        depthFQN = os.path.join(self._outputDirectory, depthFileName)
+        np.save(depthFQN, depthImage)
+        self._currentDepthFileName = depthFQN
 
         image = Image.fromarray(rgbImage)
         if image.mode != 'RGB':
             image = image.convert('RGB')
-        image.save("rgb" + constants.DELIMETER + str(self._currentImageNumber) + constants.EXTENSION_IMAGE)
+        rgbFileName = f"rgb{constants.DELIMETER}{self._currentImageNumber:03}{constants.EXTENSION_IMAGE}"
+        rgbFQN = os.path.join(self._outputDirectory, rgbFileName)
+        image.save(rgbFQN)
+        self._currentRGBFileName = rgbFQN
 
+        self.incrementPictureCount()
+        self.displayPicture(constants.Capture.RGB)
+        self.displayDistance(self._camera.agl)
         # convert data to QImage using PIL
 
         # img = Image.fromarray(rgbImage, mode='RGB')
@@ -97,12 +152,27 @@ def takeImages(camera: CameraDepth):
     else:
         rc = -1
 
+def updateStatus(camera: CameraDepth, window: MainWindow):
+
+    while not camera.initialized:
+        print("Waiting for camera initialization")
+        time.sleep(5)
+    while not camera.capturing:
+        print("Wait for capturing to begin")
+        time.sleep(.25)
+    while camera.capturing:
+        # Show the distance to the target
+        window.displayDistance(camera.agl)
+        time.sleep(3)
+    print("Capture stopped")
+
+
 
 
 parser = argparse.ArgumentParser("Intel 435 Capture")
 
 parser.add_argument('-o', '--output', action="store", required=True, help="Output directory ")
-parser.add_argument('-l', '--logging', action="store", required=False, default="logging.ini", help="Log file configuration")
+parser.add_argument('-l', '--logging', action="store", required=True, help="Log file configuration")
 arguments = parser.parse_args()
 
 logging.config.fileConfig(arguments.logging)
@@ -120,8 +190,13 @@ acquire.start()
 app = QtWidgets.QApplication(sys.argv)
 
 window = MainWindow(camera)
+window.outputDirectory = arguments.output
+window.initialize()
 
 app.aboutToQuit.connect(window.exitHandler)
+
+update = threading.Thread(name=constants.THREAD_NAME_ACQUIRE, target=updateStatus, args=(camera, window))
+update.start()
 
 
 #window.setStatus()
