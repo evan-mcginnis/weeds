@@ -69,6 +69,7 @@ class CameraDepth(Camera):
         self._configIMU = None
         self._configDepthRGB = None
         self._configRGB = None
+        self._align = None
 
         self._initialized = False
 
@@ -200,6 +201,7 @@ class CameraDepth(Camera):
 
             self._configDepthRGB.enable_stream(rs.stream.depth, constants.DEPTH_MAX_HORIZONTAL, constants.DEPTH_MAX_VERTICAL, rs.format.z16, constants.DEPTH_MAX_FRAMES)
             self._configDepthRGB.enable_stream(rs.stream.color, constants.INTEL_RGB_MAX_HORIZONTAL, constants.INTEL_RGB_MAX_VERTICAL, rs.format.rgb8, constants.INTEL_RGB_MAX_FRAMES)
+            self._align = rs.align(rs.stream.color)
             # self._configDepthRGB.enable_stream(rs.stream.depth, 1280, 720, rs.format.z16, 6)
             # self._configDepthRGB.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8, 6)
 
@@ -377,7 +379,25 @@ class CameraDepth(Camera):
             self.log.debug("Capturing DEPTH/RGB data")
             while self._capturing:
                 try:
+                    # This example aligns depth and color images
+                    # Taken from: https://support.intelrealsense.com/hc/en-us/community/posts/360037076293-Align-color-and-depth-images
+                    # pipeline = rs.pipeline()
+                    # config = rs.config()
+                    # config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 60)
+                    # config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 60)
+                    # align = rs.align(rs.stream.color)
+                    # profile = pipeline.start(config)
+                    # frames = pipeline.wait_for_frames()
+                    # frames = align.process(frames)
+                    # color_frame = frames.get_color_frame()
+                    # depth_frame = frames.get_depth_frame()
+                    # color_image = color_frame.get_data()
+                    # depth_image = depth_frame.get_data()
+
+                    # Alignment example end
+
                     f = self._pipelineDepthRGB.wait_for_frames()
+                    f = self._align.process(f)
                     _currentDepth = f.get_depth_frame()
                     if not _currentDepth:
                         self.log.error("Failed to capture depth frame")

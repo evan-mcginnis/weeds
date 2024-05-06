@@ -13,6 +13,7 @@ from exif import Image
 # from GPSUtilities import GPSUtilities
 # from OptionsFile import OptionsFile
 
+import matplotlib.pyplot as plt
 import numpy as np
 # import pandas as pd
 # from PyQt5.QtCore import Qt
@@ -42,6 +43,7 @@ import os
 
 OUTPUT = "output"
 DEFAULT_OUTPUT = "."
+DEPTH_JPG = ".depth.jpg"
 
 
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
@@ -88,6 +90,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             else:
                 pix = QPixmap(self._currentRGBFileName)
                 self.rgbImage.setPixmap(pix)
+        if captureType == constants.Capture.DEPTH_DEPTH:
+            depth = np.load(self._currentDepthFileName)
+            qpixmap = QPixmap(DEPTH_JPG)
+            self.depthImage.setPixmap(qpixmap)
 
     def displayDistance(self, distance: float):
 
@@ -105,6 +111,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         depthFileName = f"depth{constants.DELIMETER}{self._currentImageNumber:03}{constants.EXTENSION_NPY}"
         depthFQN = os.path.join(self._outputDirectory, depthFileName)
         np.save(depthFQN, depthImage)
+        # Save a JPG version of the depth data just so it can be shown
+        plt.imsave(DEPTH_JPG, depthImage, vmin=250, vmax=340)
+
         self._currentDepthFileName = depthFQN
 
         image = Image.fromarray(rgbImage)
@@ -117,6 +126,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         self.incrementPictureCount()
         self.displayPicture(constants.Capture.RGB)
+        self.displayPicture(constants.Capture.DEPTH_DEPTH)
         self.displayDistance(self._camera.agl)
         # convert data to QImage using PIL
 
