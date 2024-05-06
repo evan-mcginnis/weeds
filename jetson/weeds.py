@@ -77,7 +77,8 @@ SQUARE_SIZE = 40
 OPERATION_VISUALIZE         = "visualize"
 OPERATION_NORMAL            = "normal"
 OPERATION_EVALUATE          = "evaluate"
-allOperations = [OPERATION_NORMAL, OPERATION_VISUALIZE, OPERATION_EVALUATE]
+OPERATION_GENERATE          = "generate"
+allOperations = [OPERATION_NORMAL, OPERATION_VISUALIZE, OPERATION_EVALUATE, OPERATION_GENERATE]
 
 #
 # W A R N I N G
@@ -805,6 +806,9 @@ parser.add_argument("-hg", "--histograms", action="store_true", default=False, h
 parser.add_argument("-he", "--height", action="store_true", default=False, help="Consider height in scoring")
 parser.add_argument('-i', '--input', action="store", required=False, help="Images directory")
 
+
+parser.add_argument('-s', '--split', action="store", required=False, default=0.4, type=float, help="Split for training")
+
 parser.add_argument("-gr", "--grab", action="store_true", default=False,
                     help="Just grab images. No processing")
 
@@ -845,8 +849,8 @@ parser.add_argument('-o', '--output', action="store", required=True, help="Outpu
 parser.add_argument("-p", '--plot', action="store_true", help="Show 3D plot of index", default=False)
 parser.add_argument("-P", "--performance", action="store", type=str, default="performance.csv",
                     help="Name of performance file")
-parser.add_argument("-r", "--results", action="store", default="results.csv", help="Name of results file")
-parser.add_argument("-s", "--stitch", action="store_true", help="Stitch adjacent images together")
+parser.add_argument("-r", "--results", action="store", default="results", help="Name of results file")
+#parser.add_argument("-s", "--stitch", action="store_true", help="Stitch adjacent images together")
 parser.add_argument("-sc", "--score", action="store_true", help="Score the prediction method")
 # Not needed anymore, as parameter selection is moved to the .INI file
 #parser.add_argument("-se", "--selection", action="store", default="all-parameters.csv", help="Parameter selection file")
@@ -855,7 +859,8 @@ parser.add_argument("-spe", "--speed", action="store", default=1, type=int, help
 parser.add_argument("-stand", "--standalone", action="store_true", default=False,
                     help="Run standalone and just process the images")
 parser.add_argument("-st", "--strategy", action="store", required=False, default="CARTOON", help="Blob strategy")
-parser.add_argument("-t", "--threshold", action="store", type=int, required=False, help="Threshold for index mask")
+parser.add_argument("-di", "--direction", action="store", type=int, required=False, default=1, help="Threshold for index mask")
+parser.add_argument("-t", "--threshold", action="store", required=False, help="Threshold for index mask")
 parser.add_argument("-op", "--operation", action="store", default=OPERATION_NORMAL, choices=allOperations, help="Operation")
 parser.add_argument("-x", "--xtract", action="store_true", default=False, help="Extract each crop plant into images")
 
@@ -880,8 +885,21 @@ options = readINI()
 
 
 #
-# C A M E R A
+# I N P U T
 #
+# Either a specific test set is specified or a split is, but not both -- let argparse take care of that.
+
+# Ensure if the split is set it is between 0 and 1
+if arguments.split is not None:
+    if arguments.split > 1.0 or arguments.split < 0.0:
+        print(f"Split must be between 0 and 1.")
+        sys.exit(-1)
+    else:
+        split = 0.4
+
+# If neither the split or a test set is specified, set the split to a default value
+if arguments.split is None and arguments.test is None:
+    split = 0.4
 
 #
 # D E P T H  C A M E R A
@@ -904,6 +922,8 @@ def startupCamera(options: OptionsFile) -> Camera:
         theCamera.gsd = int(options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_IMAGE_WIDTH))
     else:
         log.error("Connecting to physical camera")
+
+
 
     # Set the ground sampling distance, so we know when to take a picture
     theCamera.gsd = int(options.option(constants.PROPERTY_SECTION_CAMERA, constants.PROPERTY_IMAGE_WIDTH))
@@ -1032,7 +1052,11 @@ def plot3D(index: np.ndarray, planeLocation: int, title: str):
         return
 
     # I can get plotly to work only with square arrays, not rectangular, so just take a subset
-    subset = index[0:2100, 0:2100]
+    height, width = index.shape
+    subsetLength = min(height, width)
+    if subsetLength > 2100:
+        subsetLength = 2100
+    subset = index[0:subsetLength, 0:subsetLength]
     log.debug("Index is {}".format(index.shape))
     log.debug("Subset is {}".format(subset.shape))
     xi = np.linspace(0, subset.shape[0], num=subset.shape[0])
@@ -1041,9 +1065,9 @@ def plot3D(index: np.ndarray, planeLocation: int, title: str):
     fig = go.Figure(data=[go.Surface(x=xi, y=yi, z=subset)])
 
     # The plane represents the threshold value
-    x1 = np.linspace(0, 1500, 1500)
-    y1 = np.linspace(0, 1500, 1500)
-    z1 = np.ones(1500) * planeLocation
+    x1 = np.linspace(0, subsetLength, subsetLength)
+    y1 = np.linspace(0, subsetLength, subsetLength)
+    z1 = np.ones(subsetLength) * planeLocation
     plane = go.Surface(x=x1, y=y1, z=np.array([z1] * len(x1)).T, opacity=0.5, showscale=False, showlegend=False)
 
     fig.add_traces([plane])
@@ -1403,11 +1427,21 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
         # Get the mask
         # mask, threshold = veg.MaskFromIndex(index, True, 1, results.threshold)
         if arguments.threshold is not None:
-            thresholdForMask = arguments.threshold
+            try:
+                thresholdForMask = float(arguments.threshold)
+            except ValueError:
+                # Must be OTSU or TRIANGLE
+                if arguments.threshold in VegetationIndex.thresholdChoices:
+                    thresholdForMask = arguments.threshold
+                else:
+                    print(f"Threshold must be one of {VegetationIndex.thresholdChoices} or a valid float")
+                    sys.exit(-1)
         else:
             thresholdForMask = None
 
-        mask, threshold = veg.MaskFromIndex(index, not arguments.nonegate, 1, thresholdForMask)
+        # Orignal before direction was configurable
+        #mask, threshold = veg.MaskFromIndex(index, not arguments.nonegate, 1, thresholdForMask)
+        mask, threshold = veg.MaskFromIndex(index, not arguments.nonegate, arguments.direction, thresholdForMask)
         log.debug(f"Use threshold: {threshold}")
         normalized = np.zeros_like(mask)
         finalMask = cv.normalize(mask, normalized, 0, 255, cv.NORM_MINMAX)
@@ -1477,6 +1511,9 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
         manipulated.toCIELAB()
         performance.stopAndRecord(constants.PERF_CIELAB)
 
+        # use finalImage for indexed image
+        manipulated.toDGCI(processed.source)
+
         # Find the plants in the image
         performance.start()
         strategy = constants.Strategy.CARTOON
@@ -1488,6 +1525,13 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
         contours, hierarchy, blobs, largest = manipulated.findBlobs(arguments.minarea, strategy)
         log.debug("Found blobs: {}".format(len(blobs)))
         performance.stopAndRecord(constants.PERF_CONTOURS)
+
+        if len(blobs) == 0:
+            log.error(f"Unable to find blobs in image")
+            logger.increment()
+            sequence = sequence + 1
+            imageNumberBasler = imageNumberBasler + 1
+            return constants.ProcessResult.NOT_PROCESSED
 
         # The test should probably be if we did not find any blobs
         if largest == "unknown":
@@ -1641,11 +1685,11 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
         # The alternative is to use the original images and use the soil as the element that is common between
         # the two.  The worry here is computational efficiency
 
-        if arguments.stitch:
-            if previousImage is not None:
-                manipulated.stitchTo(previousImage)
-            else:
-                previousImage = image
+        # if arguments.stitch:
+        #     if previousImage is not None:
+        #         manipulated.stitchTo(previousImage)
+        #     else:
+        #         previousImage = image
 
         # Write out the processed image
         # cv.imwrite("processed.jpg", manipulated.image)
