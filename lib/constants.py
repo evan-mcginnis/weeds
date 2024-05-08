@@ -19,6 +19,7 @@ UI_CONFIRM_IMAGING_WITH_ERRORS = "Not all components are operational. Do you wan
 
 # File names
 PREFIX_CAMERA_CONFIGURATION = "camera-configuration-"
+PREFIX_IMAGE = "img-"
 EXTENSION_CAMERA_SETTINGS = ".pfs"
 EXTENSION_IMAGE = ".jpg"
 EXTENSION_PNG = ".png"
@@ -63,6 +64,7 @@ THREAD_NAME_DEPTH_RIGHT     = "depth_right"
 THREAD_NAME_POSITION        = "position"
 THREAD_NAME_SUPERVISOR      = "supervisor"
 THREAD_NAME_ENRICH          = "enrich"
+THREAD_NAME_UPDATE          = "update"
 
 MSG_NOT_CONNECTED = "Not connected"
 MSG_LINES_NOT_SPECIFIED = "The A and B lines for the odometer must be on the command line or in the INI file"
@@ -692,6 +694,7 @@ class Capture(Enum):
     DEPTH_DEPTH = 1
     IMU = 2
     RGB = 3
+    IR = 4
 
 class IntelCapture(Enum):
     RGBDEPTH = 0

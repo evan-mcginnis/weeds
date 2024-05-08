@@ -62,13 +62,19 @@ class CameraDepth(Camera):
         self._RGB = np.empty([constants.INTEL_RGB_MAX_HORIZONTAL, constants.INTEL_RGB_MAX_VERTICAL])
         self._imageNumber = 0
 
+        self._currentRGB = None
+        self._currentDepth = None
+        self._currentIR = None
+
         self._pipelineIMU = None
         self._pipelineDepthRGB = None
         self._pipelineRGB = None
+        self._pipelineIR = None
 
         self._configIMU = None
         self._configDepthRGB = None
         self._configRGB = None
+        self._configIR = None
         self._align = None
 
         self._initialized = False
@@ -112,6 +118,10 @@ class CameraDepth(Camera):
         return str(self.__dict__)
 
     @property
+    def captureType(self) -> constants.Capture:
+        return self._captureType
+
+    @property
     def capturing(self) -> bool:
         return self._capturing
 
@@ -122,6 +132,18 @@ class CameraDepth(Camera):
         :return: average distance of image
         """
         return self._agl
+
+    @property
+    def currentIR(self) -> np.ndarray:
+        return self._currentIR
+
+    @property
+    def currentRGB(self) -> np.ndarray:
+        return self._RGB
+
+    @property
+    def currentDepth(self) -> np.ndarray:
+        return self._depth
 
     @property
     def gsd(self) -> float:
@@ -159,7 +181,6 @@ class CameraDepth(Camera):
 
         # Enable the camera and apply the config
         # rs.enable_device(self._config, self._serial)
-
 
         self._connected = True
 
@@ -216,6 +237,19 @@ class CameraDepth(Camera):
 
             # Enable bgr stream to capture 1920x1080, 8 FPS
             self._configRGB.enable_stream(rs.stream.color, constants.INTEL_RGB_MAX_HORIZONTAL, constants.INTEL_RGB_MAX_VERTICAL, rs.format.bgr8, constants.INTEL_RGB_MAX_FRAMES)
+
+        elif self._captureType == constants.Capture.IR:
+            # Turn off the emitter and collect the images
+            self._pipelineIR = rs.pipeline()
+            self._configIR = rs.config()
+            self._pipelineRGB = rs.pipeline()
+            self._configRGB = rs.config()
+            self._align = rs.align(rs.stream.color)
+
+            # Enable the IR stream
+            cameraNumber = 1
+            self._configIR.enable_stream(rs.stream.infrared, cameraNumber, constants.INTEL_RGB_MAX_HORIZONTAL, constants.INTEL_RGB_MAX_VERTICAL, rs.format.y8, constants.INTEL_RGB_MAX_FRAMES)
+            self._configRGB.enable_stream(rs.stream.color, constants.INTEL_RGB_MAX_HORIZONTAL, constants.INTEL_RGB_MAX_VERTICAL, rs.format.rgb8, constants.INTEL_RGB_MAX_FRAMES)
 
         else:
             self._initialized = False
@@ -366,6 +400,41 @@ class CameraDepth(Camera):
                 self.log.fatal("{}".format(e))
                 self.state.toFailed()
                 self._capturing = False
+        # IR
+        elif self._captureType == constants.Capture.IR:
+            self.log.debug("Begin grab of IR stream")
+            try:
+                cfgRGB = self._pipelineRGB.start(self._configRGB)
+                cfg = self._pipelineIR.start(self._configIR)
+                self._sensor = self._pipelineIR.get_active_profile().get_device().query_sensors()[1]
+                exposure = self._sensor.get_option(rs.option.exposure)
+                # self._sensor.set_option(rs.option.exposure, self._exposure)
+                # self.log.debug("Set intel exposure to {}. Currently {}".format(self._exposure, exposure))
+
+                # Load the custom settings for the camera
+                if self._config is not None:
+                    self.log.debug(f"Loading custom parameters from {self._config}")
+                    jsonObj = json.load(open(self._config))
+                    json_string = str(jsonObj).replace("'", '\"')
+                    device = cfg.get_device()
+                    advnc_mode = rs.rs400_advanced_mode(device)
+                    advnc_mode.load_json(json_string)
+                else:
+                    print(f"Auto exposure: {self._sensor.get_option(rs.option.enable_auto_exposure)}")
+                    # self._sensor.set_option(RS2_OPTION_ENABLE_AUTO_EXPOSURE, 0);
+
+                self._capturing = True
+                try:
+                    self._state.toCapture()
+                except TransitionNotAllowed as transition:
+                    self.log.critical("Unable to transition depth camera to capturing")
+                    self.log.critical(transition)
+                    self._capturing = False
+            except Exception as e:
+                self.log.fatal("Failed to open the depth camera {} and start grabbing depth data.".format(self._serial))
+                self.log.fatal("{}".format(e))
+                self.state.toFailed()
+                self._capturing = False
 
             # A dummy loop as a placeholder, as this method should never return.
             # If the sequence below is reinstated, this should be removed
@@ -376,9 +445,13 @@ class CameraDepth(Camera):
             # The RGB capture loop for the Intel Camera
             # Timing shows that it takes about 1ms to obtain an image.
 
-            self.log.debug("Capturing DEPTH/RGB data")
-            while self._capturing:
-                try:
+        self.log.debug(f"Capturing {self._captureType.name} data")
+        while self._capturing:
+            try:
+                self._depth = None
+                self._RGB = None
+                self._currentIR = None
+                if self._captureType == constants.Capture.DEPTH_RGB:
                     # This example aligns depth and color images
                     # Taken from: https://support.intelrealsense.com/hc/en-us/community/posts/360037076293-Align-color-and-depth-images
                     # pipeline = rs.pipeline()
@@ -419,12 +492,35 @@ class CameraDepth(Camera):
                     # all zeros. Not sure why
                     # TODO: Determine why images have nothing but zeros
                     if np.count_nonzero(self._depth) != 0:
-                        processed = TimestampedImage(self._RGB, self._depth, time.time())
+                        processed = TimestampedImage(self._RGB, self._depth, self._currentIR, time.time())
                         self._images.append(processed)
                         self._agl = self._depth.mean()
-                except Exception as e:
-                    self.log.fatal("Failed to capture depth frame")
-                    self.log.fatal(e)
+                elif self._captureType == constants.Capture.IR:
+                    frames = self._pipelineIR.wait_for_frames()
+                    ir1_frame = frames.get_infrared_frame(1)  # Left IR Camera, it allows 1, 2 or no input
+                    image = np.asanyarray(ir1_frame.get_data())
+                    self._currentIR = image
+                    self.log.debug("Captured IR")
+
+                    frames = self._pipelineRGB.wait_for_frames()
+                    f = self._align.process(frames)
+                    _currentRGB = frames.get_color_frame()
+                    self._currentRGB = _currentRGB
+                    self._RGB = np.asanyarray(_currentRGB.get_data())
+                    self.log.debug("Captured RGB")
+
+                    # if not _currentRGB or not self._currentIR:
+                    #     self.log.error("Failed to capture both RGB and IR")
+                    #     break
+
+                    self._RGB = np.asanyarray(_currentRGB.get_data())
+
+                    processed = TimestampedImage(self._RGB, self._depth, self._currentIR, time.time())
+                    self._images.append(processed)
+
+            except Exception as e:
+                self.log.fatal("Failed to capture depth frame")
+                self.log.fatal(e)
 
 
             # This is a handshake so the stop method knows we have stopped capturing

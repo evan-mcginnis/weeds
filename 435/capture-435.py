@@ -25,7 +25,7 @@ import logging
 import logging.config
 import constants
 
-
+from playsound import playsound
 from PIL import Image, ImageQt
 
 from PyQt5 import Qt
@@ -44,7 +44,8 @@ import os
 OUTPUT = "output"
 DEFAULT_OUTPUT = "."
 DEPTH_JPG = ".depth.jpg"
-
+RGB_JPG = ".rgb.jpg"
+IR_JPG = ".ir.jpg"
 
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def __init__(self, camera: CameraDepth, *args, **kwargs):
@@ -59,6 +60,19 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self._outputDirectory = DEFAULT_OUTPUT
         self._currentRGBFileName = None
         self._currentDepthFileName = None
+        self._currentIRFileName = None
+
+    @property
+    def filenameRGB(self) -> str:
+        return self._currentRGBFileName
+
+    @property
+    def filenameDepth(self) -> str:
+        return self._currentDepthFileName
+
+    @property
+    def filenameIR(self) -> str:
+        return self._currentIRFileName
 
     @property
     def outputDirectory(self) -> str:
@@ -94,6 +108,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             depth = np.load(self._currentDepthFileName)
             qpixmap = QPixmap(DEPTH_JPG)
             self.depthImage.setPixmap(qpixmap)
+        if captureType == constants.Capture.IR:
+            qpixmap = QPixmap(IR_JPG)
+            self.depthImage.setPixmap(qpixmap)
 
     def displayDistance(self, distance: float):
 
@@ -104,35 +121,59 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         # Grab the image
         processedImage = self._camera.capture()
+
+        # Play a sound when a picture is taken -- there is a bit of a delay, so this is really not great
+        playsound('shutter.mp3')
+
         rgbImage = processedImage.rgb
         depthImage = processedImage.depth
+        irImage = processedImage.ir
 
         log.debug("Saving image")
-        depthFileName = f"depth{constants.DELIMETER}{self._currentImageNumber:03}{constants.EXTENSION_NPY}"
-        depthFQN = os.path.join(self._outputDirectory, depthFileName)
-        np.save(depthFQN, depthImage)
-        # Save a JPG version of the depth data just so it can be shown
-        plt.imsave(DEPTH_JPG, depthImage, vmin=250, vmax=340)
+        # DEPTH
+        if depthImage is not None:
+            depthFileName = f"{constants.PREFIX_IMAGE}{self._currentImageNumber:03}{constants.EXTENSION_NPY}"
+            depthFQN = os.path.join(self._outputDirectory, depthFileName)
+            np.save(depthFQN, depthImage)
+            # Save a JPG version of the depth data just so it can be shown
+            plt.imsave(DEPTH_JPG, depthImage, vmin=250, vmax=340)
 
-        self._currentDepthFileName = depthFQN
+            self._currentDepthFileName = depthFQN
+            self.displayPicture(constants.Capture.DEPTH_DEPTH)
+            self.displayDistance(self._camera.agl)
+        else:
+            self._currentDepthFileName = None
 
-        image = Image.fromarray(rgbImage)
-        if image.mode != 'RGB':
-            image = image.convert('RGB')
-        rgbFileName = f"rgb{constants.DELIMETER}{self._currentImageNumber:03}{constants.EXTENSION_IMAGE}"
-        rgbFQN = os.path.join(self._outputDirectory, rgbFileName)
-        image.save(rgbFQN)
-        self._currentRGBFileName = rgbFQN
+        # RGB
+        if rgbImage is not None:
+
+            image = Image.fromarray(rgbImage)
+            if image.mode != 'RGB':
+                image = image.convert('RGB')
+            rgbFileName = f"{constants.PREFIX_IMAGE}{self._currentImageNumber:03}{constants.EXTENSION_IMAGE}"
+            rgbFQN = os.path.join(self._outputDirectory, rgbFileName)
+            image.save(rgbFQN)
+            self._currentRGBFileName = rgbFQN
+            self.displayPicture(constants.Capture.RGB)
+
+        # IR
+        if irImage is not None:
+            # Save a numpy version and a JPG
+            irFileName = f"{constants.PREFIX_IMAGE}{self._currentImageNumber:03}-ir{constants.EXTENSION_NPY}"
+            irFQN = os.path.join(self._outputDirectory, irFileName)
+            np.save(irFQN, depthImage)
+
+            image = Image.fromarray(irImage)
+            if image.mode != 'RGB':
+                image = image.convert('RGB')
+            irFileName = f"{constants.PREFIX_IMAGE}{self._currentImageNumber:03}-ir{constants.EXTENSION_IMAGE}"
+            irFQN = os.path.join(self._outputDirectory, irFileName)
+            image.save(irFQN)
+            image.save(IR_JPG)
+            self._currentIRFileName = irFQN
+            self.displayPicture(constants.Capture.IR)
 
         self.incrementPictureCount()
-        self.displayPicture(constants.Capture.RGB)
-        self.displayPicture(constants.Capture.DEPTH_DEPTH)
-        self.displayDistance(self._camera.agl)
-        # convert data to QImage using PIL
-
-        # img = Image.fromarray(rgbImage, mode='RGB')
-        # qt_img = ImageQt.ImageQt(img)
-        # self.depthImage.setPixmap(QtGui.QPixmap.fromImage(qt_img))
 
 
 
@@ -173,8 +214,19 @@ def updateStatus(camera: CameraDepth, window: MainWindow):
     while camera.capturing:
         # Show the distance to the target
         window.displayDistance(camera.agl)
+        if camera.captureType == constants.Capture.DEPTH_RGB:
+            if camera.currentRGB is not None:
+                image = Image.fromarray(camera.currentRGB)
+                if image.mode != 'RGB':
+                    image = image.convert('RGB')
+                image.save(RGB_JPG)
+                window._currentRGBFileName = RGB_JPG
+                window.displayPicture(constants.Capture.RGB)
+            else:
+                log.error("Current RGB is not defined")
+
         time.sleep(3)
-    print("Capture stopped")
+    log.debug("Capture stopped")
 
 
 
@@ -183,12 +235,15 @@ parser = argparse.ArgumentParser("Intel 435 Capture")
 
 parser.add_argument('-o', '--output', action="store", required=True, help="Output directory ")
 parser.add_argument('-l', '--logging', action="store", required=True, help="Log file configuration")
+parser.add_argument('-t', '--type', action="store", required=False, default=constants.Capture.DEPTH_RGB.name,
+                    choices=[constants.Capture.DEPTH_RGB.name.lower(), constants.Capture.IR.name.lower()], help="Type of capture")
+parser.add_argument('-c', '--config', action="store", required=False, help="Configuration file for camera")
 arguments = parser.parse_args()
 
 logging.config.fileConfig(arguments.logging)
 log = logging.getLogger("capture")
 
-camera = CameraDepth(constants.Capture.DEPTH_RGB)
+camera = CameraDepth(constants.Capture[arguments.type.upper()], config=arguments.config)
 camera._state.toIdle()
 camera._state.toClaim()
 camera.connect()
@@ -196,6 +251,11 @@ camera.connect()
 # Start the thread that will begin acquiring images
 acquire = threading.Thread(name=constants.THREAD_NAME_ACQUIRE, target=takeImages, args=(camera,))
 acquire.start()
+
+time.sleep(2)
+if not acquire.is_alive():
+    print("Error encountered with camera")
+    sys.exit(-1)
 
 app = QtWidgets.QApplication(sys.argv)
 
@@ -205,7 +265,7 @@ window.initialize()
 
 app.aboutToQuit.connect(window.exitHandler)
 
-update = threading.Thread(name=constants.THREAD_NAME_ACQUIRE, target=updateStatus, args=(camera, window))
+update = threading.Thread(name=constants.THREAD_NAME_UPDATE, target=updateStatus, args=(camera, window))
 update.start()
 
 
