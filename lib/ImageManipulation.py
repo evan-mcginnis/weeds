@@ -14,6 +14,7 @@ import cv2 as cv
 import math
 import pandas as pd
 import logging
+import colorsys
 from math import pi
 # from GPSPhoto import gpsphoto
 
@@ -28,6 +29,7 @@ import constants
 from GLCM import GLCM
 from HOG import HOG
 from LBP import LBP
+from Performance import Performance
 
 from hashlib import sha1
 
@@ -68,6 +70,8 @@ class ImageManipulation:
         self._imageAsCIELAB = None
         self._logger = logger
 
+        self._performance = None
+
         # Contours of the blobs
         self._contours = None
 
@@ -87,6 +91,18 @@ class ImageManipulation:
 
     # def init(self):
     #     self._cvimage = cv.cvtColor(self._image)
+
+    @property
+    def performance(self) -> Performance:
+        """
+        The performance object used
+        :return:
+        """
+        return self._performance
+
+    @performance.setter
+    def performance(self, thePerformance: Performance):
+        self._performance = thePerformance
 
     @property
     def hash(self) -> str:
@@ -385,6 +401,68 @@ class ImageManipulation:
         self._imgAsGreyscale = img
 
         return self._imgAsGreyscale
+
+    def toDGCI(self, original: str):
+        """
+
+        :param original:
+        :return:
+        """
+        # Formula from this article
+        # https://www.petiolepro.com/blog/dark-green-colour-index-dgci-a-new-measurement-of-chlorophyll/
+        # DGCI = {(hue − 60)/60 + (1 − saturation) + (1 − brightness)}/3
+        img = self._imageAsRGB
+        height, width, channels = np.shape(self._imageAsRGB)
+
+        # Confirm this is a color image
+        assert channels == 3
+
+        # Use this as guidance
+        # https://acsess-onlinelibrary-wiley-com.ezproxy4.library.arizona.edu/doi/10.2135/cropsci2003.9430
+        # Normalize values in range (0..1)
+        rgbNormalized = self._imageAsRGB.astype(np.uint8) / 255
+
+        dgci = np.zeros_like(img[:, :, 0])
+
+        for x in range(height):
+            for y in range(width):
+                r, g, b = rgbNormalized[x, y]
+                maximum = max(r, g, b)
+                minimum = min(r, g, b)
+
+                # H U E
+                # There seem to be 3 different formulae depending on which channel is max
+
+                # Avoid division by zero
+                maximum += 0.00001
+
+                if maximum != minimum:
+                    # Red is max
+                    if max(b, g, r) == r:
+                        h = 60 * ((g - b) / (maximum - minimum))
+                    # Green is max
+                    elif max(b, g, r) == g:
+                        h = 60 * (2.0 + (b - r) * (maximum - minimum))
+                    # Blue is max
+                    elif max(b, g, r) == b:
+                        h = 60 * (4.0 + (r - g) * (maximum - minimum))
+                    else:
+                        assert False
+                else:
+                    h = 0
+
+                # L I G H T N E S S
+                lightness = maximum
+
+                # S A T U R A T I O N
+                saturation = (maximum - minimum) / maximum
+
+                dgciAtPoint = ((h - 60) / 60 + (1 - saturation) + (1 - lightness)) / 3
+
+                dgci[x][y] = dgciAtPoint
+        pass
+        self.log.debug("DGCI Calculated")
+        self._imageAsDGCI = dgci
 
     def findEdges(self, image: np.ndarray):
         self._edges = cv.Canny(self._imgAsGreyscale, 20, 30)
@@ -714,99 +792,137 @@ class ImageManipulation:
         GLCM Computations for all objects in image.
         """
         self.log.debug("GLCM: Greyscale")
+        self._performance.start()
         glcm = GLCM(self._blobs, constants.NAME_GREYSCALE_IMAGE, PREFIX=constants.NAME_GREYSCALE)
         glcm.computeAttributes()
         self._blobs = glcm.blobs
+        self._performance.stopAndRecord(constants.PERF_GLCM_GREYSCALE)
 
         self.log.debug("GLCM: YIQ Y")
+        self.performance.start()
         glcm = GLCM(self._blobs, constants.NAME_IMAGE_YIQ, PREFIX=constants.NAME_YIQ_Y, BAND=0)
         glcm.computeAttributes()
         self._blobs = glcm.blobs
+        self._performance.stopAndRecord(constants.PERF_GLCM_YIQ_Y)
 
         self.log.debug("GLCM: YIQ I")
+        self._performance.start()
         glcm = GLCM(self._blobs, constants.NAME_IMAGE_YIQ, PREFIX=constants.NAME_YIQ_I, BAND=1)
         glcm.computeAttributes()
         self._blobs = glcm.blobs
+        self._performance.stopAndRecord(constants.PERF_GLCM_YIQ_I)
 
         self.log.debug("GLCM: YIQ Q")
+        self._performance.start()
         glcm = GLCM(self._blobs, constants.NAME_IMAGE_YIQ, PREFIX=constants.NAME_YIQ_Q, BAND=2)
         glcm.computeAttributes()
         self._blobs = glcm.blobs
+        self._performance.stopAndRecord(constants.PERF_GLCM_YIQ_Q)
 
         self.log.debug("GLCM: HSV Hue")
+        self._performance.start()
         glcm = GLCM(self._blobs, constants.NAME_IMAGE_HSV, PREFIX=constants.NAME_HSV_HUE, BAND=0)
         glcm.computeAttributes()
         self._blobs = glcm.blobs
+        self._performance.stopAndRecord(constants.PERF_GLCM_HSV_H)
 
         self.log.debug("GLCM: HSV Saturation")
+        self._performance.start()
         glcm = GLCM(self._blobs, constants.NAME_IMAGE_HSV, PREFIX=constants.NAME_HSV_SATURATION, BAND=1)
         glcm.computeAttributes()
         self._blobs = glcm.blobs
+        self._performance.stopAndRecord(constants.PERF_GLCM_HSV_H)
 
         self.log.debug("GLCM: HSV Value")
+        self._performance.start()
         glcm = GLCM(self._blobs, constants.NAME_IMAGE_HSV, PREFIX=constants.NAME_HSV_VALUE, BAND=2)
         glcm.computeAttributes()
         self._blobs = glcm.blobs
+        self._performance.stopAndRecord(constants.PERF_GLCM_HSV_H)
 
         self.log.debug("GLCM: Blue")
+        self._performance.start()
         glcm = GLCM(self._blobs, constants.NAME_IMAGE, PREFIX=constants.NAME_BLUE, BAND=0)
         glcm.computeAttributes()
         self._blobs = glcm.blobs
+        self._performance.stopAndRecord(constants.PERF_GLCM_RGB_B)
 
         self.log.debug("GLCM: Green")
+        self._performance.start()
         glcm = GLCM(self._blobs, constants.NAME_IMAGE, PREFIX=constants.NAME_GREEN, BAND=1)
         glcm.computeAttributes()
         self._blobs = glcm.blobs
+        self._performance.stopAndRecord(constants.PERF_GLCM_RGB_B)
 
         self.log.debug("GLCM: Red")
+        self._performance.start()
         glcm = GLCM(self._blobs, constants.NAME_IMAGE, PREFIX=constants.NAME_RED, BAND=2)
         glcm.computeAttributes()
         self._blobs = glcm.blobs
+        self._performance.stopAndRecord(constants.PERF_GLCM_RGB_B)
 
         self.log.debug("GLCM: HSI H")
+        self._performance.start()
         glcm = GLCM(self._blobs, constants.NAME_IMAGE_HSI, PREFIX=constants.NAME_HSI_HUE, BAND=0)
         glcm.computeAttributes()
         self._blobs = glcm.blobs
+        self._performance.stopAndRecord(constants.PERF_GLCM_HSI_H)
 
         self.log.debug("GLCM: HSI S")
+        self._performance.start()
         glcm = GLCM(self._blobs, constants.NAME_IMAGE_HSI, PREFIX=constants.NAME_HSI_SATURATION, BAND=1)
         glcm.computeAttributes()
         self._blobs = glcm.blobs
+        self._performance.stopAndRecord(constants.PERF_GLCM_HSI_S)
 
         self.log.debug("GLCM: HSI I")
+        self._performance.start()
         glcm = GLCM(self._blobs, constants.NAME_IMAGE_HSI, PREFIX=constants.NAME_HSI_INTENSITY, BAND=2)
         glcm.computeAttributes()
         self._blobs = glcm.blobs
+        self._performance.stopAndRecord(constants.PERF_GLCM_HSI_I)
 
         self.log.debug("GLCM: YCBCR")
+        self._performance.start()
         glcm = GLCM(self._blobs, constants.NAME_IMAGE_YCBCR, PREFIX=constants.NAME_YCBCR_LUMA, BAND=0)
         glcm.computeAttributes()
         self._blobs = glcm.blobs
+        self._performance.stopAndRecord(constants.PERF_GLCM_YCBCR_Y)
 
         self.log.debug("GLCM: YCBCR CB")
+        self._performance.start()
         glcm = GLCM(self._blobs, constants.NAME_IMAGE_YCBCR, PREFIX=constants.NAME_YCBCR_BLUE_DIFFERENCE, BAND=1)
         glcm.computeAttributes()
         self._blobs = glcm.blobs
+        self._performance.stopAndRecord(constants.PERF_GLCM_YCBCR_CB)
 
         self.log.debug("GLCM: YCBCR CR")
+        self._performance.start()
         glcm = GLCM(self._blobs, constants.NAME_IMAGE_YCBCR, PREFIX=constants.NAME_YCBCR_RED_DIFFERENCE, BAND=2)
         glcm.computeAttributes()
         self._blobs = glcm.blobs
+        self._performance.stopAndRecord(constants.PERF_GLCM_YCBCR_CR)
 
         self.log.debug("GLCM: CIELAB L")
+        self._performance.start()
         glcm = GLCM(self._blobs, constants.NAME_IMAGE_CIELAB, PREFIX=constants.NAME_CIELAB_L, BAND=0)
         glcm.computeAttributes()
         self._blobs = glcm.blobs
+        self._performance.stopAndRecord(constants.PERF_GLCM_CIELAB_L)
 
         self.log.debug("GLCM: CIELAB A")
+        self._performance.start()
         glcm = GLCM(self._blobs, constants.NAME_IMAGE_CIELAB, PREFIX=constants.NAME_CIELAB_A, BAND=1)
         glcm.computeAttributes()
         self._blobs = glcm.blobs
+        self._performance.stopAndRecord(constants.PERF_GLCM_CIELAB_A)
 
         self.log.debug("GLCM: CIELAB B")
+        self._performance.start()
         glcm = GLCM(self._blobs, constants.NAME_IMAGE_CIELAB, PREFIX=constants.NAME_CIELAB_B, BAND=2)
         glcm.computeAttributes()
         self._blobs = glcm.blobs
+        self._performance.stopAndRecord(constants.PERF_GLCM_CIELAB_B)
 
     def computeShapeIndices(self):
         """
