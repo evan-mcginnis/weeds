@@ -38,3 +38,7 @@ class PersistenceError(WeedExceptions):
 class ProcessingError(WeedExceptions):
     def __init__(self, message):
         super().__init__(message)
+
+class EOL(WeedExceptions):
+    def __init___(self, message):
+        super().__init__(message)
