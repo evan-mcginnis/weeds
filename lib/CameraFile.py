@@ -90,8 +90,17 @@ class CameraFile(Camera):
                 self.log.error("Can't process type: {}".format(self._type))
 
             processed = ProcessedImage(constants.ImageType.RGB, image, 0)
-            processed.getMetadata(imageName)
+            hasMetadata = processed.getMetadata(imageName)
             processed.source = imageName
+
+            # If the corresponding depth info is present, read that as well
+            depthImageFilename = imageName.replace(constants.EXTENSION_IMAGE, constants.EXTENSION_NPY)
+            if os.path.isfile(depthImageFilename):
+                processed.depth = np.load(depthImageFilename)
+                self.log.debug(f"Loaded depth data from: {depthImageFilename}")
+            else:
+                # Probably not needed, but just to be complete
+                self.log.warning(f"Unable to find depth data: {depthImageFilename}")
 
             return processed
         # Raise an EOFError  when we get through the sequence of images
