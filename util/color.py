@@ -9,9 +9,10 @@ import os
 import glob
 from exif import Image
 import cv2 as cv
+from skimage.color import rgb2yiq
 
-from GPSUtilities import GPSUtilities
-from OptionsFile import OptionsFile
+from ImageManipulation import ImageManipulation
+from ImageLogger import ImageLogger
 
 import numpy as np
 import pandas as pd
@@ -41,8 +42,31 @@ UNKNOWN_LONG = -999
 NOT_SET = "-----"
 UNKNOWN_STR = NOT_SET
 
+class Reading(Enum):
+    VEGETATION = 0
+    GROUND = 1
+
+
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
+    spaces = ["BGR", "RGB", "YIQ", "YUV", "HSI", "HSV", "YCBCR", "CIELAB"]
     def __init__(self, *args, **kwargs):
+
+        # Create columns for dataframe like hsv_1, hsv_2, hsv_3
+        columns = []
+        if "colorspace" in kwargs:
+            columns.append("type")
+            columns.append(kwargs["colorspace"] + "_0")
+            columns.append(kwargs["colorspace"] + "_1")
+            columns.append(kwargs["colorspace"] + "_2")
+            self._colorSpace = kwargs["colorspace"]
+            _ = kwargs.pop("colorspace")
+        else:
+            columns.append("type")
+            columns.append("colorspace" + "_0")
+            columns.append("colorspace" + "_1")
+            columns.append("colorspace" + "_2")
+            self._colorSpace = ""
+
         super(MainWindow, self).__init__(*args, **kwargs)
 
         # Images
@@ -63,11 +87,116 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self._imageFileName = ""
 
         self.image.mousePressEvent = self.getPos
+        self._logger = None
+        self._manipulated: ImageManipulation
+        self._manipulated = None
+
+        self._mode = "color"
+        self._n = 0
+        self._vegetationPoints = 0
+        self._groundPoints = 0
+
+        self._samples = pd.DataFrame(columns=columns)
+
+        self._output = None
+
+        self._imgAsBGR = None
+        self._imgAsRGB = None
+        self._imgAsYIQ = None
+        self._imgAsYUV = None
+        self._imgAsHSI = None
+        self._imgAsHSV = None
+        self._imgAsYCBCR = None
+        self._imgAsCIELAB = None
+
+        self._currentSampleSource = None
+        self._currentLocation = None
+
+        self._files = []
+        self._currentImageName = None
+
+    @property
+    def files(self) -> []:
+        return self._files
+
+    @files.setter
+    def files(self, theFiles: []):
+        self._files = theFiles
+
+    @property
+    def location(self) -> Reading:
+        return self._currentLocation
+
+    @location.setter
+    def location(self, theLocation: Reading):
+        self._currentLocation = theLocation
+
+    @property
+    def source(self) -> str:
+        return self._currentSampleSource
+
+    @source.setter
+    def source(self, theSource: str):
+        """
+        The source color space used
+        :param theSource:
+        """
+        assert theSource in self.spaces
+        self._currentSampleSource = theSource
+
+    @property
+    def output(self) -> str:
+        return self._output
+
+    @output.setter
+    def output(self, theOutput: str):
+        self._output = theOutput
+
+    @property
+    def mode(self) -> str:
+        return self._mode
+
+    @mode.setter
+    def mode(self, theMode: str):
+        self._mode = theMode
+
+    @property
+    def n(self) -> int:
+        return self._n
+
+    @n.setter
+    def n(self, theN):
+        self._n = theN
+        self._vegetationPoints = theN
+        self._groundPoints = theN
+
+
+    def finished(self):
+        """
+        Write out the data if the output file is defined
+        """
+        if self._output is not None:
+            self._samples.to_csv(self._output, index=False)
+
+    def addReading(self, source: Reading, band0: int, band1: int, band2: int):
+        """
+        Add the reading of the point to the sample list
+        :param source: Ground or Vegetation
+        :param band0: Value for band 0
+        :param band1: Value for band 1
+        :param band2: Value for band 2
+        """
+        self._samples.loc[len(self._samples)] = [source.value, band0, band1, band2]
+
 
     def setup(self):
-        palette = self.rgbRed.palette()
-        palette.color(palette.light(), QColor)
+        # palette = self.rgbRed.palette()
+        # palette.color(palette.light(), QColor)
+        self._logger = ImageLogger()
+
+
     def getPos(self, event):
+        band = None
         x = event.pos().x()
         y = event.pos().y()
         scaledX, scaledY = self.scaledPositionToOriginal(event.pos().x(), event.pos().y())
@@ -78,27 +207,57 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.pointY.display(y)
 
         # RGB
-        # CVT is BGR, not RGB
-        self.rgbRed.display(self._imgAsRGB[y, x, 2])
-        self.rgbGreen.display(self._imgAsRGB[y, x, 1])
-        self.rgbBlue.display(self._imgAsRGB[y, x, 2])
+        self.rgbRed.display(self._imgAsRGB[scaledY, scaledX, 0])
+        self.rgbGreen.display(self._imgAsRGB[scaledY, scaledX, 1])
+        self.rgbBlue.display(self._imgAsRGB[scaledY, scaledX, 2])
 
         # HSV
-        self.hsvHue.display(self._imgAsHSV[y, x, 0])
-        self.hsvSaturation.display(self._imgAsHSV[y, x, 1])
-        self.hsvValue.display(self._imgAsHSV[y, x, 2])
+        self.hsvHue.display(self._imgAsHSV[scaledY, scaledX, 0])
+        self.hsvSaturation.display(self._imgAsHSV[scaledY, scaledX, 1])
+        self.hsvValue.display(self._imgAsHSV[scaledY, scaledX, 2])
 
         # YIQ
+        self.yiqY.display(self._imgAsYIQ[scaledY, scaledX, 0])
+        self.yiqI.display(self._imgAsYIQ[scaledY, scaledX, 1])
+        self.yiqQ.display(self._imgAsYIQ[scaledY, scaledX, 2])
 
         # CIELAB
-        self.cielabL.display(self._imgAsCIELAB[y, x, 0])
-        self.cielabA.display(self._imgAsCIELAB[y, x, 1])
-        self.cielabB.display(self._imgAsCIELAB[y, x, 2])
+        self.cielabL.display(self._imgAsCIELAB[scaledY, scaledX, 0])
+        self.cielabA.display(self._imgAsCIELAB[scaledY, scaledX, 1])
+        self.cielabB.display(self._imgAsCIELAB[scaledY, scaledX, 2])
 
         # YCBCR
-        self.ycbcrY.display(self._imgAsYCBCR[y, x, 0])
-        self.ycbcrCb.display(self._imgAsYCBCR[y, x, 1])
-        self.ycbcrCr.display(self._imgAsYCBCR[y, x, 2])
+        self.ycbcrY.display(self._imgAsYCBCR[scaledY, scaledX, 0])
+        self.ycbcrCb.display(self._imgAsYCBCR[scaledY, scaledX, 1])
+        self.ycbcrCr.display(self._imgAsYCBCR[scaledY, scaledX, 2])
+
+        # YUV
+        self.yuvY.display(self._imgAsYUV[scaledY, scaledX, 0])
+        self.yuvU.display(self._imgAsYUV[scaledY, scaledX, 1])
+        self.yuvV.display(self._imgAsYUV[scaledY, scaledX, 2])
+
+        # HSI
+        self.hsiH.display(self._imgAsHSI[scaledY, scaledX, 0])
+        self.hsiS.display(self._imgAsHSI[scaledY, scaledX, 1])
+        self.hsiI.display(self._imgAsHSI[scaledY, scaledX, 2])
+
+        self.displayMode()
+
+        # If all the vegetation and ground points have been captured, load the next image
+        if self._groundPoints == 0 and self._vegetationPoints == 0:
+            self.loadNextImage()
+
+
+        # Get the band information for the colorspace of interest
+        # This is only really needed for the sample mode
+        bandInfo = self._allBands[self._currentSampleSource]
+        readings = bandInfo["readings"]
+
+        band0 = readings[scaledY, scaledX, 0]
+        band1 = readings[scaledY, scaledX, 1]
+        band2 = readings[scaledY, scaledX, 2]
+
+        self.addReading(self._currentLocation, band0, band1, band2)
 
     def mouseMoveEvent(self, event):
         scaledX, scaledY = self.scaledPositionToOriginal(event.x(), event.y())
@@ -130,15 +289,65 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         """
         Convert the RGB image to various color spaces
         """
-        self._imgAsRGB = cv.imread(self._imageFileName, cv.IMREAD_COLOR)
-        self._imgAsHSV = cv.cvtColor(self._imgAsRGB.astype(np.uint8), cv.COLOR_BGR2HSV)
-        self._imgAsYCBCR = cv.cvtColor(self._imgAsRGB.astype(np.uint8), cv.COLOR_BGR2YCR_CB)
-        self._imgAsCIELAB = cv.cvtColor(self._imgAsRGB.astype(np.uint8), cv.COLOR_BGR2Lab)
+        # OpenCV treats images as BGR, not RGB
+        self._imgAsRGB = cv.cvtColor(self._imgAsBGR.astype(np.uint8), cv.COLOR_BGR2RGB)
 
-    def loadImage(self, imageFileName: str):
-        self._imageFileName = imageFileName
-        self._convertToColorSpaces()
-        self._displayImage(imageFileName)
+        self._imgAsHSV = cv.cvtColor(self._imgAsBGR.astype(np.uint8), cv.COLOR_BGR2HSV)
+        self._imgAsYCBCR = cv.cvtColor(self._imgAsBGR.astype(np.uint8), cv.COLOR_BGR2YCR_CB)
+        self._imgAsCIELAB = cv.cvtColor(self._imgAsBGR.astype(np.uint8), cv.COLOR_BGR2Lab)
+        self._imgAsYUV = cv.cvtColor(self._imgAsBGR.astype(np.uint8), cv.COLOR_BGR2YUV)
+
+        # This method takes RGB as input, not BGR
+        self._imgAsYIQ = rgb2yiq(self._imgAsRGB)
+
+        self._imgAsHSI = self._manipulated.toHSI()
+
+        self._allBands = {
+            "BGR": {"readings": self._imgAsBGR},
+            "RGB": {"readings": self._imgAsRGB},
+            "YIQ": {"readings": self._imgAsYIQ},
+            "YUV": {"readings": self._imgAsYUV},
+            "HSI": { "readings": self._imgAsHSI},
+            "HSV": {"readings": self._imgAsHSV},
+            "YCBCR": {"readings": self._imgAsYCBCR},
+            "CIELAB": {"readings": self._imgAsCIELAB}
+        }
+
+    def loadNextImage(self) -> bool:
+
+        loaded = False
+        if len(self._files) >= 1:
+            self._imageFileName = self._files.pop()
+            self._imgAsBGR = cv.imread(self._imageFileName, cv.IMREAD_COLOR)
+            self._manipulated = ImageManipulation(self._imgAsBGR, 0, self._logger)
+            self._convertToColorSpaces()
+            self._displayImage(self._imageFileName)
+
+            # Reset the number of points to capture
+            self.n = self._n
+
+            loaded = True
+
+        return loaded
+
+    def displayMode(self):
+        if self.mode == "color":
+            operatingText = "Color selection"
+        elif self.mode == "sample":
+            if self._groundPoints > 0:
+                operatingText = f"Click on {self._groundPoints} ground points"
+                self._groundPoints -= 1
+                self._currentLocation = Reading.GROUND
+            elif self._vegetationPoints > 0:
+                operatingText = f"Click on {self._vegetationPoints} vegetation points"
+                self._vegetationPoints -= 1
+                self._currentLocation = Reading.VEGETATION
+            else:
+                operatingText = f"All points sampled"
+        else:
+            operatingText = f"Unknown mode: {self.mode}"
+
+        self.operatingInstructions.setText(operatingText)
 
     def _displayImage(self, imageName):
         """
@@ -167,13 +376,14 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.image.setFixedSize(self._scaledWidth, self._scaledHeight)
 
 
-    def setup(self):
-        pass
+
 
     def safeExit(self):
+        self.finished()
         app.quit()
 
     def exitHandler(self):
+        self.finished()
         pass
 
 
@@ -185,6 +395,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 parser = argparse.ArgumentParser("Image Color Information")
 
 parser.add_argument('-i', '--input', action="store", required=True,  help="Input Image")
+parser.add_argument('-m', '--mode', action="store", required=False, default="color", choices=["color", "sample"], help="Operating Mode")
+parser.add_argument('-n', '--n', action="store", required=False, type=int, default=20, help="Number of points")
+parser.add_argument('-o', '--output', action="store", required=False, help="Output file name")
+parser.add_argument('-c', '--color', action="store", required=False, choices=MainWindow.spaces, help="Take samples from this color space")
 
 arguments = parser.parse_args()
 
@@ -193,16 +407,48 @@ log = logging.getLogger("review")
 
 app = QtWidgets.QApplication(sys.argv)
 
-window = MainWindow()
+if arguments.color is None:
+    window = MainWindow()
+else:
+    window = MainWindow(colorspace=arguments.color)
 
-window.setWindowTitle("University of Arizona")
-
+window.setWindowTitle("Color Selection")
+window.mode = arguments.mode
+window.n = arguments.n
 
 app.aboutToQuit.connect(window.exitHandler)
 
+if os.path.isdir(arguments.input):
+    files = glob.glob(arguments.input + "/" + "*.jpg")
+elif os.path.isfile(arguments.input):
+    files = [arguments.input]
+else:
+    print(f"Unable to access {arguments.input} as file or directory")
+    exit(-1)
 
-if arguments.input is not None:
-    window.loadImage(arguments.input)
+window.files = files
+
+window.loadNextImage()
+
+if arguments.output is not None:
+    if os.path.isfile(arguments.output):
+        print(f"Output file {arguments.output} exists. Will not overwrite.")
+        exit(-1)
+    window.output = arguments.output
+
+if arguments.mode == "sample":
+    if arguments.output is None:
+        print(f"Output file must be specified for sample mode")
+        exit(-1)
+    else:
+        window.output = arguments.output
+    if arguments.color is None:
+        print(f"Colorspace must be specified for sample mode")
+        exit(-1)
+    else:
+        window.source = arguments.color
+
+window.displayMode()
 
 window.setup()
 window.show()
