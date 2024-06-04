@@ -70,6 +70,13 @@
          </spacer>
         </item>
         <item>
+         <widget class="Line" name="line">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+         </widget>
+        </item>
+        <item>
          <layout class="QHBoxLayout" name="horizontalLayout_3">
           <item>
            <widget class="QLabel" name="operatingInstructions">
@@ -77,6 +84,9 @@
              <font>
               <pointsize>28</pointsize>
              </font>
+            </property>
+            <property name="frameShape">
+             <enum>QFrame::Box</enum>
             </property>
             <property name="text">
              <string>Color Selection</string>
@@ -98,6 +108,24 @@
              </size>
             </property>
            </spacer>
+          </item>
+          <item>
+           <widget class="QLabel" name="imageCount">
+            <property name="font">
+             <font>
+              <pointsize>28</pointsize>
+             </font>
+            </property>
+            <property name="frameShape">
+             <enum>QFrame::Box</enum>
+            </property>
+            <property name="text">
+             <string>Image Count</string>
+            </property>
+            <property name="textFormat">
+             <enum>Qt::PlainText</enum>
+            </property>
+           </widget>
           </item>
          </layout>
         </item>

@@ -1,6 +1,7 @@
 import datetime
 import re
 import sys
+import time
 from enum import Enum
 from time import sleep
 import argparse
@@ -46,6 +47,7 @@ class Reading(Enum):
     VEGETATION = 0
     GROUND = 1
 
+MAX_ZOOM = 5
 
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     spaces = ["BGR", "RGB", "YIQ", "YUV", "HSI", "HSV", "YCBCR", "CIELAB"]
@@ -53,6 +55,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         # Create columns for dataframe like hsv_1, hsv_2, hsv_3
         columns = []
+
         if "colorspace" in kwargs:
             columns.append("type")
             columns.append(kwargs["colorspace"] + "_0")
@@ -113,7 +116,41 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self._currentLocation = None
 
         self._files = []
+        self._filesToProcess = 0
         self._currentImageName = None
+
+        self._currentZoom = 0
+        self._scale = 1
+
+        self._pixmap = None
+
+        # All the bands processed
+        self._allBands = {
+            "BGR": {"readings": self._imgAsBGR},
+            "RGB": {"readings": self._imgAsRGB},
+            "YIQ": {"readings": self._imgAsYIQ},
+            "YUV": {"readings": self._imgAsYUV},
+            "HSI": {"readings": self._imgAsHSI},
+            "HSV": {"readings": self._imgAsHSV},
+            "YCBCR": {"readings": self._imgAsYCBCR},
+            "CIELAB": {"readings": self._imgAsCIELAB}
+        }
+
+        # Dataframe columns
+        columns = ["type"]
+        types = {"type": int}
+
+        for bandName, bandData in self._allBands.items():
+            columns.append(f"{bandName}-band-0")
+            types[f"{bandName}-band-0"] = float
+            columns.append(f"{bandName}-band-1")
+            types[f"{bandName}-band-1"] = float
+            columns.append(f"{bandName}-band-2")
+            types[f"{bandName}-band-2"] = float
+
+        # Dataframe creation
+        self._samples = pd.DataFrame(columns=columns)
+        self._samples = self._samples.astype(dtype=types)
 
     @property
     def files(self) -> []:
@@ -122,6 +159,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     @files.setter
     def files(self, theFiles: []):
         self._files = theFiles
+        self._filesToProcess = len(theFiles)
 
     @property
     def location(self) -> Reading:
@@ -130,19 +168,19 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     @location.setter
     def location(self, theLocation: Reading):
         self._currentLocation = theLocation
-
-    @property
-    def source(self) -> str:
-        return self._currentSampleSource
-
-    @source.setter
-    def source(self, theSource: str):
-        """
-        The source color space used
-        :param theSource:
-        """
-        assert theSource in self.spaces
-        self._currentSampleSource = theSource
+    #
+    # @property
+    # def source(self) -> str:
+    #     return self._currentSampleSource
+    #
+    # @source.setter
+    # def source(self, theSource: str):
+    #     """
+    #     The source color space used
+    #     :param theSource:
+    #     """
+    #     assert theSource in self.spaces
+    #     self._currentSampleSource = theSource
 
     @property
     def output(self) -> str:
@@ -171,22 +209,85 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self._groundPoints = theN
 
 
-    def finished(self):
+    def scaleCurrentImage(self, currentX, currentY: int):
+        subset = (MAX_ZOOM - self._currentZoom) / MAX_ZOOM
+
+        # The new position within the scaled image
+        scaledX = int(subset * currentX)
+        scaledY = int(subset * currentY)
+        newScaledWidth = int(subset * self._scaledWidth)
+        newScaledHeight = int(subset * self._scaledHeight)
+
+        print(f"Sample {subset} of image. New size {newScaledWidth} x {newScaledHeight}. Scaled position: ({scaledX},{scaledY})")
+
+        #self._scaledImage = self._i
+        # Compute what is to be sampled
+        # To maintain position, the width is from the Y position to the edges
+        #widthStarts = newScaledWidth - scaledX
+
+        size = self._pixmap.size()
+        scaled_pixmap = self._pixmap.scaled(newScaledWidth, newScaledHeight, Qt.KeepAspectRatio)
+        self.image.setPixmap(scaled_pixmap)
+
+        self._scale *= 2
+
+        size = self._pixmap.size()
+
+        print(f"Current size is {size}")
+        scaled_pixmap = self._pixmap.scaledToHeight(newScaledHeight)
+
+        self.image.setPixmap(scaled_pixmap)
+
+    def wheelEvent(self, event: QWheelEvent):
+        """
+        React to the scroll of the middle wheel.
+        :param event:
+        """
+        log.debug(f"Mouse scroll detected {event.angleDelta().y()}. Current Zoom: {self._currentZoom}")
+
+        # Zoom in
+        if event.angleDelta().y() > 0:
+            if self._currentZoom + 1 in range(0, MAX_ZOOM + 1):
+                self._currentZoom += 1
+                self.scaleCurrentImage(event.x(), event.y())
+        # Zoom out
+        else:
+            if self._currentZoom - 1 in range(0, MAX_ZOOM + 1):
+                self._currentZoom -= 1
+                self.scaleCurrentImage(event.x(), event.y())
+
+
+
+    def checkpoint(self):
         """
         Write out the data if the output file is defined
         """
         if self._output is not None:
+            # If this isn't converted explicitly, it writes the type out as a float instead, so 1.0 instead of 1
+            self._samples['type'] = self._samples['type'].astype(int)
             self._samples.to_csv(self._output, index=False)
 
-    def addReading(self, source: Reading, band0: int, band1: int, band2: int):
+    def finished(self):
+        """
+        Write out the data if the output file is defined
+        """
+        self.checkpoint()
+
+    def addReading(self, source: Reading, x: int, y: int):
         """
         Add the reading of the point to the sample list
+        :param y:
+        :param x:
         :param source: Ground or Vegetation
-        :param band0: Value for band 0
-        :param band1: Value for band 1
-        :param band2: Value for band 2
         """
-        self._samples.loc[len(self._samples)] = [source.value, band0, band1, band2]
+        entry = [int(source.value)]
+        for bandName, bandData in self._allBands.items():
+            readings = bandData["readings"]
+            entry.append(readings[y, x, 0])
+            entry.append(readings[y, x, 1])
+            entry.append(readings[y, x, 2])
+
+        self._samples.loc[len(self._samples)] = entry
 
 
     def setup(self):
@@ -241,23 +342,25 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.hsiS.display(self._imgAsHSI[scaledY, scaledX, 1])
         self.hsiI.display(self._imgAsHSI[scaledY, scaledX, 2])
 
-        self.displayMode()
+        self.displayMode(1)
 
         # If all the vegetation and ground points have been captured, load the next image
         if self._groundPoints == 0 and self._vegetationPoints == 0:
+            self.displayLoadingMessage()
+            self.checkpoint()
             self.loadNextImage()
 
 
         # Get the band information for the colorspace of interest
         # This is only really needed for the sample mode
-        bandInfo = self._allBands[self._currentSampleSource]
-        readings = bandInfo["readings"]
+        # bandInfo = self._allBands[self._currentSampleSource]
+        # readings = bandInfo["readings"]
+        #
+        # band0 = readings[scaledY, scaledX, 0]
+        # band1 = readings[scaledY, scaledX, 1]
+        # band2 = readings[scaledY, scaledX, 2]
 
-        band0 = readings[scaledY, scaledX, 0]
-        band1 = readings[scaledY, scaledX, 1]
-        band2 = readings[scaledY, scaledX, 2]
-
-        self.addReading(self._currentLocation, band0, band1, band2)
+        self.addReading(self._currentLocation, scaledX, scaledY)
 
     def mouseMoveEvent(self, event):
         scaledX, scaledY = self.scaledPositionToOriginal(event.x(), event.y())
@@ -313,6 +416,52 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             "CIELAB": {"readings": self._imgAsCIELAB}
         }
 
+
+    def displayLoadingMessage(self):
+        self.pointX.display(0)
+        self.pointY.display(0)
+
+        # RGB
+        self.rgbRed.display(0)
+        self.rgbGreen.display(0)
+        self.rgbBlue.display(0)
+
+        # HSV
+        self.hsvHue.display(0)
+        self.hsvSaturation.display(0)
+        self.hsvValue.display(0)
+
+        # YIQ
+        self.yiqY.display(0)
+        self.yiqI.display(0)
+        self.yiqQ.display(0)
+
+        # CIELAB
+        self.cielabL.display(0)
+        self.cielabA.display(0)
+        self.cielabB.display(0)
+
+        # YCBCR
+        self.ycbcrY.display(0)
+        self.ycbcrCb.display(0)
+        self.ycbcrCr.display(0)
+
+        # YUV
+        self.yuvY.display(0)
+        self.yuvU.display(0)
+        self.yuvV.display(0)
+
+        # HSI
+        self.hsiH.display(0)
+        self.hsiS.display(0)
+        self.hsiI.display(0)
+
+        self._displayImage("loading.jpg")
+        self.operatingInstructions.setText("Processing")
+
+        # Curious -- the loading image is not displayed until a redraw is forced
+        qApp.processEvents()
+
     def loadNextImage(self) -> bool:
 
         loaded = False
@@ -324,23 +473,32 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self._displayImage(self._imageFileName)
 
             # Reset the number of points to capture
-            self.n = self._n
+            self._groundPoints = self._n
+            self._vegetationPoints = self._n
+            self.displayMode(0)
+            self.displayCount()
 
             loaded = True
 
         return loaded
 
-    def displayMode(self):
+    def displayCount(self):
+        countText = f"Image {self._filesToProcess - len(self._files)} of {self._filesToProcess}"
+        self.imageCount.setText(countText)
+    def displayMode(self, decrementBy: int):
         if self.mode == "color":
             operatingText = "Color selection"
         elif self.mode == "sample":
+            if self._currentLocation == Reading.GROUND:
+                self._groundPoints -= decrementBy
+            elif self._currentLocation == Reading.VEGETATION:
+                self._vegetationPoints -= decrementBy
+
             if self._groundPoints > 0:
                 operatingText = f"Click on {self._groundPoints} ground points"
-                self._groundPoints -= 1
                 self._currentLocation = Reading.GROUND
             elif self._vegetationPoints > 0:
                 operatingText = f"Click on {self._vegetationPoints} vegetation points"
-                self._vegetationPoints -= 1
                 self._currentLocation = Reading.VEGETATION
             else:
                 operatingText = f"All points sampled"
@@ -356,15 +514,15 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         """
         width = self.image.width()
         height = self.image.height()
-        print("Image area is {}x{}".format(width, height))
+        print(f"Image area is {width}x{height}")
         #self.image.setGeometry()
-        pixmap = QPixmap(imageName)
-        originalWidth = pixmap.width()
-        originalHeight = pixmap.height()
-        print(f"Original image is {pixmap.width()} x {pixmap.height()}")
+        self._pixmap = QPixmap(imageName)
+        originalWidth = self._pixmap.width()
+        originalHeight = self._pixmap.height()
+        print(f"Original image of {imageName} is {self._pixmap.width()} x {self._pixmap.height()}")
         #scaled = pixmap.scaled(width, height, Qt.KeepAspectRatio)
         #scaled = pixmap.scaled(self.image.size(), Qt.KeepAspectRatio)
-        scaled = pixmap.scaled(width, height, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        scaled = self._pixmap.scaled(width, height, Qt.KeepAspectRatio, Qt.SmoothTransformation)
         self._scaledWidth = scaled.width()
         self._scaledHeight = scaled.height()
         self._scaleRatioWidth = originalWidth / self._scaledWidth
@@ -428,6 +586,7 @@ else:
 
 window.files = files
 
+window.displayLoadingMessage()
 window.loadNextImage()
 
 if arguments.output is not None:
@@ -442,13 +601,13 @@ if arguments.mode == "sample":
         exit(-1)
     else:
         window.output = arguments.output
-    if arguments.color is None:
-        print(f"Colorspace must be specified for sample mode")
-        exit(-1)
-    else:
-        window.source = arguments.color
+    # if arguments.color is None:
+    #     print(f"Colorspace must be specified for sample mode")
+    #     exit(-1)
+    # else:
+    #     window.source = arguments.color
 
-window.displayMode()
+window.displayMode(0)
 
 window.setup()
 window.show()
