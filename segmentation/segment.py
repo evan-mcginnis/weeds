@@ -3,6 +3,9 @@ import os.path
 import glob
 import logging.config
 from pathlib import Path
+import time
+from threading import Thread, Semaphore
+from enum import Enum
 
 import numpy as np
 import pandas as pd
@@ -15,13 +18,28 @@ from Classifier import classifierFactory
 from ImageManipulation import ImageManipulation
 from ImageLogger import ImageLogger
 
-classifications = [c.name for c in ClassificationTechniques]
-classificationChoices = classifications
+# This is temporary to debug
+class _ClassificationTechniques(Enum):
+    KNN = 0
+    RANDOMFOREST = 1
+    DECISIONTREE = 2
+    SVM = 3
+    LDA = 4
+    #MLP = 5
+    LOGISTIC = 6
+    GRADIENT = 7
+    EXTRA = 8
+
+    def __str__(self):
+        return self.name
+
+classifications = [c.name for c in _ClassificationTechniques]
+classificationChoices = classifications.copy()
 classificationChoices.append("all")
 
 # Names of the color spaces that can be used
 spaces = ["BGR", "RGB", "YIQ", "YUV", "HSI", "HSV", "YCBCR", "CIELAB"]
-spaceChoices = spaces
+spaceChoices = spaces.copy()
 spaceChoices.append("all")
 
 parser = argparse.ArgumentParser("ML Image Segmentation")
@@ -84,78 +102,103 @@ if os.path.isfile(arguments.logging):
 else:
     print(f"Unable to access logging configuration: {arguments.logging}")
 
-def process(algorithm: str, color: str, source: str, logger: ImageLogger):
-    pass
+# Process all the images using a specific algorithm
 
-classifier = classifierFactory(arguments.algorithm)
+def process(algorithm: str, source: str, logger: ImageLogger):
 
-# The columns to be read from the training file
-band0 = f"{arguments.color}-band-0"
-band1 = f"{arguments.color}-band-1"
-band2 = f"{arguments.color}-band-2"
-features = [band0, band1, band2]
-columns = ["type", band0, band1, band2]
+    for color in spaces:
+        classifier = classifierFactory(algorithm)
 
-# Set up the classifier
-classifier.selections = features
-# TODO: stratify should be false for random forest
-classifier.load(arguments.training, stratify=False)
-classifier.createModel(arguments.score)
+        # The columns to be read from the training file
+        band0 = f"{color}-band-0"
+        band1 = f"{color}-band-1"
+        band2 = f"{color}-band-2"
+        features = [band0, band1, band2]
+        columns = ["type", band0, band1, band2]
 
-log.debug(f"Reading {columns} from {arguments.training}")
+        # Set up the classifier
+        classifier.selections = features
+        # TODO: stratify should be false for random forest
+        classifier.load(arguments.training, stratify=False)
+        classifier.createModel(arguments.score)
 
-for file in files:
-    log.debug(f"Processing {file} using {classifier.name}")
-    # Read file and convert to color spaces
-    imgAsBGR = cv.imread(file, cv.IMREAD_COLOR)
+        log.debug(f"Reading {columns} from {arguments.training}")
 
-    # The target image to be manipulated
-    targetImage = np.copy(imgAsBGR)
+        for file in files:
+            log.debug(f"Processing {file} using {classifier.name}")
+            # Read file and convert to color spaces
+            imgAsBGR = cv.imread(file, cv.IMREAD_COLOR)
 
-    #cv.imwrite(arguments.output + "/before-" + os.path.basename(file), targetImage)
-    logger.logImage("before-" + Path(file).stem, targetImage)
+            # The target image to be manipulated
+            targetImage = np.copy(imgAsBGR)
 
-    manipulated = ImageManipulation(imgAsBGR, 0, logger)
-    # OpenCV treats images as BGR, not RGB
-    imgAsRGB = cv.cvtColor(imgAsBGR.astype(np.uint8), cv.COLOR_BGR2RGB)
-    imgAsHSV = cv.cvtColor(imgAsBGR.astype(np.uint8), cv.COLOR_BGR2HSV)
-    imgAsYCBCR = cv.cvtColor(imgAsBGR.astype(np.uint8), cv.COLOR_BGR2YCR_CB)
-    imgAsCIELAB = cv.cvtColor(imgAsBGR.astype(np.uint8), cv.COLOR_BGR2Lab)
-    imgAsYUV = cv.cvtColor(imgAsBGR.astype(np.uint8), cv.COLOR_BGR2YUV)
+            #cv.imwrite(arguments.output + "/before-" + os.path.basename(file), targetImage)
+            logger.logImage(f"{Path(file).stem}-before", targetImage)
 
-    # This method takes RGB as input, not BGR
-    imgAsYIQ = rgb2yiq(imgAsRGB)
+            manipulated = ImageManipulation(imgAsBGR, 0, logger)
+            # OpenCV treats images as BGR, not RGB
+            imgAsRGB = cv.cvtColor(imgAsBGR.astype(np.uint8), cv.COLOR_BGR2RGB)
+            imgAsHSV = cv.cvtColor(imgAsBGR.astype(np.uint8), cv.COLOR_BGR2HSV)
+            imgAsYCBCR = cv.cvtColor(imgAsBGR.astype(np.uint8), cv.COLOR_BGR2YCR_CB)
+            imgAsCIELAB = cv.cvtColor(imgAsBGR.astype(np.uint8), cv.COLOR_BGR2Lab)
+            imgAsYUV = cv.cvtColor(imgAsBGR.astype(np.uint8), cv.COLOR_BGR2YUV)
 
-    imgAsHSI = manipulated.toHSI()
+            # This method takes RGB as input, not BGR
+            imgAsYIQ = rgb2yiq(imgAsRGB)
 
-    allBands = {
-        "BGR": {"readings": imgAsBGR},
-        "RGB": {"readings": imgAsRGB},
-        "YIQ": {"readings": imgAsYIQ},
-        "YUV": {"readings": imgAsYUV},
-        "HSI": {"readings": imgAsHSI},
-        "HSV": {"readings": imgAsHSV},
-        "YCBCR": {"readings": imgAsYCBCR},
-        "CIELAB": {"readings": imgAsCIELAB}
-    }
+            imgAsHSI = manipulated.toHSI()
 
-    # For each pixel, predict the class
-    height, width, bands = imgAsBGR.shape
+            allBands = {
+                "BGR": {"readings": imgAsBGR},
+                "RGB": {"readings": imgAsRGB},
+                "YIQ": {"readings": imgAsYIQ},
+                "YUV": {"readings": imgAsYUV},
+                "HSI": {"readings": imgAsHSI},
+                "HSV": {"readings": imgAsHSV},
+                "YCBCR": {"readings": imgAsYCBCR},
+                "CIELAB": {"readings": imgAsCIELAB}
+            }
 
-    for h in range(height):
-        log.debug(f"Processing row {h}")
-        for w in range(width):
-            # Retrieve the colorspace requested
-            bandInformation = allBands[arguments.color]
-            band = bandInformation["readings"]
+            # For each pixel, predict the class
+            height, width, bands = imgAsBGR.shape
 
-            # Predict based on the band data
-            predicted = classifier.classifyPixel(band[h, w, 0], band[h, w, 1], band[h, w, 1])
+            for h in range(height):
+                log.debug(f"Processing row {h}")
+                for w in range(width):
+                    # Retrieve the colorspace requested
+                    bandInformation = allBands[color]
+                    band = bandInformation["readings"]
 
-            # For the ground, set all the bands to 0 to indicate black
-            if predicted == 1:
-                targetImage[h, w, 0] = 0
-                targetImage[h, w, 1] = 0
-                targetImage[h, w, 2] = 0
+                    # Predict based on the band data
+                    predicted = classifier.classifyPixel(band[h, w, 0], band[h, w, 1], band[h, w, 2])
 
-    logger.logImage("after-" + Path(file).stem, targetImage)
+                    # For the ground, set all the bands to 0 to indicate black
+                    if predicted == 1:
+                        targetImage[h, w, 0] = 0
+                        targetImage[h, w, 1] = 0
+                        targetImage[h, w, 2] = 0
+
+            logger.logImage(f"{Path(file).stem}-{algorithm}-{color}", targetImage)
+
+if arguments.algorithm == "all":
+    allTechniques = classifications
+else:
+    allTechniques = arguments.technique
+
+threads = []
+for technique in allTechniques:
+    search = Thread(name=f"{technique}",
+                    target=process,
+                    args=(technique, arguments.input, logger,))
+
+    search.daemon = True
+    threads.append(search)
+    search.start()
+    # This is arbitrary but required to avoid errors in startup, it would seem.
+    time.sleep(2)
+
+# Wait for the threads to finish
+log.info(f"Wait for {len(threads)} threads to finish")
+for x in threads:
+    x.join()
+
