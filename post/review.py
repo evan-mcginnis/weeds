@@ -31,7 +31,6 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 
 from review_ui import Ui_MainWindow
-#from select_image_set import Ui_select_image_set
 
 FILE_PROGRESS = "progress.ini"
 ATTRIBUTE_CURRENT = "CURRENT"
@@ -60,6 +59,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         self.setupUi(self)
 
+        self._correctType = False
+
         # Wire up the buttons
         self.button_next.clicked.connect(self.nextImage)
         self.button_previous.clicked.connect(self.previousImage)
@@ -71,6 +72,14 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.actionExit.triggered.connect(self.safeExit)
         self.actionSave.triggered.connect(self.saveProgress)
         self.actionMark_for_review.triggered.connect(self.markCurrentImageForReview)
+
+    @property
+    def correctType(self) -> bool:
+        return self._correctType
+
+    @correctType.setter
+    def correctType(self, correct: bool):
+        self._correctType = correct
 
     @property
     def processed(self) -> str:
@@ -135,12 +144,13 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self._attributes.to_csv(self._processedFileName, encoding="UTF-8", index=False)
 
         if self._currentFileNumber == self._maxFileNumber:
-            try:
-                os.remove(FILE_PROGRESS)
-            except FileNotFoundError:
-                print("Unable to remove file: {}".format(FILE_PROGRESS))
-            finally:
-                print("Unknown error encountered while removing file: {}".format(FILE_PROGRESS))
+            if os.path.exists(FILE_PROGRESS):
+                try:
+                    os.remove(FILE_PROGRESS)
+                except FileNotFoundError:
+                    print("Unable to remove file: {}".format(FILE_PROGRESS))
+                finally:
+                    print("Unknown error encountered while removing file: {}".format(FILE_PROGRESS))
         else:
             with open(FILE_PROGRESS, "w") as f:
                 f.write("[{}]\n".format(SECTION_EDIT))
@@ -266,7 +276,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         app.quit()
 
     def exitHandler(self):
-        pass
+        log.debug("Saving progress")
+        self.saveProgress()
 
     def parseImageName(self, name: str) -> (int, int):
         # Images names are of the form image-M-blob-N
@@ -295,9 +306,6 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         print(f"Loaded from csv")
         return rc
 
-    def recordCorrectTypes(self):
-        pass
-
     def _selected(self, value):
 
         # image-M-blob-N is <crop | weed>
@@ -310,12 +318,20 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         else:
             raise ValueError(f"Unable to determine type for: {text[2]}")
 
+        typeLocation = self._attributes.columns.get_loc(constants.NAME_TYPE)
+        actualLocation = self._attributes.columns.get_loc(constants.NAME_ACTUAL)
+        assert typeLocation >= 0
+        assert actualLocation >= 0
+
         # There should be only one row
         rows = self._attributes.loc[self._attributes[constants.NAME_NAME] == text[0]]
         for index, row in rows.iterrows():
-            # This assumes that the 'actual' column is last -- too lazy to figure that out
-            self._attributes.iloc[index, -1] = value
+            self._attributes.iloc[index, actualLocation] = value
+            if self._correctType:
+                self._attributes.iloc[index, typeLocation] = value
+
         return
+
 
 
     def populateBlobTypes(self, imageNumber: int):
@@ -338,9 +354,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             #comboBox.setGeometry(200, 150, 120, 40)
 
             # Put both choices in the combo-box, but the selected one will be the one predicted
-            comboBox.addItem(f"{row[constants.NAME_NAME]} is {names[int(row[constants.NAME_TYPE])]}")
-            comboBox.addItem(f"{row[constants.NAME_NAME]} is {names[not int(row[constants.NAME_TYPE])]}")
-
+            comboBox.addItem(f"{row[constants.NAME_NAME]} is {names[int(row[constants.NAME_TYPE])]}", row[constants.NAME_NAME])
+            comboBox.addItem(f"{row[constants.NAME_NAME]} is {names[not int(row[constants.NAME_TYPE])]}", row[constants.NAME_NAME])
             self.blobType.addWidget(comboBox)
         return
 
@@ -381,6 +396,7 @@ parser.add_argument('-i', '--input', action="store", required=False,  help="Inpu
 parser.add_argument('-p', '--pattern', action="store", required=False,  default="*.jpg", help="Pattern, i.e., processed-*.jpg")
 parser.add_argument('-o', '--output', action="store", required=False,  default="classifications.csv", help="Output CSV")
 parser.add_argument('-a', '--attributes', action="store", required=False,  default="results.csv", help="Classification CSV")
+parser.add_argument('-t', '--type', action="store_true", required=False, default=False, help="Correct the type")
 
 arguments = parser.parse_args()
 
@@ -403,6 +419,8 @@ if arguments.input is not None:
 window.loadAttributesFromCSV(arguments.attributes)
 
 window.processed = arguments.output
+window.correctType = arguments.type
+
 window.setup()
 window.show()
 
