@@ -26,6 +26,8 @@ from sklearn.svm import LinearSVC
 from sklearn.metrics import roc_curve
 from sklearn.metrics import auc
 from sklearn.neural_network import MLPClassifier
+from sklearn.metrics import confusion_matrix, accuracy_score, precision_score, recall_score, f1_score
+from sklearn.tree import plot_tree
 
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import RepeatedStratifiedKFold
@@ -38,6 +40,9 @@ from abc import ABC, abstractmethod
 
 import os.path
 from enum import Enum
+
+import warnings
+warnings.filterwarnings("error")
 
 class Subset(Enum):
     TRAIN = 0
@@ -88,8 +93,10 @@ class Classifier:
         self._yTest = []
         # The actual type of the blob
         self._actual = []
+        self._predictions = []
 
         # Scoring
+        self._confusion = []
         self._scoring = Score.UNDEFINED
 
         # ROC items
@@ -99,6 +106,11 @@ class Classifier:
         self._y_scores = []
         self._threshold = 0.0
 
+        self._accuracy = 0.0
+        self._precision = 0.0
+        self._recall = 0.0
+        self._f1 = 0.0
+        self._map = 0.0
 
         self._blobsInView = pd.DataFrame()
         self._selections = []
@@ -112,6 +124,9 @@ class Classifier:
         self._desiredImbalanceRatio = 1.0
         self._correctSubset = Subset.TRAIN
 
+        # Expect dedicated train and test sets if the split is 0
+        self._split = 0
+
         self.log = logging.getLogger(__name__)
         # # The ANN for the classifier
         # self._ann = cv.ml.ANN_MLP_create()
@@ -122,6 +137,7 @@ class Classifier:
         # self._ann.setTrainMethod(cv.ml.ANN_MLP_BACKPROP, 0.1, 0.1)
         # self._ann.setTermCriteria((cv.TERM_CRITERIA_MAX_ITER | cv.TERM_CRITERIA_EPS, 100, 1.0))
         self._scaler = StandardScaler()
+        self._scalerTest = StandardScaler()
         return
 
     # ANN Support routines start
@@ -397,6 +413,26 @@ class Classifier:
     def auc(self) -> float:
         return self._auc
 
+    # @property
+    # def accuracy(self) -> float:
+    #     return self._accuracy
+
+    @property
+    def precision(self) -> float:
+        return self._precision
+
+    @property
+    def recall(self) -> float:
+        return self._recall
+
+    @property
+    def f1(self) -> float:
+        return self._f1
+
+    @property
+    def map(self) -> float:
+        return self._map
+
     @property
     def actual(self) -> []:
         return self._actual
@@ -419,6 +455,25 @@ class Classifier:
 
     def classifyWithinCropRow(self):
         return
+
+    def assess(self):
+        try:
+            self._predictions = self._model.predict(self._xTest)
+            self._confusion = confusion_matrix(self._yTest, self._predictions)
+            self.log.debug(f"Confusion: \t {self._confusion}")
+            self._accuracy = accuracy_score(self._yTest, self._predictions)
+            self._precision = precision_score(self._yTest, self._predictions)
+            self._recall = recall_score(self._yTest, self._predictions)
+            self._f1 = f1_score(self._yTest, self._predictions)
+            self._map = accuracy_score(self._yTest, self._predictions)
+
+            self.log.debug(f"Confusion: \t {self._confusion}")
+            self.log.debug(f"Accuracy: \t {accuracy_score(self._yTest, self._predictions):.2%}")
+            self.log.debug(f"Precision: \t {precision_score(self._yTest, self._predictions):.3f}")
+            self.log.debug(f"Recall: \t {recall_score(self._yTest, self._predictions):.3f}")
+            self.log.debug(f"F1: \t {f1_score(self._yTest, self._predictions):.2f}")
+        except Exception as e:
+            self.log.error(e)
 
     def classifyByDamage(self, rectangles: []):
         self.log.disabled = False
@@ -482,10 +537,12 @@ class Classifier:
             return
 
     def classify(self, reason: int):
+        assert self._model is not None
+
         self._prepareData()
 
         self.log.info("Classify")
-        predictions = self._classifier.predict(self._blobsInView)
+        predictions = self._model.predict(self._blobsInView)
                 # Mark up the current view
         i = 0
         for blobName, blobAttributes in self._blobs.items():
@@ -494,6 +551,45 @@ class Classifier:
                 blobAttributes[constants.NAME_REASON] = reason
             i = i + 1
         return
+
+    def classifyPixel(self, band0: float, band1: float, band2: float) -> int:
+        """
+        Classifies the pixel using the readings provided as class 0 or class 1
+        :param band0: float for band 0
+        :param band1: float for band 1
+        :param band2: float for band 2
+        :return: 0 or 1
+        """
+
+        assert self._model is not None
+
+        # Prepare the data
+        _features = []
+        # This is the list of features we have chosen to use
+        selectedFeatureNames = tuple(self._selections)
+
+        # Build up the list of features we will use.
+        # Reading some performance comparisons, this is the fastest way to create a dataframe
+
+        # Build up a list of features in the same order as the names
+        features = [[band0, band1, band2]]
+
+        # Create a dataframe from the with the column names we want and the feature values
+        _pixel = pd.DataFrame(features, columns=selectedFeatureNames)
+        _pixel.sort_index(axis=1, inplace=True)
+
+        # Predict if this is ground or vegetation
+        try:
+            predictions = self._model.predict(_pixel)
+        except RuntimeWarning as r:
+            self.log.fatal(f"Runtime error encountered: {r}")
+            raise RuntimeError("Unable to classify pixel")
+        except Exception as e:
+            self.log.fatal(f"{e}")
+            raise RuntimeError("Exception encountered in pixel classification")
+
+        return predictions[0]
+
 
     def loadSelections(self, filename: str):
         """
@@ -689,6 +785,7 @@ class Classifier:
         aucs = []
         mean_fpr = np.linspace(0, 1, 100)
         plt.figure(figsize=(10, 10))
+        #plt.style.use('ggplot')
         i = 0
         # Original
         #for train, test in cv.split(X_train_res, y_train_res):
@@ -704,7 +801,7 @@ class Classifier:
             tprs[-1][0] = 0.0
             roc_auc = auc(fpr, tpr)
             aucs.append(roc_auc)
-            plt.plot(fpr, tpr, lw=1, alpha=0.3,
+            plt.plot(fpr, tpr, lw=1, alpha=0.6,
                      label='ROC fold %d (AUC = %0.2f)' % (i, roc_auc))
 
             i += 1
@@ -739,6 +836,9 @@ class Classifier:
     def reset(self):
         self._model = None
 
+    def visualizeModel(self):
+        raise NotImplementedError
+
 class MLP(Classifier):
     name = ClassificationTechniques.MLP.name
 
@@ -748,18 +848,28 @@ class MLP(Classifier):
         self._xTestScaled = None
 
     def createModel(self, score: Score):
+        self.log.debug(f"Create MLP Model")
         # Scale the data
         xTrainAsList = self._xTrain.values.tolist()
         self._scaler.fit(xTrainAsList)
         #self._scaler.fit(self._xTrain)
         self._xTrainScaled = self._scaler.transform(xTrainAsList)
+
+        # debug begin
+        # Scale the data
+        xTestAsList = self._xTest.values.tolist()
+        self._scalerTest.fit(xTestAsList)
+        #self._scaler.fit(self._xTrain)
+        self._xTestScaled = self._scalerTest.transform(xTrainAsList)
+        # debug end
+
         # Keeping this as a numpy array is causing problems
         #scaledXTrain = self._scaler.transform(self._xTrain)
         xTestAsList = self._xTest.values.tolist()
         self._xTestScaled = self._scaler.transform(xTestAsList)
 
-        # The lbfgs solver runs into problems
-        self._model = MLPClassifier(solver='adam', max_iter=5000, alpha=1e-5, hidden_layer_sizes=(20), random_state=1)
+        # The lbfgs solver runs into problems.  Use adam
+        self._model = MLPClassifier(solver='sgd', max_iter=5000, alpha=1e-5, hidden_layer_sizes=(20), random_state=42)
         with warnings.catch_warnings():
             warnings.filterwarnings('error')
             try:
@@ -773,16 +883,23 @@ class MLP(Classifier):
         #self._scores = cross_val_score(self._model, self._x, self._y)
 
         self._y_scores = self._model.predict_proba(self._xTestScaled)
+        #self.log.debug(f"Probablilities: {self._y_scores}")
         self._fpr, self._tpr, self._threshold = roc_curve(self._yTest, self._y_scores[:, 1])
         self._auc = auc(self._fpr, self._tpr)
 
         if score:
             self.log.debug(f"MLP cross validation scores: {self._scores}")
 
-            print("Multi-layer perceptron")
-            print(self._model.predict(self._xTest))
-            print("Training Score: {:.3f}".format(self._model.score(self._xTrain, self._yTrain)))
-            print("Testing Score: %s" % self._model.score(self._xTest, self._yTest))
+            # This causes error: X has feature names, but MLPClassifier was fitted without feature names
+            # print(self._model.predict(self._xTest))
+            self.log.debug(self._model.predict(self._xTestScaled))
+            try:
+                self.log.debug("Training Score: {:.3f}".format(self._model.score(self._xTrainScaled, self._yTrain)))
+                self.log.debug("Testing Score: %s" % self._model.score(self._xTestScaled, self._yTest))
+            except Exception as e:
+                self.log.fatal(f"{e}")
+                raise RuntimeError("Exception encountered in model scoring")
+            self.log.debug(f"Score completed")
 
     # Overload the function for the MLP to reference the scaled data
     def accuracy(self) -> float:
@@ -804,6 +921,65 @@ class MLP(Classifier):
             i = i + 1
         return
 
+    def classifyPixel(self, band0: float, band1: float, band2: float) -> int:
+        """
+        Classifies the pixel using the readings provided as class 0 or class 1
+        :param band0: float for band 0
+        :param band1: float for band 1
+        :param band2: float for band 2
+        :return: 0 or 1
+        """
+
+        assert self._model is not None
+
+        # Prepare the data
+        _features = []
+        # This is the list of features we have chosen to use
+        selectedFeatureNames = tuple(self._selections)
+
+        # Build up the list of features we will use.
+        # Reading some performance comparisons, this is the fastest way to create a dataframe
+
+        # Build up a list of features in the same order as the names
+        features = [[band0, band1, band2]]
+
+        # Create a dataframe from the with the column names we want and the feature values
+        # This is the only difference with the method in the superclass -- the lack of column names
+        # causes problems for the classifier
+        self._pixel = pd.DataFrame(features)
+        self._pixel.sort_index(axis=1, inplace=True)
+
+        # Predict if this is ground or vegetation
+        try:
+            predictions = self._model.predict(self._pixel)
+            #self.log.debug(f"Probabilities: {self._model.predict_proba(self._pixel)}")
+        except RuntimeWarning as r:
+            self.log.fatal(f"Runtime error encountered: {r}")
+            raise RuntimeError("Unable to classify pixel")
+        except Exception as e:
+            self.log.fatal(f"{e}")
+            raise RuntimeError("Exception encountered in pixel classification")
+
+        return predictions[0]
+    def assess(self):
+        try:
+            self._predictions = self._model.predict(self._xTestScaled)
+            self._confusion = confusion_matrix(self._yTest, self._predictions)
+            self.log.debug(f"Confusion: \t {self._confusion}")
+            self._accuracy = accuracy_score(self._yTest, self._predictions)
+            self._precision = precision_score(self._yTest, self._predictions)
+            self._recall = recall_score(self._yTest, self._predictions)
+            self._f1 = f1_score(self._yTest, self._predictions)
+            self._map = accuracy_score(self._yTest, self._predictions)
+
+            self.log.debug(f"Confusion: \t {self._confusion}")
+            self.log.debug(f"Accuracy: \t {accuracy_score(self._yTest, self._predictions):.2%}")
+            self.log.debug(f"Precision: \t {precision_score(self._yTest, self._predictions):.3f}")
+            self.log.debug(f"Recall: \t {recall_score(self._yTest, self._predictions):.3f}")
+            self.log.debug(f"F1: \t {f1_score(self._yTest, self._predictions):.2f}")
+        except Exception as e:
+            self.log.error(e)
+
 class LDA(Classifier):
     name = ClassificationTechniques.LDA.name
 
@@ -824,13 +1000,23 @@ class LDA(Classifier):
         self._fpr, self._tpr, self._threshold = roc_curve(self._yTest, self._y_scores[:, 1])
         self._auc = auc(self._fpr, self._tpr)
 
+
         if score:
             self.log.debug(f"LDA cross validation scores: {self._scores}")
 
             print("Linear Discriminate Analysis")
-            print(self._model.predict(self._xTest))
+            self._predictions = self._model.predict(self._xTest)
+            print(self._predictions)
+
             print("Training Score: {:.3f}".format(self._model.score(self._xTrain, self._yTrain)))
             print("Testing Score: %s" % self._model.score(self._xTest, self._yTest))
+
+            self._confusion = confusion_matrix(self._yTest, self._predictions)
+            print(f"Confusion: \t {self._confusion}")
+            print(f"Accuracy: \t {accuracy_score(self._yTest, self._predictions):.2%}")
+            print(f"Precision: \t {precision_score(self._yTest, self._predictions):.3f}")
+            print(f"Recall: \t {recall_score(self._yTest, self._predictions):.3f}")
+            print(f"F1: \t {f1_score(self._yTest, self._predictions):.2f}")
 
 
     def classify(self):
@@ -1078,6 +1264,11 @@ class DecisionTree(Classifier):
                  self._classifier.feature_importances_,
                  align="center")
         #plt.yticks(np.arange(nFeatures))
+        plt.show()
+
+    def visualizeModel(self):
+        plot_tree(self._model, filled=True, max_depth=2, rounded=True, precision=3, class_names=list(self._selections))
+        plt.title("Decision tree trained on crop/weed features")
         plt.show()
 
     def createModel(self, score: bool):
