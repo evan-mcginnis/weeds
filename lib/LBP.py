@@ -66,7 +66,7 @@ class LBP:
         # normalize the histogram
         self._histogram = self._histogram.astype("float")
 
-        # Prevent division by xero errors by adding a tiny value
+        # Prevent division by zero errors by adding a tiny value
         eps = 1e-7
         self._histogram /= (self._histogram.sum() + eps)
         # return the histogram of Local Binary Patterns
