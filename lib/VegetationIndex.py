@@ -486,6 +486,100 @@ class VegetationIndex:
         # FYI: the mask value returned here is not used
         return finalMask, threshold
 
+    def createMask(self, index: np.ndarray, negate: bool, direction: int, threshold: Union[float, str] = None) -> (np.ndarray, int):
+        """
+        Create a mask based on the index
+        :param index: The vegetation index
+        :param negate: If the mask should be negated
+        :param direction: 0 = up, 1= down
+        :param threshold:
+        The threshold value to use. If not specified, Otsu's Binarization is used.
+        :return:
+        (The mask as a numpy array with RGB channels, threshold)
+        """
+
+        # If a threshold is not supplied, use Otsu
+        if threshold == None or threshold == OTSU:
+            # Convert to a grayscale#
+            greyScale = index.astype(np.uint8)
+            # Original
+            #ret, thresholdedImage = cv.threshold(greyScale, 0, 255, cv.THRESH_BINARY+cv.THRESH_OTSU)
+            # Triangle
+            #self._threshold, thresholdedImage = cv.threshold(greyScale, 0, 255, cv.THRESH_BINARY+cv.THRESH_TRIANGLE)
+            self._threshold, thresholdedImage = cv.threshold(greyScale, 0, 255, cv.THRESH_BINARY+cv.THRESH_OTSU)
+            #th3 = cv.adaptiveThreshold(greyScale, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 11, 2)
+            thresholdUsed = self._threshold
+        elif threshold == TRIANGLE:
+            # Convert to a grayscale#
+            greyScale = index.astype(np.uint8)
+            blurred = cv.GaussianBlur(greyScale, (7, 7), 0)
+            self._threshold, thresholdedImage = cv.threshold(blurred, 0, 255, cv.THRESH_BINARY+cv.THRESH_TRIANGLE)
+            thresholdUsed = self._threshold
+        else:
+            thresholdUsed = threshold
+
+        # If the direction is 1, interpret the two thresholds as up, down
+        # To make this go back to the original implementation, set the second threshold to -9999
+
+        if direction > 0:
+            thresholdedIndex = index > thresholdUsed
+            finalMask = thresholdedIndex
+            negated = finalMask
+        else:
+            thresholdedIndex = index < thresholdUsed
+            #negated = np.logical_not(thresholdedIndex)
+            negated = thresholdedIndex
+            finalMask = negated
+
+        if negate:
+            finalMask = np.logical_not(thresholdedIndex)
+            #negated = finalMask
+
+        # DEBUG
+        # normalized = np.zeros_like(finalMask)
+        # debugMask = cv.normalize(finalMask, normalized, 0, 255, cv.NORM_MINMAX)
+        # cv.imwrite("mask-before.jpg", debugMask)
+        # DEBUG
+
+        # Touch up the mask with some floodfill
+        filledMask = finalMask.copy().astype(np.uint8)
+        # DEBUG
+        normalized = np.zeros_like(filledMask)
+        debugMask = cv.normalize(filledMask, normalized, 0, 255, cv.NORM_MINMAX)
+        cv.imwrite("mask-without-floodfill.jpg", normalized)
+        print(f"Before floodfill range: {normalized.min()} to {normalized.max()} Counts: {np.unique(normalized, return_counts=True)}")
+        # DEBUG
+        # At this point, the mask looks fine -- vegetation is white, ground is black
+        # TODO: The floodfill does bad things to the mask.
+        #cv.floodFill(filledMask, None, (0, 0), 255)
+        # DEBUG
+        # normalized = np.zeros_like(filledMask)
+        # debugMask = cv.normalize(filledMask, normalized, 0, 255, cv.NORM_MINMAX)
+        # cv.imwrite("mask-with-floodfill.jpg", normalized)
+        # print(f"After floodfill range: {normalized.min()} to {normalized.max()} Counts: {np.unique(normalized, return_counts=True)}")
+        # DEBUG
+
+        filledMaskInverted = cv.bitwise_not(filledMask)
+        filledMaskInverted = np.where(filledMaskInverted > 0, 1, filledMaskInverted)
+
+        self.mask = filledMaskInverted
+        finalMask = filledMaskInverted
+
+        negated = filledMaskInverted
+        #negated = np.logical_not(filledMaskInverted)
+        # End floodfill touch up
+
+        self.mask = negated
+
+        #DEBUG
+        # Ignore everything above and just set the mask to what we had before floodfill
+
+        self.mask = filledMask
+        return filledMask, thresholdUsed
+        #DEBUG
+
+        # FYI: the mask value returned here is not used
+        return finalMask, thresholdUsed
     def MaskFromIndex(self, index: np.ndarray, negate: bool, direction: int, threshold: Union[float, str] = None) -> (np.ndarray, int):
         """
         Create a mask based on the index
@@ -575,7 +669,6 @@ class VegetationIndex:
     def ShowImage(self, title : str, index : np.ndarray):
 
         plt.title(title)
-        #plt.imshow(index, cmap='gray', vmin=0, vmax=255)
         plt.imshow(index, cmap='gray', vmin=-1, vmax=1)
         plt.show()
 
@@ -697,6 +790,7 @@ class VegetationIndex:
             ngrdi[ngrdi == np.inf] = 0
             ngrdi = np.nan_to_num(ngrdi)
 
+        self._name = "NGRDI"
         return ngrdi
 
     def VEG(self) -> np.ndarray:
@@ -1011,7 +1105,10 @@ class VegetationIndex:
         return edges
 
     def YI(self) -> np.ndarray:
-
+        """
+        YIQ Based Index
+        :return: Index
+        """
         # Convert image to YIQ.
         yiq = rgb2yiq(self.img)
         self.imgNP: np.ndarray
@@ -1032,6 +1129,10 @@ class VegetationIndex:
         return yiqIndex
 
     def HI(self) -> np.ndarray:
+        """
+        HSI Based index
+        :return: Index
+        """
         manipulatedImage = ImageManipulation(self.img, 0, None)
         img = manipulatedImage.toHSI()
         #img = cv.cvtColor(self.img.astype(np.uint8), cv.COLOR_BGR2HSV)
@@ -1049,7 +1150,12 @@ class VegetationIndex:
         self._name = "HSI"
 
         return hsiIndex
+
     def HV(self) -> np.ndarray:
+        """
+        HSV Based index
+        :return: Index
+        """
         manipulatedImage = ImageManipulation(self.img, 0, None)
         img = manipulatedImage.toHSV()
         #img = cv.cvtColor(self.img.astype(np.uint8), cv.COLOR_BGR2HSV)
@@ -1085,6 +1191,10 @@ class VegetationIndex:
         return hsvIndex
 
     def CI(self) -> np.ndarray:
+        """
+        CIELab based index
+        :return: index
+        """
         manipulatedImage = ImageManipulation(self.img, 0, None)
         img = manipulatedImage.toCIELAB()
         #img[:, :, 2] = cv.equalizeHist(img[:, :, 2])
@@ -1118,6 +1228,39 @@ class VegetationIndex:
 
         return ciIndex
 
+    def YCbCrI(self) -> np.ndarray:
+        """
+        YCbCr based index
+        :return: index
+        """
+        manipulatedImage = ImageManipulation(self.img, 0, None)
+        img = manipulatedImage.toYCBCR()
+        img[:, :, 0] = cv.equalizeHist(img[:, :, 0])
+        self.yBand = img[:, :, 0]
+        self.cbBand = img[:, :, 1]
+        self.crBand = img[:, :, 2]
+
+        # lessThan = self.cbBand <= self.crBand
+        # greaterThan = self.cbBand >= self.crBand
+        # delta = np.absolute(self.cbBand - self.crBand)
+
+        with np.errstate(divide='ignore'):
+            #self.crBand = np.log2(np.absolute(self.crBand.astype(np.float64) - self.cbBand.astype(np.float64))) * self.crBand
+            #self.crBand = np.sqrt(np.absolute(self.cbBand.astype(np.float64))) * self.crBand
+            self.crBand = np.log2(abs(self.crBand)) * self.cbBand
+        # differences[differences >= 20] = 0
+        # differences[differences <= 10] = 0
+
+        self.crBand[(self.crBand >= 890)] = 0
+
+
+        #hsvIndex = 1 * self.hBand + 1 * self.sBand + 1 * self.vBand
+        yCbCrIndex = self.crBand
+        self._index = yCbCrIndex
+        self._name = "YCbCrI"
+
+        return yCbCrIndex
+
     def plot(self, planeLocation: int):
         # I can get plotly to work only with square arrays, not rectangular, so just take a subset
         height, width = self._index.shape
@@ -1131,6 +1274,7 @@ class VegetationIndex:
 
         fig = go.Figure(data=[go.Surface(x=xi, y=yi, z=subset)])
 
+        print(f"Index range: {self._index.min()} to {self._index.max()}")
         # The plane represents the threshold value
         if planeLocation < np.max(self._index) and planeLocation > np.min(self._index):
             x1 = np.linspace(0, subsetLength, subsetLength)
@@ -1213,7 +1357,8 @@ if __name__ == "__main__":
                       'EI'    : 0,
                       'YI'    : 0.5,
                       'HI'    : 50,
-                      'HV'    : 50}
+                      'HV'    : 50,
+                      "YCBCR" : 200}
 
     # Thresholds where we need two sides (like red stems we want to pick up)
     # threshOverhead = {"NDI"   : (130,0),
@@ -1252,13 +1397,16 @@ if __name__ == "__main__":
                "YIQ Index": {"short": "YI", "create": utility.YI, "negate": False, "threshold": threholds["YI"], "direction": 1},
                "HSI Index": {"short": "HI", "create": utility.HI, "negate": False, "threshold": threholds["HI"], "direction": 1},
                "HSV Index": {"short": "HV", "create": utility.HV, "negate": False, "threshold": threholds["HV"], "direction": 1},
-               "CIELAB Index": {"short": "CI", "create": utility.CI, "negate": False, "threshold": threholds["HV"], "direction": 1}}
+               "CIELAB Index": {"short": "CI", "create": utility.CI, "negate": False, "threshold": threholds["HV"], "direction": 1},
+               "YCBCR Index": {"short": "YCbCrI", "create": utility.YCbCrI(), "negate": False, "threshold": threholds["YCBCR"], "direction": 1}}
 
     # Debug the implementations:
     indices = {
+        #"Normalized Green Red Difference": {"short": "NGRDI", "create": utility.NGRDI, "negate": True, "threshold": threholds["NGRDI"], "direction": 1},
         #"Excess Red": {"short": "ExR", "create": utility.ExR, "negate": False, "threshold": threholds["EXR"], "direction": -1}
         #"HSV Index": {"short": "HV", "create": utility.HV, "negate": True, "threshold": threholds["HV"], "direction": 1}
-        "CIELAB Index": {"short": "CI", "create": utility.CI, "negate": False, "threshold": threholds["HV"], "direction": 1}
+        #"CIELAB Index": {"short": "CI", "create": utility.CI, "negate": True, "threshold": threholds["HV"], "direction": 1}
+        "YCBCR Index": {"short": "YCbCrI", "create": utility.YCbCrI, "negate": False, "threshold": threholds["YCBCR"], "direction": 1}
     }
 
 
@@ -1300,9 +1448,13 @@ if __name__ == "__main__":
         # if arguments.threshold:
         #     threshold = None
 
-        mask, thresholdUsed = utility.MaskFromIndex(vegIndex, negate, direction, threshold)
+        # mask, thresholdUsed = utility.MaskFromIndex(vegIndex, negate, direction, threshold)
+        mask, thresholdUsed = utility.createMask(vegIndex, negate, direction, threshold)
         # Determing threshold from image
         #utility.MaskFromIndex(vegIndex)
+        normalized = np.zeros_like(mask)
+        finalMask = cv.normalize(mask, normalized, 0, 255, cv.NORM_MINMAX)
+        cv.imwrite("mask.jpg", finalMask)
         utility.applyMask()
         # This is the slow call
         #image = veg.GetMaskedImage()
