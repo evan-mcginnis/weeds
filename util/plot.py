@@ -26,7 +26,7 @@ from skimage.color import rgb2yiq, yiq2rgb
 
 parser = argparse.ArgumentParser("Image Plot")
 
-colorSpaces = ["rgb", "yiq", "hsi", "hsv"]
+colorSpaces = ["rgb", "yiq", "hsi", "hsv", "cielab", "ycbcr"]
 plotTypes = ["transect", "band", "histogram"]
 
 bandNames = {
@@ -40,7 +40,8 @@ bandNames = {
     "YUV": ["Luma", "Croma-U", "Chroma-V"]
 }
 def magnitude(x):
-    return int(math.floor(math.log10(x)))
+    #print(f"X={x}")
+    return int(math.floor(math.log10(abs(x))))
 
 parser.add_argument('-i', '--input', action="store", required=True, help="Image")
 parser.add_argument('-o', '--output', action="store", required=False, default=".", help="Output directory")
@@ -84,6 +85,11 @@ elif arguments.color == "yiq":
     #rgb = yiq2rgb(image)
 elif arguments.color == "hsi":
     image = manipulated.toHSI()
+elif arguments.color == "cielab":
+    image = manipulated.toCIELAB()
+elif arguments.color == "ycbcr":
+    image = manipulated.toYCBCR()
+    image[:, :, 0] = cv.equalizeHist(image[:, :, 0])
 elif arguments.color == "hsv":
     image = manipulated.toHSV().astype(np.uint8)
     image[:, :, 2] = cv.equalizeHist(image[:, :, 2])
@@ -140,10 +146,15 @@ else:
         print("The number of axis required is > 2. Unable to graph data.")
         exit(-1)
 
-    # Difference between two bands
-    difference = [0] * len(transects[0])
-    # for i in range(len(transects[2])):
-    #     difference[i] = abs(transects[2][i]) / abs(transects[1][i])
+# Difference between two bands
+if arguments.type == "band":
+    difference = [0.0] * len(transects[0])
+    for i in range(len(transects[0])):
+        difference[i] = max(abs(transects[2][i]), abs(transects[1][i])) - min(abs(transects[2][i]), abs(transects[1][i]))
+        #difference[i] = math.log2(abs(float(transects[2][i]) - float(transects[1][i])))
+        #difference[i] = math.log2(abs(float(transects[1][i]))) * transects[0][i]
+
+    print(f"Difference range: {min(difference)}-{max(difference)}")
 
 # Copy end
 
@@ -196,30 +207,30 @@ if arguments.type == "band":
         # Determine which axis to use.  Axis 1 is the bigger magnitude
         if magnitude(transects[i].max()) == maxMagnitude:
             axis = ax1
-            ax1Ylabel += bandNames[arguments.color.upper()][i] + " "
+            ax1Ylabel += bandNames[arguments.color.upper()][int(arguments.band[0][i])] + " "
             ax1.set_ylabel(ax1Ylabel, color=colors[i])
             ax1.tick_params(axis='y', labelcolor=colors[i])
         else:
             axis = ax2
-            ax2Ylabel += bandNames[arguments.color.upper()][i] + " "
+            ax2Ylabel += bandNames[arguments.color.upper()][int(arguments.band[0][i])] + " "
             ax2.set_ylabel(ax2Ylabel, color=colors[i])
             ax2.tick_params(axis='y', labelcolor=colors[i])
 
         lines.extend(axis.plot(x, transects[i], marker='.', markersize=5, color=colors[i]))
 
-    #plt.plot(x, difference, marker='.', markersize=3, color='black')
+    axis.plot(x, difference, marker='.', markersize=3, color='black')
     #plt.scatter(x, transect, s=1)
     if arguments.rgb:
         plt.scatter(x, scaled, s=1, color='red')
         plt.legend([arguments.color.upper(), "RGB"], loc="lower right")
     else:
         #plt.legend([arguments.color.upper()], loc="lower right")
-        print(f"Legend: {bandNames[arguments.color.upper()]}")
         legendItems = []
         for selectedBand in arguments.band[0]:
             legendItems.append(bandNames[arguments.color.upper()][selectedBand])
+        print(f"Legend: {legendItems}")
 
-        ax1.legend(lines, bandNames[arguments.color.upper()])
+        ax1.legend(lines, legendItems)
     plt.savefig(arguments.output + "/" + "transect-plot.png")
     plt.show()
 
@@ -241,10 +252,16 @@ elif arguments.type == "transect":
     plt.show()
 
 elif arguments.type == "histogram":
+    plt.figure()
+    plt.title(f"{arguments.subject}")
+    imgGray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
     # Compute the histogram
-    counts, bins = np.histogram(image, arguments.bins)
-    allBins = np.arange(0, len(bins))
-    plt.hist(counts, bins=allBins)
+    allBins = np.arange(0, arguments.bins)
+    counts, bins = np.histogram(imgGray, arguments.bins)
+    plt.xlabel("Greyscale Pixel Value")
+    plt.ylabel("Count")
+    plt.hist(imgGray.ravel(), bins=128, color='skyblue', histtype='step', fill=True)
+    plt.savefig(arguments.output + "/" + "histogram.jpg")
     plt.show()
 
 
