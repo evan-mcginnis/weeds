@@ -507,6 +507,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         self.operatingInstructions.setText(operatingText)
 
+    def resizeEvent(self, event) -> None:
+        print(f"Resize main window")
+        self._displayImage(self._imageFileName)
+
     def _displayImage(self, imageName):
         """
         Display the current image.
@@ -530,8 +534,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         print(f"Target image scaled is ({scaled.width()} x {scaled.height()}) scaling factors: {self._scaleRatioWidth} x {self._scaleRatioHeight}")
         self.image.setPixmap(scaled)
         self.image.resize(self._scaledWidth, self._scaledHeight)
-        #self.image.setMinimumSize(self._scaledWidth, self._scaledHeight)
-        self.image.setFixedSize(self._scaledWidth, self._scaledHeight)
+        self.image.setMinimumSize(self._scaledWidth, self._scaledHeight)
+        #self.image.setFixedSize(self._scaledWidth, self._scaledHeight)
 
 
 
