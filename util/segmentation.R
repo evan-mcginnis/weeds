@@ -30,12 +30,22 @@ ggplot(means) +
   geom_bar(aes(x=technique, y=I), stat="identity") +
   coord_flip()
 
-means$technique <- as.factor(means$technique)
+means$Total <- as.factor(means$Total)
 
 x <- means %>%
   pivot_longer(cols = c("I", "II"))
 
 # g's code
+means %>%
+  arrange(Total) %>%
+  mutate(technique = factor(technique, levels = technique)) %>%
+  pivot_longer(cols = c("I", "II")) %>%
+  ggplot(aes(x = value, y = technique, fill = name)) +
+  geom_col() +
+  xlab("Error rate") +
+  ylab("Technique") +
+  labs(fill="Type", title = "Error Rates of Segmentation Techniques")
+
 means %>%
   arrange(Total) %>%
   mutate(technique = factor(technique, levels = technique)) %>%
