@@ -393,6 +393,7 @@ PERF_TREATMENT_MSG          = "treatment-msg"
 
 PERF_TITLE_ACTIVITY = "activity"
 PERF_TITLE_MILLISECONDS = "milliseconds"
+PERF_TITLE_MICROSECONDS = "microseconds"
 
 COLOR_TREATMENT_GRID = (0, 255, 0)
 COLOR_TREATMENT_WEED = (0, 0, 255)
