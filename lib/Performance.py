@@ -11,6 +11,7 @@ class Performance:
         self._start = datetime.now()
         self._elapsed = 0
         self._elapsed_milliseconds = 0
+        self._elapsed_microseconds = 0
 
     def initialize(self) -> bool:
         """
@@ -24,7 +25,7 @@ class Performance:
             # clear out any data that is there
             file.truncate(0)
             # Write out the headers for the performance data
-            file.write("{},{}\n".format(constants.PERF_TITLE_ACTIVITY, constants.PERF_TITLE_MILLISECONDS))
+            file.write("{},{}\n".format(constants.PERF_TITLE_ACTIVITY, constants.PERF_TITLE_MICROSECONDS))
             file.close()
         except PermissionError:
             diagnostics = "Unable to open: {}\n".format(self._performanceFile)
@@ -43,13 +44,14 @@ class Performance:
     def stop(self) -> float:
         self._elapsed = datetime.now() - self._start
         self._elapsed_milliseconds = self._elapsed.total_seconds() * 1000
+        self._elapsed_microseconds = self._elapsed.microseconds
         return self._elapsed_milliseconds
 
-    def stopAndRecord(self, name : str):
+    def stopAndRecord(self, name: str):
         self.stop()
 
         with open(self._performanceFile,"a") as self._file:
-            self._file.write("%s,%s\n" % (name, str(self._elapsed_milliseconds)))
+            self._file.write("%s,%s\n" % (name, str(self._elapsed_microseconds)))
 
     def cleanup(self):
         pass
