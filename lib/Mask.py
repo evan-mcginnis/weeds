@@ -98,7 +98,7 @@ class Mask:
 
             # True Negative
             elif stat == Rate.TNR:
-                rate = self._tn / self._tn + self._fp
+                rate = self._tn / (self._tn + self._fp)
 
             else:
                 raise AttributeError(f"Unsupported rate {stat.name}")
@@ -132,7 +132,7 @@ class Mask:
         :return:
         """
         #f1Score = (2 * self._tp) / ((2 * self._tp) + self._fp + self._fn)
-        f1Score = (2 * self.precision() * self.recall()) / (self.precision() + self.recall())
+        f1Score = 2 * ((self.precision() * self.recall()) / (self.precision() + self.recall()))
         return f1Score
 
     def accuracy(self) -> float:
