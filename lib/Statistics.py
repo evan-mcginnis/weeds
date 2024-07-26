@@ -3,7 +3,7 @@
 #
 
 from enum import Enum
-
+import math
 import logging
 
 import numpy as np
@@ -161,13 +161,11 @@ class Statistics:
         try:
             # False Negative Rate
             if stat == Rate.FNR:
-                rate = self._fn / (self._fn + self._tp)
-                #return (self._fn / (self._mask.shape[0] * self._mask.shape[1])) * 100
+                rate = self._fn / (self._tp + self._fn)
 
             # False Positive Rate
             elif stat == Rate.FPR:
                 rate = self._fp / (self._fp + self._tn)
-                #return (self._fp / (self._mask.shape[0] * self._mask.shape[1])) * 100
 
             # True Positive
             elif stat == Rate.TPR:
@@ -220,9 +218,125 @@ class Statistics:
 
         return totalAccuracy
 
+    def pp(self) -> int:
+        """
+        Predicted Positive
+        :return:
+        """
+        return self._tp + self._fp
+
+    def pn(self) -> int:
+        """
+        Predicted negative
+        :return:
+        """
+        return self._tn + self._fn
+
+    def ppv(self) -> float:
+        """
+        Positive predictive value
+        :return:
+        """
+        _ppv = 0
+        try:
+             _ppv = self._tp / self.pp()
+        except ZeroDivisionError:
+            self._log.error(f"Zero division error computing PPV")
+
+        return _ppv
+
+    def fdr(self) -> float:
+        """
+        False discovery rate
+        :return:
+        """
+        _fdr = 0.0
+        try:
+            _fdr = self._fp / self.pp()
+        except ZeroDivisionError:
+            self._log.error(f"Zero division error computing FDR")
+        return _fdr
+
+    def npv(self) -> float:
+        _npv = 0.0
+        try:
+            _npv = self._tn / self.pn()
+        except ZeroDivisionError:
+            self._log.error(f"Zero division error computing NPV")
+        return _npv
+
+    def fm(self) -> float:
+        """
+        Fowlkes–Mallows index
+        :return:
+        """
+        _fm = math.sqrt(self.ppv() * self.rate(Rate.TPR))
+        return _fm
+
+    def fomr(self) -> float:
+        """
+        False omission rate
+        :return:
+        """
+        rate = 0.0
+        try:
+            rate = self._fn / self.pn()
+        except ZeroDivisionError:
+            self._log.error(f"Zero division error computing FOR")
+        return rate
+
+    def mcc(self) -> float:
+        """
+        Matthews correlation coefficient
+        :return:
+        """
+        _mcc = math.sqrt(self.rate(Rate.TPR) * self.rate(Rate.TNR) * self.ppv() * self.npv()) - \
+               math.sqrt(self.rate(Rate.FNR) * self.rate(Rate.FPR) * self.fomr() * self.fdr())
+        return _mcc
+
+    def prevalence(self) -> float:
+        """
+        Prevalence
+        :return:
+        """
+        _prevalance = 0.0
+        try:
+            _prevalance = self._p / (self._p + self._n)
+        except ZeroDivisionError:
+            self._log.error(f"Zero division error computing prevalence")
+        return _prevalance
+
+    def positiveLikelihoodRatio(self) -> float:
+        """
+        Positive Likelihood ratio
+        :return:
+        """
+        rate = 0.0
+        try:
+            rate = self.rate(Rate.TPR) / self.rate(Rate.FPR)
+        except ZeroDivisionError:
+            self._log.error(f"Zero division error computing positive likelihood")
+        return rate
+
+    def negativeLikelihoodRatio(self) -> float:
+        """
+        Negative likelihood ratio
+        :return:
+        """
+        rate = 0.0
+        try:
+            rate = self.rate(Rate.FNR) / self.rate(Rate.TNR)
+        except ZeroDivisionError:
+            self._log.error(f"Zero division error computing negative likelihood")
+        return rate
+
     @property
     def differences(self) -> int:
         return self._countOfDifferences
+
+    @differences.setter
+    def differences(self, theDifferences: int):
+        self._countOfDifferences = theDifferences
 
     def __str__(self):
         return f"Population: {self.population()} Differences: {self._countOfDifferences} N: {self._n} P: {self._p} FP: {self._fp} FN: {self._fn} TP: {self._tp} TN: {self._tn} F1: {self.f1()}"
