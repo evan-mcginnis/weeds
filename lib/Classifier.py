@@ -498,6 +498,15 @@ class Classifier:
                 blobAttributes[constants.NAME_TYPE] = constants.TYPE_UNKNOWN
                 blobAttributes[constants.NAME_REASON] = constants.REASON_AT_EDGE
 
+    def classifyAs(self, vegType: int):
+        """
+        Just for debugging -- set the classification type manually
+        :param vegType:
+        """
+        for blobName, blobAttributes in self._blobs.items():
+            blobAttributes[constants.NAME_TYPE] = vegType
+            blobAttributes[constants.NAME_REASON] = constants.REASON_AT_EDGE
+
     def classifyByRatio(self, largest: int, size : (),ratio: int):
         """
         Classify blobs in the image my size ratio.
