@@ -125,13 +125,13 @@ class LBP:
 
                     name = self._prefix + constants.DELIMETER + constants.NAME_STDDEV
                     blobAttributes[name] = self._histogram.std()
-                    self._log.debug(f"{name}: {blobAttributes[name]}")
+                    #self._log.debug(f"{name}: {blobAttributes[name]}")
                     name = self._prefix + constants.DELIMETER + constants.NAME_MEAN
                     blobAttributes[name] = self._histogram.mean()
-                    self._log.debug(f"{name}: {blobAttributes[name]}")
+                    #self._log.debug(f"{name}: {blobAttributes[name]}")
                     name = self._prefix + constants.DELIMETER + constants.NAME_VAR
                     blobAttributes[name] = self._histogram.var()
-                    self._log.debug(f"{name}: {blobAttributes[name]}")
+                    #self._log.debug(f"{name}: {blobAttributes[name]}")
                 else:
                     self._log.error("Empty blob encountered in LBP calculations")
 
