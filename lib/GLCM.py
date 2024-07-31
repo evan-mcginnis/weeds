@@ -88,7 +88,7 @@ class GLCM:
                     elif img.dtype == np.float64:
                         # self._log.warning(f"Data is float. Converting. min: {np.amin(img)} max: {np.amax(img)}")
                         imgRescaled = exposure.rescale_intensity(img, out_range=(0, 1))
-                        imgAsInt = imgRescaled.astype(np.int)
+                        imgAsInt = imgRescaled.astype(int)
                         correlationMatrix = graycomatrix(imgAsInt, [DISTANCE], GLCM.angles, levels=256)
                     else:
                         correlationMatrix = graycomatrix(img, [DISTANCE], GLCM.angles)
