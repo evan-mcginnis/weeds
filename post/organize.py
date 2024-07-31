@@ -77,7 +77,11 @@ for index, row in images.iterrows():
     filename = os.path.join(directory, arguments.output)
     destinationDir = os.path.join(filename, "AGL-" + str(images.at[index, COLUMN_AGL]) + constants.DASH + arguments.crop)
     if not os.path.exists(destinationDir):
-        os.makedirs(destinationDir, exist_ok=True)
+        try:
+            os.makedirs(destinationDir, exist_ok=True)
+        except OSError as e:
+            print(f"Unable to create: {destinationDir}. {e.strerror}")
+            sys.exit(-1)
 
     # Copy the file there, refusing to overwrite a file
     destinationFile = os.path.join(destinationDir, os.path.split(images.at[index, COLUMN_PATH])[1])
@@ -85,6 +89,11 @@ for index, row in images.iterrows():
         print(f"File exists: {destinationFile}. Use -f to force overwrite")
         sys.exit(-1)
     else:
-        shutil.copy2(images.at[index, COLUMN_PATH], destinationDir)
+        try:
+            print(f"{images.at[index, COLUMN_PATH]} -> {destinationDir}")
+            shutil.copy2(images.at[index, COLUMN_PATH], destinationDir)
+        except OSError as e:
+            print(f"Unable to copy to {destinationFile}. {e.strerror}")
+            sys.exit(-1)
 
 sys.exit(0)
