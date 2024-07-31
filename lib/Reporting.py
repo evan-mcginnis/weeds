@@ -1,6 +1,7 @@
 #
 # R E P O R T I N G
 #
+import os.path
 
 import matplotlib.pyplot as plt
 import constants
@@ -66,6 +67,7 @@ class Reporting:
         self._columns.extend(self._exclude)
 
         self._blobDF = pd.DataFrame(columns=self._columns)
+        self._startBlob = 0
 
         return
 
@@ -98,7 +100,9 @@ class Reporting:
         # Add the blobs to the global list of everything we've seen so far
         for blobName, blobAttributes in blobs.items():
             newName = "image-" + str(sequence) + "-" + blobName
-            self._blobs[newName] = blobAttributes
+            # This is unbounded list without any purpose, it would seem.
+            # The system runs out of memory as a result
+            # self._blobs[newName] = blobAttributes
             attributes = {}
             attributes[constants.NAME_NAME] = newName
             # The name of the blob is blob<n>, so this should split it apart
@@ -108,6 +112,19 @@ class Reporting:
                 if attributeName in self._columns:
                     attributes[attributeName] = attributeValue
             self._blobDF = self._blobDF.append(attributes, ignore_index=True)
+
+        self._blobDF[constants.NAME_NUMBER] = range(self._startBlob, self._startBlob + len(self._blobDF))
+        self._startBlob += len(self._blobDF)
+
+        # write out the data, appending to the file if it is already there
+        # Previous versions just kept everything in a dataframe and wrote it out in the end,
+        # but that caused problems for large data sets
+        if os.path.isfile(self._dataframeFilename):
+            self._blobDF.to_csv(self._dataframeFilename, mode='a', header=False, encoding="UTF-8", index=False)
+        else:
+            self._blobDF.to_csv(self._dataframeFilename, encoding="UTF-8", index=False)
+
+        self._blobDF = pd.DataFrame(columns=self._columns)
         return
 
     def _normalize(self):
