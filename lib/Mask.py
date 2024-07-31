@@ -12,6 +12,7 @@ import logging
 import numpy as np
 import cv2 as cv
 from WeedExceptions import ProcessingError
+from Statistics import Statistics
 
 CV_RED = 2
 CV_GREEN = 1
@@ -28,136 +29,20 @@ class Mask:
         self._mask = None
         self._target = None
         self._algorithm = ""
-        self._countOfDifferences = 0
-        self._fn = 0
-        self._fp = 0
-        self._tn = 0
-        self._tp = 0
-        self._p = 0
-        self._n = 0
+        self._stats = Statistics()
         self._log = logging.getLogger(__name__)
+
+    @property
+    def stats(self) -> Statistics:
+        return self._stats
 
     @property
     def mask(self) -> np.ndarray:
         return self._mask
 
     @property
-    def fp(self) -> int:
-        return self._fp
-
-    @property
-    def fn(self) -> int:
-        return self._fn
-
-    @property
-    def tp(self) -> int:
-        return self._tp
-
-    @property
-    def tn(self) -> int:
-        return self._tn
-
-    @property
-    def p(self) -> int:
-        # Positives
-        return self._p
-
-    @property
-    def n(self) -> int:
-        # Negatives
-        return self._n
-
-    def population(self) -> int:
-        return self._p + self._n
-
-    def rate(self, stat: Rate) -> float:
-        """
-        Determine the specified rate
-        :param stat: rate to calculate
-        :return:
-        """
-        # Fornulae taken from
-        # https://en.wikipedia.org/wiki/Sensitivity_and_specificity
-
-        rate = 0.0
-        self._log.info(f"Calculating rate: {stat}")
-        try:
-            # False Negative Rate
-            if stat == Rate.FNR:
-                rate = self._fn / (self._fn + self._tp)
-                #return (self._fn / (self._mask.shape[0] * self._mask.shape[1])) * 100
-
-            # False Positive Rate
-            elif stat == Rate.FPR:
-                rate = self._fp / (self._fp + self._tn)
-                #return (self._fp / (self._mask.shape[0] * self._mask.shape[1])) * 100
-
-            # True Positive
-            elif stat == Rate.TPR:
-                rate = self._tp / (self._tp + self._fn)
-
-            # True Negative
-            elif stat == Rate.TNR:
-                rate = self._tn / (self._tn + self._fp)
-
-            else:
-                raise AttributeError(f"Unsupported rate {stat.name}")
-        except ZeroDivisionError:
-            self._log.warn(f"Caught division by zero error")
-
-        return rate
-
-
-    # Formulae for precision, recall, and f1 taken from
-
-    # https://www.geeksforgeeks.org/f1-score-in-machine-learning/
-
-    def precision(self) -> float:
-        """
-        Precision calculated as tp / (tp + fp)
-        :return:
-        """
-        return self._tp / (self._tp + self._fp)
-
-    def recall(self) -> float:
-        """
-        Recall calculated as tp / (tp + fn)
-        :return:
-        """
-        return self._tp / (self._tp + self._fn)
-
-    def f1(self) -> float:
-        """
-        F1 calulated as (2 * precision * recall) / (precision + recall)
-        :return:
-        """
-        #f1Score = (2 * self._tp) / ((2 * self._tp) + self._fp + self._fn)
-        f1Score = 2 * ((self.precision() * self.recall()) / (self.precision() + self.recall()))
-        return f1Score
-
-    def accuracy(self) -> float:
-        totalAccuracy = (self._tp + self._tn) / (self._tp + self._fp + self._fn + self._tn)
-        return totalAccuracy
-
-    @property
     def algorithm(self) -> str:
         return self._algorithm
-
-    def fpr(self) -> float:
-        """
-        False Positive Rate
-        :return:
-        """
-        assert self._n > 0
-        return self._fp / self._n
-
-    def fnr(self) -> float:
-        """
-        False Negative Rate
-        :return:
-        """
-        assert self._p > 0
-        return self._fn / self._p
 
     def load(self, source: str):
         self._mask = cv.imread(source, cv.IMREAD_GRAYSCALE)
@@ -166,23 +51,21 @@ class Mask:
         # There seems to be a bug -- or I am making a mistake -- with photoshop.  Sometimes white is 254, not 255
         self._mask = np.where(self._mask < 254, 0, 1)
 
-        self._n = np.count_nonzero(self._mask == 0)
-        self._p = (self._mask.shape[0] * self._mask.shape[1]) - self._n
+        self._stats.n = np.count_nonzero(self._mask == 0)
+        self._stats.p = (self._mask.shape[0] * self._mask.shape[1]) - self._stats.n
 
     def displayStats(self):
         print(f"Min/Max: {np.min(self._mask)}/{np.max(self._mask)}")
         print(f"{np.histogram(self._mask)}")
 
-    @property
-    def differences(self) -> int:
-        return self._countOfDifferences
+
 
     def compare(self, target: str):
 
-        self._fn = 0
-        self._fp = 0
-        self._tn = 0
-        self._tp = 0
+        self._stats.fn = 0
+        self._stats.fp = 0
+        self._stats.tn = 0
+        self._stats.tp = 0
 
         # Check to see if file exists
         if not os.path.isfile(target):
@@ -214,17 +97,17 @@ class Mask:
                     self._differences[row, column] = 255
                     # Determine if the difference is a false positive or false negative
                     if self._mask[row, column] == 0:
-                        self._fn += 1
+                        self._stats.fn += 1
                     elif self._mask[row, column] == 1:
-                        self._fp += 1
+                        self._stats.fp += 1
                     else:
                         print(f"Unexpected mask value found: {self._mask[row, column]}")
                         assert False
                 else:
                     if self._mask[row, column] == 0:
-                        self._tn += 1
+                        self.stats.tn += 1
                     else:
-                        self._tp += 1
+                        self.stats.tp += 1
 
 
 
@@ -234,7 +117,7 @@ class Mask:
         # Where they are the same, set it to 0 -- where different 255
         # Black in the image means things are the same -- white means different
         self._differences = np.where(same, 0, 255)
-        self._countOfDifferences = np.count_nonzero(self._differences)
+        self.stats.differences = np.count_nonzero(self._differences)
 
         #print(f"{np.histogram(self._mask)}")
         cv.imwrite("differences.png", self._differences)
@@ -274,7 +157,7 @@ class Mask:
         return maskedBGR
 
     def __str__(self):
-        return(f"Population: {self.population()} Differences: {self._countOfDifferences} N: {self._n} P: {self._p} FP: {self._fp} FN: {self._fn} TP: {self._tp} TN: {self._tn} F1: {self.f1()}")
+        return (f"Population: {self._stats.population()} Differences: {self.stats._countOfDifferences} N: {self.stats.n} P: {self.stats.p} FP: {self.stats.fp} FN: {self.stats.fn} TP: {self.stats.tp} TN: {self.stats.tn} F1: {self.stats.f1()}")
 
 if __name__ == "__main__":
     import argparse
@@ -300,14 +183,14 @@ if __name__ == "__main__":
 
     if arguments.processing == "compare":
         theMask.compare(arguments.mask)
-        print(f"Masks difference count: {theMask.differences}")
+        print(f"Masks difference count: {theMask.stats.differences}")
     elif arguments.processing == "mask":
         if arguments.target is not None or arguments.output is not None:
             if arguments.output is None:
-                print(f"Both output and target mus be specified if either is")
+                print(f"Both output and target must be specified if either is")
                 sys.exit(-1)
             if arguments.target is None:
-                print(f"Both output and target mus be specified if either is")
+                print(f"Both output and target must be specified if either is")
                 sys.exit(-1)
 
             try:
