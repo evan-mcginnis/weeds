@@ -1,3 +1,4 @@
+import os.path
 from typing import Union
 from PIL import Image
 import colorsys
@@ -41,6 +42,8 @@ import pandas as pd
 OTSU = "OTSU"
 TRIANGLE = "TRIANGLE"
 
+KEYWORD_EQUALIZE = "equalize"
+
 class VegetationIndex:
     """
     Compute Vegetation Indices for a number of methods and create masks
@@ -75,6 +78,8 @@ class VegetationIndex:
         self._imageFromPil = None
         self._index = None
 
+        self._manipulated = False
+
         # Band positions for openCV (BGR)
         self.CV_BLUE = 0
         self.CV_GREEN = 1
@@ -98,7 +103,7 @@ class VegetationIndex:
         self.ALG_COM2="com2"
         self.ALG_RGD="rgd"
         self.ALG_SI="si"
-        self.ALG_DGCI="dgci"
+        #self.ALG_DGCI="dgci"
         self.ALG_DI="di"
 
         self.algorithms = [self.ALG_NDI,
@@ -115,7 +120,7 @@ class VegetationIndex:
                            self.ALG_TGI,
                            self.ALG_RGD,
                            self.ALG_SI,
-                           self.ALG_DGCI,
+                           #self.ALG_DGCI,
                            self.ALG_DI]
 
         thresholds = {"NDI": 0,
@@ -129,7 +134,7 @@ class VegetationIndex:
                       "MEXG": 10,
                       "COM2": 40,
                       "TGI": 0,
-                      "DGCI": 0.5,
+                      #"DGCI": 0.5,
                       "DI": 0}
 
         self.computations = {self.ALG_NDI     : {"description": "Normalized Difference", "create": self.NDI, "threshold": thresholds["NDI"]},
@@ -145,7 +150,7 @@ class VegetationIndex:
                              self.ALG_TGI     : {"description": "TGI", "create": self.TGI, "threshold": thresholds["TGI"]},
                              self.ALG_RGD     : {"description": "Red Green Dots", "create": self.redGreenDots, "threshold": 0},
                              self.ALG_SI      : {"description": "Blue Spray Indicator", "create": self.SI, "threshold": 0},
-                             self.ALG_DGCI    : {"description": "Dark Green Color", "create": self.DGCI, "threshold": thresholds["DGCI"]},
+                             #self.ALG_DGCI    : {"description": "Dark Green Color", "create": self.DGCI, "threshold": thresholds["DGCI"]},
                              self.ALG_DI      : {"description": "Depth Index", "create": self.DI, "threshold": thresholds["DI"]}
                              }
 
@@ -170,7 +175,6 @@ class VegetationIndex:
         """
         algorithm = self.computations[name]
         self._index = algorithm["create"]()
-
         return self._index
 
     def GetImageStats(self, target: np.ndarray):
@@ -244,8 +248,11 @@ class VegetationIndex:
         #self._depth = DepthImage(depth)
 
     def SetImage(self, image: np.ndarray):
-        normalized = np.zeros_like(image)
-        finalImage = cv.normalize(image,  normalized, 0, 255, cv.NORM_MINMAX)
+        # W A R N I N G
+        # debug memory
+        # normalized = np.zeros_like(image)
+        # finalImage = cv.normalize(image,  normalized, 0, 255, cv.NORM_MINMAX)
+        finalImage = cv.normalize(image,  None, 0, 255, cv.NORM_MINMAX)
         self.img = finalImage
 
         self.imgNP: np.ndarray
@@ -272,20 +279,52 @@ class VegetationIndex:
             self.greenBand = self.imgNP[:, :, self.CV_GREEN]
             self.blueBand = self.imgNP[:, :, self.CV_BLUE]
 
-    # This is just a hack so we can debug the DGCI code
-    def TemporaryLoad(self, location: str):
-        self._imageFromPil = Image.open(location)
+            # Keep a copy or the originals, as the bands may be manipulated before the mask is applied
+            self.redBandOriginal = np.copy(self.redBand)
+            self.greenBandOriginal = np.copy(self.greenBand)
+            self.blueBandOriginal = np.copy(self.blueBand)
 
-    def Load(self, location: str):
-        # TODO: Make this work for URLs
-        # s = requests.Session()
-        # s.mount('file://', FileAdapter())
-        #
-        # resp = s.get(location)
-        # print(resp)
+
+    # This is just a hack so we can debug the DGCI code
+    # def TemporaryLoad(self, location: str):
+    #     self._imageFromPil = Image.open(location)
+
+    def Unload(self):
+        """
+        Debug memory leak
+        """
+        self.img = None
+        self.imgNP = None
+        self._index = None
+        self.redBand = None
+        self.redBandMasked = None
+        self.redBandOriginal = None
+        self.blueBand = None
+        self.blueBandMasked = None
+        self.blueBandOriginal = None
+        self.greenBand = None
+        self.greenBandMasked = None
+        self.greenBandOriginal = None
+        self._imageFromPil = None
+        self._images = []
+
+
+    def Load(self, location: str, **kwargs):
+
+        equalize = False
+
+        if KEYWORD_EQUALIZE in kwargs:
+            equalize = kwargs[KEYWORD_EQUALIZE]
 
         self._imageLocation = location
         self.img = cv.imread(location,cv.IMREAD_COLOR)
+
+        # A bit redundant if the plan is to convert to another color space, as this is thrown away
+        if equalize:
+            print(f"Equalizing the histogram")
+            img = cv.cvtColor(self.img, cv.COLOR_BGR2HSV)
+            img[:, :, 2] = cv.equalizeHist(img[:, :, 2])
+            self.img = cv.cvtColor(img.astype(np.uint8), cv.COLOR_HSV2BGR)
 
         # https://github.com/mcelrjo/pygreenturf/blob/master/pyGreenTurf_0.2.5.py
         self._imageFromPil = Image.open(location)
@@ -319,11 +358,15 @@ class VegetationIndex:
             # self.blueBand = gpuarray.to_gpu(self.imgNP[:, :, self.CV_BLUE])
             print("Transferred to GPU")
         else:
+            # Keep a copy or the originals, as the bands may be manipulated before the mask is applied
             self.redBand = self.imgNP[:, :, self.CV_RED]
+            self.redBandOriginal = np.copy(self.redBand)
             self.greenBand = self.imgNP[:, :, self.CV_GREEN]
+            self.greenBandOriginal = np.copy(self.greenBand)
             self.blueBand = self.imgNP[:, :, self.CV_BLUE]
+            self.blueBandOriginal = np.copy(self.blueBand)
 
-        self._images.append(self.img)
+        #self._images.append(self.img)
 
         # Display the image
         #plt.imshow(self.img)
@@ -331,6 +374,40 @@ class VegetationIndex:
 
         # This hangs, not sure what is going on here.
         #cv.imshow("Image", img)
+
+    def normalize(self):
+        """
+        Normalize the bands as described here:\n
+        Guijarro, M., Pajares, G., Riomoros, I., Herrera, P. J., Burgos-Artizzu, X. P., & Ribeiro, A. (2011). Automatic segmentation of relevant textures in agricultural images. Computers and Electronics in Agriculture, 75(1), 75–83. \n
+        Original source: \n
+        Gée, C., Bossu, J., Jones, G., & Truchetet, F. (2008). Crop/weed discrimination in perspective agronomic images. Computers and Electronics in Agriculture, 60(1), 49–59.
+        """
+        maxRed = np.max(self.redBand)
+        maxGreen = np.max(self.greenBand)
+        maxBlue = np.max(self.blueBand)
+
+        # Normalize the individual bands
+        self.redBand = self.redBand / maxRed
+        self.greenBand = self.greenBand / maxGreen
+        self.blueBand = self.blueBand / maxBlue
+
+        # Normalize the combined bands
+
+        # The small value to add to avoid a runtime error when we divide
+        minValue = 1e-5
+
+        print(f"Red Range: {self.redBand.min()} to {self.redBand.max()}")
+        print(f"Blue Range: {self.blueBand.min()} to {self.blueBand.max()}")
+        print(f"Green Range: {self.greenBand.min()} to {self.greenBand.max()}")
+        try:
+            self.redBand = self.redBand / (self.redBand + self.greenBand + self.blueBand + minValue)
+            self.greenBand = self.greenBand / (self.redBand + self.greenBand + self.blueBand + minValue)
+            self.blueBand = self.blueBand / (self.redBand + self.greenBand + self.blueBand + minValue)
+        except RuntimeWarning as warn:
+            print(f"Warning: {warn}")
+
+        self._manipulated = True
+
 
     def Reload(self):
         """
@@ -506,7 +583,11 @@ class VegetationIndex:
             #ret, thresholdedImage = cv.threshold(greyScale, 0, 255, cv.THRESH_BINARY+cv.THRESH_OTSU)
             # Triangle
             #self._threshold, thresholdedImage = cv.threshold(greyScale, 0, 255, cv.THRESH_BINARY+cv.THRESH_TRIANGLE)
-            self._threshold, thresholdedImage = cv.threshold(greyScale, 0, 255, cv.THRESH_BINARY+cv.THRESH_OTSU)
+            #DEBUG
+            blur = cv.GaussianBlur(greyScale, (7, 7), 0)
+            self._threshold, thresholdedImage = cv.threshold(blur, 0, 255, cv.THRESH_BINARY+cv.THRESH_OTSU)
+            #DEBUG
+            #self._threshold, thresholdedImage = cv.threshold(greyScale, 0, 255, cv.THRESH_BINARY+cv.THRESH_OTSU)
             #th3 = cv.adaptiveThreshold(greyScale, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 11, 2)
             thresholdUsed = self._threshold
         elif threshold == TRIANGLE:
@@ -656,10 +737,20 @@ class VegetationIndex:
     def imageMask(self):
         return self.mask
 
+    @imageMask.setter
+    def imageMask(self, theMask: np.ndarray):
+        self.mask = theMask
+
+
     def applyMask(self):
-        self.redBandMasked = self.redBand * self.mask # DataRED * negated
-        self.greenBandMasked = self.greenBand * self.mask  # DataGREEN * negated
-        self.blueBandMasked = self.blueBand * self.mask  # DataBLUE * negated
+        # self.redBandMasked = self.redBand * self.mask # DataRED * negated
+        # self.greenBandMasked = self.greenBand * self.mask  # DataGREEN * negated
+        # self.blueBandMasked = self.blueBand * self.mask  # DataBLUE * negated
+
+        # Use the original bands, as the RGB bands may have been manipulated
+        self.redBandMasked = self.redBandOriginal * self.mask  # DataRED * negated
+        self.greenBandMasked = self.greenBandOriginal * self.mask  # DataGREEN * negated
+        self.blueBandMasked = self.blueBandOriginal * self.mask  # DataBLUE * negated
 
         return
 
@@ -669,7 +760,8 @@ class VegetationIndex:
     def ShowImage(self, title : str, index : np.ndarray):
 
         plt.title(title)
-        plt.imshow(index, cmap='gray', vmin=-1, vmax=1)
+        #plt.imshow(index, cmap='gray', vmin=-1, vmax=1)
+        plt.imshow(index, cmap='gray')
         plt.show()
 
     def ExR(self) -> np.ndarray:
@@ -705,7 +797,7 @@ class VegetationIndex:
         # np.copyto(normalizedData, self._depth)
         # normalizedData *= (255.0 / self._depth.max())
         # self._index = normalizedData
-
+        self._name = "DI"
         return self._index
 
     def refine(self) -> np.ndarray:
@@ -735,6 +827,8 @@ class VegetationIndex:
 
         excessGreen = 2*self.greenBand - self.redBand - self.blueBand
 
+        self._index = excessGreen
+        self._name = "EXG"
         return excessGreen
 
     def ExGR(self) -> np.ndarray:
@@ -747,6 +841,8 @@ class VegetationIndex:
 
         exgr = self.ExG() - self.ExR()
 
+        self._index = exgr
+        self._name = "EXGR"
         return exgr
 
     def CIVE(self) -> np.ndarray:
@@ -771,6 +867,9 @@ class VegetationIndex:
         else:
             cive = 0.441*self.redBand - 0.811*self.greenBand + 0.385*self.blueBand + 18.78745
 
+        self._name = "CIVE"
+        self._index = cive
+
         return cive
 
     def NGRDI(self) -> np.ndarray:
@@ -791,6 +890,8 @@ class VegetationIndex:
             ngrdi = np.nan_to_num(ngrdi)
 
         self._name = "NGRDI"
+        self._index = ngrdi
+
         return ngrdi
 
     def VEG(self) -> np.ndarray:
@@ -805,24 +906,32 @@ class VegetationIndex:
             veg[veg == np.inf] = 0
             veg = np.nan_to_num(veg)
 
+        self._index = veg
+        self._name = "VEG"
         return veg
 
     def COM1(self) -> np.ndarray:
 
         com1 = self.ExG() + self.CIVE() + self.ExGR() + self.VEG()
 
+        self._index = com1
+        self._name = "COM1"
         return com1
 
     def MExG(self) -> np.ndarray:
 
         mexg = 1.262 * self.greenBand - 0.884 * self.redBand - 0.311 * self.blueBand
 
+        self._index = mexg
+        self._name = "MEXG"
         return mexg
 
     def COM2(self) -> np.ndarray:
 
         com2 = (0.36 * self.ExG()) + (0.47 * self.CIVE()) + (0.17 * self.VEG())
 
+        self._index = com2
+        self._name = "COM2"
         return com2
 
     def NDI(self) -> np.ndarray:
@@ -866,6 +975,9 @@ class VegetationIndex:
         #DataBLUEMasked = self.blueBand * negated #DataBLUE * negated
 
         #RGBImage=vip.Image_getRGB(DataREDMasked,DataGREENMasked,DataBLUEMasked,8000)
+
+        self._index = NDI
+        self._name = "NDI"
 
         return NDI
         #result = cv.bitwise_and(RGBImage,MaskNDI)
@@ -1120,7 +1232,8 @@ class VegetationIndex:
         self.qBand = self.imgNP[:, :, 2]
         differences = np.absolute(self.imgNP[:, :, 2]) - np.absolute(self.imgNP[:, :, 1])
         #yiqIndex = 1.262 * self.greenBand - 0.884 * self.redBand - 0.311 * self.blueBand
-        yiqIndex = 0.0 * self.yBand + 2 * differences * self.iBand + 2 * differences * self.qBand
+        #yiqIndex = 0.0 * self.yBand + 2 * differences * self.iBand + 2 * differences * self.qBand
+        yiqIndex = np.where(self.qBand < 0.04, self.qBand, 0)
         print(f"Range of data: {np.min(yiqIndex)} to {np.max(yiqIndex)}")
 
         self._index = yiqIndex
@@ -1164,8 +1277,8 @@ class VegetationIndex:
         self.sBand = img[:, :, 1]
         self.vBand = img[:, :, 2]
 
-        #self.hBand[(self.hBand >= 90)] = 0
-        self.hBand[(self.hBand <= 40)] = 0
+        self.hBand[(self.hBand >= 50)] = 0
+        self.hBand[(self.hBand <= 30)] = 0
         #self.sBand[(self.sBand >= 65)] = 0
         self.sBand[(self.sBand <= 20)] = 0
         #self.vBand[(self.vBand >= 0)] = 0
@@ -1184,7 +1297,7 @@ class VegetationIndex:
         print(f"Vband range: {self.vBand.min()} to {self.vBand.max()}")
 
         #hsvIndex = 1 * self.hBand + 1 * self.sBand + 1 * self.vBand
-        hsvIndex = self.sBand * self.hBand * self.vBand
+        hsvIndex = self.hBand * self.vBand
         self._index = hsvIndex
         self._name = "HSV"
 
@@ -1202,10 +1315,14 @@ class VegetationIndex:
         self.aBand = img[:, :, 1]
         self.bBand = img[:, :, 2]
 
+        difference = self.bBand.astype(np.float64) - self.aBand.astype(np.float64)
+        difference[difference < 30] = 0
+        print(f"Difference range: {np.min(difference)} to {np.max(difference)}")
+
         self.aBand[(self.aBand >= 125)] = 0
         self.aBand[(self.aBand <= 105)] = 0
-        self.bBand[(self.bBand >= 65)] = 0
-        self.bBand[(self.bBand <= 20)] = 0
+        # self.bBand[(self.bBand >= 65)] = 0
+        # self.bBand[(self.bBand <= 20)] = 0
         self.lBand[(self.lBand >= 0)] = 0
 
         # # Normalize the S band
@@ -1222,7 +1339,7 @@ class VegetationIndex:
         # print(f"Vband range: {self.vBand.min()} to {self.vBand.max()}")
 
         #hsvIndex = 1 * self.hBand + 1 * self.sBand + 1 * self.vBand
-        ciIndex = self.aBand
+        ciIndex = difference
         self._index = ciIndex
         self._name = "CI"
 
@@ -1261,6 +1378,25 @@ class VegetationIndex:
 
         return yCbCrIndex
 
+    def repair(self):
+        """
+        Repair the masked image using the original image as a guide.\n
+        If all the neighbors of a pixel that is masked out are similar to each other, the pixel is probably not masked correctly
+        If this is the case, use the original value to fill in the hole.
+        """
+        masked = self.GetImage()
+        original = self.img
+
+        rows, columns = masked.shape
+        for row in range(rows):
+            for column in range(columns):
+                # If the RGB values are all 0s, this pixel is a candidate for repair
+                if masked[row, column, 0] == 0 and masked[row, column, 1] == 0 and masked[row, column, 2] == 0:
+                    # Determine how many neighboring pixels are similar to each other in the original image
+                    # Similar means 'close to the average' for that matrix
+                    pass
+
+
     def plot(self, planeLocation: int):
         # I can get plotly to work only with square arrays, not rectangular, so just take a subset
         height, width = self._index.shape
@@ -1297,32 +1433,41 @@ class VegetationIndex:
 
         fig.show()
 if __name__ == "__main__":
+    from Performance import Performance
+    import numpy as np
+    import matplotlib.pyplot as plt
+    import sys
+    import glob
+    from pathlib import Path
+
+    import constants
+
     utility = VegetationIndex()
     parser = argparse.ArgumentParser("Show various vegetation indices")
 
-    parser.add_argument('-i', '--input', action="store", required=True, type=str, help="Image to process")
+    parser.add_argument('-i', '--input', action="store", required=True, type=str, help="Image or directory to process")
     parser.add_argument('-o', '--output', action="store", help="Output directory for processed images")
     parser.add_argument('-p', '--plot', action="store_true", default=False, help="Plot the index")
+    parser.add_argument('-r', '--refine', action="store_true", default=False, help="Refine the mask before application")
     parser.add_argument('-s', '--show', action="store_true", default=False, help="Show intermediate images")
     parser.add_argument('-t', '--threshold', action="store", required=False, help="Calculate thresholds")
+    parser.add_argument('-c', '--csv', action="store", required=False, default="performance.csv", help="Performance CSV")
 
     arguments = parser.parse_args()
 
 
-    utility.Load(arguments.input)
+    # If a directory is specified, find all the images
+    if os.path.isdir(arguments.input):
+        pattern = arguments.input + "/*" + constants.EXTENSION_IMAGE
+        files = glob.glob(pattern)
+    else:
+        files = [arguments.input]
 
-    # Load the target -- this must be done first
-    #utility.Load('./20190118_124612.jpg')
-    #utility.Load('./overhead.jpg')
-    #utility.Load('./LettuceBed.jpg')
-    #utility.Load('./drone-pictures/DJI_0074.jpg')
-    #utility.Load("./Oasis_Area.png")
-    #utility.Load("./test-images/purslane.png")
-    #Not required.  Just show our starting point
-    #utility.ShowImage("Source", utility.GetImage())
-    from mpl_toolkits import mplot3d
-    import numpy as np
-    import matplotlib.pyplot as plt
+    performance = Performance(arguments.csv)
+    (performanceOK, performanceDiagnostics) = performance.initialize()
+    if not performanceOK:
+        print(performanceDiagnostics)
+        sys.exit(1)
 
 
     # The thresholds are probably dependant on the image selected, so
@@ -1341,25 +1486,44 @@ if __name__ == "__main__":
                    "TGI"   : 0}
 
     # Original thresholds
-    threshOverhead = {"NDI"   : 125,
-                      "EXG"   : 100,
-                      "EXR"   : 20,
-                      "CIVE"  : -10,
-                      "EXGEXR": 60,
+    threshOverhead = {"NDI"   : 130,
+                      "EXG"   : 0.05,
+                      "EXR"   : 0.035,
+                      "CIVE"  : 18.76,
+                      "EXGEXR": 0,
                       "NGRDI" : 0,
-                      "VEG"   : 1,
-                      "COM1"  : 5, # Originally 25
-                      "MEXG"  : 10, # Orignally 40
-                      "COM2"  : 15,
+                      "VEG"   : 1.09,
+                      "COM1"  : 20,
+                      "MEXG"  : 0.08,
+                      "COM2"  : 9.03,
                       "TGI"   : 0,
                       "DI"    : 0,
-                      "DGCI"  : 0,
+                      #"DGCI"  : 0,
                       'EI'    : 0,
-                      'YI'    : 0.5,
+                      'YI'    : -0.01,
                       'HI'    : 50,
-                      'HV'    : 50,
+                      'HV'    : 0.01,
                       "YCBCR" : 200}
 
+    # Thresholds for Haiquan's images
+    threshOverhead = {"NDI"   : 125,
+                      "EXG"   : 0.10,
+                      "EXR"   : 0.04,
+                      "CIVE"  : 18.74,
+                      "EXGEXR": 0.05,
+                      "NGRDI" : 0.0,
+                      "VEG"   : 1.15,
+                      "COM1"  : 50,
+                      "MEXG"  : 0.100,
+                      "COM2"  : 20.0,
+                      "TGI"   : 0.019,
+                      "DI"    : 0,
+                      #"DGCI"  : 0,
+                      'EI'    : 0,
+                      'YI'    : -0.03,
+                      'HI'    : 50,
+                      'HV'    : 0.01,
+                      "YCBCR" : 200}
     # Thresholds where we need two sides (like red stems we want to pick up)
     # threshOverhead = {"NDI"   : (130,0),
     #                   "EXG"   : (50,0),
@@ -1378,199 +1542,140 @@ if __name__ == "__main__":
     threholds = threshOverhead
 
     # All of the indices
-    indices = {"Normalized Difference": {"short": "NDI", "create": utility.NDI, "negate": True, "threshold": threholds["NDI"], "direction": 1},
-               "Excess Green": {"short": "ExG", "create": utility.ExG, "negate": True, "threshold": threholds["EXG"], "direction": 1},
-               "Excess Red": {"short": "ExR", "create": utility.ExR, "negate": False, "threshold": threholds["EXR"], "direction": -1},
-               "Color Index of Vegetation Extraction": {"short": "CIVE", "create": utility.CIVE, "negate": True, "threshold": threholds["CIVE"], "direction": 1},
-               "Excess Green - Excess Red": {"short": "ExGR", "create": utility.ExGR, "negate": True, "threshold": threholds["EXGEXR"], "direction": 1},
-               "Normalized Green Red Difference": {"short": "NGRDI", "create": utility.NGRDI, "negate": True, "threshold": threholds["NGRDI"], "direction": 1},
-               "Vegetative Index": {"short": "VEG", "create": utility.VEG, "negate": True, "threshold": threholds["VEG"], "direction": 1},
-               #"Combined Index 1": {"short": "COM1", "create": utility.COM1, "negate": False, "threshold": threholds["COM1"], "direction": -1} ,
-               "Combined Index 1": {"short": "COM1", "create": utility.COM1, "negate": False, "threshold": None, "direction": 1} ,
-               "Modified Excess Green": {"short": "MexG", "create": utility.MExG, "negate": True, "threshold": threholds["MEXG"], "direction": 1},
-               #"Combined Index 2": {"short": "COM2", "create": utility.COM2, "negate": True, "threshold": threholds["COM2"], "direction": -1},
-               "Combined Index 2": {"short": "COM2", "create": utility.COM2, "negate": False, "threshold": None, "direction": 1},
-               "Triangulation Greenness Index": {"short": "TGI", "create": utility.TGI, "negate": False, "threshold": threholds["TGI"], "direction": 1},
-               #"Depth Index": {"short": "DI", "create": utility.DI, "negate": False, "threshold": threholds["TGI"], "direction": 1},
-               #"Dark Green Color Index": {"short": "DGCI", "create": utility.DGCI, "negate": False, "threshold": threholds["DGCI"], "direction": 1},
-               #"Edge Index": {"short": "EI", "create": utility.EI, "negate": False, "threshold": threholds["EI"], "direction": 1},
-               "YIQ Index": {"short": "YI", "create": utility.YI, "negate": False, "threshold": threholds["YI"], "direction": 1},
-               "HSI Index": {"short": "HI", "create": utility.HI, "negate": False, "threshold": threholds["HI"], "direction": 1},
-               "HSV Index": {"short": "HV", "create": utility.HV, "negate": False, "threshold": threholds["HV"], "direction": 1},
-               "CIELAB Index": {"short": "CI", "create": utility.CI, "negate": False, "threshold": threholds["HV"], "direction": 1},
-               "YCBCR Index": {"short": "YCbCrI", "create": utility.YCbCrI(), "negate": False, "threshold": threholds["YCBCR"], "direction": 1}}
+    indices = {"Normalized Difference": {"short": "NDI", "create": utility.NDI, "negate": False, "threshold": threholds["NDI"], "direction": 1, "normalize": False},
+               "Excess Green": {"short": "ExG", "create": utility.ExG, "negate": True, "threshold": threholds["EXG"], "direction": -1, "normalize": True},
+               "Excess Red": {"short": "ExR", "create": utility.ExR, "negate": False, "threshold": threholds["EXR"], "direction": -1, "normalize": True},
+               "Color Index of Vegetation Extraction": {"short": "CIVE", "create": utility.CIVE, "negate": True, "threshold": threholds["CIVE"], "direction": 1, "normalize": True},
+               "Excess Green - Excess Red": {"short": "ExGR", "create": utility.ExGR, "negate": False, "threshold": threholds["EXGEXR"], "direction": 1, "normalize": True},
+               "Normalized Green Red Difference": {"short": "NGRDI", "create": utility.NGRDI, "negate": False, "threshold": threholds["NGRDI"], "direction": 1, "normalize": False},
+               "Vegetative Index": {"short": "VEG", "create": utility.VEG, "negate": False, "threshold": threholds["VEG"], "direction": 1, "normalize": True},
+               "Combined Index 1": {"short": "COM1", "create": utility.COM1, "negate": False, "threshold": threholds["COM1"], "direction": 1, "normalize": False} ,
+               "Modified Excess Green": {"short": "MexG", "create": utility.MExG, "negate": False, "threshold": threholds["MEXG"], "direction": 1, "normalize": True},
+               "Combined Index 2": {"short": "COM2", "create": utility.COM2, "negate": False, "threshold": threholds["COM2"], "direction": 1, "normalize": False},
+               "Triangulation Greenness Index": {"short": "TGI", "create": utility.TGI, "negate": False, "threshold": threholds["TGI"], "direction": 1, "normalize": True},
+               #"Depth Index": {"short": "DI", "create": utility.DI, "negate": False, "threshold": threholds["TGI"], "direction": 1, "normalize": True},
+               #"Dark Green Color Index": {"short": "DGCI", "create": utility.DGCI, "negate": False, "threshold": threholds["DGCI"], "direction": 1, "normalize": True},
+               #"Edge Index": {"short": "EI", "create": utility.EI, "negate": False, "threshold": threholds["EI"], "direction": 1, "normalize": True},
+               "YIQ Index": {"short": "YI", "create": utility.YI, "negate": True, "threshold": threholds["YI"], "direction": 1, "normalize": False},
+               "HSI Index": {"short": "HI", "create": utility.HI, "negate": False, "threshold": threholds["HI"], "direction": 1, "normalize": True},
+               "HSV Index": {"short": "HV", "create": utility.HV, "negate": False, "threshold": threholds["HV"], "direction": 1, "normalize": True},
+               "CIELAB Index": {"short": "CI", "create": utility.CI, "negate": False, "threshold": threholds["HV"], "direction": 1, "normalize": True},
+               "YCBCR Index": {"short": "YCbCrI", "create": utility.YCbCrI, "negate": False, "threshold": threholds["YCBCR"], "direction": 1, "normalize": True}}
 
     # Debug the implementations:
-    indices = {
-        #"Normalized Green Red Difference": {"short": "NGRDI", "create": utility.NGRDI, "negate": True, "threshold": threholds["NGRDI"], "direction": 1},
-        #"Excess Red": {"short": "ExR", "create": utility.ExR, "negate": False, "threshold": threholds["EXR"], "direction": -1}
-        #"HSV Index": {"short": "HV", "create": utility.HV, "negate": True, "threshold": threholds["HV"], "direction": 1}
-        #"CIELAB Index": {"short": "CI", "create": utility.CI, "negate": True, "threshold": threholds["HV"], "direction": 1}
-        "YCBCR Index": {"short": "YCbCrI", "create": utility.YCbCrI, "negate": False, "threshold": threholds["YCBCR"], "direction": 1}
+    _indices = {
+        #"Excess Green - Excess Red": {"short": "ExGR", "create": utility.ExGR, "negate": False, "threshold": threholds["EXGEXR"], "direction": 1, "normalize": True},
+        #"YIQ Index": {"short": "YI", "create": utility.YI, "negate": True, "threshold": threholds["YI"], "direction": 1, "normalize": False},
+        #"Vegetative Index": {"short": "VEG", "create": utility.VEG, "negate": False, "threshold": threholds["VEG"], "direction": 1, "normalize": True},
+        #"Normalized Green Red Difference": {"short": "NGRDI", "create": utility.NGRDI, "negate": False, "threshold": threholds["NGRDI"], "direction": 1, "normalize": False},
+        #"Normalized Difference": {"short": "NDI", "create": utility.NDI, "negate": False, "threshold": threholds["NDI"], "direction": 1, "normalize": False}
+        #"Modified Excess Green": {"short": "MexG", "create": utility.MExG, "negate": False, "threshold": threholds["MEXG"], "direction": 1, "normalize": True},
+        #"HSV Index": {"short": "HV", "create": utility.HV, "negate": False, "threshold": threholds["HV"], "direction": 1, "normalize": False},
+        "Excess Red": {"short": "ExR", "create": utility.ExR, "negate": False, "threshold": threholds["EXR"], "direction": -1, "normalize": True},
+        #"Excess Green": {"short": "ExG", "create": utility.ExG, "negate": True, "threshold": threholds["EXG"], "direction": -1, "normalize": True}
+        #"Combined Index 1": {"short": "COM1", "create": utility.COM1, "negate": False, "threshold": threholds["COM1"], "direction": 1, "normalize": False},
+        #"Combined Index 2": {"short": "COM2", "create": utility.COM2, "negate": False, "threshold": threholds["COM2"], "direction": 1, "normalize": False}
+        #"Color Index of Vegetation Extraction": {"short": "CIVE", "create": utility.CIVE, "negate": True, "threshold": threholds["CIVE"], "direction": 1, "normalize": True},
+        #"CIELAB Index": {"short": "CI", "create": utility.CI, "negate": False, "threshold": threholds["HV"], "direction": 1, "normalize": True}
+        #"YCBCR Index": {"short": "YCbCrI", "create": utility.YCbCrI, "negate": False, "threshold": threholds["YCBCR"], "direction": 1, "normalize": True}
+        #"Triangulation Greenness Index": {"short": "TGI", "create": utility.TGI, "negate": False, "threshold": threholds["TGI"], "direction": 1, "normalize": True},
     }
 
 
-    # Step through the indices and show the result on the target image
-    for indexName, indexData in indices.items():
-        creationMethod = indexData["create"]
+    thresholdTechniques = ["OTSU", "TRIANGLE"]
 
-        showImages = arguments.show
-        plot = arguments.plot
+    for file in files:
+        # Step through the indices and show the result on the target image
+        for indexName, indexData in indices.items():
+            utility.Load(file, equalize=False)
 
-        startTime = datetime.datetime.now()
-        vegIndex = creationMethod()
-        finishTime = datetime.datetime.now()
-        computeTime = finishTime - startTime
-        indexData["time"] = computeTime.microseconds
-        print("Index: " + indexName + " " + str(computeTime))
+            if indexData["normalize"]:
+                utility.normalize()
 
-        if arguments.threshold is not None:
-            threshold = float(arguments.threshold)
-        else:
-            threshold = indexData["threshold"]
-        #threshold=None
-        direction = indexData["direction"]
-        negate = indexData["negate"]
+            creationMethod = indexData["create"]
 
-        if showImages:
-            utility.ShowImage("Index: " + indexName + " Threshold: " + str(threshold), vegIndex)
+            showImages = arguments.show
+            plot = arguments.plot
 
-        indexData["index"] = vegIndex
+            startTime = datetime.datetime.now()
+            vegIndex = creationMethod()
+            finishTime = datetime.datetime.now()
+            computeTime = finishTime - startTime
+            indexData["time"] = computeTime.microseconds
+            print("Index: " + indexName + " " + str(computeTime))
 
-        # if plot:
-        #     transectRow = vegIndex[100,:]
-        #     plt.figure()
-        #     plt.plot(transectRow)
-        #     plt.title(indexName)
-        #     plt.show()
+            if arguments.threshold is not None:
+                try:
+                    threshold = float(arguments.threshold)
+                except ValueError as ex:
+                    # If this can't be converted to a float, it must be in the supported set
+                    if arguments.threshold not in thresholdTechniques:
+                        print(f"Threshold must be in {thresholdTechniques} or a float")
+                        sys.exit(-1)
+                    else:
+                        threshold = arguments.threshold
+            else:
+                threshold = indexData["threshold"]
 
-        # Force otsu
-        # if arguments.threshold:
-        #     threshold = None
+            #threshold=None
+            direction = indexData["direction"]
+            negate = indexData["negate"]
 
-        # mask, thresholdUsed = utility.MaskFromIndex(vegIndex, negate, direction, threshold)
-        mask, thresholdUsed = utility.createMask(vegIndex, negate, direction, threshold)
-        # Determing threshold from image
-        #utility.MaskFromIndex(vegIndex)
-        normalized = np.zeros_like(mask)
-        finalMask = cv.normalize(mask, normalized, 0, 255, cv.NORM_MINMAX)
-        cv.imwrite("mask.jpg", finalMask)
-        utility.applyMask()
-        # This is the slow call
-        #image = veg.GetMaskedImage()
-        image = utility.GetImage()
+            if showImages:
+                utility.ShowImage("Index: " + indexName + " Threshold: " + str(threshold), vegIndex)
 
-        indexData["masked"] = image
+            indexData["index"] = vegIndex
 
-        indexStats = utility.GetImageStats(image)
-        # For now, the only stat we care about is the vegetative pixel count
-        indexData["vegetativePixels"] = indexStats
+            # if plot:
+            #     transectRow = vegIndex[100,:]
+            #     plt.figure()
+            #     plt.plot(transectRow)
+            #     plt.title(indexName)
+            #     plt.show()
 
-        #image = cv.medianBlur(image, 5)
-        if arguments.output is not None:
-            cv.imwrite(f"{arguments.output}/{indexName}.jpg", image)
+            # Force otsu
+            # if arguments.threshold:
+            #     threshold = None
 
-        if showImages:
-            utility.ShowImage(indexName + " mask applied to source with threshold: " + str(thresholdUsed), image)
+            # mask, thresholdUsed = utility.MaskFromIndex(vegIndex, negate, direction, threshold)
+            performance.start()
+            mask, thresholdUsed = utility.createMask(vegIndex, negate, direction, threshold)
+            print(f"Using threshold {thresholdUsed}")
 
-        if plot:
-            utility.plot(threshold)
+            if arguments.refine:
+                mask = utility.refine()
+            # Determing threshold from image
+            #utility.MaskFromIndex(vegIndex)
+            if arguments.show:
+                normalized = np.zeros_like(mask)
+                finalMask = cv.normalize(mask, normalized, 0, 255, cv.NORM_MINMAX)
+                cv.imwrite(f"mask-{indexName}-{file}.jpg", finalMask)
 
-        # if plot:
-        #     Ylen,Xlen = vegIndex.shape
-        #     x = np.arange(0, Xlen, 1)
-        #     y = np.arange(0, Ylen, 1)
-        #     x, y = np.meshgrid(x, y)
-        #     fig = plt.figure(figsize=(10,10))
-        #     axes = fig.gca(projection ='3d')
-        #     #axes.plot_surface(x, y, vegIndex)
-        #     plt.title(indexName)
-        #     axes.scatter(x, y, vegIndex, c=vegIndex, cmap='BrBG', s=0.25)
-        #     plt.show()
+            utility.applyMask()
+            # Record the performance of the index creation
+            performance.stopAndRecord(indexName)
 
-        #print(indexName + ":" + str(indexData["vegetativePixels"]))
-        # Evaluate how much information was discarded from image
-        #utility.ShowStats(image)
+            # This is the slow call
+            #image = veg.GetMaskedImage()
+            image = utility.GetImage()
 
-    # Commment this out for now.
-    #
-    # # Side by side plots of everything
-    # fig, ax = plt.subplots(nrows=3, ncols=4, figsize=(8,6))
-    # xpos = 0
-    # ypos = 0
-    # for indexName, indexData in indices.items():
-    #     im = ax[xpos, ypos].imshow(indexData["masked"])
-    #     ax[xpos, ypos].set_title(indexData["short"])
-    #     if ypos == 3:
-    #         ypos = 0
-    #         xpos = xpos + 1
-    #     else:
-    #         ypos = ypos + 1
-    # # As we have an open spot
-    # ax[xpos, ypos].imshow(utility.GetImage())
-    # ax[xpos, ypos].set_title("None")
-    # plt.show()
-    #
-    # fig = plt.figure(figsize=(5,5))
-    # plt.style.use('ggplot')
-    #
-    # xs = np.arange(len(indices))
-    # pixelCounts = []
-    # labels = []
-    # pixelCount = utility.GetImageStats(utility.GetImage())
-    # indexName = "None"
-    # pixelCounts.append(pixelCount)
-    # labels.append(indexName)
-    # for indexName, indexData in indices.items():
-    #     pixelCount = indexData["vegetativePixels"]
-    #     pixelCounts.append(pixelCount)
-    #     indexName = indexData["short"]
-    #     labels.append(indexName)
-    #
-    # xpos = [i for i, _ in enumerate(labels)]
-    # plt.barh(labels, pixelCounts)
-    # plt.ylabel("Algorithms")
-    # plt.xlabel("Vegetated Pixels")
-    # plt.title("Color Index Algorithms Pixel Counts")
-    # plt.show()
-    #
-    # times = []
-    # labels = []
-    #
-    # for indexName, indexData in indices.items():
-    #     timeTaken = indexData["time"]
-    #     times.append(timeTaken)
-    #     indexName = indexData["short"]
-    #     labels.append(indexName)
-    #
-    # plt.barh(labels, times)
-    # plt.ylabel("Algorithms")
-    # plt.xlabel("Time Taken in microseconds")
-    # plt.title("Color Index Algorithms Compute Times")
-    # plt.show()
-    #
-    #
-    # # E D G E  D E T E C T I O N
-    # # Rather than wrestle with this, just write out the image for now.
-    # image = utility.ReplaceNonZeroPixels(utility.GetMaskedImage(), 0.575)
-    # utility.ShowImage("Cartooned", image)
-    #
-    # utility.SaveImage(image, "cartooned.jpg")
-    # #utility.SaveMaskedImage("mask-applied.jpg")
-    # #img_float32 = np.float32(utility.GetMaskedImage())
-    # img = cv.imread("cartooned.jpg")
-    # gray = cv.cvtColor(img, cv.COLOR_RGB2GRAY)
-    # edges = cv.Canny(gray, 20, 30)
-    # plt.subplot(121),plt.imshow(utility.GetMaskedImage(),cmap = 'gray')
-    # plt.title('Original Image'), plt.xticks([]), plt.yticks([])
-    # plt.subplot(122),plt.imshow(edges,cmap = 'gray')
-    # plt.title('Edge Image'), plt.xticks([]), plt.yticks([])
-    # plt.show()
-    #
-    # #Converting to RGB
-    # img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
-    # gray = cv.medianBlur(gray, 5)
-    # edges = cv.adaptiveThreshold(gray, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 9, 9)
-    # utility.ShowImage("Edges", edges)
-    # pixelCount = utility.GetImageStats(edges)
-    # print("Pixel Count for edges:", pixelCount)
+            indexData["masked"] = image
+
+            indexStats = utility.GetImageStats(image)
+            # For now, the only stat we care about is the vegetative pixel count
+            indexData["vegetativePixels"] = indexStats
+
+            #image = cv.medianBlur(image, 5)
+            if arguments.output is not None:
+                cv.imwrite(f"{arguments.output}/{Path(file).stem}-{indexData['short']}.jpg", image)
+                normalized = np.zeros_like(mask)
+                finalMask = cv.normalize(mask, normalized, 0, 255, cv.NORM_MINMAX)
+                cv.imwrite(f"{arguments.output}/{Path(file).stem}-mask-{indexData['short']}.jpg", finalMask)
+
+            if showImages:
+                utility.ShowImage(indexName + " mask applied to source with threshold: " + str(thresholdUsed), image)
+
+            if plot:
+                utility.plot(thresholdUsed)
+
+            utility.Unload()  # Debug memory leak
