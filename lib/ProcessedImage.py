@@ -38,6 +38,20 @@ class ProcessedImage:
         self._type = constants.ImageType.RGB
         self._source = ""
         self._log = logging.getLogger(__name__)
+        self._depth = None
+        self._hasMetadata = False
+
+    @property
+    def depth(self) -> np.ndarray:
+        """
+        The depth array associated with the image
+        :return:
+        """
+        return self._depth
+
+    @depth.setter
+    def depth(self, theDepth: np.ndarray):
+        self._depth = theDepth
 
     @property
     def source(self) -> str:
@@ -198,11 +212,12 @@ class ProcessedImage:
             dd *= -1
         return dd
 
-    def getMetadata(self, filename: str) -> {}:
+    def getMetadata(self, filename: str) -> bool:
         coordinates = "[0-9]+.[0-9]+"
         try:
             with open(filename, 'rb') as image_file:
                 my_image = Image(image_file)
+                self._hasMetadata = my_image.has_exif
                 if my_image.has_exif:
                     try:
                         if "gps_latitude" in my_image.list_all():
@@ -221,6 +236,8 @@ class ProcessedImage:
                             self._log.error(f"Unable to find altitude EXIF attribute")
                         if "datetime_original" in my_image.list_all():
                             self._takenAt = my_image.datetime_original
+                        elif "datetime" in my_image.list_all():
+                            self._takenAt = my_image.datetime
                         else:
                             self._log.error(f"Unable to find time EXIF attribute")
                     except AttributeError:
@@ -229,6 +246,7 @@ class ProcessedImage:
                     self._log.error("Image contains no EXIF data")
         except FileNotFoundError:
             self._log.fatal(f"Unable to access: {filename}")
+        return self._hasMetadata
 
 
 class Images:
