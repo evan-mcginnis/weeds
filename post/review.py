@@ -40,6 +40,8 @@ UNKNOWN_LONG = -999
 NOT_SET = "-----"
 UNKNOWN_STR = NOT_SET
 
+MAX_ZOOM = 5
+
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def __init__(self, *args, **kwargs):
         super(MainWindow, self).__init__(*args, **kwargs)
@@ -49,6 +51,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self._fileNames = []
         self._currentFileNumber = 0
         self._maxFileNumber = 0
+        self._currentFilename = ""
 
         self._processedFileName = None
         self._lastFileReviewed = 0
@@ -72,6 +75,22 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.actionExit.triggered.connect(self.safeExit)
         self.actionSave.triggered.connect(self.saveProgress)
         self.actionMark_for_review.triggered.connect(self.markCurrentImageForReview)
+
+        self._scale = 1
+        self._scaledWidth = 0
+        self._scaledHeight = 0
+        self._scaleRatioWidth = 1
+        self._scaleRatioHeight = 1
+        self._currentZoom = 1
+
+        # Set up the shortcuts n for next, p for previous
+        shortcut = QKeySequence(Qt.Key_N)
+        self._shortcutNext = QShortcut(shortcut, self)
+        self._shortcutNext.activated.connect(self.nextImage)
+
+        shortcut = QKeySequence(Qt.Key_P)
+        self._shortcutPrevious = QShortcut(shortcut, self)
+        self._shortcutPrevious.activated.connect(self.previousImage)
 
     @property
     def correctType(self) -> bool:
@@ -140,8 +159,12 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         """
         Save the current image number to the INI file
         """
+        # Write out a dataframe, including only crop and weed
+        finalDF = self._attributes[(self._attributes.actual == constants.TYPE_WEED) | (self._attributes.actual == constants.TYPE_CROP)]
+        finalDF.to_csv(self._processedFileName, encoding="UTF-8", index=False)
 
-        self._attributes.to_csv(self._processedFileName, encoding="UTF-8", index=False)
+        finalDF = self._attributes[self._attributes.actual == constants.TYPE_MISTAKE]
+        finalDF.to_csv("discarded.csv", encoding="UTF-8", index=False)
 
         if self._currentFileNumber == self._maxFileNumber:
             if os.path.exists(FILE_PROGRESS):
@@ -228,12 +251,15 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         """
         width = self.image.width()
         height = self.image.height()
-        print("Image is {}x{}".format(width, height))
+        self._currentFilename = imageName
+        print(f"{self._currentFilename} is {width} x {height}")
         #self.image.setGeometry()
         pixmap = QPixmap(imageName)
         #scaled = pixmap.scaled(width, height, Qt.KeepAspectRatio)
         #scaled = pixmap.scaled(self.image.size(), Qt.KeepAspectRatio)
         scaled = pixmap.scaled(width, height, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        self._scaledWidth = scaled.width()
+        self._scaledHeight = scaled.height()
         self.image.setPixmap(scaled)
 
 
@@ -308,13 +334,15 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def _selected(self, value):
 
-        # image-M-blob-N is <crop | weed>
+        # image-M-blob-N is <crop | weed | mistake>
         text = value.split(' ')
 
         if text[2].lower() == constants.NAME_CROP.lower():
-            value = 0
+            value = constants.TYPE_CROP
         elif text[2].lower() == constants.NAME_WEED.lower():
-            value = 1
+            value = constants.TYPE_WEED
+        elif text[2].lower() == constants.NAME_MISTAKE.lower():
+            value = constants.TYPE_MISTAKE
         else:
             raise ValueError(f"Unable to determine type for: {text[2]}")
 
@@ -356,6 +384,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             # Put both choices in the combo-box, but the selected one will be the one predicted
             comboBox.addItem(f"{row[constants.NAME_NAME]} is {names[int(row[constants.NAME_TYPE])]}", row[constants.NAME_NAME])
             comboBox.addItem(f"{row[constants.NAME_NAME]} is {names[not int(row[constants.NAME_TYPE])]}", row[constants.NAME_NAME])
+            comboBox.addItem(f"{row[constants.NAME_NAME]} is {constants.NAME_MISTAKE}", row[constants.NAME_NAME])
             self.blobType.addWidget(comboBox)
         return
 
@@ -377,9 +406,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         rc = True
         try:
             self._fileNames = sorted(glob.glob(os.path.join(directory, pattern)), key=os.path.getmtime)
-            print("Found files {}".format(self._fileNames))
+            print(f"Found {len(self._fileNames)} files")
             self._maxFileNumber = len(self._fileNames) - 1
-            rc = True
+            rc = len(self._fileNames) > 0
         except Exception as e:
             log.error("Unable to access files in directory: {}".format(self._sourceDirectory))
             rc = False
@@ -389,6 +418,70 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def updateClassifications(self):
         pass
 
+    def scaleCurrentImage(self, currentX, currentY: int):
+        subset = (MAX_ZOOM - self._currentZoom) / MAX_ZOOM
+
+        # The new position within the scaled image
+        scaledX = int(subset * currentX)
+        scaledY = int(subset * currentY)
+        newScaledWidth = int(subset * self._scaledWidth)
+        newScaledHeight = int(subset * self._scaledHeight)
+
+        print(f"Sample {subset} of image. New size {newScaledWidth} x {newScaledHeight}. Scaled position: ({scaledX},{scaledY})")
+
+        #self._scaledImage = self._i
+        # Compute what is to be sampled
+        # To maintain position, the width is from the Y position to the edges
+        #widthStarts = newScaledWidth - scaledX
+        # pixmap = QPixmap(imageName)
+        # #scaled = pixmap.scaled(width, height, Qt.KeepAspectRatio)
+        # #scaled = pixmap.scaled(self.image.size(), Qt.KeepAspectRatio)
+        # scaled = pixmap.scaled(width, height, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        # self._scaledWidth = scaled.width()
+        # self._scaledHeight = scaled.height()
+        # self.image.setPixmap(scaled)
+
+        size = self.image.size()
+        pixmap = QPixmap(self._currentFilename)
+        scaled_pixmap = pixmap.scaled(newScaledWidth, newScaledHeight, Qt.KeepAspectRatio)
+        self.image.setPixmap(scaled_pixmap)
+
+        self._scale *= 2
+
+        size = self.image.size()
+
+        print(f"Current size is {size}")
+        scaled_pixmap = self.image.scaledToHeight(newScaledHeight)
+
+        self.image.setPixmap(scaled_pixmap)
+
+    def wheelEvent(self, event):
+        pass
+        # Debug this later
+        # log.debug(f"Mouse scroll detected {event.angleDelta().y()}. Current Zoom: {self._currentZoom}")
+        #
+        # # Zoom in
+        # if event.angleDelta().y() > 0:
+        #     if self._currentZoom + 1 in range(0, MAX_ZOOM + 1):
+        #         self._currentZoom += 1
+        #         self.scaleCurrentImage(event.x(), event.y())
+        # # Zoom out
+        # else:
+        #     if self._currentZoom - 1 in range(0, MAX_ZOOM + 1):
+        #         self._currentZoom -= 1
+        #         self.scaleCurrentImage(event.x(), event.y())
+        # log.debug(f"Mouse scroll detected {event.angleDelta().y()}. Current Zoom: {self._currentZoom}")
+        #
+        # # Zoom in
+        # if event.angleDelta().y() > 0:
+        #     if self._currentZoom + 1 in range(0, MAX_ZOOM + 1):
+        #         self._currentZoom += 1
+        #         self.scaleCurrentImage(event.x(), event.y())
+        # # Zoom out
+        # else:
+        #     if self._currentZoom - 1 in range(0, MAX_ZOOM + 1):
+        #         self._currentZoom -= 1
+        #         self.scaleCurrentImage(event.x(), event.y())
 
 parser = argparse.ArgumentParser("Image Reviewer")
 
@@ -397,10 +490,16 @@ parser.add_argument('-p', '--pattern', action="store", required=False,  default=
 parser.add_argument('-o', '--output', action="store", required=False,  default="classifications.csv", help="Output CSV")
 parser.add_argument('-a', '--attributes', action="store", required=False,  default="results.csv", help="Classification CSV")
 parser.add_argument('-t', '--type', action="store_true", required=False, default=False, help="Correct the type")
+parser.add_argument('-l', '--logging', action="store", required=False, default='../jetson/logging.ini', help="Logging configuration")
 
 arguments = parser.parse_args()
 
-#logging.config.fileConfig(arguments.log)
+if not os.path.isfile(arguments.logging):
+    print("Unable to access logging configuration file {}".format(arguments.logging))
+    sys.exit(1)
+
+# Initialize logging
+logging.config.fileConfig(arguments.logging)
 log = logging.getLogger("review")
 
 app = QtWidgets.QApplication(sys.argv)
@@ -414,7 +513,10 @@ app.aboutToQuit.connect(window.exitHandler)
 
 
 if arguments.input is not None:
-    window.loadImagesFromDirectory(arguments.input, arguments.pattern)
+    log.debug(f"Load images from {arguments.input}")
+    if not window.loadImagesFromDirectory(arguments.input, arguments.pattern):
+        print(f"Unable to load files")
+        sys.exit(-1)
 
 window.loadAttributesFromCSV(arguments.attributes)
 
