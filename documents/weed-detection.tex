@@ -12,6 +12,7 @@
 \usepackage[some]{background}
 %\usepackage{lipsum}
 %\usepackage{natbib}
+\usepackage{siunitx}
 
 % C I T A T I O N S
 \usepackage[backend=biber, style=apa]{biblatex}  
@@ -37,11 +38,17 @@
 \usepackage{rotating}
 \usepackage{eqparbox}
 \usepackage{makecell, caption, booktabs}
+\usepackage{wrapfig}
+\usepackage{colortbl}
 
 % Stuff needed to get table to span pages
 \usepackage{enumitem}
 %\usepackage{array, booktabs, longtable}
 \newcolumntype{x}[1]{>{\raggedright}p{#1}}
+% Highlight a column
+\definecolor{Highlight}{HTML}{FFF59C}
+\newcolumntype{h}{>{\columncolor{Highlight}}c}
+
 
 \usepackage{etoolbox}
 \AtBeginEnvironment{longtable}{%
@@ -210,6 +217,7 @@ The precision treatment of weeds within a crop depends first on accurate classif
 \tableofcontents
 \listoffigures
 \listoftables
+%\listofequations
 \newpage
 
 %
@@ -220,6 +228,13 @@ The precision treatment of weeds within a crop depends first on accurate classif
 
 \section{Introduction}
 While precision treatment of unwanted vegetation may be the end-product, classifying vegetation in the acquired images is the first major step in that workflow. This paper concentrates on the binary classification of vegetation into two discrete classes: desired vegetation (lettuce crop) and undesired vegetation (weeds and crop occupying an undesired position). Once classified, vegetation can be treated using a variety of mechanical, chemical~(\cite{Saile2022-vu}), or no-touch~(\cite{Saile2022-vu,Mwitta2022-yt}) methods. The specifics of and integration with the treatment system are beyond the scope of this document, but treatment considerations will be discussed within the context of establishing a buffer zone around desired vegetation to minimize crop damage.
+
+ While it is tempting to use the terms \textit{weed} and \textit{crop} (and this document will often use those terms), this proposal will more often reference vegetation as \textit{desired} (crop in the position wanted) and \textit{undesired} (weeds and crop not in the position wanted).  That is, classification more often answers the question ``do we want this plant'' than ``is this plant a weed''. These two questions are often conflated, but are subtly distinct.
+
+ Images from UAVs offer several advantages over those obtained with manned aircraft and satellite, such as the economics or flexibility of acquisition, but this study will leverage the relative ease with which UAVs are able to gather imagery from various distances close to the ground. While many studies use images gathered close to the ground from a single distance and report classification accuracy and others use images gathered at multiple distances, reporting (the inevitably declining) accuracy seen with increasing distance, the former tends to suffer when the same attributes are applied at higher distances and the latter from holding the set of attributes constant as altitudes increase. \citeauthor{Ong2023-lm}, in a study of classification of Chinese Cabbage, classifies vegetation acquired at an average of 2m AGL using a single set of attributes, Local Binary Pattern (LBP, a texture descriptor), and a single approach (Random Forest) leveraging those attributes, validating the use of texture in classification \parencite{Ong2023-lm}. \citeauthor{Etienne2021-ik}, in a study of Corn and Soybean plots, used imagery gathered from both 10m and 30m AGL. but found that the best training set for selected algorithm (YOLOv3) was taken from the set of images acquired from 10m \parencite{Etienne2021-ik}. The parameters selected as significant to classification fall into three basic categories: shape, color, and texture. Variants of each of these categories will be used in this study. 
+In a study of weed mapping in sunflower crop, \citeauthor{Perez-Ortiz2015-yk} present findings from images taken from three distances AGL, 30m, 60m, and 100m, classifying each pixel as crop, weed, or soil using SVM, KNN, and k-means (and variants of those) approaches \parencite{Perez-Ortiz2015-yk}. While this approach does indeed yield weed maps that lend themselves to later study, the approach is a bit different in terms of what is being classified. In that study, individual pixels are being classified, in contrast to this study that seeks to classify individual plants.
+In a study of weeds in corn, \citeauthor{Lin2017-xq} used shape metrics as part of the classification workflow, stressing the importance of expressing shape metrics that are not rotationally variant. More importantly, the study details a shape metric possessing the desired qualities for use in classification. Using shape and texture (GLCM), the study demonstrated an overall accuracy exceeding 95\%.\footnote{\citeauthor{Lin2017-xq}'s study did not report some items that are of interest: the distances of the imagery to the camera, and the false positive rate of weed identification. While the high overall rate sounds is certainly impressive, that metric will not be used in this study. Additionally, the images of vegetation were acquired under controlled conditions, something that is not reproducible in the field an at higher distances AGL.} \citeauthor{Sabzi2020-af}, in a study of a potato field, used various channels of color spaces (YIQ, YCbCr, HSI) as well as texture (Grey-Level Co-occurrence Matrix, GLCM) to achieve a high correct classification rate, but the use of GLCM is not applied  to channels of the color conversion, only to RGB images that have been converted to greyscale \parencite{Sabzi2020-af}. While this is a conventional use of the texture identification technique, it does not leverage the information content available in other color spaces.
+
 
 
 \section{Data Preparation}
@@ -295,7 +310,8 @@ Additionally, this work makes a few simplifying assumptions about the images:
 These are not without exceptions. For instance, a weed may be in perfect aligment within a crop line and two other plants. Each of these observations, however, are used in classification. Take, for instance, the observation that crop tends to be much larger than weeds. If the size of an item is three times that of another, the smaller item is -- more likely than not -- a weed.
 
 \section {Study Area}
-The study was conducted at the University of Arizona Maricopa Agricultural Research Center (MAC)  as part of XXXXX
+This study will be carried out at the University of Arizona Maricopa Agricultural Center (MAC) on a cantaloupe crop overseen by Drs. Attalah and Elshikha (University of Arizona), as part of another study.\footnote{The field in question is located at N 33.061805$^{\circ}$ W 111.966162$^{\circ}$} That study will involve three separate water treatments: center-pivot, flood irrigation, and drip. As the drip treatment study area is unlikely to produce a heavy weed load, it will not be included in this study, as differentiating between crop and weeds is an initial goal of this study. The study site is relatively free of obstacles that would impact low level flight with one notable exception: the center pivot irrigation system. Allowances will be made to avoid that system, but doing so is not expected to affect flight plans, as images in only subset of the field is planned to be captured.
+ 
 
 \section{Software Environment \& Source code}
 Both commercial and open-source software were used in the development an operational aspects of this study. While the majority of the software (the operational portions responsible for image processing and classification) was written in Python, commercial packages were used for pre-processing. Additionally, R was used in visualization and analysis of classification results. Some of these components play a large enough role that they warrant special mention in various places throughout this document, but in-depth descriptions of them will not be made here. Likewise, this list is not exhaustive, as numerous libraries were used for a few functions, but included here. The complete source code for this project is available in this GitHub repository: \href{https://github.com/evan-mcginnis/weeds}{\textit {weeds}}. Images, both raw and processed, are far too large to be hosted with GitHub, and are available on request from the author.
@@ -405,7 +421,11 @@ Images are processed following the workflow shown in Figure~\ref{fig:workflow}. 
 
 
 \section{Acquire Image}
-While the the processing step consists only of reading images from disk, actual acquisition was carried out in this study using a \href{https://www.dji.com/air-2s/specs} {DJI Mavic 2 S} drone with a 20 MP camera, followed by color correction. Each image acquisition was accompanied by an image of a \href{https://www.datacolor.com/spyder/products/spyder-checkr-photo/} {SpyderChecker 24} color calibration chart, and color correction was subsequently applied using Adobe Photoshop Lightroom Classic and custom calibration profiles created using the Spyder Checkr software. Raw sensor data was stored in Adobe Digital Negative (DNG) format before color correction and conversion to a compressed JPG format for the resulting images. The sensor data for each image was quite large, requiring 38.5 MB of storage, resulting in these requirements for the altitudes studied:
+While the the processing step consists only of reading images from disk, actual acquisition was carried out in this study using a \href{https://www.dji.com/air-2s/specs} {DJI Mavic Air 2 SE} drone with a 20 MP camera, followed by color correction of acquired images. Each image acquisition was accompanied by an image of a \href{https://www.datacolor.com/spyder/products/spyder-checkr-photo/} {SpyderChecker 24} color calibration chart (under the same ambient lighting conditions) and color correction was subsequently applied using Adobe Photoshop Lightroom Classic and custom calibration profiles created using the Spyder Checkr software. Raw sensor data was stored in Adobe Digital Negative (DNG) format before color correction and conversion to a compressed JPG format for the resulting images. Images were color corrected against images taken before each flight of a Spyder CHECKR24 calibration target. The digital negative of each image (DNG, a standard format for raw sensor data) was corrected and converted to JPG format for subsequent processing.\footnote{The merits of raw, uncompressed, and unprocessed sensor data versus compressed, processed formats like JPG are beyond the scope of this document, but it is fair to say taking raw sensor data, processing, and then producing a compressed JPG is precisely what consumer products like phone cameras do. So that the color correction step can be inserted, the process of producing an image that can be viewed with most software is altered a bit, but essentially unchanged. A picture stored as a DNG is not higher resolution or higher quality than a JPG equivalent, just more easily manipulated without the introduction of errors} The sensor data for each image was quite large, requiring 38.5 MB of storage, resulting in these requirements for the altitudes studied:
+
+Images were color corrected against images taken before each flight of a Spyder CHECKR24 calibration target. The digital negative of each image (DNG, a standard format for raw sensor data) was corrected and converted to JPG format for subsequent processing.\footnote{The merits of raw, uncompressed, and unprocessed sensor data versus compressed, processed formats like JPG are beyond the scope of this document, but it is fair to say taking raw sensor data, processing, and then producing a compressed JPG is precisely what consumer products like phone cameras do. So that the color correction step can be inserted, the process of producing an image that can be viewed with most software is altered a bit, but essentially unchanged.}
+Where feasible, missions were conducted in the same ambient light conditions, but an exact match of ambient conditions using uncontrolled lighting is not always possible.
+
 
 {\renewcommand{\arraystretch}{2}%
 
@@ -453,8 +473,9 @@ While the the processing step consists only of reading images from disk, actual 
 %
 % I M A G E  S E G M E N T A T I O N
 %
-\section{Segmentation Image}
-The portions of the images that did not contain pixels with vegetation present were the discarded by applying a visible light vegetation index to both isolate the vegetation and reduce the information content. This discards both the ground and debris while retaining the vegetation. These images were segmented using various visible light indices (\cite{Hunt2013-ih}, \cite{Hamuda2016-dw}). As this process is not the primary subject of this paper, it will be given only superficial mention here.  Various approaches to image segmentation are  summarized in Table \ref{table:segmentation}. 
+\section{Segment Image}
+Perhaps the least compute-intensive portion of this workflow is simply to discard to portion of an image that does not contribute meaningfully to classification, and for this problem space those pixels that do not contribute useful information are, most notably, pixels representing the ground.
+The portions of the images that did not contain pixels with vegetation present were the discarded by applying a visible light vegetation index to both isolate the vegetation and reduce the information content. This discards both the ground and debris while retaining the vegetation. These images were segmented using various visible light indices (\cite{Hunt2013-ih}, \cite{Hamuda2016-dw}). As this process is not the primary subject of this paper, it will be given only superficial mention here.  Various approaches to image segmentation are  summarized in Table \ref{table:segmentation}.  The intent of this step of the workflow is not to classify the individual plants, but to preprocess the image before further analysis is done.
 
 {\renewcommand{\arraystretch}{2}%
 
@@ -551,7 +572,6 @@ The portions of the images that did not contain pixels with vegetation present w
 \end{longtable}
 }
 
-
 These indices are used to create a mask that is then applied to the original source image to permit vegetation to show while masking details that are not relevant (ground pixels, stones, and other items that may appear in field conditions) The intent here is to remove all pixels that are not relevant to the task of distinguishing between crop and weed while leaving the vegetated pixels unmanipulated.
 
 \begin{figure}[H]
@@ -579,7 +599,7 @@ These indices are used to create a mask that is then applied to the original sou
 \end{figure}
 The segmented image has discarded ground pixels while retaining most of the pixels that will be used, but a close examination reveals that pixels in the stems of the weed are also eliminated, as they are less green than the rest of the plant. This effect is even more pronounced when segmenting images of weed that do not contain green stems as would be seen in the red stems seen in \textit{Portulaca oleracea} (Purslane). While they are not eliminated, pixels in the area of the deep shadows of the vegetation may affect attempts to classify objects based on color attributes. Unfortunately, the band of color featured in the stems (red) is frequently found in the background (soil), so attempts to make the stems appear in the masked image are problematic, as this solution tends to bring allow unwanted ground pixels in the final image that contain hues found within the stems. Likewise, immature vegetation where stems are not sufficiently green will not appear in the final image. Fortunately, both of these cases do not appear to have an appreciable effect on the classification. For the purposes of this paper, images will use the \textit{Normalized Difference Index} (NDI) segmentation approach (see Table~\ref{table:segmentation} for this formula). This process results in image data with only two sets of values: RGB values of zero where there is no vegetation and the original RGB values for pixels containing vegetation. Figure~\ref{fig:ndi-segmentation} illustrates the values used in producing a mask, but here we see a problem introduced.
 
-The manual selection of a threshold can be shown to work relatively well, and can be fine-tuned by examining the results ensure that the number of vegetated pixels are maximized, while the number of non-vegetated pixels are minimized (in other words, we do not want to have significant portions of the ground in the image, but we do want as much of the plant as is possible. An alternative, first proposed by \citeauthor*{Otsu1979-io}  \parencite{Otsu1979-io}, is to select this threshold automatically, or an alternative \textit{Triangle} algorithm used here.
+The creation of an index has produced data that often exaggerates portions of the image with vegetated pixels, but deciding what portions of the data to discard and which to keep can be automated. The manual selection of a threshold can be shown to work relatively well, and can be fine-tuned by examining the results ensure that the number of vegetated pixels are maximized, while the number of non-vegetated pixels are minimized (in other words, we do not want to have significant portions of the ground in the image, but we do want as much of the plant as is possible. An alternative, first proposed by \citeauthor*{Otsu1979-io}  \parencite{Otsu1979-io}, is to select this threshold automatically, or an alternative \textit{Triangle} algorithm used here.
 
 \begin{figure}[h!]
 	\centering
@@ -631,10 +651,11 @@ Blobs are identified as an object requiring classification, but not yet classifi
 Once the vegetation is isolated and blobs identified, various features can be extracted for subsequent use in classification. These features include position-independent characteristics such as shape, hue, and textural characteristics as well as position-dependent features such as where a plant resides relative to the crop-line and size ratios between objects.  
 
 \subsection{Shape Characteristics}
+The shape of an object can be globally or locally described by various factors \parencite{Zhang2004-cm}. The problem quickly encountered in using shape in this instance is that a 3D object is projected on to a 2D plane, losing information in the process. The object in the resulting image is, of course, only a partial representation of the object as it exists in the real world. As section \ref{problem-overlap} shows in greater detail, even simple, but common occurrences such as object overlap complicate attempts to exploit shape. The classification examined in this paper will consider only the former, global descriptors that apply to an entire object. Shape parameters used in classification must exhibit three characteristics: scale invariance, rotation invariance, and translation invariance. Rotation invariance is, perhaps, the most relatable of these. While a camera mounted on a UAV or tractor will collect imagery in the same orientation, plants are not so obliging in their growth. Two plants might have leaves that may look extremely similar (and could be said to be of the same shape), but are rotated by 90\si{\degree}. Scale invariance is almost as easy to describe: two leaves have the same shape, but are simply of different size due to differences in the time of emergence. Translation invariance means that the same descriptor is derived without considering the position of the object within the image.  A fourth invariance is a bit more complex: viewpoint. While a camera capturing images as it passes overhead can always -- within a very small variation -- be considered to have the same viewpoint, the same does not hold true for the plants in the image. Two leaves can have the same physical shape, but differences in orientation with respect to the Z-axis (consider the case where the tip of one leaf is closer to the ground) produce significantly different descriptions of their shape. While a perfect shape descriptor would be invariant under all of these, it is typically not realistic to arrive at a shape descriptor that is invariant in all cases.
 The shape parameters considered in this analysis are expressions describing the perimeter of the plant. The shape formulae used to extract the various shape features are given in Table~\ref{tab:shape-formulae}, but some concepts and formulae warrant further explanation.
 
 \subsubsection{Bounding Box and Convex Hull}
-An object can be said to have rectangular box of minimum size that completely encloses the object, commonly termed the \textit{bounding box}. The box placed around the object without regard for orientation -- that is, the placement makes no attempt to align the edges of the box with the edges of the image, so it may appear tilted at normal viewing angles. The \textit{convex hull}, likewise, is a convex shape with straight lines and of minimum size that completely encloses the object. 
+An object can be said to have rectangular box of minimum size that completely encloses the object, commonly termed the \textit{bounding box}. The box placed around the object without regard for orientation -- that is, the placement makes no attempt to align the edges of the box with the edges of the image, so it may appear tilted at normal viewing angles. The \textit{convex hull}, likewise, is a convex shape with straight lines and of minimum size that completely encloses the object.   
 \begin{figure}[h!]
 	\centering
 	\begin{subfigure}[h]{.48\textwidth}
@@ -653,10 +674,19 @@ An object can be said to have rectangular box of minimum size that completely en
 	\caption[Bounding box and convex hull]{A bounding box and a convex hull (both noted in green) surround an object, but a convex hull is a shape with the minimum size that can contain the object. A bounding box is the minimum sized rectangle that can contain the object.}
 	\label{fig:bounding-and-hull}
 \end{figure}
-
+The convex hull is a simple polygon whose vertices are a subset of the points found in the edge of the original shape. A widely used algorithm for determining the convex hull, \textit{Graham's Scan} is fairly efficient, $\mathcal{O}(n\log n)$, as \citeauthor{Klette2004-qz} show in this excerpt (altered for clarity with assistance from lecture notes from \citeauthor{Prosser1998-mi}). \parencite{Klette2004-qz}
+\begin{quote}
+\begin{enumerate}
+	\item{Find the bottom-most point by comparing \textit{y} coordinate of all points. If there are two points with the same \textit{y} value, then the point with smaller \textit{x} coordinate value is considered. Let the bottom-most point be $P0$. Put $P0$ at first position in output hull.}
+	\item{Sort the remaining points $p_i$ of $S$ in order of increasing angles $\eta_i$; if the angle is the same for more than one point, keep only the point furthest from $p$. Let the resulting sorted sequence of points be $q_i,..., q_m$.}
+	\item{Initialize $C(S)$ by the edge between $p$ and $q_1$.}
+	\item{Scan through the sorted sequence. At each left turn, add a new edge to $C(S)$; skip the point if there is no turn (a collinear situation); backtrack at each right turn.}
+\end{enumerate}
+\end{quote}
+The most salient problem with the convex hull, however, is one that will have an adverse affect on all shape descriptors: distortions introduced by the resolution of the same object at different altitudes. That is, the edges are described by fewer pixels as the distance between the camera and plant increases, resulting in increased pixelation. While this can be minimized to some extent by blurring the image prior to performing the hull calculations, the hull is still distorted by this lower resolution.
 
 \subsubsection{Area \& Size Ratio}
-The area of the plant in the image is the number of pixels with non-zero values. The relative area of two plants can then be compared. For instance, if a plant is $1/3$ the size of the largest plant in the image it is more likely than not a weed. This ratio is highly dependent on the development phase of the crop, as the reverse could be true for crop just emerging compared to much larger weeds. For the classification purposes presented here, the larger item is presumed to be crop.
+The area of the plant in the segmented image is simply the number of pixels with non-zero values. The relative area of two plants can then be compared to predict membership in a class. For instance, if a plant is $\frac{1}{3}$ the size of the largest plant in the image it is more likely than not a weed. This ratio is highly dependent on the development phase of the crop, as the reverse could be true for crop just emerging compared to much larger weeds. For the classification purposes presented here, the larger item is presumed to be crop.
 
 \subsubsection{Length/Width Ratio}
 \label{sec:width-length-ratio}
@@ -670,6 +700,85 @@ S =
 \lambda = \frac {eig_{1}(S)} {eig_{2}(S)}
 \end{equation}
 Where $eig_{1}(S)$ and $eig_{2}(S)$ are the maximum eigenvalues of the matrix $S$, with $\lambda$ representing the ratio. (\cite{Lin2017-xq}) The X and Y positions refer to an object's perimeter -- the boundary between an object's edge and the background.
+
+\subsubsection{Boundary Descriptors}
+Once again focusing on the edge of an object, a global descriptor of the shape is the \textit{k-curvature} of the edges, but arriving at this global descriptor involves a few preliminary steps. Changes in the $(x,y)$ position of edge pixels can be described by a \textit{chain code}. A chain code representation of a boundary describes unit length changes in the $(x,y)$ positions of the boundary,  where changes in the position are noted by their position in a matrix:
+
+ \begin{figure}[h!]
+	\centering
+	\begin{subfigure}[h]{.4\textwidth}
+	  \centering
+	  \includegraphics[height=3cm]{./figures/chain-code-matrix.jpg}
+	  \caption{Chain code matrix}
+	  \label{fig:chain-code-matrix}
+	\end{subfigure}
+	%\hfill
+	\begin{subfigure}[h]{.4\textwidth}
+	  \centering
+	  \includegraphics[height=3cm]{./figures/chain-code-cells.jpg}
+	  \caption{Example edge}
+	  \label{fig:chain-example}
+	\end{subfigure}
+%	\hfill
+%		\begin{subfigure}[h]{.25\textwidth}
+%	  \centering
+%	  \includegraphics[height=2cm]{./figures/chain-code-result.jpg}
+%	  \caption{Result}
+%	  \label{fig:chain-result}
+%	\end{subfigure}
+	\caption[Boundary chain codes]{Chain codes of the transitions of an object's edge -- as seen in successive pairs of coordinates -- are described by positions within an 8 position matrix, with each position noting the change in the $(X, Y)$ coordinate (steps of length 1 along the $x,y$ axis lines and of length $\sqrt{2}$ for diagonal movements). In this example the edge has a chain code of 2,1,0,7,7,0,1,1. While this example shows an open curve with a distinct beginning and ending, the boundary of a plant is a closed curve with no distinct end or beginning. A 4 direction matrix is is also used, as is a general $N$-directional chain $(N > 8\ and\ N =2^k)$, although those variants are not addressed in this document. The 8 position matrix is, perhaps, the most relatable, as changes in adjacent boundary pixels always take one of the 8 possibilities present in the matrix. The matrix shown in \ref{fig:chain-code-matrix} is a $3x3$ matrix, but the middle position (implying no change) is not possible -- this is simply an illustration.}
+	\label{fig:chain-codes}
+\end{figure}
+
+The \textit{$\kappa$-slope} of a given boundary point $(X_i, Y_i)$ is estimated from the slope of the line joining positions $(X_{i-k/2}, Y_{i-k/2})$ and $(X_{i+k/2}, Y_{i+k/2})$ with this equation:
+\begin{equation}
+\tan^{-1}\left(\frac{Y_{i+k/2} - Y_{i-k/2}}{X_{i+k/2} - X_{i-k/2}}\right)
+\end{equation}
+ 
+ The \textit{$\kappa$-curvature} of the boundary at location $(X_i,Y_i)$ can be estimated by this equation:
+ \begin{equation}
+ \tan^{-1}\left(\frac{Y_{i+k} - Y_{i}}{X_{i+k} - X_{i}}\right) - \tan^{-1}\left(\frac{Y_{i} - Y_{i-k}}{X_{i} - X_{i-k} }\right)
+ \end{equation}
+ The goal of this metric is to assess the concavity or convexity of points along the perimeter. Consider the weed in this image with the computed $\kappa$-curvature:
+ 
+  \begin{figure}[h!]
+	\centering
+	\begin{subfigure}[h]{.4\textwidth}
+	  \centering
+	  \includegraphics[height=4cm]{./figures/for-curvature-blob-1.jpg}
+	  \caption{Weed}
+	  \label{fig:curvature-weed}
+	\end{subfigure}
+	%\hfill
+	\begin{subfigure}[h]{.4\textwidth}
+	  \centering
+	  \includegraphics[height=4cm]{./figures/curvature-blob-1.jpg}
+	  \caption{$\kappa$-curvature}
+	  \label{fig:curvature-plot}
+	\end{subfigure}
+	\caption[Example of $\kappa$-curvature]{The $\kappa$-curvature of various points around the perimeter of the weed are illustrated here. Positive values are indicative of convex shapes. Likewise, negative values indicate concave shapes.  While it is tempting to relate the values shown in the graph to the image displayed (as the figure invites the user to do), exact correlation is not advised, as the points sampled may not match the finer details that can be seen in the leaf. This example uses a relatively coarse sampling. However, the image does show a pronounced curve at the lower edge that can be seen in the curvature plot.}
+	\label{fig:curvature}
+\end{figure}
+This leads to a global descriptor used in classification: \textit{bending energy}. Bending energy is typically described as the energy required to bend a rod to the shape under consideration, and is expressed as the sum of squares of the $\kappa$-curvature over the boundary length $L$.
+\begin{equation}
+\frac{1}{L} \sum_{p=1}^{L}\kappa(p)^2
+\end{equation}
+While there will be no bending of rods required for classification, this global metric can be used to express the overall shape of the perimeter, exploiting the fact that weeds in a crop and the crop itself exhibit different shapes.
+
+The aspects of the \textit{radial distance} can also be used to describe the shape. \citeauthor{Kilday1993-aq}, in a study of classification of lesions in mammogram images, describe techniques to exploit the radial distance of a shape \parencite{Kilday1993-aq}. Before stepping through those techniques, it may prove useful to step back a bit and look at radial distances of an object.
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=.25\linewidth]{./figures/radial-distance.jpg}
+	\caption[Radial distance from object centroid]{The radial distance from object centroid is noted by \textit{d} in this figure. Scale invariance is achieved by expressing functions of the normalized distance (using the maximum radial distance of the object)}
+	\label{fig:radial-distance}	
+\end{figure}
+As Figure \ref{fig:radial-distance} shows, the radial distance referred to is the distance from an object's centroid (geometric center) to its perimeter. To make this distance scale invariant, the normalized distance to the maximal distance is used. Using the normalized radial distance, the mean and standard deviation is given by these equations for the $i^{th}$ blob:
+\begin{equation}%\labeleqn{Radial distance mean and standard deviation}
+\bar{x}_i = \frac{1}{N}\sum_{k=1}^{N}r_k \qquad
+\sigma_i = \sqrt{\frac{1}{N}\sum_{k=1}^{N}({r_k} - \bar{x}_i)^2}
+\end{equation}
+By themselves these metrics may not be particularly useful in predicting class membership, however these provide useful information for metrics that may be. The number of times the normalized radial distance crosses the mean, for instance, provides an estimate of the roughness of a perimeter.
+
 
 % Begin table of shape equations
 \begin{longtable}{x{\dimexpr.15\columnwidth-2\tabcolsep}
@@ -762,22 +871,50 @@ Where $eig_{1}(S)$ and $eig_{2}(S)$ are the maximum eigenvalues of the matrix $S
 		& See section~\ref{sec:width-length-ratio}
 \tabularnewline\addlinespace
 
+		Bending Energy    
+		& $\frac{1}{L} \sum_{p=1}^{L}\kappa(p)^2$ 
+		&  The energy required to bend a rod to the perimeter shape
+\tabularnewline\addlinespace
+
 \label{table:shape-formulae}
 \end{longtable}
 }
+
 % End table of shape equations
 
 %
 % C O L O R
 %
 \subsection{Color}
-While the Red-Blue-Green (RGB) color space is widely familiar, an image can be represented in other color spaces. Classification will use both components of those reprepresentation (i.e., the mean of an object's \textit{hue} in the HSI space) as well as the data contained within those components being used in other techniques (GLCM, for instance). While viewing the vegetation in one of the components can be fairly seen as not accurately representing the same experience one would have in viewing the object in daylight or other presentations, these components often have information relevant to the task at hand. This section presents a brief overview of the color spaces used in classification.
+Color presentations of an image are ubiquitous, and while the Red-Blue-Green (RGB) color space is widely familiar, an image can be represented in other color spaces. RGB representation is nothing more than three channels, each of which note (respectively) the levels of Red, Greed, and Blue in the image.  Examining each of these channels in isolation usually results in an odd -- but fairly realistic -- view of an object. These other color spaces do not alter the image itself, just the representation.  Choosing to represent the amounts of red, green, and blue in an image is just as arbitrary as other mechanisms, however closely aligned it is with human color perception. Classification will use both components of those representations (i.e., the mean of an object's \textit{hue} in the HSI space) as well as the data contained within those components being used in other techniques (GLCM, for instance). While viewing the vegetation in one of the components can be fairly seen as not accurately representing the same experience one would have in viewing the object in daylight or other presentations, these components often have information relevant to the task at hand. This section presents a brief overview of the color spaces used in classification.
 
-\subsubsection{HSI \& HSV}
-The Hue, Saturation, and Intensity (HSI) and the Hue, Saturation, and Value (HSV) color spaces are closely related color models in that they share an common expression of hue and saturation. While it is a bit simplistic to state, and as the similarities in the name imply, the values for \textit{hue} and \textit{saturation} are identical for these two colorspaces, leaving focus on the \textit{intensity} and \textit{value} components as the unique values that will be analyzed. \parencite[p.~84]{Forsyth2012-hy}
+\subsubsection{Hue-Centric colorspaces: HSI \& HSV}
+The terms {\it color} and {\it hue} are often used interchangeably, and while this is mostly true, hue refers to the dominant color family. In this case, the image is converted to the Hue, Saturation, and Intensity {\it HSV} colorspace and the mean value for the hue of a blob's pixels is taken. The saturation of a color expressed by a component of the Hue, Saturation, and Intensity ({\it HSI}) colorspace and the mean value for the saturation of a blob's pixels is taken. (\cite{Forsyth2012-hy})
+
+The Hue, Saturation, and Intensity (HSI) and the Hue, Saturation, and Value (HSV) color spaces are cylindrical-coordinate representations of the RGB color model.  These models, first developed in the 1970s, rearrange the RGB cube representation to be more perceptually relevant. Both models are closely related in that they share an common expression of hue and saturation. While it is a bit simplistic to state, and as the similarities in the name imply, the values for \textit{hue} and \textit{saturation} are identical for these two colorspaces, leaving focus on the \textit{intensity} and \textit{value} components as the unique values that will be analyzed. \parencite[p.~84]{Forsyth2012-hy} Somewhat confusingly, HSV is sometimes referred to as HSB (or Hue, Saturation, and Brightness); likewise, HSI is  is sometimes referred to as HSL (Hue, Saturation, and Lightness), but the two are identical for the most part. In this cylindrical representation, hue is expressed as the angular dimension, red (at 0\si{\degree}), passing through green (at 120\si{\degree}) and blue (at 240\si{\degree}) In each representation, the vertical axis comprises the neutral, achromatic, or gray colors ranging, from top to bottom, white at lightness 1 (value 1) to black at lightness 0 (value 0).
+
+\begin{figure}[H]
+	\centering
+	\begin{subfigure}[h]{.45\textwidth}
+		\centering
+		\includegraphics[width=6cm]{./figures/HSV_color_solid_cylinder_saturation_gray.png}
+		\caption{HSV/HSB Cylinder}
+		\label{fig:hsv}
+	\end{subfigure}
+	\hfill
+	\begin{subfigure}[h]{.45\textwidth}
+		\centering
+		\includegraphics[width=6cm]{./figures/HSL_color_solid_cylinder_saturation_gray.png}
+		\caption{HSL/HSI Cylinder}
+		\label{fig:hsl}
+	\end{subfigure}
+	\caption[HSL and HSV color representations]{HSL and HSV color representations. (Creative Commons)}
+	\label{fig:overlap}
+\end{figure}
 
 \subsubsection{YIQ}
-The YIQ model of color used by the NTSC color TV system. Y represents the luma information (black and white), I and Q the chrominance information. The processing employed here is to convert the image to the YIQ color space and take the mean value for the I, or in-phase component for the blob's pixels. (\cite{MathWorks_undated-jg})
+The YIQ model of color was used by the (analog) NTSC color TV system. Later, digital transmission schemes used different color spaces, notably the YCbCr that will be addressed in more detail in a separate section. These schemes have a common approach: \textit{chrominance} (a color component) is added to a black and white image. In the YIQ model, $Y$ represents the luma information (black and white), with $I$ (in-phase, representing red-cyan contrast) and $Q$ (quadature, representing magenta-green contrast) the chrominance information. 
+The processing employed here is to convert the image to the YIQ color space and take the mean value for the $I$, or in-phase component for the blob's pixels. (\cite{MathWorks_undated-jg})
 %\begin{figure}[h!]
 %	\centering
 %	\includegraphics[width=0.4\linewidth]{./figures/yiq.png}
@@ -803,6 +940,7 @@ The $I$ component is the feature of interest here, and conversion of RGB to YIQ 
 	B \\[0.3em]
 	\end{bmatrix}	
 \end{equation}
+Here we also see convenience and ubiquity of the RGB colorspace. More often than not, color spaces are expressed as transformation from the RGB values, a technique that will be used in this section.
 
 As Figure \ref{fig:hue_vs_inphase} shows, the tight grouping of the mean hue of an object, while interesting, is not something that can be used to predict if a plant is a weed or crop.  The in-phase component of the YIQ space, however, demonstrates a fairly clean separation that can.
 
@@ -826,12 +964,21 @@ As Figure \ref{fig:hue_vs_inphase} shows, the tight grouping of the mean hue of 
 
 
 \subsubsection{CIElab}
-Often going by the somewhat awkward acronym L*A*B*, this colorspace was intended to approximate human vision, as the L component expresses  the lightness of an object, an attribute seen a more applicable to perception of an object's color than the RGB model of mixtures of the three underlying colors.  The A and B components contain data about green to red, and blue to yellow, respectively. While the space is not completely uniform, it is often employed in describing small changes in color. \parencite{Wikipedia_contributors2023-xt} 
+Often going by the somewhat awkward acronym L*A*B*, this colorspace was intended to approximate human vision, as the L component expresses  the lightness of an object, an attribute seen a more applicable to perception of an object's color than the RGB model of mixtures of the three underlying colors.  The A and B components contain data about green to red, and blue to yellow, respectively, the four unique colors humans can perceive. While the space is not completely uniform, it is often employed in describing small changes in color. The CIElab color space was standardized in the mid-1970s but remains in widespread use today. \parencite{Wikipedia_contributors2023-xt}  The $A$ and $B$ axes are theoretically unbound, but are typically limited to some practical range, say +127 to -127. 
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=.35\linewidth]{./figures/cielab-colorspace.jpg}
+	\caption[CIElab colorspace]{In the CIElab colorspace, positive values for $b$ indicate more yellow; likewise negative values for $b$ indicate more blue. The values for $a$ similarly indicate more red (positive) or more green (negative). This is often referred to as an \textit{opponent representation} (yellow-blue and red-green) (Illustration reproduced from Color Application Specialists)}
+	\label{fig:cielab}	
+\end{figure}
+
+Perceptual uniformity and pragmatic implementation details aside, the use of this colorspace is motivated by some of its salient features, most notably the ability to capture small color changes. These small color changes are expected to be significant in distinguishing crop from weed.
 
 \subsubsection{YCbCr}
-Often encountered for digital video. YCbCr, encodes both luminance information (Y, black and white) and chrominance information (Cb, Cr). Cb and Cr represent the difference between a reference value and the blue or red component, respectively. This color space is similar to another encoding commonly encountered in digital video, YUV. The two spaces are nearly identical.
+Often encountered for digital video, YCbCr encodes both luminance information ($Y$, black and white) and chrominance information ($Cb$, $Cr$). $Cb$ and $Cr$ represent the difference between a reference value and the blue or red component, respectively. This color space is similar to another encoding commonly encountered in digital video, YUV. The two spaces are nearly identical; YCbCr is a scaled version of YUV (used in analog broadcasts) This color space is also referred to by the somewhat shortened abbreviation YCC, although this document will continue to use YCbCr.
 
-The ECMA report on the JPG file format gives this transformation for RGB to YCBCR:
+The ECMA report on the JPG file format gives this transformation for RGB to YCbCr:
 \nocite{Ecma2019-yo}
 \begin{equation}
 	\begin{bmatrix}
@@ -852,13 +999,15 @@ The ECMA report on the JPG file format gives this transformation for RGB to YCBC
 	\end{bmatrix}	
 \end{equation}
 
-\subsubsection{Hue \& Saturation}
-The terms {\it color} and {\it hue} are often used interchangeably, and while this is mostly true, hue refers to the dominant color family. In this case, the image is converted to the Hue, Saturation, and Intensity {\it HSV} colorspace and the mean value for the hue of a blob's pixels is taken. The saturation of a color expressed by a component of the Hue, Saturation, and Intensity ({\it HSI}) colorspace and the mean value for the saturation of a blob's pixels is taken. (\cite{Forsyth2012-hy})
 
 
 
 \subsection{Textural}
-Textural descriptors of a object are formal expressions of the relationship pixel values have with one another, reducing a tactile experience to a numerical one. Here, the analysis technique employed is \textit{Grey-level Co-occurrence Matrix} (GLCM) (\cite{Haralick1973-gr}, \cite{Hall-Beyer2017-nx}). Haralick describes the analysis of an image that has been converted to greyscale values to note the relationship. Table~\ref{tab:glcm-formulae} details the subset that will be used in this analysis. The term \textit{grey-level} implies that the use of the co-occurrence matrix will be limited to greyscale images. Instead, the co-occurrence matrix will also be computed for each of the channels in the YIQ, RGB, CIELab, HSI, HSV, YCbCr colorspaces using the equations detailed in Table~\ref{tab:glcm-formulae}. For instance, the ASM calculation will be performed on the Cb channel of the image in YCbCr space. While co-occurrence matrices are used, this document will continue to reference the entire class as GLCM. GLCM attributes have two factors that relevant to this problem space: the distance of a pixel  considered to be a \textit{neighbor} and the angle of the relationship. Neighbor distance can be thought of as what is considered to adjacent -- the pixel immediately beside the one in question, or further away. This study considers pixels immediately adjacent to be neighbors. While images of crops are often gathered in an orderly manner along a row such that orientation is maintained, the vegetation is not so orderly. That is, different GLCM values for the same plant or obtained simply by rotating it by 45$^{\circ}$. Expressing an orientation-independent feature (texture) as differing with rotation may work well for an analysis of a single, static image set, but may yield sub-optimal results when applied to a general case where rotational differences are expected. \citeauthor*{Haralick1973-gr} discuss this, suggesting that the mean of calculations be used instead of the individual angles.
+Textural descriptors of a object are formal expressions of the relationship pixel values have with one another, reducing a tactile experience to a numerical one. Common texture descriptions, bumpy, rough, smooth, etc., refer to a quality that is useful for a human description, but tends not to be particularly exact. Each of these descriptors, however, has a few attributes in common that can then be used to quantify them relative to a fingertip: the difference between high and low points, and the spacing of these high and low points. A smooth surface could be said to have low differnce between high and low points, with small spacing. A rough surface would exhibit fairly large differences between high and low points with relatively wide spacing (at least compared to a human fingertip). While this list of descriptors is not comprehensive, and the additional quantification incomplete, this gives a sense of what is meant by a more formal texture description. Textural descriptors quantify (at least) two items: the neighborhood where a change is seen, and the direction of that change. Consider, for instance, the coat of a smooth-haired dog. Most of the hairs encountered would be aligned in the same direction, and in that direction the same texture would be encountered.
+Classifying the texture is -- like color -- an analysis of the interior of the plant, and for this analysis three techniques will be used:  \textit{Grey-level Co-occurrence Matrix} (GLCM), \textit{Local Binary Pattern} (LBP) and \textit{Histogram of Oriented Gradients} (HOG). These approaches consider a pixel's relationship with surrounding pixels.
+
+\subsubsection{GLCM}
+In \textit{Grey-level Co-occurrence Matrix} (GLCM) (\cite{Haralick1973-gr}, \cite{Hall-Beyer2017-nx}), Haralick describes the analysis of an image that has been converted to greyscale values to note the relationship. Table~\ref{tab:glcm-formulae} details the subset that will be used in this analysis. The term \textit{grey-level} implies that the use of the co-occurrence matrix will be limited to greyscale images. Instead, the co-occurrence matrix will also be computed for each of the channels in the YIQ, RGB, CIELab, HSI, HSV, YCbCr colorspaces using the equations detailed in Table~\ref{tab:glcm-formulae}. For instance, the ASM calculation will be performed on the Cb channel of the image in YCbCr space. While co-occurrence matrices are used for channels in various colorspaces, this document will continue to reference the entire class as GLCM. GLCM attributes have two factors that relevant to this problem space: the distance of a pixel  considered to be a \textit{neighbor} and the angle of the relationship. Neighbor distance can be thought of as what is considered to adjacent -- the pixel immediately beside the one in question, or further away. This study considers pixels immediately adjacent to be neighbors. The angle of the relationship is a bit more complicated. While images of crops are often gathered in an orderly manner along a row such that orientation is maintained (as can be expected from a camera aboard a UAV or mounted on the back of a tractor), the vegetation is not so orderly. Otherwise identical plants are encountered in the field have markedly different texture descriptors depending on orientation. That is, different GLCM values for the same plant or obtained simply by rotating it by 45$^{\circ}$. Expressing an orientation-independent feature (texture) as differing with rotation may work well for an analysis of a single, static image set, but may yield sub-optimal results when applied to a general case where rotational differences are expected. \citeauthor*{Haralick1973-gr} discuss this, suggesting that the mean of calculations be used instead of the individual angles. 
 \begin{longtable}{x{\dimexpr.15\columnwidth-2\tabcolsep}
                   x{\dimexpr.225\columnwidth-2\tabcolsep}
                   x{\dimexpr.625\columnwidth-2\tabcolsep}}
@@ -927,7 +1076,7 @@ Textural descriptors of a object are formal expressions of the relationship pixe
 \label{table:glcm-formulae}
 \end{longtable}
 
-Figure~\ref{fig:glcm} illustrates an example of GLCM calculations in weed and crop images. While the clusters seen are not neatly divided, two clusters can be seen with the points sampled.
+Figure~\ref{fig:glcm} illustrates an example of GLCM calculations in weed and crop images. While the clusters seen are not neatly divided, two clusters can be seen with the points sampled. This example plots the ASM and Homogeneity of grayscale images to illustrate the textural differences between plants.
 
 \begin{figure}[H]
 	\begin{subfigure}[h]{0.28\linewidth}
@@ -948,7 +1097,7 @@ Figure~\ref{fig:glcm} illustrates an example of GLCM calculations in weed and cr
 		\label{subfig:glcm_plot}		
 	\end{subfigure}%
 	\hfill
-	\caption[An example of GLCM calculations for weed and crop]{GLCM calculations derived from crop (\ref{subfig:glcm_crop}) and weed (\ref{subfig:glcm_crop}) show that the sampled points in weeds and crop fall into two clusters. While this does not account for differences in lighting conditions or resolution between the two images, this illustrates the expected textural differences between the two plant types that are more easily seen (``weeds just look like they would feel different than crops''), than quantified. Crop image source: Dr. Mark Siemens, University of Arizona}
+	\caption[An example of GLCM calculations for weed and crop]{GLCM calculations derived from crop (\ref{subfig:glcm_crop}) and weed (\ref{subfig:glcm_crop}) show that the sampled points in weeds (green dots) and crop (blue dots) fall into two clusters. While this does not account for differences in lighting conditions or resolution between the two images, this illustrates the expected textural differences between the two plant types that are more easily seen (``weeds just look like they would feel different than crops''), than quantified. Crop image source: Dr. Mark Siemens, University of Arizona. Weed image source: University of California Agriculture and Natural Resources}
 	\label{fig:glcm}
 \end{figure}
 
@@ -959,6 +1108,56 @@ While the term \textit{Grey Level} is often applied to this technique (and will 
 	\includegraphics[width=0.9\linewidth]{./figures/glcm-pairs.pdf}
 	\caption[GLCM parameter correlation assessment]{A breakdown of the GLCM parameter calculations detailed in Table~\ref{table:glcm-formulae} for the sample images (greyscale). In contrast to the samples within an image demonstrated by Figure~\ref{fig:glcm}, these calculations are carried out across the entire plant. To negate the distortions seen with specific orientations of vegetation, these are averages across the entire plant, not specific angles. Some of the relationships are interrelated, so the data may look much more interesting than it actually is. \textit{Energy}, for instance, is the square root of \textit{ASM}, so no special significance should be attributed to that curve presented above. For the purposes of exploring the data, it is not of particular concern what class 0 and 1 represent.}
 \end{figure} 
+
+\subsubsection{Local Binary Pattern}
+Often shortened to LBP, \citeauthor{Ojala1996-ps} first described Local Binary Patterns, concentrating on a pixel's immediate neighbors, and treating the result as a value that can be thought of as describing that central pixel. While first proposed as a texture descriptor, its use in more general computer vision problems has expanded since it was first introduced. However useful this approach is, it does have a hard limitation: only a 3x3 matrix can be used to produce the final value. This is more of a limitation than it first appears, as this technique is not suitable for capturing details at varying scales.
+
+\begin{figure}[H]
+	\begin{subfigure}[h]{0.48\linewidth}
+		\centering
+		\includegraphics[height=2cm]{./figures/lbp_thresholding.jpg}
+		\caption{LBP Thresholding}
+		\label{subfig:lbp-thresholding}	
+	\end{subfigure}
+	\hfill
+	\begin{subfigure}[h]{0.48\linewidth}
+		\centering
+		\includegraphics[height=2cm]{./figures/lbp_calculation.jpg}
+		\caption{LBP Calculation}
+		\label{subfig:lbp-calculation}		
+	\end{subfigure}%
+	\caption[Local Binary Pattern thresholding and calculation]{To determine the LBP value of the central pixel (marked in red in \ref{subfig:lbp-thresholding}), the value is thresholded to produce the second matrix: where the original matrix has a value $<$ 4 the original value is replaced with a 0. Values greater than 4 are replaced by a 1. This result matrix is then used as the binary values of a single integer, 23 in this example. Considering a 3x3 matrix, there are $2^8$ possibilities. (Images reproduced from PyImageSearch)}
+	\label{fig:lbp}
+\end{figure}
+
+To make this technique more useful, a variant of this is used, where a circular neighborhood is considered instead of a square. The radius of the circle allows consideration of features at different scales.  Subsets of an image can then be described by moving the square or circular neighborhood across the image.  Sampling in a circular pattern will mean that some samples will not be be between two pixels. In this case, the intensity value used for the comparison can be determined by bilinear interpolation. This sampling discrepancy between a pixel's center and the actual sampling point can be seen in the middle neighborhood diagram of Figure ~\ref{fig:lbp-circular}, where pixel centers and sampling points are not aligned in many instances.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[height=2cm]{./figures/lbp_circular.jpg}	
+	\caption[Local Binary Pattern circular neighborhoods]{The size of a neighborhood can be varied depending on the size of the detail to be characterized. The neighborhood on the left roughly corresponds to the 8 position square neighborhood seen in Figure \ref{fig:lbp} (Image reproduced from PyImageSearch)}
+	\label{fig:lbp-circular}
+\end{figure}
+
+An introduction to LBP concepts would not be complete without addressing the notion of \textit{LBP Uniformity}. An LBP is considered to be uniform if it has at most two $0 \rightarrow 1$ or $1 \rightarrow 0$ transitions in the binary representation. The LBP pattern $01000000$ shows one $0 \rightarrow 1$ transition and one $1 \rightarrow 0$ transition, making it uniform. A pattern such as $01010000$ would not be considered uniform, as there are more than two transformations. This 
+
+
+\subsubsection{Histogram of Oriented Gradients}
+Often shortened to \textit{HOG}, this technique is a technique to formalize the gradient orientation and magnitude of local portions of an image \parencite[p.~155]{Forsyth2012-hy}. This is a structural analysis that gives insight to not only the overall shape of the object, but to the interior details as well, as this technique is geared toward the identification of high-contrast edges within the object. Contrast this with the shape analysis detailed earlier in the document where the concern was limited almost exclusively to the perimeter of the vegetation.  As shape analysis considers only the edge of the blob, the vegetation is effectively a cartooned image, providing only areas of black and white. This technique considers small cells within an image, lowering the risk that a gradient with low contrast will be missed, as it will be compared (and normalized) within that small cell. While much of the literature on this topic focuses on describing an entire scene, that is not the case here, as the background has been eliminated and the object in question is known to be vegetation.
+The detail shown in Figure~\ref{fig:hog} is still recognizable as vegetation, but illustrates gradient orientation of 16x16\footnote{The cell size can be varied, of course. This size was selected somewhat arbitrarily} cells of the image, not pixel values. It is these orientations that will be exploited in classification.  For the classification approach described in this document, the gradients will be reduced to a few numbers to describe each plant. Specifically the mean, standard deviation, and the range of the magnitudes of the gradient descriptors for a plant. In lettuce the orientation of a gradient is visible even to the unaided eye, as the vein structure can be used to classify the image \parencite{Elhariri2014-eo}. While detailed analysis of structures will not be directly used in classification, the overall effect of those structures will be used. That is, to say that leaf is ``very veiny'' or ``quite rough'' can be quantified with a few numbers that are reflective of the overall texture of the plant.
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.4\linewidth]{./figures/hog.jpg}
+	\caption[HOG Representation of Lettuce]{HOG Representation of greyscale lettuce image. This image represents not the actual pixels of the image, but is a representation of the gradients found within each 16x16 cell.}
+	\label{fig:hog}
+\end{figure}
+
+\begin{figure}[h!]
+	\centering
+	\includegraphics[width=0.7\linewidth]{./figures/hog-pairs.pdf}
+	\caption[HOG features used in classification]{Instead of considering the values of small cells contained within the perimeter of the blob, the classification will use attributes of that portion of the image. That is, the measurements shown in this figure are for the blob in question, not for the image as a whole. For the purposes of exploring the data, it is not of particular concern what class 0 and 1 represent.}
+	\label{fig:hog-pairs}
+\end{figure}
 
  
 
@@ -983,24 +1182,10 @@ While images obtained in close proximity to the planting beds may contain only a
 	\label{fig:hough-transform}
 \end{figure}
 
-\subsection{Histogram of Oriented Gradients}
-Often shortened to \textit{HOG}, this technique is a technique to formalize the gradient orientation and magnitude of local portions of an image \parencite[p.~155]{Forsyth2012-hy}. This is a structural analysis that gives insight to not only the overall shape of the object, but to the interior details as well, as this technique is geared toward the identification of high-contrast edges within the object. Contrast this with the shape analysis detailed earlier in the document where the concern was limited almost exclusively to the perimeter of the vegetation.  As shape analysis considers only the edge of the blob, the vegetation is effectively a cartooned image, providing only areas of black and white. This technique considers small cells within an image, lowering the risk that a gradient with low contrast will be missed, as it will be compared (and normalized) within that small cell. While much of the literature on this topic focuses on describing an entire scene, that is not the case here, as the background has been eliminated and the object in question is known to be vegetation.
-The detail shown in Figure~\ref{fig:hog} is still recognizable as vegetation, but illustrates gradient orientation of 16x16\footnote{The cell size can be varied, of course. This size was selected somewhat arbitrarily} cells of the image, not pixel values. It is these orientations that will be exploited in classification.  For the classification approach described in this document, the gradients will be reduced to a few numbers to describe each plant. Specifically the mean, standard deviation, and the range of the magnitudes of the gradient descriptors for a plant. In lettuce the orientation of a gradient is visible even to the unaided eye, as the vein structure can be used to classify the image \parencite{Elhariri2014-eo}. While detailed analysis of structures will not be directly used in classification, the overall effect of those structures will be used. That is, to say that leaf is ``very veiny'' or ``quite rough'' can be quantified with a few numbers that are reflective of the overall texture of the plant.
-\begin{figure}[H]
-	\centering
-	\includegraphics[width=0.4\linewidth]{./figures/hog.jpg}
-	\caption[HOG Representation of Lettuce]{HOG Representation of greyscale lettuce image. This image represents not the actual pixels of the image, but is a representation of the gradients found within each 16x16 cell.}
-	\label{fig:hog}
-\end{figure}
 
-\begin{figure}[h!]
-	\centering
-	\includegraphics[width=0.7\linewidth]{./figures/hog-pairs.pdf}
-	\caption[HOG features used in classification]{Instead of considering the values of small cells contained within the perimeter of the blob, the classification will use attributes of that portion of the image. That is, the measurements shown in this figure are for the blob in question, not for the image as a whole. For the purposes of exploring the data, it is not of particular concern what class 0 and 1 represent.}
-	\label{fig:hog-pairs}
-\end{figure}
 
 \subsection{Overlapping Vegetation}
+\label{problem-overlap}
 
 Before considering the details of classification, it is worth considering a problem that is sometimes seen: overlapping vegetation. While vegetation can overlap itself (in that leaves may obscure other leaves in the same plant), this becomes problematic when desired and undesired vegetation overlap, creating the appearance of two plants being seen as one. Normal overlap within a plant's leaves renders edge detection ineffective in this instance -- that is, distinguishing between expected, normally occurring overlap within a plant's leaves, and overlap between plants is problematic. Overlapping vegetation is problematic in the current processing flow, as a plant is identified by the pixels within a contiguous  perimeter. In this case it is detected as part of the adjoining vegetation, distorting the calculations detailed in previous sections.  Consider this portion of an image:
 \begin{figure}[H]
@@ -1048,26 +1233,94 @@ Consider a sample of Purslane detailed in Figure~\ref{fig:segmentation-problem}.
 	\label{fig:segmentation-problem}
 \end{figure}
 
-Even weeds that are predominantly green have portions that are less green than others. The color of the purslane stem is a shade of red that is not isolated by considering only a single threshold of the vegetation indices discussed earlier in this document. While using a second threshold value to capture the stems is an option, this approach is complicated by the red content of the background. This problem is not unique to purslane, but can be seen in other vegetation with significant amounts of red in edges of leaves such as found in redroot pigweed (\textit{Amaranthus retroflexus}).  The presence of red in leaves mis-identification of leaves as separate plants (stems) and to the distortion of shape metrics (leaves). While this tends toward a negative impact on calculations that involve the entire plant, calculations involving only the leaves does not appear to have detrimentally affect classification.
+Even weeds that are predominantly green have portions that are less green than others. The color of the purslane stem is a shade of red that is not isolated by considering only a single threshold of the vegetation indices discussed earlier in this document. While using a second threshold value to capture the stems is an option, this approach is complicated by the red content of the background -- the ground may have a significant red hue, a situation not frequently encountered with green vegetation. This problem is not unique to purslane, but can be seen in other vegetation with significant amounts of red in edges of leaves such as found in redroot pigweed (\textit{Amaranthus retroflexus}).  The presence of red in leaves mis-identification of leaves as separate plants (stems) and to the distortion of shape metrics (leaves). While this tends toward a negative impact on calculations that involve the entire plant, calculations involving only the leaves does not appear to have detrimentally affect classification.
 
-\begin{figure}[h!]
+%\begin{figure}[h!]
+%	\centering
+%	\begin{subfigure}[h]{.40\textwidth}
+%		\centering
+%		\includegraphics[width=6cm]{./figures/arranged-with-purslane-before.jpg}
+%		\caption{Lettuce \& Purslane}
+%		\label{fig:purslane-before}
+%	\end{subfigure}
+%	\begin{subfigure}[h]{.40\textwidth}
+%		\centering
+%		\includegraphics[width=6cm]{./figures/arranged-with-purslane-after.jpg}
+%		\caption{After segmentation and classification}
+%		\label{fig:purslane-after}
+%	\end{subfigure}
+%	\caption[Segmentation problems do not affect classification]{While the red stems of the purslane are not present in the arranged image shown here, making each leaf appear as a separate plant, this does not negatively impact the classification. (Note that the purslane image is the same one as is used in Figure~\ref{fig:purslane}). This is likely due to the relatively small contribution the stems make to GLCM calculations. While one plant is identified here as numerous individuals, each of those classifications is made correctly.}
+%	\label{fig:purslane-classification}
+%\end{figure}
+
+\section{Manual Classification}
+As the classification methods are supervised, producing a classified dataset is required. That is, a human must first mark up each entry in the set of identified vegetation to indicate the class (crop or weed) to which each belongs.  While the specific number of images will vary with the altitude, overlap, and ground area, the fairly small ground area imaged will result in a small set of images (the total for each collection is shown in Table \ref{tab:acquisition}), even those taken at altitudes as low as \SI{2.0}{\meter} AGL.
+
+\begin{wraptable}{R}{5.5cm}
+	\def\arraystretch{0.70}
+	\caption{Image Counts}
+ 	\label{tab:acquisition}
+ 	\begin{tabular}[t]{ll} 
+		\textbf{AGL} & \textbf{Images} \\
+		\midrule
+		      0.5m & 85  \\
+		      1.0m & 65  \\
+		      2.0m & 52 \\
+		      5.0m & 6  \\
+		      20cm & 20 
+	\end{tabular}
+\end{wraptable}
+
+
+To allow for (relatively) painless class assignment for the images, a custom label application was developed\footnote{Development details are supplied elsewhere, but the application was developed in Python using the PyQt5 framework for GUI applications} that presented each segmented image for manual classification. Each of the blobs in the image are assigned a class by the user. That is, a human establishes the ground truth of each plant. The end result of this is to produce a training set that can be used in subsequent algorithmic classification.
+\begin{figure}[H]
 	\centering
-	\begin{subfigure}[h]{.40\textwidth}
-		\centering
-		\includegraphics[width=6cm]{./figures/arranged-with-purslane-before.jpg}
-		\caption{Lettuce \& Purslane}
-		\label{fig:purslane-before}
-	\end{subfigure}
-	\begin{subfigure}[h]{.40\textwidth}
-		\centering
-		\includegraphics[width=6cm]{./figures/arranged-with-purslane-after.jpg}
-		\caption{After segmentation and classification}
-		\label{fig:purslane-after}
-	\end{subfigure}
-	\caption[Segmentation problems do not affect classification]{While the red stems of the purslane are not present in the arranged image shown here, making each leaf appear as a separate plant, this does not negatively impact the classification. (Note that the purslane image is the same one as is used in Figure~\ref{fig:purslane}). This is likely due to the relatively small contribution the stems make to GLCM calculations. While one plant is identified here as numerous individuals, each of those classifications is made correctly.}
-	\label{fig:purslane-classification}
+	\includegraphics[scale=0.25]{./figures/screenshot-classification.jpg}
+	\caption[Manual classification application screenshot]{Each blob is manually labeled with the correct class, allowing for the supervised classification approaches to classification presented later in this document to function and to assess accuracy. This application presented each image and initial assignment of the individual plants contained within that image, allowing the human expert to correct the initial assignment. Note that the initial assignment is merely for convenience -- the initial class assignment could just as well have been arbitrary.}
+	\label{fig:screenshot-classification}
 \end{figure}
 
+\begin{tiny}
+% Highlight the last column
+\begin{longtable}{llllllh}
+\caption[Vegetation Type before Manual Classification]{Vegetation Type before Manual Classification}\\
+\toprule
+All other & cie\_b\_contrast\_avg	 & cie\_b\_dissimilarity\_avg	& cie\_b\_ASM\_avg	& name & number & \textbf{type} \\
+\midrule
+\endfirsthead
+\caption[]{Parameter Rankings} \\
+\toprule
+All other & cie\_b\_contrast\_avg	 & cie\_b\_dissimilarity\_avg	& cie\_b\_ASM\_avg	& name & number & \textbf{type} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{5}{r}{{Continued on next page}} \\
+\midrule
+\endfoot
+
+\bottomrule
+\endlastfoot
+
+- &6301.011981218508	&49.71044205222172	&0.4685115397070943	&image-30-blob-0	&180	&0 \\
+- &4175.090715594958	&41.10014962780084	&0.1362153347621408	&image-30-blob-1	&181	&0 \\
+- &6156.428566816558	&49.36721780237519	&0.4390896935316736	&image-30-blob-2	&182	&0 \\
+- &2488.164269406393	&29.97195585996956	&0.046253458	           &image-30-blob-3	&183	&0 \\
+- &4975.8718916524285	&45.74685146509714	&0.2129808994576038 &image-30-blob-6	&186	&0 \\
+- &3515.707728494623	&43.87426075268817	&0.028970925	           &image-30-blob-7	&187	&0
+\end{longtable}
+\end{tiny}
+
+%
+% I M B A L A N C E
+%
+\section{Class Imbalance}
+Plantings often exhibit a somewhat inconvenient feature: weeds and crop do not appear in the same proportion. While having a low weed count is probably desirable for crop production, it is While this can present itself as a relatively mild imbalance of nine weed plants for every 10 crop plants or a more extreme ratio of 1000 crop plants for every weed. \citeauthor{Fernandez2018-fw}, in a book discussing imbalanced datasets, detail several correction algorithms, among them SMOTE, ADASYN, Borderline SMOTE, kmeans, and SVM \parencite{Fernandez2018-fw}. While the imbalance ratio of the training set will most assuredly deviate from the 1:1 ideal, it is not particularly important what the specific ratio is, as the data will be trimmed to reflect the various ratios. That is, while a dataset may have a relatively low imbalance of 10:8, samples of the minority class are discarded to achieve a much higher imbalance. As Figure \ref{fig:imbalance} shows, substituting synthetic data improves the F1 scores of various classification techniques in most cases, but some of the impact is quite trivial and -- in rare cases -- detrimental (note the case of using a \textit{kmeans} approach to correct the data for a \textit{decision tree} classification). In most cases. of course, the solution 
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.9\linewidth]{./figures/imbalance.png}
+	\caption[Class imbalance correction techniques]{The impact on F1 scores of class imbalance correction techniques for various ratios and classification strategies can be seen in this visualization. The F1 score of the multi-layer perceptron classification, for instance, starting with a dataset with a 30:2 imbalance, is increased by 85\% when the imbalance is corrected using the ADASYN algorithm.}
+	\label{fig:imbalance}
+\end{figure}
 %
 % S Y S T E M  D E S I G N
 %
@@ -1105,31 +1358,63 @@ There is a 1:N relationship between an image and the blobs found within that ima
 % I M A G E  A C Q U I S I T I O N
 %
 \section{Acquisition of Images in Study Area and Processing}
-The study will be carried out at the Maricopa Agricultural Center (MAC) on three fields:
+Image acquisitions were carried out at the Maricopa Agricultural Center (MAC) on a cantaloupe planting (N 33.061857, E 111.967145) consisting of 3 water treatments: flood, drip, and center-pivot, each watered at 80\% and 100\%. Only the flood treatment will be imaged and considered for this study. This is mostly motivated by practical considerations: it is not anticipated that the drip treatment plots will have a significant number of weeds, and while avoiding the center-pivot device during UAV flights at low altitudes is not particularly difficult, images will not be collected in that part of the field.  Image acquisition will take place on at regular intervals beginning in April 2024 and continuing through May 2024. All images were acquired using a DJI Mavic Air 2S with a stock RGB 20 MP sensor. The UAV camera has the following relevant details:
+
 \begin{itemize}
-	\item{Lettuce, flood irrigated}
-	\item{Spinach, one field flood irrigated \& one field with center-pivot irrigation}
+	\item{13.25mm sensor width}
+	\item{8.38mm focal length}
+	\item{5464 pixel width}
+	\item{3640 pixel height}
 \end{itemize}
 
-Image acquisition will take place on at regular intervals beginning in November 2023 and continuing through April 2024.
+Missions were planned and executed with Dronelink software, a commercially available package.  Where feasible, missions were conducted in the same ambient light conditions, but an exact match of ambient conditions using uncontrolled lighting is not always possible.
+As illustrated by Figure \ref{fig:field-layout} the largest flood irrigated area is \SI{4536}{\metre\squared}, a location where image acquisition took place. While images of this reduced subset will reduce the presence of plants in the adjacent drip irrigation plots, this will not ensure that they are not imaged.  Consider the size of the ground captured with a UAV flight at various heights:
 
-All images were acquired using a DJI Mavic SE with a stock RGB 20 MP sensor. Missions were planned and executed with Dronelink software, a commercially available package.  Where feasible, missions were conducted in the same ambient light conditions, but an exact match of ambient conditions using uncontrolled lighting is not always possible.
+\begin{table*}[h!] \centering
+\begin{tabular}{SSSSSSSS} \toprule
+    {AGL (m)} & {Captured Width (m)} & {Images} \\ \midrule
+    1  & 2 & xxx \\
+    2  & 3  & xxx  \\
+    5  & 8  & xxx  \\
+    10  &16  & xxx     \\
+    20 &32 & xxx \\ \bottomrule
+\end{tabular}
+\caption{Ground captured at various distances AGL}
+\label{table:captured}
+\end{table*}
+As Table \ref{table:captured} shows, the capture area is approaching the width of three plots at 10 meters AGL and exceeding the flood treatment area and 20 meters AGL. While capturing images in the adjacent plots was undesired, doing so had no appreciable affects in classification.
+
+\begin{figure}[h!]
+	\centering
+	\includegraphics[width=0.8\linewidth]{./figures/test-area.png}
+	\caption[Field layout for image acquisition]{The train and test subsets of the 80\% and 100\% water treatment of the flood irrigation is considered for this study. As the drip irrigation is not likely to show many weeds, it was not considered for this study.}
+	\label{fig:field-layout}
+\end{figure}
 
 Images were color corrected against images taken before each flight of a Spyder CHECKR24 calibration target. The digital negative of each image (DNG, a standard format for raw sensor data) was corrected and converted to JPG format for subsequent processing.\footnote{The merits of raw, uncompressed, and unprocessed sensor data versus compressed, processed formats like JPG are beyond the scope of this document, but it is fair to say taking raw sensor data, processing, and then producing a compressed JPG is precisely what consumer products like phone cameras do. So that the color correction step can be inserted, the process of producing an image that can be viewed with most software is altered a bit, but essentially unchanged.}
+
+As illustrated in Figure \ref{fig:field-layout}, the train and test image sets acquired were physically separate. The goal is simple to state: items in the training subset should never appear in the testing subset. The side-lap and front-lap of UAV acquired images makes this task much more difficult, although any set of images of adjacent objects will exhibit this complication. Consider a UAV image acquisition of three plants, as shown in Figure \ref{fig:uav-overlap}. In this example, plants (even if it is only a portion) appear in multiple images. While this is expected -- and even desired for stitching the images together -- this complicates splitting the image set into train and test segments such that the same plant does not appear in both segments. The most pragmatic approach here is to simply avoid the problem by not performing a split at all. Collecting, instead, a completely separate train and test set of images. This approach has an additional benefit in that a test set can now be acquired from a different part of the field. Consider the case where the test set is taken from the \textit{drip} treatment area. While it will not have a particularly high weed load, it should be possible to classify the crop in that image set with the same accuracy as seen in the image set taken in the \textit{flood} treatment. While this study did not examine classification accuracy across water treatment methods, the clean separation of the train and test segments also means that test segments can be captured for different crops or different portions of the same field.
+
+\begin{figure}[h!]
+	\centering
+	\includegraphics[width=0.5\linewidth]{./figures/overlap.png}
+	\caption[Image overlap in UAV images]{The same plant appears in multiple images. As seen here, plants \#1 and \#3 appear in two (fully in images \#1 and \#2, partially in images \#3 and \#4), and plant \#3 appears in full in four images. A train/test split is possible, of course, but requires knowledge of what an image contains.}
+	\label{fig:uav-overlap}
+\end{figure}
+
 	
 %
 % L A B E L S
 %
 \section{Manual Classification}
-Each image was manually classified using a Python application that took the initial results of the image segmentation, blob identification, and classification to allow the user to assign the correct assignment. This process was not to part of the process to provide an accuracy score, but to label each blob with the true classification in the supervised approach discussed in subsequent sections. As individual plants are not geo-located, it was necessary to perform this manual step for each image acquired at each altitude, as the exact position of a specific plant differed in each image set.
+Each image was manually classified using a Python application that took the initial results of the image segmentation, blob identification, and classification to allow the user to assign the correct assignment for each plant. This process was not to part of the process to provide an accuracy score, but to label each blob with the true classification to be used in the supervised approach discussed in subsequent sections. As individual plants are not geo-located -- and assignments could not simply be made once for a location and then applied to all image sets -- it was necessary to perform this manual step for each image acquired at each altitude, as the exact position of a specific plant differed in each image set.
 
 \begin{figure}[h!]
 	\centering
 	\includegraphics[width=12cm]{./figures/label-screenshot.png}
 	\label{fig:label-screenshot}
-	\caption[Screenshot of application for manually labeling blobs]{Each blob is manually labeled with the correct class, allowing for the supervised classification approaches to classification presented later in this document to function and to assess accuracy.}
+	\caption[Screenshot of application for manually labeling blobs]{Each blob is manually labeled with the correct class, allowing for the supervised classification approaches to classification presented later in this document to function and to assess accuracy. This application presented each image and initial assignment of the individual plants contained within that image, allowing the human expert to correct the initial assignment. Note that the initial assignment is merely for convenience -- the initial class assignment could just as well have been arbitrary.}
 \end{figure}
-
 
 
 \section{Feature Selection}
@@ -1143,16 +1428,19 @@ While the features shown in Table~\ref{table:parameters} are not completely cons
 
 Of these initial findings, it was somewhat unexpected that shape parameters were not among the most significant features.
 
+%
+% Begin Copy-Paste
+%
 
 \begin{longtable}{lllll}
-\caption[Parameters Identified by Selection Technique]{Parameters Identified by Selection Technique}\\
+\caption[Parameter Rankings]{Parameter Rankings}\\
 \toprule
-{}Rank &                  Recursive &                       PCA &              Importance &       Univariate \\
+{} &               Recursive &              PCA &              Importance &                 Univariate \\
 \midrule
 \endfirsthead
-\caption[Parameter Selection by Technique]{Parameter Selection by Technique} \\
+\caption[]{Parameter Rankings} \\
 \toprule
-{}Rank &                  Recursive &                       PCA &              Importance &       Univariate \\
+{} &               Recursive &              PCA &              Importance &                 Univariate \\
 \midrule
 \endhead
 \midrule
@@ -1162,84 +1450,305 @@ Of these initial findings, it was somewhat unexpected that shape parameters were
 
 \bottomrule
 \endlastfoot
-0 &            saturation\_mean &                       hue &     ycbcr-cr\_energy\_avg &  saturation\_mean \\
-1 &                 hog\_stddev &           saturation\_mean &   hsi\_saturation\_ASM\_45 &       hog\_stddev \\
-2 &               hog\_variance &                  in\_phase &       yiq\_i\_contrast\_45 &         hog\_mean \\
-3 &   greyscale\_correlation\_90 &                   cb\_mean &   ycbcr-cb\_contrast\_180 &         in\_phase \\
-4 &                   hog\_mean &                hog\_stddev &             cie\_b\_ASM\_0 &     hog\_variance \\
-5 &  greyscale\_correlation\_avg &                  hog\_mean &      cie\_a\_contrast\_135 &  ycbcr-cr\_ASM\_90 \\
-6 &               yiq\_i\_ASM\_90 &              hog\_variance &      red\_homogeneity\_90 &     value\_ASM\_90 \\
-7 &     greyscale\_contrast\_avg &   greyscale\_homogeneity\_0 &     red\_homogeneity\_135 &    value\_ASM\_135 \\
-8 &  greyscale\_correlation\_180 &  greyscale\_homogeneity\_45 &  hsv\_saturation\_ASM\_180 &     value\_ASM\_45 \\
-9 &    greyscale\_correlation\_0 &  greyscale\_homogeneity\_90 &             red\_ASM\_135 &    value\_ASM\_avg 
-\label{table:parameters}
+0 &                in\_phase &              hue &  greyscale\_contrast\_avg &      green\_correlation\_avg \\
+1 &    ycbcr\_y\_contrast\_avg &  saturation\_mean &                hog\_mean &               hog\_variance \\
+2 &    blue\_correlation\_avg &         in\_phase &                in\_phase &  ycbcr\_y\_dissimilarity\_avg \\
+3 &  greyscale\_contrast\_avg &          cb\_mean &    greyscale\_energy\_avg &    hsv\_hue\_homogeneity\_avg \\
 \end{longtable}
+
+% End Copy-Paste
+ To clarify the names of the parameters
+ \begin{itemize}
+ 	\item{\textit{in\_phase} -- the in-phase component of the YIQ colorspace}
+ 	\item{\textit{ycbcr\_y\_contrast\_avg} -- the mean of the contrast GLCM computation of the $Y$ component of the YCbCr colorspace}
+ \end{itemize}
+ 	
 
 The set of unique parameters across the top 10 selection techniques was relatively small, yielding a search space of 348,330,136 combinations. This parameter space was exhaustively searched to find the set of parameters best suited for each of the  seven classification techniques:
 \begin{itemize}
-	\item{Random Forest}
-	\item{K Nearest Neighbors (KNN)} - The number of neighbors was set to a small value of five.
-	\item{Gradient Boosting}
-	\item{Logistic Regression}
-	\item{Decision Tree}
+	\item{Random Forest (Abbreviated to RF in sections of this document)}
+	\item{K Nearest Neighbors (KNN)}
+	\item{Gradient Boosting (GRADIENT}
+	\item{Logistic Regression (LR)}
+	\item{Decision Tree (DT)}
 	\item{Support Vector Machine (SVM)}
 	\item{Linear Discriminate Analysis (LDA)}
+	\item{Multi-layer Perceptron (MLP)}
+	\item{Extra Trees (Extra)}
 \end{itemize}
 
- Table~\ref{table:optimal-accuracy} contains the result of this search with the accuracy scores using an average across 5 folds.
+As there was no clear agreement between the parameters identified by the selection mechanisms, the results were analyzed to assess the outcome of using a given selection technique and how similar 
+\footnote{The similarity between two lists is given here by the \textit{cosine similarity}, a technique that considers the elements of an array as vectors in n-dimensional space. In this case, there is a bit of pre-processing of the data, as a list of factors is not something that directly lends itself to computation analysis. Instead, the arrays are converted to lists of the frequency of each term. While this may sound uninteresting at first glance, this information can be used to determine how similar two lists are. The formula $\frac {(A \cdot B)} { \lVert A \rVert * \lVert B \rVert }$ is used to produce that metric.}
+the parameters selected by that technique were to the ones identified by other techniques. 
+
+\subsection{Texture}
+\subsection{Color}
+\subsection{Shape}
+\subsection{Optimal}
+
+In Table \ref{table:matches-selection}, Decision Tree classification, for instance, shows a 98\% accuracy with the parameter set identified by \textit{PCA}, but that parameter set is only 25\% similar to the one identified by \textit{Recursive Feature Elimination}. Of special note here is \textit{Feature Importance}. Top accuracy results never matched any of the parameters identified with that technique -- thus the similarity scores of 0 in the table.
 
 \begin{tiny}
-% -- begin copied table
-\begin{longtable}{lllllll}
-\caption[Optimal Parameters for Accuracy]{Optimal Parameters by Technique (Accuracy)}
-\label{table:optimal-accuracy}\\
+% Begin copied table from the output of this command and slightly modified
+%  python results.py -p reviewed -s 1.0 -c parameters.pickle -o show
+
+\begin{longtable}{lcrrrr}
+\caption[short caption]{Parameter selection techniques}
+\label{table:matches-selection}\\
 \toprule
-            RandomForest &                      KNN &         GradientBoosting &       LogisticRegression &
-     DecisionTree &                      SVM &                      LDA \\
+% Begin edits
+& & \multicolumn{4}{c}{Similarity to Parameters Found}\\
+\cmidrule{3-6} 
+\multicolumn{1}{c}{Classification} & \multicolumn{1}{c}{AUC} & \multicolumn{1}{c}{Recursive} &  \multicolumn{1}{c}{PCA} & \multicolumn{1}{c}{Importance} & \multicolumn{1}{c}{Univariate} \\
+% End edits
 \midrule
 \endfirsthead
-\caption[]{Optimal Parameters by Technique (Accuracy)} \\
+\caption[]{Parameter selection techniques} \\
 \toprule
-            RandomForest &                      KNN &         GradientBoosting &       LogisticRegression &
-     DecisionTree &                      SVM &                      LDA \\
+% Begin edits
+& & \multicolumn{4}{c}{Similarity to Parameters Found}\\
+\cmidrule{3-6} 
+\multicolumn{1}{c}{Classification} & \multicolumn{1}{c}{AUC} & \multicolumn{1}{c}{Recursive} &  \multicolumn{1}{c}{PCA} & \multicolumn{1}{c}{Importance} & \multicolumn{1}{c}{Univariate} \\
+% End edits
 \midrule
 \endhead
 \midrule
-\multicolumn{7}{r}{{Continued on next page}} \\
+\multicolumn{6}{r}{{Continued on next page}} \\
 \midrule
 \endfoot
 
 \bottomrule
 \endlastfoot
-                0.948485 &                 0.948485 &                 0.948485 &                 0.948485 &
-         0.948485 &                 0.927273 &                 0.890909 \\
-                 cb\_mean &                  cb\_mean &                  cb\_mean &                  cb\_mean &
-              cb\_mean &                  cb\_mean &                  cb\_mean \\
-      cie\_l\_contrast\_180 &       cie\_l\_contrast\_180 &       cie\_l\_contrast\_180 &       cie\_l\_contrast\_1
-80 &       cie\_l\_contrast\_180 &       cie\_l\_contrast\_180 &       cie\_l\_contrast\_180 \\
-        green\_contrast\_0 &         green\_contrast\_0 &         green\_contrast\_0 &         green\_contrast\_0 &
-         green\_contrast\_0 &         green\_contrast\_0 &         green\_contrast\_0 \\
-      green\_contrast\_180 &       green\_contrast\_180 &       green\_contrast\_180 &       green\_contrast\_180 &
-       green\_contrast\_180 &       green\_contrast\_180 &       green\_contrast\_180 \\
- greyscale\_homogeneity\_0 &  greyscale\_homogeneity\_0 &  greyscale\_homogeneity\_0 &  greyscale\_homogeneity\_0 &
-  greyscale\_homogeneity\_0 &  greyscale\_homogeneity\_0 &  greyscale\_homogeneity\_0 \\
-greyscale\_homogeneity\_45 & greyscale\_homogeneity\_45 & greyscale\_homogeneity\_45 & greyscale\_homogeneity\_45 &
- greyscale\_homogeneity\_45 & greyscale\_homogeneity\_45 & greyscale\_homogeneity\_45 \\
-greyscale\_homogeneity\_90 & greyscale\_homogeneity\_90 & greyscale\_homogeneity\_90 & greyscale\_homogeneity\_90 &
- greyscale\_homogeneity\_90 & greyscale\_homogeneity\_90 & greyscale\_homogeneity\_90 \\
-              hog\_stddev &                 hog\_mean &                 hog\_mean &                 hog\_mean &
-             hog\_mean &                 hog\_mean &                 hog\_mean \\
-          red\_energy\_avg &             hog\_variance &               hog\_stddev &               hog\_stddev &
-            hog\_stddev &               hog\_stddev &               hog\_stddev \\
-          ycbcr-cb\_ASM\_0 &                      hue &             hog\_variance &                 in\_phase &
-         hog\_variance &             hog\_variance &             hog\_variance \\
+DECISIONTREE & 0.98 &      0.25 & 1.00 &       0.00 &       0.50 \\
+DECISIONTREE & 0.96 &      0.25 & 0.50 &       0.00 &       1.00 \\
+DECISIONTREE & 0.97 &      1.00 & 0.25 &       0.00 &       0.25 \\
+       EXTRA & 0.97 &      0.25 & 1.00 &       0.00 &       0.50 \\
+       EXTRA & 0.96 &      0.25 & 0.50 &       0.00 &       1.00 \\
+       EXTRA & 0.96 &      1.00 & 0.25 &       0.00 &       0.25 \\
+    GRADIENT & 0.98 &      0.25 & 1.00 &       0.00 &       0.50 \\
+    GRADIENT & 0.96 &      0.25 & 0.50 &       0.00 &       1.00 \\
+    GRADIENT & 0.97 &      1.00 & 0.25 &       0.00 &       0.25 \\
+         KNN & 0.96 &      0.25 & 1.00 &       0.00 &       0.50 \\
+         KNN & 0.96 &      0.25 & 0.50 &       0.00 &       1.00 \\
+         KNN & 0.96 &      1.00 & 0.25 &       0.00 &       0.25 \\
+         LDA & 0.97 &      0.25 & 1.00 &       0.00 &       0.50 \\
+         LDA & 0.98 &      0.25 & 0.50 &       0.00 &       1.00 \\
+         LDA & 0.96 &      1.00 & 0.25 &       0.00 &       0.25 \\
+    LOGISTIC & 0.96 &      0.25 & 1.00 &       0.00 &       0.50 \\
+    LOGISTIC & 0.96 &      0.25 & 0.50 &       0.00 &       1.00 \\
+    LOGISTIC & 0.85 &      1.00 & 0.25 &       0.00 &       0.25 \\
+         MLP & 0.98 &      0.25 & 1.00 &       0.00 &       0.50 \\
+         MLP & 0.97 &      0.25 & 0.50 &       0.00 &       1.00 \\
+         MLP & 0.96 &      1.00 & 0.25 &       0.00 &       0.25 \\
+RANDOMFOREST & 0.99 &      0.25 & 1.00 &       0.00 &       0.50 \\
+RANDOMFOREST & 0.98 &      0.25 & 0.50 &       0.00 &       1.00 \\
+RANDOMFOREST & 0.96 &      1.00 & 0.25 &       0.00 &       0.25 \\
+         SVM & 0.95 &      0.25 & 1.00 &       0.00 &       0.50 \\
+         SVM & 0.96 &      0.25 & 0.50 &       0.00 &       1.00 \\
+         SVM & 0.78 &      1.00 & 0.25 &       0.00 &       0.25 \\
+
+
+
 \end{longtable}
 
 
+%Endcopiedtable
+\end{tiny}
+Table~\ref{table:optimal-auc} contains the result of this search with the accuracy scores using an average across 5 folds.
+
+\begin{tiny}
+% -- begin copied table
+\begin{longtable}{lllllllll}
+\caption[Optimal Parameters for AUC]{Optimal Parameters by Technique (AUC)}
+\label{table:optimal-auc}\\
+\toprule
+RANDOMFOREST &             KNN &        GRADIENT &         LOGISTIC &       DECISIONTREE &             SVM &
+        LDA &                             MLP &            EXTRA \\
+\midrule
+\endfirsthead
+\caption[]{Optimal Parameters by Technique (AUC)} \\
+\toprule
+RANDOMFOREST &             KNN &        GRADIENT &         LOGISTIC &       DECISIONTREE &             SVM &
+        LDA &                             MLP &            EXTRA \\
+\midrule
+\endhead
+\midrule
+\multicolumn{9}{r}{{Continued on next page}} \\
+\midrule
+\endfoot
+
+\bottomrule
+\endlastfoot
+0.986736 &         0.99875 &        0.982639 &         0.999167 &           0.998889 &        0.998472 &
+    0.99875 &                        0.999722 &         0.999167 \\
+cie\_b\_ASM\_avg &         cb\_mean &   cie\_b\_ASM\_avg &       hog\_stddev &         hog\_stddev &         cb\_mean &
+        cie\_b\_ASM\_avg &                   cie\_b\_ASM\_avg &          cb\_mean \\
+hsi\_intensity\_dissimilarity\_avg &   cie\_b\_ASM\_avg &      hog\_stddev &         in\_phase &           in\_phase &      hog\_stddev & hsi\_inten
+sity\_dissimilarity\_avg & hsi\_intensity\_dissimilarity\_avg &    cie\_b\_ASM\_avg \\
+hue &      hog\_stddev &             hue &  saturation\_mean &    saturation\_mean &             hue &                 s
+aturation\_mean &                             hue &  saturation\_mean \\
+saturation\_mean & saturation\_mean & saturation\_mean & ycbcr\_cr\_ASM\_avg & yiq\_q\_contrast\_avg & saturation\_mean &
+     yiq\_q\_energy\_avg &                 saturation\_mean & yiq\_q\_energy\_avg \\
+\end{longtable}
 
 
 % -- end copied table
 \end{tiny}
+
+% TEMPORARY
+
+% Begin Drip/Pivot
+%
+\begin{tiny}
+% Begin copied table
+\begin{longtable}{lrrrrr}
+\caption[Parameter selection similarities]{Parameter selection similarities for Drip/Pivot}
+\label{table:matches-selection}\\
+\toprule
+% Begin edits
+& & \multicolumn{4}{c}{Similarity to Parameters Found}\\
+\cmidrule{3-6} 
+\multicolumn{1}{c}{Technique} & \multicolumn{1}{c}{Accuracy} & \multicolumn{1}{c}{Recursive} &  \multicolumn{1}{c}{PCA} & \multicolumn{1}{c}{Importance} & \multicolumn{1}{c}{Univariate} \\
+% End edits
+\midrule
+\endfirsthead
+\caption[]{long caption} \\
+\toprule
+% Begin edits
+& & \multicolumn{2}{c}{Similarity to Parameters Found}\\
+\cmidrule{3-6} 
+\multicolumn{1}{c}{Technique} & \multicolumn{1}{c}{Accuracy} & \multicolumn{1}{c}{Recursive} &  \multicolumn{1}{c}{PCA} & \multicolumn{1}{c}{Importance} & \multicolumn{1}{c}{Univariate} \\
+% End edits
+\midrule
+\endhead
+\midrule
+\multicolumn{6}{r}{{Continued on next page}} \\
+\midrule
+\endfoot
+
+\bottomrule
+\endlastfoot
+DECISIONTREE & 0.69 &      0.00 & 1.00 &       0.00 &       0.00 \\
+EXTRA & 0.66 &      0.00 & 1.00 &       0.00 &       0.00 \\
+GRADIENT & 0.67 &      0.00 & 1.00 &       0.00 &       0.00 \\
+KNN & 0.64 &      0.00 & 1.00 &       0.00 &       0.00 \\
+LDA & 0.65 &      0.00 & 1.00 &       0.00 &       0.00 \\
+LOGISTIC & 0.67 &      0.00 & 1.00 &       0.00 &       0.00 \\
+MLP & 0.71 &      0.00 & 1.00 &       0.00 &       0.00 \\
+RANDOMFOREST & 0.68 &      0.00 & 1.00 &       0.00 &       0.00 \\
+SVM & 0.69 &      0.00 & 1.00 &       0.00 &       0.00 \\
+\end{longtable}
+\end{tiny}
+
+%
+% End Drip/Pivot
+
+
+\begin{tiny}
+% Begin copied table
+\begin{longtable}{lrrrrr}
+\caption[Parameter selection similarities]{Parameter selection similarities}
+\label{table:matches-selection}\\
+\toprule
+% Begin edits
+& & \multicolumn{4}{c}{Similarity to Parameters Found}\\
+\cmidrule{3-6} 
+\multicolumn{1}{c}{Technique} & \multicolumn{1}{c}{Accuracy} & \multicolumn{1}{c}{Recursive} &  \multicolumn{1}{c}{PCA} & \multicolumn{1}{c}{Importance} & \multicolumn{1}{c}{Univariate} \\
+% End edits
+\midrule
+\endfirsthead
+\caption[]{long caption} \\
+\toprule
+% Begin edits
+& & \multicolumn{2}{c}{Similarity to Parameters Found}\\
+\cmidrule{3-6} 
+\multicolumn{1}{c}{Technique} & \multicolumn{1}{c}{Accuracy} & \multicolumn{1}{c}{Recursive} &  \multicolumn{1}{c}{PCA} & \multicolumn{1}{c}{Importance} & \multicolumn{1}{c}{Univariate} \\
+% End edits
+\midrule
+\endhead
+\midrule
+\multicolumn{6}{r}{{Continued on next page}} \\
+\midrule
+\endfoot
+
+\bottomrule
+\endlastfoot
+DECISIONTREE & 0.979454 &      0.25 & 1.00 &        0.0 &       0.50 \\
+DECISIONTREE & 0.964706 &      0.25 & 0.50 &        0.0 &       1.00 \\
+DECISIONTREE & 0.967690 &      1.00 & 0.25 &        0.0 &       0.25 \\
+GRADIENT & 0.982353 &      0.25 & 1.00 &        0.0 &       0.50 \\
+GRADIENT & 0.955925 &      0.25 & 0.50 &        0.0 &       1.00 \\
+GRADIENT & 0.967690 &      1.00 & 0.25 &        0.0 &       0.25 \\
+KNN & 0.955968 &      0.25 & 1.00 &        0.0 &       0.50 \\
+KNN & 0.958866 &      0.25 & 0.50 &        0.0 &       1.00 \\
+KNN & 0.958866 &      1.00 & 0.25 &        0.0 &       0.25 \\
+LDA & 0.970631 &      0.25 & 1.00 &        0.0 &       0.50 \\
+LDA & 0.976471 &      0.25 & 0.50 &        0.0 &       1.00 \\
+LDA & 0.955968 &      1.00 & 0.25 &        0.0 &       0.25 \\
+LOGISTIC & 0.961807 &      0.25 & 1.00 &        0.0 &       0.50 \\
+LOGISTIC & 0.955968 &      0.25 & 0.50 &        0.0 &       1.00 \\
+LOGISTIC & 0.853325 &      1.00 & 0.25 &        0.0 &       0.25 \\
+MLP & 0.975610 &      0.25 & 1.00 &        0.0 &       0.50 \\
+MLP & 0.970732 &      0.25 & 0.50 &        0.0 &       1.00 \\
+MLP & 0.956098 &      1.00 & 0.25 &        0.0 &       0.25 \\
+RANDOMFOREST & 0.994118 &      0.25 & 1.00 &        0.0 &       0.50 \\
+RANDOMFOREST & 0.982353 &      0.25 & 0.50 &        0.0 &       1.00 \\
+RANDOMFOREST & 0.964749 &      1.00 & 0.25 &        0.0 &       0.25 \\
+SVM & 0.950085 &      0.25 & 1.00 &        0.0 &       0.50 \\
+SVM & 0.961850 &      0.25 & 0.50 &        0.0 &       1.00 \\
+SVM & 0.780051 &      1.00 & 0.25 &        0.0 &       0.25 \\
+\end{longtable}
+\end{tiny}
+
+% End copied table
+
+% LBP %
+\begin{tiny}
+% Begin copied table from the output of this command and slightly modified
+%  python results.py -p reviewed -s 1.0 -c parameters.pickle -o show
+
+\begin{longtable}{lcrrrr}
+\caption[short caption]{Parameter selection techniques - LBP}
+\label{table:matches-selection}\\
+\toprule
+% Begin edits
+& & \multicolumn{4}{c}{Similarity to Parameters Found}\\
+\cmidrule{3-6} 
+\multicolumn{1}{c}{Classification} & \multicolumn{1}{c}{AUC} & \multicolumn{1}{c}{Recursive} &  \multicolumn{1}{c}{PCA} & \multicolumn{1}{c}{Importance} & \multicolumn{1}{c}{Univariate} \\
+% End edits
+\midrule
+\endfirsthead
+\caption[]{Parameter selection techniques} \\
+\toprule
+% Begin edits
+& & \multicolumn{4}{c}{Similarity to Parameters Found}\\
+\cmidrule{3-6} 
+\multicolumn{1}{c}{Classification} & \multicolumn{1}{c}{AUC} & \multicolumn{1}{c}{Recursive} &  \multicolumn{1}{c}{PCA} & \multicolumn{1}{c}{Importance} & \multicolumn{1}{c}{Univariate} \\
+% End edits
+\midrule
+\endhead
+\midrule
+\multicolumn{6}{r}{{Continued on next page}} \\
+\midrule
+\endfoot
+
+\bottomrule
+\endlastfoot
+DECISIONTREE & 0.78 &      1.00 & 1.00 &       1.00 &       1.00 \\
+       EXTRA & 0.69 &      1.00 & 1.00 &       1.00 &       1.00 \\
+    GRADIENT & 0.77 &      1.00 & 1.00 &       1.00 &       1.00 \\
+         KNN & 0.77 &      1.00 & 1.00 &       1.00 &       1.00 \\
+         LDA & 0.78 &      1.00 & 1.00 &       1.00 &       1.00 \\
+    LOGISTIC & 0.78 &      1.00 & 1.00 &       1.00 &       1.00 \\
+         MLP & 0.78 &      1.00 & 1.00 &       1.00 &       1.00 \\
+RANDOMFOREST & 0.78 &      1.00 & 1.00 &       1.00 &       1.00 \\
+         SVM & 0.78 &      1.00 & 1.00 &       1.00 &       1.00 \\
+\end{longtable}
+
+
+%Endcopiedtable
+\end{tiny}
+% LBP END %
  
 \subsection{Principal Component Analysis}
 The Principal Component Analysis (PCA) \parencite{Muller2016-ui} seen in Figure~\ref{fig:pca} shows most of the variance can be explained by only 3 features: \textit{hue}, \textit{saturation\_mean}, and \textit{in\_phase}.
@@ -1315,6 +1824,8 @@ Plotting these attributes along with their classification via Logistic Regressio
 \end{figure}
   
 \section{Classification}
+Before delving into the details of classification, it is worthwhile to consider an aspect of the images that must be considered in classification: most of the vegetation appearing is crop; very few of the plants are actually weeds. While the scarcity of weeds is certainly a good thing for farmer, that scarcity has some odd effects on the data. If a dataset contains attributes of 1000 crop plants and 100 weeds, for instance, a 99\% accurate classifier is easily achieved by simply classifying every plant as a crop (a reminder than overall accuracy claims are almost always dubious, and are rightly treated as suspect -- here, a high accuracy claim is perilously close to useless). \citeauthor{Fernandez2018-fw}  deals with the topic of imbalanced data (sets where a majority class is seen several times more often as a minority class) at length in his book on the subject, outlining details of solutions to this imbalance between majority (crop) and minority (weed) classes: sampling, algorithmic changes, and cost-sensitive learning \parencite{Fernandez2018-fw}. Sampling corrections fall into two categories: under sample the majority to lower the number in the final set or over sample the minority class to lower the imbalance ratio. While over sampling the minority class has a set of problems that are best summarized as \textit{``there may be only a few samples to even use -- we need to synthesize more''}, under sampling the majority class has its own set of problems that comes down to choosing the \textit{best} samples that are representative of the class. Synthesizing new instances of the minority class and the using those in an over sampling technique are frequently addressed by using Synthetic Minority Oversampling Technique (SMOTE). Numerous variants of SMOTE exist as do alternatives\footnote{\citeauthor{Fernandez2018-fw} discuss the details of SMOTE, SMOTE variants and extensions, and alternative approaches (such as ADASYN, which addresses linear dependencies between synthetic data points) in their book on imbalanced learning \parencite[p.~101]{Fernandez2018-fw}. While the details of these techniques is beyond the scope of this paper, the pre-processing techniques described in that publication will be used in this problem space.} While choosing between the two techniques (over-sample minority or under-sample majority) is frequently done, applying a hybrid technique of both reducing the majority and generating new minority class samples to address the imbalance is also performed. Here, \citeauthor{Fernandez2018-fw} describe two techniques: SMOTE+Tomek Link, and SMOTE+ENN. Tomek links exist between instances of different classes that are close to each other. Removing the majority class instances subsequently increases the distance separating the two classes. The Edited Nearest Neighbor (ENN) algorithm removes instances whose class label differs from two of three nearest neighbors.
+Cost sensitive learning formalizes the concept that some mistakes are more costly than others. Consider the case of weed control: mistakenly stating that a weed is a crop and not treating it is not immediately costly, as no vegetation is altered, but mistakenly stating that a crop is a weed and then applying a treatment is immediately costly, as marketable vegetation has been damaged.
 
 Using the subset of the parameters identified in the previous section, various approaches were used in classifying the objects isolated in the images and detailed in Table~\ref{fig:learning}. The feature sets were split into a 80\%/20\% for these results: 
 
