@@ -8,7 +8,7 @@ import cv2 as cv
 METHOD = 'uniform'
 plt.rcParams['font.size'] = 9
 
-parser = argparse.ArgumentParser("Show various vegetation indices")
+parser = argparse.ArgumentParser("Plot LBP for two images")
 
 parser.add_argument('-l', '--left', action="store", required=True, type=str, help="left image")
 parser.add_argument('-r', '--right', action="store", required=True, type=str, help="right image")
@@ -30,6 +30,9 @@ else:
     img = cv.imread(arguments.right)
     right = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
 
+if not os.path.isdir(arguments.output):
+    print(f"Unable to access output directory: {arguments.output}")
+    exit(-1)
 
 
 def plot_circle(ax, center, radius, color):
@@ -112,7 +115,7 @@ def hist(ax, lbp):
     ignored = 0
     # Originally
     #return ax.hist(lbp.ravel(), density=True, bins=n_bins - ignored, range=(0, n_bins - ignored), facecolor='0.5')
-    return ax.hist(lbp.ravel(), density=False, log=True, bins=n_bins - ignored, range=(0, n_bins - ignored), facecolor='0.5')
+    return ax.hist(lbp.ravel(), density=False, log=True, bins=n_bins - ignored, range=(0, n_bins - ignored), facecolor='black')
 
 def histBrokenY(ax, lbp):
     n_bins = int(lbp.max() + 1)
@@ -213,18 +216,26 @@ refs = {
 # )
 
 # plot histograms of LBP of textures
-fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(nrows=2, ncols=2, figsize=(9, 6))
+fig, ((ax1), (ax3)) = plt.subplots(nrows=2, ncols=1, figsize=(4, 6))
 plt.gray()
 
 ax1.imshow(left)
 ax1.axis('off')
 hist(ax3, refs['left'])
 ax3.set_ylabel('Counts (log scale)')
+plt.savefig(os.path.join(arguments.output, "lbp-left.jpg"), bbox_inches='tight')
+print(f"Figure written as lbp-left.jpg")
 
+fig, ((ax2), (ax4)) = plt.subplots(nrows=2, ncols=1, figsize=(4, 6))
 ax2.imshow(right)
 ax2.axis('off')
 hist(ax4, refs['right'])
 #ax4.set_xlabel('Uniform LBP values')
+plt.savefig(os.path.join(arguments.output, "lbp-right.jpg"), bbox_inches='tight')
+print(f"Figure written as lbp-right.jpg")
+#plt.show()
+
+exit(0)
 
 
-plt.show()
+
