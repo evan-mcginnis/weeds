@@ -886,10 +886,10 @@ By themselves these metrics may not be particularly useful in predicting class m
 % C O L O R
 %
 \subsection{Color}
-Color presentations of an image are ubiquitous, and while the Red-Blue-Green (RGB) color space is widely familiar, an image can be represented in other color spaces. RGB representation is nothing more than three channels, each of which note (respectively) the levels of Red, Greed, and Blue in the image.  Examining each of these channels in isolation usually results in an odd -- but fairly realistic -- view of an object. These other color spaces do not alter the image itself, just the representation.  Choosing to represent the amounts of red, green, and blue in an image is just as arbitrary as other mechanisms, however closely aligned it is with human color perception. Classification will use both components of those representations (i.e., the mean of an object's \textit{hue} in the HSI space) as well as the data contained within those components being used in other techniques (GLCM, for instance). While viewing the vegetation in one of the components can be fairly seen as not accurately representing the same experience one would have in viewing the object in daylight or other presentations, these components often have information relevant to the task at hand. This section presents a brief overview of the color spaces used in classification.
+Color presentations of an image are ubiquitous, and while the Red-Blue-Green (RGB) color space is widely familiar, an image can be represented in other color spaces. RGB representation is nothing more than three channels, each of which note (respectively) the levels of Red, Green, and Blue in the image.  Examining each of these channels in isolation usually results in an odd -- but fairly realistic -- view of an object. These other color spaces do not alter the image itself, just the representation of the colors found in the image.  Choosing to represent the amounts of red, green, and blue in an image is just as arbitrary as other mechanisms, however closely aligned it is with human color perception. Other schemes provide somewhat equivalent -- but typically superior -- encodings of the colors found in the image. The representations are, most often, superior in some way, perhaps either in the range of colors represented or the efficiency of that representation. We will concern ourselves with none of these, however. Each of the representations may have an advantage over the RGB model, but those advantages are of no concern here. Classification will use both components of those representations (i.e., the mean of an object's \textit{hue} in the HSI space) as well as the data contained within those components being used in other techniques (GLCM, for instance). The representation itself may be superior in some aspect to other representations, but aspects of that representation that can be used for classification is the concern in this problem space. While viewing the vegetation in one of the components can be fairly seen as not accurately representing the same experience one would have in viewing the object in daylight or other presentations, these components often have information relevant to the task at hand. This section presents a brief overview of the color spaces used in classification.
 
 \subsubsection{Hue-Centric colorspaces: HSI \& HSV}
-The terms {\it color} and {\it hue} are often used interchangeably, and while this is mostly true, hue refers to the dominant color family. In this case, the image is converted to the Hue, Saturation, and Intensity {\it HSV} colorspace and the mean value for the hue of a blob's pixels is taken. The saturation of a color expressed by a component of the Hue, Saturation, and Intensity ({\it HSI}) colorspace and the mean value for the saturation of a blob's pixels is taken. (\cite{Forsyth2012-hy})
+The terms {\it color} and {\it hue} are often used interchangeably, and while this is mostly true, hue refers to the dominant color family. Black and white are colors, for instance, but they are almost never referred to as a hue. In this case, the image is converted to the Hue, Saturation, and Intensity {\it HSV} colorspace and the mean value for the hue of a blob's pixels is taken. The saturation of a color expressed by a component of the Hue, Saturation, and Intensity ({\it HSI}) colorspace and the mean value for the saturation of a blob's pixels is taken. (\cite{Forsyth2012-hy})
 
 The Hue, Saturation, and Intensity (HSI) and the Hue, Saturation, and Value (HSV) color spaces are cylindrical-coordinate representations of the RGB color model.  These models, first developed in the 1970s, rearrange the RGB cube representation to be more perceptually relevant. Both models are closely related in that they share an common expression of hue and saturation. While it is a bit simplistic to state, and as the similarities in the name imply, the values for \textit{hue} and \textit{saturation} are identical for these two colorspaces, leaving focus on the \textit{intensity} and \textit{value} components as the unique values that will be analyzed. \parencite[p.~84]{Forsyth2012-hy} Somewhat confusingly, HSV is sometimes referred to as HSB (or Hue, Saturation, and Brightness); likewise, HSI is  is sometimes referred to as HSL (Hue, Saturation, and Lightness), but the two are identical for the most part. In this cylindrical representation, hue is expressed as the angular dimension, red (at 0\si{\degree}), passing through green (at 120\si{\degree}) and blue (at 240\si{\degree}) In each representation, the vertical axis comprises the neutral, achromatic, or gray colors ranging, from top to bottom, white at lightness 1 (value 1) to black at lightness 0 (value 0).
 
@@ -913,14 +913,16 @@ The Hue, Saturation, and Intensity (HSI) and the Hue, Saturation, and Value (HSV
 \end{figure}
 
 \subsubsection{YIQ}
-The YIQ model of color was used by the (analog) NTSC color TV system. Later, digital transmission schemes used different color spaces, notably the YCbCr that will be addressed in more detail in a separate section. These schemes have a common approach: \textit{chrominance} (a color component) is added to a black and white image. In the YIQ model, $Y$ represents the luma information (black and white), with $I$ (in-phase, representing red-cyan contrast) and $Q$ (quadature, representing magenta-green contrast) the chrominance information. 
+The YIQ model of color was used by the (analog) NTSC color TV system. Later, digital transmission schemes used different color spaces, notably the YCbCr that will be addressed in more detail in a separate section. These schemes have a common approach: \textit{chrominance} (a color component) is added to a black and white image. In the YIQ model, $Y$ represents the luma information (black and white), with $I$ (in-phase, representing red-cyan contrast) and $Q$ (quadature, representing magenta-green contrast) the chrominance information.  The YIQ and YUV color spaces are variants of each other, as they follow the same basic representation, a luma representation with chrominance in two additional channels.  The U \& V values can be considered the X \& Y axes within the color space, while I \& Q are a second set of axes rotated by $33^o$. Different (and now obsolete) technologies used these encodings: YUV was used by PAL, and YIQ was used by NTSC.
+
+
 The processing employed here is to convert the image to the YIQ color space and take the mean value for the $I$, or in-phase component for the blob's pixels. (\cite{MathWorks_undated-jg})
-%\begin{figure}[h!]
-%	\centering
-%	\includegraphics[width=0.4\linewidth]{./figures/yiq.png}
-%	\caption{YIQ (Reproduced from\protect\cite{Various_undated-cz})}
-%	\label{fig:yiq}
-%\end{figure}
+\begin{figure}[h!]
+	\centering
+	\includegraphics[scale=0.4]{./figures/yiq.png}
+	\caption[YIQ color space at $Y = 0.5$]{A view of the YIQ color space for $Y=0.5$. Of special note here is that the I and Q axes are normalized from -1 to +1. In the YIQ space, the Y component is used by black and white receivers (perhaps difficult to find nowadays), as it represents the Luma information. (Creative Commons)}
+	\label{fig:yiq}
+\end{figure}
 The $I$ component is the feature of interest here, and conversion of RGB to YIQ is achieved with this transformation:
 \begin{equation}
 	\begin{bmatrix}
@@ -942,7 +944,7 @@ The $I$ component is the feature of interest here, and conversion of RGB to YIQ 
 \end{equation}
 Here we also see convenience and ubiquity of the RGB colorspace. More often than not, color spaces are expressed as transformation from the RGB values, a technique that will be used in this section.
 
-As Figure \ref{fig:hue_vs_inphase} shows, the tight grouping of the mean hue of an object, while interesting, is not something that can be used to predict if a plant is a weed or crop.  The in-phase component of the YIQ space, however, demonstrates a fairly clean separation that can.
+As Figure \ref{fig:hue_vs_inphase} shows, the tight grouping of the mean hue of an object class (it is not particularly important, at this juncture, what class $0$ and $1$ actually are), while interesting, is not something that can be used to predict if a plant is a weed or crop.  The somewhat greater variation of the other class is, likewise, interesting, but not an aspect of the data that can be exploited in classification. The in-phase component of the YIQ space, however, demonstrates a fairly clean separation that can, as there is little overlap between the two classes.
 
 
 \begin{figure}[H]
@@ -964,7 +966,7 @@ As Figure \ref{fig:hue_vs_inphase} shows, the tight grouping of the mean hue of 
 
 
 \subsubsection{CIElab}
-Often going by the somewhat awkward acronym L*A*B*, this colorspace was intended to approximate human vision, as the L component expresses  the lightness of an object, an attribute seen a more applicable to perception of an object's color than the RGB model of mixtures of the three underlying colors.  The A and B components contain data about green to red, and blue to yellow, respectively, the four unique colors humans can perceive. While the space is not completely uniform, it is often employed in describing small changes in color. The CIElab color space was standardized in the mid-1970s but remains in widespread use today. \parencite{Wikipedia_contributors2023-xt}  The $A$ and $B$ axes are theoretically unbound, but are typically limited to some practical range, say +127 to -127. 
+Often going by the somewhat awkward acronym L*a*b*, this colorspace was intended to approximate human vision, as the L component expresses  the lightness of an object, an attribute seen a more applicable to perception of an object's color than the RGB model of mixtures of the three underlying colors.  The A and B components contain data about green to red, and blue to yellow, respectively, the four unique colors humans can perceive. While the space is not completely uniform, it is often employed in describing small changes in color. That is, numeric changes correspond to perceptual changes. The CIElab color space was standardized in the mid-1970s but remains in widespread use today. \parencite{Wikipedia_contributors2023-xt}  The $A$ and $B$ axes are theoretically unbound, but are typically limited to some practical range, say +127 to -127. 
 
 \begin{figure}[H]
 	\centering
@@ -976,7 +978,7 @@ Often going by the somewhat awkward acronym L*A*B*, this colorspace was intended
 Perceptual uniformity and pragmatic implementation details aside, the use of this colorspace is motivated by some of its salient features, most notably the ability to capture small color changes. These small color changes are expected to be significant in distinguishing crop from weed.
 
 \subsubsection{YCbCr}
-Often encountered for digital video, YCbCr encodes both luminance information ($Y$, black and white) and chrominance information ($Cb$, $Cr$). $Cb$ and $Cr$ represent the difference between a reference value and the blue or red component, respectively. This color space is similar to another encoding commonly encountered in digital video, YUV. The two spaces are nearly identical; YCbCr is a scaled version of YUV (used in analog broadcasts) This color space is also referred to by the somewhat shortened abbreviation YCC, although this document will continue to use YCbCr.
+Often encountered for digital video, YCbCr encodes both luminance information ($Y$, black and white) and chrominance information ($Cb$, $Cr$). In that respect, of course, it is similar to other spaces separating luma from color encoding. By separating the component the human eye is most sensitive to, brightness ($Y$) from color $Cb$ and $Cr$, the color components can be altered to achieve efficiencies in storage or transmissions that would not be possible where each and every pixel must be represented by the levels of Red, Green, and Blue.  The $Cb$ and $Cr$ components represent the difference between a reference value and the blue or red component, respectively. The JPEG image format exploits these efficiencies in creating compressed images. While the efficiencies of the representation are not of interest in classification, the color representation is. This color space is similar to another encoding commonly encountered in digital video, YUV. The two spaces are nearly identical; YCbCr is a scaled version of YUV (used in analog broadcasts) This color space is also referred to by the somewhat shortened abbreviation YCC, although this document will continue to use YCbCr.
 
 The ECMA report on the JPG file format gives this transformation for RGB to YCbCr:
 \nocite{Ecma2019-yo}
@@ -1007,7 +1009,33 @@ Textural descriptors of a object are formal expressions of the relationship pixe
 Classifying the texture is -- like color -- an analysis of the interior of the plant, and for this analysis three techniques will be used:  \textit{Grey-level Co-occurrence Matrix} (GLCM), \textit{Local Binary Pattern} (LBP) and \textit{Histogram of Oriented Gradients} (HOG). These approaches consider a pixel's relationship with surrounding pixels.
 
 \subsubsection{GLCM}
-In \textit{Grey-level Co-occurrence Matrix} (GLCM) (\cite{Haralick1973-gr}, \cite{Hall-Beyer2017-nx}), Haralick describes the analysis of an image that has been converted to greyscale values to note the relationship. Table~\ref{tab:glcm-formulae} details the subset that will be used in this analysis. The term \textit{grey-level} implies that the use of the co-occurrence matrix will be limited to greyscale images. Instead, the co-occurrence matrix will also be computed for each of the channels in the YIQ, RGB, CIELab, HSI, HSV, YCbCr colorspaces using the equations detailed in Table~\ref{tab:glcm-formulae}. For instance, the ASM calculation will be performed on the Cb channel of the image in YCbCr space. While co-occurrence matrices are used for channels in various colorspaces, this document will continue to reference the entire class as GLCM. GLCM attributes have two factors that relevant to this problem space: the distance of a pixel  considered to be a \textit{neighbor} and the angle of the relationship. Neighbor distance can be thought of as what is considered to adjacent -- the pixel immediately beside the one in question, or further away. This study considers pixels immediately adjacent to be neighbors. The angle of the relationship is a bit more complicated. While images of crops are often gathered in an orderly manner along a row such that orientation is maintained (as can be expected from a camera aboard a UAV or mounted on the back of a tractor), the vegetation is not so orderly. Otherwise identical plants are encountered in the field have markedly different texture descriptors depending on orientation. That is, different GLCM values for the same plant or obtained simply by rotating it by 45$^{\circ}$. Expressing an orientation-independent feature (texture) as differing with rotation may work well for an analysis of a single, static image set, but may yield sub-optimal results when applied to a general case where rotational differences are expected. \citeauthor*{Haralick1973-gr} discuss this, suggesting that the mean of calculations be used instead of the individual angles. 
+In \textit{Grey-level Co-occurrence Matrix} (GLCM) (\cite{Haralick1973-gr}, \cite{Hall-Beyer2017-nx}), Haralick describes the analysis of an image that has been converted to greyscale values to note the relationship. Before delving into the details of the use of GLCM, it might be helpful to address what it is.
+
+\begin{figure}[H]
+	\begin{subfigure}[h]{0.28\linewidth}
+		\includegraphics[height=3cm]{./figures/glcm-example.jpg}
+		\caption{Sample image}
+		\label{subfig:glcm_sample}	
+	\end{subfigure}
+	\hfill
+	\begin{subfigure}[h]{0.28\linewidth}
+		\includegraphics[height=3cm]{./figures/glcm-numeric.jpg}
+		\caption{Numeric equivalent}
+		\label{subfig:glcm_numeric}		
+	\end{subfigure}
+	\hfill
+	\begin{subfigure}[h]{0.28\linewidth}
+		\includegraphics[height=3cm]{./figures/glcm-matrix.jpg}
+		\caption{Co-occurence matrix}
+		\label{subfig:glcm_matrix}		
+	\end{subfigure}%
+	\hfill
+	\caption[GLCM matrix explained]{The GLCM matrix concept is based on the contents of adjacent pixels. \ref{subfig:glcm_sample} shows a simple image containg only three values: 0, 1, and 2 -- as seen in a matrix of the numeric values shown in \ref{subfig:glcm_numeric}. A co-occurence matrix is the count of the number of times adjacent pixels are found.  For instance, cell (0,0) contains a count of the times 0 is adjacent to another 0, 4.}
+	\label{fig:glcm-explained}
+\end{figure}
+As Figure \ref{fig:glcm-explained} shows, a co-occurence matrix is simply a count of a specific value appearing adjacent to another value. However, this brings up two additional factors of what is meant by \textit{adjacent}: how far away a neighbor is, and what angle is considered when forming the count. In the simplistic example, an adjacent neighbor is considered to be directly adjacent (1 away) at an angle of $90^o$ degrees. Alternatively, a neighbor might be considered directly adjacent, but $135^o$ away.  With this in mind the (0,0) count would be 3, instead of the 4 shown in \ref{subfig:glcm_matrix}. This study considers pixels immediately adjacent to be neighbors (neighbor distance of 1). The angle of the relationship is a bit more complicated. While images of crops are often gathered in an orderly manner along a row such that orientation is maintained (as can be expected from a camera aboard a UAV or mounted on the back of a tractor), the vegetation is not so orderly. Otherwise quite similar plants are encountered in the field have markedly different texture descriptors depending on orientation. That is, different GLCM values for the same plant or obtained simply by rotating it by 45$^{\circ}$. That is, the texture description of two lettuce plants might differ markedly based on their growing orientation. Expressing an orientation-independent feature (texture) as differing with rotation may work well for an analysis of a single, static image set, but may yield sub-optimal results when applied to a general case where rotational differences are expected. \citeauthor*{Haralick1973-gr} discuss this, suggesting that the mean of calculations be used instead of the individual angles (calculations performed at $0^o, 45^o, 90^o, 135^o$, and $180^o$ -- angles greater than $180^o$ are not considered.
+
+Table~\ref{tab:glcm-formulae} details the subset that will be used in this analysis. The term \textit{grey-level} implies that the use of the co-occurrence matrix will be limited to greyscale images. Indeed, that is what \citeauthor{Haralick1973-gr} discuss in their article. Instead, the co-occurrence matrix will also be computed for each of the channels in the YIQ, RGB, CIELab, HSI, HSV, YCbCr colorspaces using the equations detailed in Table~\ref{tab:glcm-formulae}. For instance, the ASM calculation will be performed on the Cb channel of the image in YCbCr space. While co-occurrence matrices are used for channels in various colorspaces, this document will continue to reference the entire class as GLCM. 
 \begin{longtable}{x{\dimexpr.15\columnwidth-2\tabcolsep}
                   x{\dimexpr.225\columnwidth-2\tabcolsep}
                   x{\dimexpr.625\columnwidth-2\tabcolsep}}
@@ -1103,6 +1131,10 @@ Figure~\ref{fig:glcm} illustrates an example of GLCM calculations in weed and cr
 
 While the term \textit{Grey Level} is often applied to this technique (and will be used throughout this document with the GLCM abbreviation), the technique will be applied not just to images converted from the RGB colorspace to greyscale, but to the various colorspaces previously discussed. The calculations will be made on each component of those spaces.  That is, each of the seven calculations are made for each component of the various color spaces (YIQ, HSI, etc.). If computations are made for each of the angles (0$^{\circ}$, 45$^{\circ}$, 90$^{\circ}$, 135$^{\circ}$, 180$^{\circ}$) as well as the average the resulting output of many hundreds of calculations is more than can be comfortably presented here. These computations, however, will be presented in subsequent sections, taking the form \textit{$<$colorspace$>$\_$<$component$>$\_$<$glcm-calculation$>$\_$<$angle$>$}, i.e., \textit{yiq\_i\_energy\_135} to indicate the energy computation at 135$^{\circ}$ of the in-phase component of the blob in the YIQ colorspace.
 
+%
+% Produced with this script:
+%
+
 \begin{figure}[H]
 	\centering
 	\includegraphics[width=0.9\linewidth]{./figures/glcm-pairs.pdf}
@@ -1110,7 +1142,7 @@ While the term \textit{Grey Level} is often applied to this technique (and will 
 \end{figure} 
 
 \subsubsection{Local Binary Pattern}
-Often shortened to LBP, \citeauthor{Ojala1996-ps} first described Local Binary Patterns, concentrating on a pixel's immediate neighbors, and treating the result as a value that can be thought of as describing that central pixel. While first proposed as a texture descriptor, its use in more general computer vision problems has expanded since it was first introduced. However useful this approach is, it does have a hard limitation: only a 3x3 matrix can be used to produce the final value. This is more of a limitation than it first appears, as this technique is not suitable for capturing details at varying scales.
+Often shortened to LBP, \citeauthor{Ojala1996-ps} first described Local Binary Patterns, concentrating on a pixel's immediate neighbors, and treating the result as a value that can be thought of as describing that central pixel. While first proposed as a texture descriptor, its use in more general computer vision problems has expanded since it was first introduced. One of the more salient advatanges of LBP is that they are tend not to differ with illumination changes, as the descriptors are based on relative changes from a central pixel, not absolute. Color, in this approach, is ignored, as images are first converted to greyscale before being analysed. However useful this approach is, it does have a hard limitation: only a 3x3 matrix can be used to produce the final value. This is more of a limitation than it first appears, as this technique is not suitable for capturing details at varying scales.
 
 \begin{figure}[H]
 	\begin{subfigure}[h]{0.48\linewidth}
@@ -1130,6 +1162,8 @@ Often shortened to LBP, \citeauthor{Ojala1996-ps} first described Local Binary P
 	\label{fig:lbp}
 \end{figure}
 
+LBP suffers from a few other disadvantages that must be taken into account. LBP is sensitive to noise in the image under consideration, yielding incorrect descriptors than have been ``contaminated'' with noise. Effective de-noising the images is essential in combatting this. A more substatial shortcoming is that the relativelty small sample size of a pixels immediate neighbors means that large scale texture may not be effectively captured. This shortcoming is exacerbated, of course, by extremely high-resolution images, where immediate neighbors are often not very different than a pixel under consideration. It is probably correct to view techniques such as GLCM as effective at capturing \textit{global} texture, and LBP more effective at describing \textit{local} texture.
+
 To make this technique more useful, a variant of this is used, where a circular neighborhood is considered instead of a square. The radius of the circle allows consideration of features at different scales.  Subsets of an image can then be described by moving the square or circular neighborhood across the image.  Sampling in a circular pattern will mean that some samples will not be be between two pixels. In this case, the intensity value used for the comparison can be determined by bilinear interpolation. This sampling discrepancy between a pixel's center and the actual sampling point can be seen in the middle neighborhood diagram of Figure ~\ref{fig:lbp-circular}, where pixel centers and sampling points are not aligned in many instances.
 
 \begin{figure}[H]
@@ -1139,12 +1173,33 @@ To make this technique more useful, a variant of this is used, where a circular 
 	\label{fig:lbp-circular}
 \end{figure}
 
-An introduction to LBP concepts would not be complete without addressing the notion of \textit{LBP Uniformity}. An LBP is considered to be uniform if it has at most two $0 \rightarrow 1$ or $1 \rightarrow 0$ transitions in the binary representation. The LBP pattern $01000000$ shows one $0 \rightarrow 1$ transition and one $1 \rightarrow 0$ transition, making it uniform. A pattern such as $01010000$ would not be considered uniform, as there are more than two transformations. This 
+An introduction to LBP concepts would not be complete without addressing the notion of \textit{LBP Uniformity}. An LBP is considered to be uniform if it has at most two $0 \rightarrow 1$ or $1 \rightarrow 0$ transitions in the binary representation. The LBP pattern $01000000$ shows one $0 \rightarrow 1$ transition and one $1 \rightarrow 0$ transition, making it uniform. A pattern such as $01010000$ would not be considered uniform, as there are more than two transformations. Uniform transitions are featureless areas often termed \textit{flat}.
 
+%
+% Figures generated with:
+% python lbp-graph.py -l ../documents/figures/example-weed.jpg -r ../documents/figures/example-crop.jpg -o ../documents/figures -radius 5
+%
+\begin{figure}[H]
+	\centering
+	\begin{subfigure}{0.48\linewidth}
+		\centering
+		\includegraphics[scale=.4]{./figures/lbp-left.jpg}
+		\caption{LBP of weed}
+		\label{subfig:lbp-weed}	
+	\end{subfigure}
+	\begin{subfigure}{0.48\linewidth}
+		\centering
+		\includegraphics[scale=.4]{./figures/lbp-right.jpg}
+		\caption{LBP of crop}
+		\label{subfig:lbp-crop}		
+	\end{subfigure}%
+	\caption[Local Binary Pattern of a weed and crop plant]{Local Binary Pattern of a weed and crop plant. While the counts (note that the Y axis is log scale) show similar shapes, there are important differences between the two. The counts at the left and right edges of the histograms represent \textit{flat} areas -- regions where neighboring pixels are all white or all black (not surprising, given that the images are segmented, with black substituted for the background). The center peak seen in both images can be thought of as representing the \textit{edges} found in the images. The two dips seen in both graphs are typically refered to as \textit{corner} areas. Graphs taken of $radius=5$.}
+	\label{fig:lbp}
+\end{figure}
 
 \subsubsection{Histogram of Oriented Gradients}
-Often shortened to \textit{HOG}, this technique is a technique to formalize the gradient orientation and magnitude of local portions of an image \parencite[p.~155]{Forsyth2012-hy}. This is a structural analysis that gives insight to not only the overall shape of the object, but to the interior details as well, as this technique is geared toward the identification of high-contrast edges within the object. Contrast this with the shape analysis detailed earlier in the document where the concern was limited almost exclusively to the perimeter of the vegetation.  As shape analysis considers only the edge of the blob, the vegetation is effectively a cartooned image, providing only areas of black and white. This technique considers small cells within an image, lowering the risk that a gradient with low contrast will be missed, as it will be compared (and normalized) within that small cell. While much of the literature on this topic focuses on describing an entire scene, that is not the case here, as the background has been eliminated and the object in question is known to be vegetation.
-The detail shown in Figure~\ref{fig:hog} is still recognizable as vegetation, but illustrates gradient orientation of 16x16\footnote{The cell size can be varied, of course. This size was selected somewhat arbitrarily} cells of the image, not pixel values. It is these orientations that will be exploited in classification.  For the classification approach described in this document, the gradients will be reduced to a few numbers to describe each plant. Specifically the mean, standard deviation, and the range of the magnitudes of the gradient descriptors for a plant. In lettuce the orientation of a gradient is visible even to the unaided eye, as the vein structure can be used to classify the image \parencite{Elhariri2014-eo}. While detailed analysis of structures will not be directly used in classification, the overall effect of those structures will be used. That is, to say that leaf is ``very veiny'' or ``quite rough'' can be quantified with a few numbers that are reflective of the overall texture of the plant.
+Often shortened to \textit{HOG}, this technique is a technique to formalize the gradient orientation and magnitude of local portions of an image \parencite[p.~155]{Forsyth2012-hy}. This is a structural analysis that gives insight to not only the overall shape of the object, but to the interior details as well, as this technique is geared toward the identification of high-contrast edges within the object. Contrast this with the shape analysis detailed earlier in the document where the concern was limited almost exclusively to the perimeter of the vegetation.  As shape analysis considers only the edge of the blob, the vegetation is effectively a cartooned image, providing only areas of black and white. This technique considers small cells within an image, lowering the risk that a gradient with low contrast will be missed, as it will be compared (and normalized) within that small cell. While much of the literature on this topic focuses on describing an entire scene, that is not the case here, as the background has been eliminated and the object in question is known to be vegetation. The concept underlying this technique is that the distribution of gradient intensities across an object is a descriptor of that object. An object is analysed in terms of a set of small, overlapping regions called \textit{cells}.
+The detail shown in Figure~\ref{fig:hog} is still recognizable as vegetation, but illustrates gradient orientation of 16x16 pixels\footnote{The cell size can be varied, of course. This size was selected somewhat arbitrarily} cells of the image, not pixel values. It is these orientations that will be exploited in classification.  For the classification approach described in this document, the gradients will be reduced to a few numbers to describe each plant. Specifically the mean, standard deviation, and the range of the magnitudes of the gradient descriptors for a plant. In lettuce the orientation of a gradient is visible even to the unaided eye, as the vein structure can be used to classify the image \parencite{Elhariri2014-eo}. While detailed analysis of structures will not be directly used in classification, the overall effect of those structures will be used. That is, to say that leaf is ``very veiny'' or ``quite rough'' can be quantified with a few numbers that are reflective of the overall texture of the plant.
 \begin{figure}[H]
 	\centering
 	\includegraphics[width=0.4\linewidth]{./figures/hog.jpg}
@@ -1256,10 +1311,11 @@ Even weeds that are predominantly green have portions that are less green than o
 \section{Manual Classification}
 As the classification methods are supervised, producing a classified dataset is required. That is, a human must first mark up each entry in the set of identified vegetation to indicate the class (crop or weed) to which each belongs.  While the specific number of images will vary with the altitude, overlap, and ground area, the fairly small ground area imaged will result in a small set of images (the total for each collection is shown in Table \ref{tab:acquisition}), even those taken at altitudes as low as \SI{2.0}{\meter} AGL.
 
-\begin{wraptable}{R}{5.5cm}
+\begin{wraptable}{R}{4.5cm}
 	\def\arraystretch{0.70}
 	\caption{Image Counts}
  	\label{tab:acquisition}
+ 	\centering
  	\begin{tabular}[t]{ll} 
 		\textbf{AGL} & \textbf{Images} \\
 		\midrule
@@ -1272,11 +1328,11 @@ As the classification methods are supervised, producing a classified dataset is 
 \end{wraptable}
 
 
-To allow for (relatively) painless class assignment for the images, a custom label application was developed\footnote{Development details are supplied elsewhere, but the application was developed in Python using the PyQt5 framework for GUI applications} that presented each segmented image for manual classification. Each of the blobs in the image are assigned a class by the user. That is, a human establishes the ground truth of each plant. The end result of this is to produce a training set that can be used in subsequent algorithmic classification.
+To allow for (relatively) painless class assignment for the images, a custom label application was developed\footnote{Development details are supplied elsewhere, but the application was developed in Python using the PyQt5 framework for GUI applications.} that presented each segmented image for manual classification. Each of the blobs in the image are assigned a class by the user. That is, a human establishes the ground truth of each plant by setting the ``correct'' type for each blob using the corresponding (highlighted) drop down. The end result of this is to produce a training set that can be used in subsequent algorithmic classification. Table \ref{tab:extract} shows a small sample. Here, the features for each blob are listed, but ignored. Only the type of each blob is set in this step -- 0 representing crop, and 1 representing weed.
 \begin{figure}[H]
 	\centering
 	\includegraphics[scale=0.25]{./figures/screenshot-classification.jpg}
-	\caption[Manual classification application screenshot]{Each blob is manually labeled with the correct class, allowing for the supervised classification approaches to classification presented later in this document to function and to assess accuracy. This application presented each image and initial assignment of the individual plants contained within that image, allowing the human expert to correct the initial assignment. Note that the initial assignment is merely for convenience -- the initial class assignment could just as well have been arbitrary.}
+	\caption[Manual classification application screenshot]{Each blob is manually labeled with the correct class, allowing for the supervised classification approaches to classification presented later in this document to function and to assess accuracy. This application presented each image and initial assignment of the individual plants contained within that image, allowing the human expert to correct the initial assignment. Note that the initial assignment is merely for convenience -- the initial class assignment could just as well have been arbitrary. The correct classification is set by the user with the corresponding highlighted dropdown.}
 	\label{fig:screenshot-classification}
 \end{figure}
 
@@ -1299,6 +1355,7 @@ All other & cie\_b\_contrast\_avg	 & cie\_b\_dissimilarity\_avg	& cie\_b\_ASM\_a
 \endfoot
 
 \bottomrule
+\label{tab:extract}
 \endlastfoot
 
 - &6301.011981218508	&49.71044205222172	&0.4685115397070943	&image-30-blob-0	&180	&0 \\
@@ -1310,17 +1367,53 @@ All other & cie\_b\_contrast\_avg	 & cie\_b\_dissimilarity\_avg	& cie\_b\_ASM\_a
 \end{longtable}
 \end{tiny}
 
+The final product of this manual classification is a collection of blobs found in the image with the shape, color, and texture attributes discussed in prior sections as well as the correct type for that blob, indicating if these attributes are for weed or a crop.
 %
 % I M B A L A N C E
 %
 \section{Class Imbalance}
-Plantings often exhibit a somewhat inconvenient feature: weeds and crop do not appear in the same proportion. While having a low weed count is probably desirable for crop production, it is While this can present itself as a relatively mild imbalance of nine weed plants for every 10 crop plants or a more extreme ratio of 1000 crop plants for every weed. \citeauthor{Fernandez2018-fw}, in a book discussing imbalanced datasets, detail several correction algorithms, among them SMOTE, ADASYN, Borderline SMOTE, kmeans, and SVM \parencite{Fernandez2018-fw}. While the imbalance ratio of the training set will most assuredly deviate from the 1:1 ideal, it is not particularly important what the specific ratio is, as the data will be trimmed to reflect the various ratios. That is, while a dataset may have a relatively low imbalance of 10:8, samples of the minority class are discarded to achieve a much higher imbalance. As Figure \ref{fig:imbalance} shows, substituting synthetic data improves the F1 scores of various classification techniques in most cases, but some of the impact is quite trivial and -- in rare cases -- detrimental (note the case of using a \textit{kmeans} approach to correct the data for a \textit{decision tree} classification). In most cases. of course, the solution 
+Plantings often exhibit a somewhat inconvenient feature: weeds and crop do not appear in the same proportion. While having a low weed count is probably desirable for crop production, it is not for classification. While this can present itself as a relatively mild imbalance of nine weed plants for every 10 crop plants or a more extreme ratio of 1000 crop plants for every weed. In these extreme cases of imbalance, only a few samples of the minority class are used in classification -- and even more unfortunate case is that some weed species may not be present at all in the set used for training. \citeauthor{Fernandez2018-fw}, in a book discussing imbalanced datasets, detail several correction algorithms, among them SMOTE, ADASYN, Borderline SMOTE, kmeans, and SVM \parencite{Fernandez2018-fw}. These algorithms seek to address the imbalance by the creation of synthetic samples of the minority class. While the imbalance ratio of the training set will most assuredly deviate from the 1:1 ideal, it is not particularly important what the specific ratio is, as the data will be trimmed to reflect the various ratios. That is, while a dataset may have a relatively low imbalance of 10:8, samples of the minority class are discarded to achieve a much higher imbalance. In most cases. of course, the solution is to simply collect sufficient training data such that a severe imbalance does not exist, but this may not be a practical solution. This leaves two approaches: under-sample the majority or over-sample the minority. In cases where weeds (the minority) are relatively few, providing synthetic data to restore data to a 1:1 class ratio may be effective. There are various approaches that all have the same basic approach: generate data from the minority class that is similar -- but not identical -- to the data already present. That is, the minority class is over-sampled.
+\subsection{SMOTE}
+The \textit{Synthetic Minority Oversampling TEchnique} is the basic technique used for rebalancing the data set -- other techniques in this section are extensions to that approach \parencite{Chawla2002-dk}. Synthetic data is generated by selecting examples that are close in terms of the \textit{k} nearest neighbors, and selecting new points along the line connected those peers.
+\begin{figure}[H]
+	\centering
+	\includegraphics[scale=0.35]{./figures/smote.png}
+	\caption[SMOTE selection of synthetic data points]{Generating synthetic data points using the SMOTE algorithm considers the \textit{k} nearest neighbors ($N_{1..4}$) to a point under consideration ($X_1$).  The SMOTE algorithm identifies points along the lines connecting a point to its neighbors ($S_{1..5}$). These points are the synthetic samples used to correct the imbalance.}
+	\label{fig:smote}
+\end{figure}
+
+\subsection{ADASYN}
+The Adaptive Synthetic Sampling approach considers the distribution of the minority points, giving more emphasis to points that a harder to learn. \parencite{He2008-xr} Points that are harder to learn are those that are close to a class border, and in that sense, this approach is close to the \text{borderline} proposal.
+
+\subsection{Borderline}
+In the standard SMOTE approach all members of the minority class are considered in synthetic data generation. In this variant first proposed by \citeauthor{Han2005-ui}, only those points far from the class border are considered. The rationale behind this approach is that points close to the border contribute little to distinguishing one class from the other, and should not form the basis for new data \parencite{Han2005-ui}.
+%
+% This article seems to be available only for purchase as the library does not subscribe to that journal
+% This is the reference both for borderline and SVM
+%
+
+
+\subsection{KMeans}
+This variant, like many of the others described here, addresses a weakness in basic SMOTE: points are selected randomly for oversampling consideration. A further downside of the base algorithm is the noise it introduces. As the \citeauthor{Last2017-rh} state in a document introducing the algorithm:
+\begin{quote}
+Another major concern is that SMOTE may further amplify noise present in the data. This is likely
+to happen when linearly interpolating a noisy minority sample, which is located among majority class
+instances, and its nearest minority neighbor. \parencite{Last2017-rh}
+\end{quote}
+This approach differs from algorithms such as \textit{borderline} in that this approach views the class to be adjusted in terms of cluster membership.  In this approach, the clusters are formed with the \textit{kmeans} approach and SMOTE is applied to those clusters with a high portion of the minority class.
+
+\subsection{Support Vector Machine}
+SVM SMOTE increases the points for the minority class along the decision boundary by generating new points along the lines connecting the support vectors and nearest neighbors \parencite{Nguyen2011-cb}.
+
+\subsection{Assessing Techniques}
+To assess the efficacy of the creation of synthetic data, instances in a dataset were first dropped to achieve the imbalance ratio and then restored to a 1:1 ratio between the two classes. Models using the imbalanced data and the artificially balanced data were then compared in terms of the improvement (or degradation) of the F1 score. As Figure \ref{fig:imbalance} shows, substituting synthetic data improves the F1 scores of various classification techniques in most cases, but some of the impact is quite trivial and -- in rare cases -- detrimental (note the case of using a \textit{kmeans} approach to correct the data for a \textit{decision tree} classification). 
 \begin{figure}[H]
 	\centering
 	\includegraphics[width=0.9\linewidth]{./figures/imbalance.png}
-	\caption[Class imbalance correction techniques]{The impact on F1 scores of class imbalance correction techniques for various ratios and classification strategies can be seen in this visualization. The F1 score of the multi-layer perceptron classification, for instance, starting with a dataset with a 30:2 imbalance, is increased by 85\% when the imbalance is corrected using the ADASYN algorithm.}
+	\caption[Class imbalance correction techniques]{The impact on F1 scores of class imbalance correction techniques for various ratios and classification strategies can be seen in this visualization. The F1 score of the multi-layer perceptron classification, for instance, starting with a dataset with a 30:2 imbalance, is increased by 85\% when the imbalance is corrected using the ADASYN algorithm. This dataset was first manipulated to achieve the desired ratio before the algorithms were applied. That is, to achieve a 30:1 imbalance, rows in the minority class were randomly dropped.}
 	\label{fig:imbalance}
 \end{figure}
+
 %
 % S Y S T E M  D E S I G N
 %
@@ -1418,29 +1511,36 @@ Each image was manually classified using a Python application that took the init
 
 
 \section{Feature Selection}
-The features described in the previous section were generated for a set of segmented images, resulting in each plant being described by 715 attributes. Several techniques were then used to explore the relationship between these attributes and the labeled class: Recursive Feature Elimination, Principle Component Analysis (PCA), Feature Importance, and Univariate feature selection.  Specifically, only the most important variables will be selected in the predictions, and those parameters with a weak association are dropped. Unfortunately, different feature ranking techniques identified sets of the most significant features without a clear overlap. There were exceptions to this, of course, as can be seen with the feature \textit{saturation\_mean} identified with the highest rank in most of the analysis.
-While the features shown in Table~\ref{table:parameters} are not completely consistent with each other there are a few themes:
-\begin{itemize}
-\item{Aspects of color data are quite predictive, particularly the saturation of the color.}
-\item{Most structural attributes (convexity, roundness, etc) are not significant.}
-\item{Statistical analysis of the gradients and pixels relationship to each other is significant.}
-\end{itemize}
-
-Of these initial findings, it was somewhat unexpected that shape parameters were not among the most significant features.
+The features described in the previous section were generated for a set of segmented images, resulting in each plant being described by 715 attributes. Several techniques were then used to explore the relationship between these attributes and the labeled class: Recursive Feature Elimination, Principle Component Analysis (PCA), Feature Importance, and Univariate feature selection.  Specifically, only the most important variables will be selected in the predictions, and those parameters with a weak association are dropped. Unfortunately, different feature ranking techniques identified sets of the most significant features without a clear overlap. There were exceptions to this, of course, as can be seen with the feature \textit{saturation\_mean} identified with the in multiple of the techniques. Among the four techniques there are 10 unique parameters.
 
 %
-% Begin Copy-Paste
+% MARICOPA
 %
+% This is what the parameter selection technique shows
+%
+% Output of this command
+% make selections TRAINING=d:\maricopa\processed\2024-05-01\pivot-2m\final\training.csv FACTORS=4 PREFIX=maricopa TYPE=all SUBTYPE=all OUTPUT=d:\maricopa\processed\2024-05-01\pivot-2m\final\classification FORMAT=LATEX
+% python Selection.py -df d:\maricopa\processed\2024-05-01\pivot-2m\final\training.csv -fs ALL -f 4 -l -lg logging.ini -of LATEX -co -ty all -s all -p maricopa
+% 
+% Manual edits
+% 1) Remove leading spaces in header
+% 2) Remove leading spaces in first data column
 
+{
+\begin{small}
+% Reduce the row spacing, so to table looks a bit more packed
+\renewcommand{\arraystretch}{0.9}
+
+% Begin copied table
 \begin{longtable}{lllll}
 \caption[Parameter Rankings]{Parameter Rankings}\\
 \toprule
-{} &               Recursive &              PCA &              Importance &                 Univariate \\
+{} & Recursive &          PCA &                   Importance &                   Univariate \\
 \midrule
 \endfirsthead
 \caption[]{Parameter Rankings} \\
 \toprule
-{} &               Recursive &              PCA &              Importance &                 Univariate \\
+{} & Recursive &          PCA &                   Importance &                   Univariate \\
 \midrule
 \endhead
 \midrule
@@ -1450,13 +1550,17 @@ Of these initial findings, it was somewhat unexpected that shape parameters were
 
 \bottomrule
 \endlastfoot
-0 &                in\_phase &              hue &  greyscale\_contrast\_avg &      green\_correlation\_avg \\
-1 &    ycbcr\_y\_contrast\_avg &  saturation\_mean &                hog\_mean &               hog\_variance \\
-2 &    blue\_correlation\_avg &         in\_phase &                in\_phase &  ycbcr\_y\_dissimilarity\_avg \\
-3 &  greyscale\_contrast\_avg &          cb\_mean &    greyscale\_energy\_avg &    hsv\_hue\_homogeneity\_avg \\
+0& greyscale\_contrast\_avg &  shape\_index &  greyscale\_dissimilarity\_avg &              saturation\_mean \\
+1 & saturation\_mean &  compactness &                     solidity &  greyscale\_dissimilarity\_avg \\
+2 & greyscale\_dissimilarity\_avg &    convexity &    greyscale\_correlation\_avg &       greyscale\_contrast\_avg \\
+3 & greyscale\_correlation\_avg &   elongation &                    roundness &                    roundness \\
 \end{longtable}
 
-% End Copy-Paste
+% End copied table
+\end{small}
+}
+
+
  To clarify the names of the parameters
  \begin{itemize}
  	\item{\textit{in\_phase} -- the in-phase component of the YIQ colorspace}
@@ -1486,14 +1590,88 @@ the parameters selected by that technique were to the ones identified by other t
 \subsection{Shape}
 \subsection{Optimal}
 
+%
+% MARICOPA 
+%
+%
+
+% Generate the optimal combination data
+% make optimal TRAINING=d:\maricopa\processed\2024-05-01\pivot-2m\final\training.csv FACTORS=4 PREFIX=maricopa TYPE=all SUBTYPE=all OUTPUT=d:\maricopa\processed\2024-05-01\pivot-2m\final\classification
+%
+% Produce the similarity report
+% 
+\begin{small}
+{
+% Reduce the row spacing, so to table looks a bit more packed
+\renewcommand{\arraystretch}{0.9}
+
+% Copied from the output of
+% python results.py -c maricopa_parameters.pickle  -n 1 -o latex -p maricopa --summary -od d:\maricopa\processed\2024-05-01\pivot-2m\final\classification --short "This is a short caption" --long "This is a long caption"
+% Manual changes
+% 1) The headers need the leading spaces removed 
+%     Doesn't seem to be a problem when tiny font is used, so perhaps this is space related (?)
+% 2) The long and short captions updated
+
+\begin{longtable}{lrrrrr}
+\caption[Classification results for various techniques]{Classification results for various techniques}
+\label{table:xxxx}\\
+\toprule
+Technique &  Precision &  Recall &   F1 &  MAP &  AUC \\
+\midrule
+\endfirsthead
+\caption[]{This is a long caption} \\
+\toprule
+Technique &  Precision &  Recall &   F1 &  MAP &  AUC \\
+\midrule
+\endhead
+\midrule
+\multicolumn{6}{r}{{Continued on next page}} \\
+\midrule
+\endfoot
+
+\bottomrule
+\endlastfoot
+DECISIONTREE &       0.88 &    0.89 & 0.88 & 0.87 & 0.87 \\
+       EXTRA &       0.90 &    0.93 & 0.91 & 0.90 & 0.96 \\
+       EXTRA &       0.88 &    0.93 & 0.90 & 0.89 & 0.95 \\
+    GRADIENT &       0.90 &    0.91 & 0.91 & 0.90 & 0.96 \\
+    GRADIENT &       0.90 &    0.91 & 0.91 & 0.90 & 0.96 \\
+         KNN &       0.85 &    0.88 & 0.86 & 0.85 & 0.92 \\
+         KNN &       0.79 &    0.91 & 0.85 & 0.82 & 0.88 \\
+         KNN &       0.85 &    0.88 & 0.86 & 0.85 & 0.92 \\
+         LDA &       0.89 &    0.94 & 0.92 & 0.90 & 0.95 \\
+         LDA &       0.89 &    0.95 & 0.92 & 0.91 & 0.95 \\
+    LOGISTIC &       0.90 &    0.94 & 0.92 & 0.91 & 0.95 \\
+    LOGISTIC &       0.89 &    0.95 & 0.92 & 0.90 & 0.95 \\
+         MLP &       0.90 &    0.92 & 0.91 & 0.90 & 0.96 \\
+         MLP &       0.88 &    0.95 & 0.92 & 0.91 & 0.96 \\
+         MLP &       0.87 &    0.93 & 0.90 & 0.88 & 0.96 \\
+RANDOMFOREST &       0.89 &    0.91 & 0.90 & 0.89 & 0.95 \\
+RANDOMFOREST &       0.87 &    0.93 & 0.90 & 0.88 & 0.96 \\
+         SVM &       0.89 &    0.94 & 0.91 & 0.90 & 0.95 \\
+\end{longtable}
+
+
+% END MARICOPA
+}
+\end{small}
+
 In Table \ref{table:matches-selection}, Decision Tree classification, for instance, shows a 98\% accuracy with the parameter set identified by \textit{PCA}, but that parameter set is only 25\% similar to the one identified by \textit{Recursive Feature Elimination}. Of special note here is \textit{Feature Importance}. Top accuracy results never matched any of the parameters identified with that technique -- thus the similarity scores of 0 in the table.
 
-\begin{tiny}
-% Begin copied table from the output of this command and slightly modified
-%  python results.py -p reviewed -s 1.0 -c parameters.pickle -o show
+\begin{small}
+{
+% Reduce the row spacing, so to table looks a bit more packed
+\renewcommand{\arraystretch}{0.9}
 
-\begin{longtable}{lcrrrr}
-\caption[short caption]{Parameter selection techniques}
+% Begin copied table from the output of this command and slightly modified
+%  python results.py -c maricopa_parameters.pickle  -n 1 -o latex -p maricopa -od d:\maricopa\processed\2024-05-01\pivot-2m\final\classification --short "Similarity to selection technique" --long "Similarity to selection technique" -s 1.0
+% Manual modification
+% 1) Replace header with the column span version
+% 2) Delete leading spaces
+
+
+\begin{longtable}{lrrrrr}
+\caption[Similarity to selection technique]{Similarity to selection technique}
 \label{table:matches-selection}\\
 \toprule
 % Begin edits
@@ -1503,7 +1681,7 @@ In Table \ref{table:matches-selection}, Decision Tree classification, for instan
 % End edits
 \midrule
 \endfirsthead
-\caption[]{Parameter selection techniques} \\
+\caption[]{Similarity to selection} \\
 \toprule
 % Begin edits
 & & \multicolumn{4}{c}{Similarity to Parameters Found}\\
@@ -1519,42 +1697,102 @@ In Table \ref{table:matches-selection}, Decision Tree classification, for instan
 
 \bottomrule
 \endlastfoot
-DECISIONTREE & 0.98 &      0.25 & 1.00 &       0.00 &       0.50 \\
-DECISIONTREE & 0.96 &      0.25 & 0.50 &       0.00 &       1.00 \\
-DECISIONTREE & 0.97 &      1.00 & 0.25 &       0.00 &       0.25 \\
-       EXTRA & 0.97 &      0.25 & 1.00 &       0.00 &       0.50 \\
-       EXTRA & 0.96 &      0.25 & 0.50 &       0.00 &       1.00 \\
-       EXTRA & 0.96 &      1.00 & 0.25 &       0.00 &       0.25 \\
-    GRADIENT & 0.98 &      0.25 & 1.00 &       0.00 &       0.50 \\
-    GRADIENT & 0.96 &      0.25 & 0.50 &       0.00 &       1.00 \\
-    GRADIENT & 0.97 &      1.00 & 0.25 &       0.00 &       0.25 \\
-         KNN & 0.96 &      0.25 & 1.00 &       0.00 &       0.50 \\
-         KNN & 0.96 &      0.25 & 0.50 &       0.00 &       1.00 \\
-         KNN & 0.96 &      1.00 & 0.25 &       0.00 &       0.25 \\
-         LDA & 0.97 &      0.25 & 1.00 &       0.00 &       0.50 \\
-         LDA & 0.98 &      0.25 & 0.50 &       0.00 &       1.00 \\
-         LDA & 0.96 &      1.00 & 0.25 &       0.00 &       0.25 \\
-    LOGISTIC & 0.96 &      0.25 & 1.00 &       0.00 &       0.50 \\
-    LOGISTIC & 0.96 &      0.25 & 0.50 &       0.00 &       1.00 \\
-    LOGISTIC & 0.85 &      1.00 & 0.25 &       0.00 &       0.25 \\
-         MLP & 0.98 &      0.25 & 1.00 &       0.00 &       0.50 \\
-         MLP & 0.97 &      0.25 & 0.50 &       0.00 &       1.00 \\
-         MLP & 0.96 &      1.00 & 0.25 &       0.00 &       0.25 \\
-RANDOMFOREST & 0.99 &      0.25 & 1.00 &       0.00 &       0.50 \\
-RANDOMFOREST & 0.98 &      0.25 & 0.50 &       0.00 &       1.00 \\
-RANDOMFOREST & 0.96 &      1.00 & 0.25 &       0.00 &       0.25 \\
-         SVM & 0.95 &      0.25 & 1.00 &       0.00 &       0.50 \\
-         SVM & 0.96 &      0.25 & 0.50 &       0.00 &       1.00 \\
-         SVM & 0.78 &      1.00 & 0.25 &       0.00 &       0.25 \\
-
-
-
+DECISIONTREE & 0.69 &      0.00 & 1.00 &       0.00 &       0.00 \\
+DECISIONTREE & 0.81 &      1.00 & 0.00 &       0.50 &       0.75 \\
+DECISIONTREE & 0.84 &      0.75 & 0.00 &       0.50 &       1.00 \\
+DECISIONTREE & 0.81 &      0.50 & 0.00 &       1.00 &       0.50 \\
+       EXTRA & 0.68 &      0.00 & 1.00 &       0.00 &       0.00 \\
+       EXTRA & 0.84 &      1.00 & 0.00 &       0.50 &       0.75 \\
+       EXTRA & 0.88 &      0.75 & 0.00 &       0.50 &       1.00 \\
+       EXTRA & 0.84 &      0.50 & 0.00 &       1.00 &       0.50 \\
+    GRADIENT & 0.72 &      0.00 & 1.00 &       0.00 &       0.00 \\
+    GRADIENT & 0.85 &      1.00 & 0.00 &       0.50 &       0.75 \\
+    GRADIENT & 0.87 &      0.75 & 0.00 &       0.50 &       1.00 \\
+    GRADIENT & 0.85 &      0.50 & 0.00 &       1.00 &       0.50 \\
+         KNN & 0.70 &      0.00 & 1.00 &       0.00 &       0.00 \\
+         KNN & 0.81 &      1.00 & 0.00 &       0.50 &       0.75 \\
+         KNN & 0.81 &      0.75 & 0.00 &       0.50 &       1.00 \\
+         KNN & 0.84 &      0.50 & 0.00 &       1.00 &       0.50 \\
+         LDA & 0.72 &      0.00 & 1.00 &       0.00 &       0.00 \\
+         LDA & 0.84 &      1.00 & 0.00 &       0.50 &       0.75 \\
+         LDA & 0.88 &      0.75 & 0.00 &       0.50 &       1.00 \\
+         LDA & 0.86 &      0.50 & 0.00 &       1.00 &       0.50 \\
+    LOGISTIC & 0.72 &      0.00 & 1.00 &       0.00 &       0.00 \\
+    LOGISTIC & 0.83 &      1.00 & 0.00 &       0.50 &       0.75 \\
+    LOGISTIC & 0.88 &      0.75 & 0.00 &       0.50 &       1.00 \\
+    LOGISTIC & 0.87 &      0.50 & 0.00 &       1.00 &       0.50 \\
+         MLP & 0.64 &      0.00 & 1.00 &       0.00 &       0.00 \\
+         MLP & 0.86 &      1.00 & 0.00 &       0.50 &       0.75 \\
+         MLP & 0.90 &      0.75 & 0.00 &       0.50 &       1.00 \\
+         MLP & 0.86 &      0.50 & 0.00 &       1.00 &       0.50 \\
+RANDOMFOREST & 0.72 &      0.00 & 1.00 &       0.00 &       0.00 \\
+RANDOMFOREST & 0.85 &      1.00 & 0.00 &       0.50 &       0.75 \\
+RANDOMFOREST & 0.88 &      0.75 & 0.00 &       0.50 &       1.00 \\
+RANDOMFOREST & 0.85 &      0.50 & 0.00 &       1.00 &       0.50 \\
+         SVM & 0.70 &      0.00 & 1.00 &       0.00 &       0.00 \\
+         SVM & 0.84 &      1.00 & 0.00 &       0.50 &       0.75 \\
+         SVM & 0.88 &      0.75 & 0.00 &       0.50 &       1.00 \\
+         SVM & 0.87 &      0.50 & 0.00 &       1.00 &       0.50 \\
 \end{longtable}
 
 
-%Endcopiedtable
-\end{tiny}
+
+
+%End copied table
+}
+\end{small}
 Table~\ref{table:optimal-auc} contains the result of this search with the accuracy scores using an average across 5 folds.
+
+%{
+%\begin{tiny}
+%\renewcommand{\arraystretch}{0.7}
+%
+%% Begin copy
+%\begin{longtable}{lrrrrr}
+%\caption[Scoring for various ML approaches]{Scoring for various ML approaches using only texture}
+%\label{table:results}\\
+%% Begin edits
+%& & \multicolumn{4}{c}{Similarity to Parameters Found}\\
+%\cmidrule{3-6} 
+%\multicolumn{1}{c}{Classification} & \multicolumn{1}{c}{AUC} & \multicolumn{1}{c}{Recursive} &  \multicolumn{1}{c}{PCA} & \multicolumn{1}{c}{Importance} & \multicolumn{1}{c}{Univariate} \\
+%\toprule
+%   Technique &  Precision &  Recall &   F1 &  MAP &  AUC \\
+%\midrule
+%\endfirsthead
+%\caption[]{Scoring for various ML approaches using only texture} \\
+%\toprule
+%   Technique &  Precision &  Recall &   F1 &  MAP &  AUC \\
+%\midrule
+%\endhead
+%\midrule
+%\multicolumn{6}{r}{{Continued on next page}} \\
+%\midrule
+%\endfoot
+%
+%\bottomrule
+%\endlastfoot
+%DECISIONTREE &       0.72 &    0.78 & 0.75 & 0.80 & 0.79 \\
+%       EXTRA &       0.74 &    0.83 & 0.78 & 0.83 & 0.90 \\
+%       EXTRA &       0.67 &    0.85 & 0.75 & 0.78 & 0.88 \\
+%       EXTRA &       0.73 &    0.83 & 0.78 & 0.82 & 0.90 \\
+%    GRADIENT &       0.74 &    0.79 & 0.77 & 0.81 & 0.89 \\
+%    GRADIENT &       0.69 &    0.81 & 0.74 & 0.79 & 0.88 \\
+%         KNN &       0.72 &    0.88 & 0.79 & 0.83 & 0.85 \\
+%         LDA &       0.67 &    0.86 & 0.76 & 0.79 & 0.83 \\
+%         LDA &       0.66 &    0.93 & 0.77 & 0.79 & 0.85 \\
+%         LDA &       0.66 &    0.93 & 0.77 & 0.79 & 0.85 \\
+%    LOGISTIC &       0.63 &    0.93 & 0.75 & 0.77 & 0.83 \\
+%    LOGISTIC &       0.63 &    0.93 & 0.75 & 0.77 & 0.83 \\
+%         MLP &       0.39 &    0.99 & 0.56 & 0.41 & 0.86 \\
+%         MLP &       0.00 &    0.00 & 0.00 & 0.62 & 0.85 \\
+%RANDOMFOREST &       0.75 &    0.82 & 0.78 & 0.83 & 0.90 \\
+%RANDOMFOREST &       0.72 &    0.81 & 0.76 & 0.80 & 0.91 \\
+%         SVM &       0.62 &    0.96 & 0.75 & 0.76 & 0.89 \\
+%\end{longtable}
+%
+%% end copy
+%\end{tiny}
+%}
 
 \begin{tiny}
 % -- begin copied table

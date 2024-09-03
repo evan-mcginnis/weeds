@@ -262,7 +262,7 @@ contents={\begin{tikzpicture}[remember picture,overlay]
 \vspace{5pt}
     \begin{abstract} 
 \setstretch{1.0}
-This paper proposes a study of classification of vegetation as weeds and crop of plants found within a spinach field at various heights AGL, and how those classifications can be used to produce high-precision treatment plans. This study will examine the classification of visible-light images acquired from unmanned aerial vehicle flights at various altitudes ranging from 3 to 30 meters. Specifically, the first phase will produce the optimal set of attributes for classification using seven different Machine Learning techniques at each altitude. The second phase will concentrate on the production of treatment plans from those classifications.  While this phase will produce treatment plans that can be explored with an application developed as part of this phase or executed by human referencing a summary (PDF) of the plan, extending these plans to automated treatment does not require substantial changes. The execution of a treatment plan is not explicitly addressed by this study, but the framework developed as part of this study will support a near realtime treatment application system.
+This paper proposes a study of classification of vegetation as weeds and crop of plants found within a cantaloupe field at various heights AGL, and how those classifications can be used to produce high-precision treatment plans. This study will examine the classification of visible-light images acquired from unmanned aerial vehicle flights at various altitudes ranging from 3 to 30 meters. Specifically, the first phase will produce the optimal set of attributes for classification using seven different Machine Learning techniques at each altitude. The second phase will concentrate on the production of treatment plans from those classifications.  While this phase will produce treatment plans that can be explored with an application developed as part of this phase or executed by human referencing a summary (PDF) of the plan, extending these plans to automated treatment does not require substantial changes. The execution of a treatment plan is not explicitly addressed by this study, but the framework developed as part of this study will support a near realtime treatment application system.
     \end{abstract}
 \end{minipage}
 \end{titlepage}
@@ -283,8 +283,10 @@ This paper proposes a study of classification of vegetation as weeds and crop of
 \begin{versionhistory}
   \vhEntry{1.0}{1 Aug 2023}{EM}{Initial revision}
   \vhEntry{1.1}{7 Aug 2023}{EM}{Incorporate comments}
-  \vhEntry{1.1}{30 Nov 2023}{EM}{Incorporate comments and remove lettuce references. Revise introduction and add section on color correction.}
-  \vhEntry{1.2}{5 Dec 2023}{EM}{Add text on observing over growth cycle to introduction.}
+  \vhEntry{1.2}{30 Nov 2023}{EM}{Incorporate comments and remove lettuce references. Revise introduction and add section on color correction.}
+  \vhEntry{1.3}{5 Dec 2023}{EM}{Add text on observing over growth cycle to introduction.}
+  \vhEntry{1.4}{20 Dec 2023}{EM}{Change references to cantaloupe from spinach}
+  \vhEntry{1.5}{2 Apr 2024}{EM}{Update dates in academic plan}
 \end{versionhistory}
 \newpage
 }
@@ -331,7 +333,7 @@ While exposing it is not a direct output of this study, this word will also prod
  The second phase of this project will explore the production of treatment plans from classifications. Treatment plans can be explored by a user with an application, summarized into reports (PDF), and used in automated treatment systems.  While the second phase of this proposal will  produce plans that are focused on the first two, the infrastructure and classifications provided by the system will allow for further development in this area.
 
 \section{Location and Subject of Study}
-This study will be carried out at the University of Arizona Maricopa Agricultural Center (MAC) on a spinach crop overseen by Drs. Attalah and Elshikha (University of Arizona), as part of another study.\footnote{The field in question is located at N 33.061805$^{\circ}$ W 111.966162$^{\circ}$} That study will involve three separate water treatments: center-pivot, flood irrigation, and drip. As the drip treatment study area is unlikely to produce a heavy weed load, it will not be included in this study, as differentiating between crop and weeds is an initial goal of this study. The planting date for the field is anticipated to be early December 2023, with image collection beginning mid-January 2024. The study site is relatively free of obstacles that would impact low level flight with one notable exception: the center pivot irrigation system. Allowances will be made to avoid that system, but doing so is not expected to affect flight plans, as images in only subset of the field is planned to be captured.
+This study will be carried out at the University of Arizona Maricopa Agricultural Center (MAC) on a cantaloup crop overseen by Drs. Attalah and Elshikha (University of Arizona), as part of another study.\footnote{The field in question is located at N 33.061805$^{\circ}$ W 111.966162$^{\circ}$} That study will involve three separate water treatments: center-pivot, flood irrigation, and drip. As the drip treatment study area is unlikely to produce a heavy weed load, it will not be included in this study, as differentiating between crop and weeds is an initial goal of this study. The planting date for the field is anticipated to be early December 2023, with image collection beginning mid-January 2024. The study site is relatively free of obstacles that would impact low level flight with one notable exception: the center pivot irrigation system. Allowances will be made to avoid that system, but doing so is not expected to affect flight plans, as images in only subset of the field is planned to be captured.
  
 \section{Phase I}
 Phase I of this study will produce a prediction model for weeds that will exceed 80\% correct classification at altitudes of 10m AGL and lower, but will find the set of attributes and technique that can be applied at various heights AGL between 3m and 30m. The model produced in this phase can be applied for fields with the same crop, regardless of when in the development cycle those predictions are made. 
@@ -658,7 +660,7 @@ Image acquisition will commence four weeks after planting and will take place ev
     \end{tabular}
 \end{table}
 
-Of particular interest here is the time of initial findings. The initial findings will include items discussed in previous sections of this document: optimal features at each altitude for each technique. The images gathered from subsequent collections are not expected to materially change those findings, but those initial findings will be updated to incorporate data extracted from those image sets. The paper describing the classification of vegetation will be ready for internal review by the 30$^{th}$ week. This paper will not cover details of segmentation or implementation, but will present a fairly complete picture of Phase I results. The second paper is, unfortunately, less well defined, as the content will depend greatly on the problems encountered and characteristics of the crop. Two topics stand out from early work: prediction with the imbalanced data set found in the fields (e.g., there are much more crop plants than weeds in some plantings, as will be expected in the drip-irrigated spinach field in this study), and color differences between irrigation techniques (i.e., drip and center-pivot colors may vary).
+Of particular interest here is the time of initial findings. The initial findings will include items discussed in previous sections of this document: optimal features at each altitude for each technique. The images gathered from subsequent collections are not expected to materially change those findings, but those initial findings will be updated to incorporate data extracted from those image sets. The paper describing the classification of vegetation will be ready for internal review by the 30$^{th}$ week. This paper will not cover details of segmentation or implementation, but will present a fairly complete picture of Phase I results. The second paper is, unfortunately, less well defined, as the content will depend greatly on the problems encountered and characteristics of the crop. Two topics stand out from early work: prediction with the imbalanced data set found in the fields (e.g., there are much more crop plants than weeds in some plantings, as will be expected in the drip-irrigated cantaloupe field in this study), and color differences between irrigation techniques (i.e., drip and center-pivot colors may vary).
 
 \begin{table}[ht]
 	\centering
@@ -667,8 +669,8 @@ Of particular interest here is the time of initial findings. The initial finding
     \begin{tabular}[t]{lll} 
 		\textbf{Date} & \textbf{Activity} &\textbf{Comments}\\
 		\midrule
-			December 2023 & Written Comprehensive & Not yet scheduled\\
-			February 2024 & Oral Comprehensive & Not yet scheduled\\
+			April 2024 & Written Comprehensive & Not yet scheduled\\
+			September 2024 & Oral Comprehensive & Not yet scheduled\\
 			March 2025 & Thesis available for review & Tentative\\
 			April 2025 & Defense & Not yet scheduled\\
 
