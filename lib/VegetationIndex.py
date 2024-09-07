@@ -105,6 +105,7 @@ class VegetationIndex:
         self.ALG_SI="si"
         #self.ALG_DGCI="dgci"
         self.ALG_DI="di"
+        self.ALG_YCBCRI="ycbcri"
 
         self.algorithms = [self.ALG_NDI,
                            self.ALG_TGI,
@@ -121,7 +122,8 @@ class VegetationIndex:
                            self.ALG_RGD,
                            self.ALG_SI,
                            #self.ALG_DGCI,
-                           self.ALG_DI]
+                           self.ALG_DI,
+                           self.ALG_YCBCRI]
 
         thresholds = {"NDI": 0,
                       "EXG": 200,
@@ -135,7 +137,8 @@ class VegetationIndex:
                       "COM2": 40,
                       "TGI": 0,
                       #"DGCI": 0.5,
-                      "DI": 0}
+                      "DI": 0,
+                      "YCBCRI": 0}
 
         self.computations = {self.ALG_NDI     : {"description": "Normalized Difference", "create": self.NDI, "threshold": thresholds["NDI"]},
                              self.ALG_EXG     : {"description": "Excess Green", "create": self.ExG, "threshold": thresholds["EXG"]},
@@ -151,7 +154,8 @@ class VegetationIndex:
                              self.ALG_RGD     : {"description": "Red Green Dots", "create": self.redGreenDots, "threshold": 0},
                              self.ALG_SI      : {"description": "Blue Spray Indicator", "create": self.SI, "threshold": 0},
                              #self.ALG_DGCI    : {"description": "Dark Green Color", "create": self.DGCI, "threshold": thresholds["DGCI"]},
-                             self.ALG_DI      : {"description": "Depth Index", "create": self.DI, "threshold": thresholds["DI"]}
+                             self.ALG_DI      : {"description": "Depth Index", "create": self.DI, "threshold": thresholds["DI"]},
+                             self.ALG_YCBCRI  : {"description": "YCBCRI", "create": self.YCbCrI, "threshold": thresholds["YCBCRI"]}
                              }
 
     def images(self) -> []:
@@ -485,6 +489,8 @@ class VegetationIndex:
         beta = 0.59
 
         TGI = self.greenBand - alpha * self.redBand - beta * self.blueBand
+        self._index = TGI
+        self._name = "TGI"
 
         #MaskTGI = TGI > threshold #0.100
 
@@ -1200,6 +1206,51 @@ class VegetationIndex:
         #res = cv.bitwise_and(self.img,self.img, mask= mask)
         return mask
 
+    # Color values taken from:
+    # https://stackoverflow.com/questions/36817133/identifying-the-range-of-a-color-in-hsv-using-opencv
+    colorHSV = {'black': [[180, 255, 30], [0, 0, 0]],
+                'white': [[180, 18, 255], [0, 0, 231]],
+                'red1': [[180, 255, 255], [159, 50, 70]],
+                'red2': [[9, 255, 255], [0, 50, 70]],
+                'green': [[89, 255, 255], [36, 50, 70]],
+                'blue': [[128, 255, 255], [90, 50, 70]],
+                'yellow': [[35, 255, 255], [25, 50, 70]],
+                'purple': [[158, 255, 255], [129, 50, 70]],
+                'orange': [[24, 255, 255], [10, 50, 70]],
+                'gray': [[180, 18, 230], [0, 0, 40]]}
+
+    #
+    # This index is specifically for the blue bucket lids from lowes
+    #
+    def bucketLid(self):
+        # Convert the image to HSV
+        hsv = cv.cvtColor(self.img.astype(np.uint8), cv.COLOR_BGR2HSV)
+
+        # Pure colors
+        blue = np.uint8([[[255, 0, 0]]])
+
+        # Get the HSV for the color green
+        hsv_blue = cv.cvtColor(blue, cv.COLOR_BGR2HSV)
+        # Compute the lower and upper bound of what we consider blue
+        lowerBlue = np.array(self.colorHSV['blue'][1])
+        upperBlue = np.array(self.colorHSV['blue'][0])
+        lowerBlueOriginal = np.array([int(hsv_blue[0, 0, 0]) - self.HSV_COLOR_THRESHOLD, 100, 100])
+        upperBlueOriginal = np.array([int(hsv_blue[0, 0, 0]) + self.HSV_COLOR_THRESHOLD, 255, 255])
+
+        # Another red attempt
+        # This looks odd, but eliminates the hue of red in the floor
+        lower1 = np.array([0, 100, 20])
+        #upper1 = np.array([10, 255, 255])
+        upper1 = np.array([0, 255, 255])
+
+        # upper boundary RED color range values; Hue (160 - 180)
+        lower2 = np.array([160,100,20])
+        upper2 = np.array([179,255,255])
+
+        maskBlue = cv.inRange(hsv, lowerBlue, upperBlue)
+
+        return maskBlue
+
     def EI(self) -> np.ndarray:
         """
         Compute the segmentation based on edge detection.
@@ -1563,7 +1614,7 @@ if __name__ == "__main__":
                "YCBCR Index": {"short": "YCbCrI", "create": utility.YCbCrI, "negate": False, "threshold": threholds["YCBCR"], "direction": 1, "normalize": True}}
 
     # Debug the implementations:
-    _indices = {
+    indices = {
         #"Excess Green - Excess Red": {"short": "ExGR", "create": utility.ExGR, "negate": False, "threshold": threholds["EXGEXR"], "direction": 1, "normalize": True},
         #"YIQ Index": {"short": "YI", "create": utility.YI, "negate": True, "threshold": threholds["YI"], "direction": 1, "normalize": False},
         #"Vegetative Index": {"short": "VEG", "create": utility.VEG, "negate": False, "threshold": threholds["VEG"], "direction": 1, "normalize": True},
@@ -1571,14 +1622,15 @@ if __name__ == "__main__":
         #"Normalized Difference": {"short": "NDI", "create": utility.NDI, "negate": False, "threshold": threholds["NDI"], "direction": 1, "normalize": False}
         #"Modified Excess Green": {"short": "MexG", "create": utility.MExG, "negate": False, "threshold": threholds["MEXG"], "direction": 1, "normalize": True},
         #"HSV Index": {"short": "HV", "create": utility.HV, "negate": False, "threshold": threholds["HV"], "direction": 1, "normalize": False},
-        "Excess Red": {"short": "ExR", "create": utility.ExR, "negate": False, "threshold": threholds["EXR"], "direction": -1, "normalize": True},
+        #"Excess Red": {"short": "ExR", "create": utility.ExR, "negate": False, "threshold": threholds["EXR"], "direction": -1, "normalize": True},
         #"Excess Green": {"short": "ExG", "create": utility.ExG, "negate": True, "threshold": threholds["EXG"], "direction": -1, "normalize": True}
         #"Combined Index 1": {"short": "COM1", "create": utility.COM1, "negate": False, "threshold": threholds["COM1"], "direction": 1, "normalize": False},
-        #"Combined Index 2": {"short": "COM2", "create": utility.COM2, "negate": False, "threshold": threholds["COM2"], "direction": 1, "normalize": False}
+        #"Combined Index 2": {"short": "COM2", "create": utility.COM2, "negate": False, "threshold": threholds["COM2"], "direction": 1, "normalize": False},
         #"Color Index of Vegetation Extraction": {"short": "CIVE", "create": utility.CIVE, "negate": True, "threshold": threholds["CIVE"], "direction": 1, "normalize": True},
         #"CIELAB Index": {"short": "CI", "create": utility.CI, "negate": False, "threshold": threholds["HV"], "direction": 1, "normalize": True}
         #"YCBCR Index": {"short": "YCbCrI", "create": utility.YCbCrI, "negate": False, "threshold": threholds["YCBCR"], "direction": 1, "normalize": True}
         #"Triangulation Greenness Index": {"short": "TGI", "create": utility.TGI, "negate": False, "threshold": threholds["TGI"], "direction": 1, "normalize": True},
+        "Bucket Lid": {"short": "BLI", "create": utility.bucketLid, "negate": False, "threshold": threholds["TGI"], "direction": 1, "normalize": False},
     }
 
 
