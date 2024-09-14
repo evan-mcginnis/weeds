@@ -114,7 +114,7 @@ class HOG:
 
                     hogNonZero = np.nonzero(fd)[0]
                     if not len(hogNonZero) > 0:
-                        self._log.error("HOG is empty")
+                        self._log.error(f"HOG is empty for {blobName}")
                         name = self._prefix + constants.DELIMETER + constants.NAME_STDDEV
                         blobAttributes[name] = 0
                         name = self._prefix + constants.DELIMETER + constants.NAME_MEAN
@@ -130,6 +130,7 @@ class HOG:
                     blobAttributes[name] = hogNonZero.mean()
                     name = self._prefix + constants.DELIMETER + constants.NAME_VAR
                     blobAttributes[name] = hogNonZero.var()
+                    self._log.debug(f"HOG: {blobAttributes[self._prefix + constants.DELIMETER + constants.NAME_STDDEV]} {blobAttributes[self._prefix + constants.DELIMETER + constants.NAME_MEAN]} {blobAttributes[self._prefix + constants.DELIMETER + constants.NAME_VAR]}")
                 else:
                     self._log.error("Empty blob encountered in HOG calculations")
 
