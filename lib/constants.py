@@ -18,6 +18,7 @@ UI_CONFIRM_IMAGING_ALL_OK = "Begin Imaging?"
 UI_CONFIRM_IMAGING_WITH_ERRORS = "Not all components are operational. Do you want to begin imaging?"
 
 # File names
+VECTOR = "vector"
 PREFIX_CAMERA_CONFIGURATION = "camera-configuration-"
 PREFIX_IMAGE = "img-"
 EXTENSION_CAMERA_SETTINGS = ".pfs"
@@ -39,6 +40,7 @@ FILENAME_INTEL_DEPTH = "depth"
 FILENAME_DUMMY = "dummy"
 FILENAME_NORMALIZED = "normalized"
 FILENAME_DATAFRAME = "dataframe"
+FILENAME_DETAILS = "details.txt"
 
 IP_NONE = "NONE"
 
@@ -84,6 +86,7 @@ NAME_CIELAB_A               = "cie_a"
 NAME_CIELAB_B               = "cie_b"
 NAME_CENTER                 = "center"
 NAME_CONTOUR                = "contour"
+NAME_BOX_DIMENSIONS         = "dimensions"
 NAME_SHAPE_INDEX            = "shape_index"
 NAME_RATIO                  = "lw_ratio"
 NAME_IMAGE                  = "image"
@@ -103,6 +106,7 @@ NAME_HUE                    = "hue"
 NAME_HUE_MEAN               = "hue_mean"
 NAME_HUE_STDDEV             = "hue_stddev"
 NAME_SATURATION             = "saturation_mean"
+NAME_HSI                    = "hsi"
 NAME_HSI_INTENSITY          = "hsi_intensity"
 NAME_HSI_SATURATION         = "hsi_saturation"
 NAME_HSI_HUE                = "hsi_hue"
@@ -110,6 +114,7 @@ NAME_HSV_HUE                = "hsv_hue"
 NAME_HSV_SATURATION         = "hsv_saturation"
 NAME_HSV_VALUE              = "value"
 NAME_SATURATION_STDEV       = "saturation_stddev"
+NAME_YIQ                    = "yiq"
 NAME_I_YIQ                  = "in_phase"
 NAME_I_MEAN                 = "in_phase_mean"
 NAME_I_STDDEV               = "in_phase_stddev"
@@ -137,6 +142,7 @@ NAME_YIQ_I                  = "yiq_i"
 NAME_YIQ_Q                  = "yiq_q"
 NAME_CROP                   = "crop"
 NAME_WEED                   = "weed"
+NAME_MISTAKE                = "mistake"
 NAME_BOUNDARY_CHAIN         = "chain"
 NAME_BENDING                = "bending"
 NAME_KSLOPE                 = "kslope"
@@ -165,6 +171,7 @@ COLUMN_NAME_VALUE           = "value"
 COLUMN_NAME_SUBTYPE         = "subtype"
 COLUMN_NAME_TYPE            = "type"
 COLUMN_NAME_FACTOR          = "factor"
+COLUMN_NAME_KIND            = "kind"
 
 # B A N D S
 # The band names -- used for GLCM computations
@@ -187,6 +194,9 @@ NAME_HOG                    = "hog"
 NAME_STDDEV                 = "stddev"
 NAME_MEAN                   = "mean"
 NAME_VAR                    = "variance"
+
+# P R O X I M I T Y
+NAME_PROXIMITY              = "proximity"
 
 # L B P
 NAME_LBP                    = "lbp"
@@ -331,6 +341,10 @@ TYPE_UNTREATED = 2
 TYPE_IGNORED = 3
 TYPE_UNKNOWN = 4
 TYPES = ["Desired", "Undesired", "Untreated", "Ignored", "Unknown"]
+
+TYPE_CROP = TYPE_DESIRED
+TYPE_WEED = TYPE_UNDESIRED
+TYPE_MISTAKE = TYPE_IGNORED
 
 # Items contained in performance csv for analysis
 
@@ -748,6 +762,10 @@ class Score(Enum):
     UNDEFINED = 0
     ROC = 1
     ACCURACY = 2
+
+class Classification(Enum):
+    CROP = 0
+    WEED = 1
 
 
 
