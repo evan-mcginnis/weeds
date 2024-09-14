@@ -16,6 +16,9 @@ import constants
 
 
 class Metadata:
+
+
+
     def __init__(self, image: str):
         """
         Extract metadata for all images in a directory
@@ -29,7 +32,87 @@ class Metadata:
         self._long = 0.0
         self._altitude = 0.0
         self._agl = 0.0
+        self._focal = 0.0
         self._taken = ""
+        self._x = 0
+        self._y = 0
+        self._make = "Unknown"
+        self._model = "Unknown"
+
+        # The pixel size in micrometers at various resolutions for the cameras we will use
+        # Apple specs: https://www.kenrockwell.com/apple/iphone-14-pro-max.htm#spex
+        # DJI specs: https://www.dji.com/support/product/air-2s
+
+        # Each entry is keyed by the make found in the metadata
+        # Each data item for an entry is keyed by the resolution
+        # For example, an iphone 14 @ 12MP, will have a pixel size of 2.44 micrometers
+        self._pixelSizes = {'iPhone 14 Pro': {4032 * 3024: 2.44, 6048 * 8064: 1.22},
+                            'FC3411': {5464 * 3640: 2.4}}
+
+    def pixelSize(self, make: str, x: int, y: int) -> float:
+        """
+        The pixel size in micrometers for a given make and resolution.
+        Supported sensors are the iphone 14 pro and the DJI Air 2S.
+
+        :param make: Camera make
+        :param x: Pixel count
+        :param y: Pixel count
+        :return:
+        """
+        size = 0.0
+
+        try:
+            entry = self._pixelSizes[make]
+        except KeyError:
+            self._log.error(f"Unable to find information for make: {make}")
+            return size
+
+        try:
+            size = entry[x * y]
+        except KeyError:
+            self._log.error(f"Unable to find information for x resolution: {x}")
+
+        return size
+
+    @property
+    def x(self) -> int:
+        """
+        X Resolution of the image
+        :return:
+        """
+        return self._x
+
+    @x.setter
+    def x(self, xResolution: int):
+        self._x = xResolution
+
+    @property
+    def y(self) -> int:
+        """"
+        Y Resolution of the image
+        :return:
+        """
+        return self._y
+
+    @y.setter
+    def y(self, yResolution: int):
+        self._y = yResolution
+
+    @property
+    def focalLength(self) -> float:
+        """
+        Focal length of the lens taking the image
+        :return:
+        """
+        return self._focal
+
+    @property
+    def make(self) -> str:
+        return self._make
+
+    @property
+    def model(self) -> str:
+        return self._model
 
     @property
     def gps(self) -> ():
@@ -130,8 +213,16 @@ class Metadata:
                             self._long = self.dms2dd(longitude[0], longitude[1], longitude[2], my_image.gps_longitude_ref)
                             self._altitude = my_image.gps_altitude
                             self._taken = my_image.datetime_original
+                            self._focal = my_image.focal_length
+                            self._make = my_image.make
+                            self._model = my_image.model
+                            # There is a problem here in that the iphone images taken at 48MP don't contain the x and y dimensions,
+                            # so these two lines won't work for those images. Instead, the x and y resolution should be set from the
+                            # image size itself, not the metadata
+                            # self._x = my_image.pixel_x_dimension
+                            # self._y = my_image.pixel_y_dimension
                         except AttributeError:
-                            self._log.error("Unable to find expected EXIF in JPG: latitude, longitude, and altitude")
+                            self._log.error("Unable to find expected EXIF in JPG: make, model, latitude, longitude, altitude, and focal length")
                     else:
                         self._log.error("JPG Image contains no EXIF data")
             except FileNotFoundError:
