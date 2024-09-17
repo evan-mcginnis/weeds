@@ -2,6 +2,7 @@
 # I M A G E
 #
 # Image manipulation
+import gc
 import uuid
 
 import numpy
@@ -31,7 +32,11 @@ from HOG import HOG
 from LBP import LBP
 from Performance import Performance
 
+from Factors import FactorKind
 from hashlib import sha1
+import psutil
+import os
+from memory_profiler import profile
 
 # Colors for the bounding boxes
 COLOR_WEED = (0, 0, 255)
@@ -54,10 +59,13 @@ class ImageManipulation:
         self._rectangles = []
         self._largestName = ""
         self._largestArea = 0
+        # Scalar attributes go here
         self._blobs = {}
+        # Vector attributes like the LBP histogram goes here
+        self._blobsWithVectors = {}
         self._cropRowCandidates = {}
         self._mmPerPixel = 0
-        self._stitcher = cv.Stitcher.create(cv.Stitcher_PANORAMA)
+        #self._stitcher = cv.Stitcher.create(cv.Stitcher_PANORAMA)
         self._centers = []
         self._angles = None
         self._shapeIndices = []
@@ -68,6 +76,8 @@ class ImageManipulation:
         self._imgAsYCBCR = None
         self._imageAsYUV = None
         self._imageAsCIELAB = None
+        self._imgAsGreyscale = None
+        self._imgAsHSI = None
         self._logger = logger
 
         self._performance = None
@@ -88,9 +98,34 @@ class ImageManipulation:
 
         self._hash = sha1(numpy.ascontiguousarray(img)).hexdigest()
 
+        # Look of thinss in decorated images
+        self._fontScale = 2.0
 
-    # def init(self):
-    #     self._cvimage = cv.cvtColor(self._image)
+    def unload(self):
+        """
+        Debug memory leaks
+        """
+        self._image = None
+        self._imageAsRGB = None
+        self._imageAsYIQ = None
+        self._imgAsYCBCR = None
+        self._imageAsYUV = None
+        self._imageAsCIELAB = None
+        self._imgAsHSI = None
+        self._imgAsHSV = None
+        self._imgAsYCBCR = None
+        self._imgAsCIELAB = None
+        self._imgAsGreyscale = None
+        del self._image
+        del self._imageAsRGB
+        del self._imageAsYIQ
+        del self._imageAsYUV
+        del self._imgAsCIELAB
+        del self._imgAsHSI
+        del self._imgAsHSV
+        del self._imgAsYCBCR
+        del self._imgAsGreyscale
+        gc.collect()
 
     @property
     def performance(self) -> Performance:
@@ -129,6 +164,20 @@ class ImageManipulation:
     @property
     def blobs(self):
         return self._blobs
+
+    def blobsByType(self, factors: FactorKind) -> {}:
+        """
+        The blobs by type (Vector or Scalar)
+        :param factors: FactorKind.VECTOR or FactorKind.SCALAR
+        :return: dictionary of blobs
+        """
+        if factors == FactorKind.SCALAR:
+            return self._blobs
+        elif factors == FactorKind.VECTOR:
+            return self._blobsWithVectors
+        else:
+            self.log.fatal(f"Unknown factor kind: {factors}")
+            raise ValueError(f"Unknown factor kind: {factors}")
 
     @mmPerPixel.setter
     def mmPerPixel(self, mm: float):
@@ -223,6 +272,7 @@ class ImageManipulation:
     # https://en.wikipedia.org/wiki/YIQ
 
     # TODO: This method is quite slow, taking almost 200 ms on test machine
+    #@profile
     def toYIQ(self) -> np.ndarray:
         """
         Converts the current image to the YIQ colorspace from RGB.
@@ -235,8 +285,45 @@ class ImageManipulation:
         # TODO: This is the one and only use for the scikit-image library.
         # This can be done with some matrix multiplication instead, and is something that can
         # be performed on a GPU
+        # This produces an enormous object: ~450MB
+        # As an added bonus, it leaks memory
+        # WARNING
+        # This skips the code below.  Debugging
         self._imageAsYIQ = rgb2yiq(self._imageAsRGB)
         return self._imageAsYIQ
+
+        # self._imageAsYIQ = np.zeros_like(self._imageAsRGB)
+        self._imageAsYIQ = self._imageAsRGB
+
+        # WARNING -- debug
+        #return self._imageAsYIQ
+
+        # Modified code from:
+        # https://stackoverflow.com/questions/67508567/problem-during-converting-rgb-to-yiq-color-mode-and-vice-versa-in-uint8
+        BGR = self._imageAsRGB.copy().astype(float)
+        R = BGR[:, :, 0]
+        G = BGR[:, :, 1]
+        B = BGR[:, :, 2]
+
+        Y = (0.299 * R) + (0.587 * G) + (0.114 * B)
+        I = (0.59590059 * R) + (-0.27455667 * G) + (-0.32134392 * B)
+        Q = (0.21153661 * R) + (-0.52273617 * G) + (0.31119955 * B)
+
+        YIQ = np.round(np.dstack((Y, I + 128, Q + 128))).astype(np.uint8)
+
+        self._imageAsYIQ = YIQ
+
+
+        # Code modified from
+        # https://stackoverflow.com/questions/61348558/rgb-to-yiq-and-back-in-python
+        # yiq_from_rgb = np.array([[0.299, 0.587, 0.114],
+        #                          [0.59590059, -0.27455667, -0.32134392],
+        #                          [0.21153661, -0.52273617, 0.31119955]])
+        # origShape = self._imageAsRGB.shape
+        # self._imageAsYIQ = np.dot(self._imageAsRGB.reshape(-1, 3), yiq_from_rgb.transpose()).reshape(origShape)
+
+        return self._imageAsYIQ
+
 
     def toHSV(self) -> np.ndarray:
         """
@@ -268,6 +355,7 @@ class ImageManipulation:
     # This code doesn't work exactly right, as I see negative values for saturation
     # And this is unacceptably slow.  Takes over 700 ms on my machine
 
+    #@profile
     def toHSI(self) -> np.ndarray:
         """
         The current image converted to ths HSI colorspace
@@ -275,9 +363,20 @@ class ImageManipulation:
         The HSI values as numpy array
         """
         # TODO: HSI Implementation
-        # self._imgAsHSI = cv.cvtColor(self._image.astype(np.uint8), cv.CV_RGB2HLS)
-        # return self._imgAsHSI
+        # W A R N I N G
+        # temporary for memory debug
+        # self.toRGB()
+        self._imgAsHSI = self.toCIELAB()
+        return self._imgAsHSI
 
+        # blue = self._image[:, :, 0]
+        # green = self._image[:, :, 1]
+        # red = self._image[:, :, 2]
+
+
+        # end temporary
+
+        # Adapted from: https://stackoverflow.com/questions/52834537/rgb-to-hsi-conversion-hue-always-calculated-as-0
         #       with np.errstate(divide='ignore', invalid='ignore'):
 
         bgr = np.int32(cv.split(self._image))
@@ -298,7 +397,6 @@ class ImageManipulation:
         rgb = np.where(rgb == 0, .00001, rgb)
 
         self.log.debug("Min/max {}/{}".format(minimum.min(), minimum.max()))
-        # Originally: saturation = 1 - 3 * np.divide(minimum, rgb)
         saturation = 1 - 3 * np.divide(minimum, rgb)
 
         sqrt_calc = np.sqrt(((red - green) * (red - green)) + ((red - blue) * (green - blue)))
@@ -306,8 +404,8 @@ class ImageManipulation:
         # Avoid having missed datapoints here
         sqrt_calc = np.where(sqrt_calc == 0, 1, sqrt_calc)
 
-        if (green >= blue).any():
-            hue = np.arccos((1 / 2 * ((red - green) + (red - blue)) / sqrt_calc))
+        if (green > blue).any():
+            hue = np.arccos((0.5 * ((red - green) + (red - blue)) / sqrt_calc))
         else:
             hue = 2 * pi - np.arccos((1 / 2 * ((red - green) + (red - blue)) / sqrt_calc))
 
@@ -317,7 +415,7 @@ class ImageManipulation:
         return self._imgAsHSI
 
     # This code is way too slow
-    def RGB2HSI(self):
+    def _RGB2HSI(self):
         """
              This is the function to convert RGB color image to HSI image
              :param rgm_img: RGB color image
@@ -366,6 +464,56 @@ class ImageManipulation:
         self._imgAsHSI = hsi_img
         return hsi_img
 
+    def RGB2HSI(self, img: np.ndarray):
+        """
+        Convert the RGB image to HSI
+        Adapted from: https://github.com/SVLaursen/Python-RGB-to-HSI/blob/master/converter.py
+        :param img: RGB image
+        :return: hsi image
+        """
+        with np.errstate(divide='ignore', invalid='ignore'):
+
+            # Load image with 32 bit floats as variable type
+            bgr = np.float32(img) / 255
+
+            # Separate color channels
+            blue = bgr[:, :, 0]
+            green = bgr[:, :, 1]
+            red = bgr[:, :, 2]
+
+            # Calculate Intensity
+            def calc_intensity(red, blue, green):
+                return np.divide(blue + green + red, 3)
+
+            # Calculate Saturation
+            def calc_saturation(red, blue, green):
+                minimum = np.minimum(np.minimum(red, green), blue)
+                saturation = 1 - (3 / (red + green + blue + 0.001) * minimum)
+
+                return saturation
+
+            # Calculate Hue
+            def calc_hue(red, blue, green):
+                hue = np.copy(red)
+
+                for i in range(0, blue.shape[0]):
+                    for j in range(0, blue.shape[1]):
+                        hue[i][j] = 0.5 * ((red[i][j] - green[i][j]) + (red[i][j] - blue[i][j])) / \
+                                    math.sqrt((red[i][j] - green[i][j]) ** 2 +
+                                              ((red[i][j] - blue[i][j]) * (green[i][j] - blue[i][j])))
+                        hue[i][j] = math.acos(hue[i][j])
+
+                        if blue[i][j] <= green[i][j]:
+                            hue[i][j] = hue[i][j]
+                        else:
+                            hue[i][j] = ((360 * math.pi) / 180.0) - hue[i][j]
+
+                return hue
+
+            # Merge channels into picture and return image
+            hsi = cv.merge(
+                (calc_hue(red, blue, green), calc_saturation(red, blue, green), calc_intensity(red, blue, green)))
+            return hsi
     def toGreyscale(self) -> np.ndarray:
         """
         The current image converted to greyscale
@@ -396,9 +544,10 @@ class ImageManipulation:
         # This article gives the greyscale conversion as:
         # grey = 0.2989 * R + 0.5870 * G + 0.1140 * B
         # TODO: Check the grayscale conversion from opencv
-        img = cv.cvtColor(self._image.astype(np.uint8), cv.COLOR_BGR2GRAY)
-        # cv.imwrite("converted.jpg", img)
-        self._imgAsGreyscale = img
+        if self._imgAsGreyscale is None:
+            img = cv.cvtColor(self._image.astype(np.uint8), cv.COLOR_BGR2GRAY)
+            # cv.imwrite("converted.jpg", img)
+            self._imgAsGreyscale = img
 
         return self._imgAsGreyscale
 
@@ -464,6 +613,17 @@ class ImageManipulation:
         self.log.debug("DGCI Calculated")
         self._imageAsDGCI = dgci
 
+    def equalizeContrast(self):
+        """
+        Equalize the contrast. For color images, this means a conversion to another color space and then back
+        Note that this method only applies the histogram equalization to the BGR image, so this should be called
+        before and conversion to other color spaces.
+        """
+        img = cv.cvtColor(self._image.astype(np.uint8), cv.COLOR_BGR2HSV)
+        img[:, :, 2] = cv.equalizeHist(img[:, :, 2])
+        self._image = cv.cvtColor(img.astype(np.uint8), cv.COLOR_HSV2BGR)
+        return self._image
+
     def findEdges(self, image: np.ndarray):
         self._edges = cv.Canny(self._imgAsGreyscale, 20, 30)
         return
@@ -497,6 +657,7 @@ class ImageManipulation:
         """
         return sizeOfTarget / sizeOfLargest
 
+    #@profile
     def findBlobs(self, threshold: int, strategy: constants.Strategy) -> ([], np.ndarray, {}, str):
         """
         Find objects within the current image
@@ -504,6 +665,7 @@ class ImageManipulation:
         :param strategy:
         :return: (contours, hierarchy, bounding rectangles, name of largest object)
         """
+        # self.log.debug(f"Memory % used before processing: {psutil.Process(os.getpid()).memory_percent()}")
         self.toGreyscale()
         # self.show("grey", self._imgAsGreyscale)
         self.write(self._imgAsGreyscale, "greyscale.jpg")
@@ -511,7 +673,7 @@ class ImageManipulation:
         self.cartoon()
         # self.show("cartooned", self._cartooned)
         # self.write(self._image, "original.jpg")
-        self.write(self._cartooned, "cartooned.jpg")
+        self._logger.logImage("cartooned", self._cartooned)
 
         # self.write(self._image, "index.jpg")
 
@@ -520,6 +682,9 @@ class ImageManipulation:
         # ret,thresh = cv.threshold(self._cartooned,127,255,0)
         #ret, thresh = cv.threshold(self._imgAsGreyscale, 127, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)
         ret, thresh = cv.threshold(self._imgAsGreyscale, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)
+
+        # self.log.debug(f"Memory % used after threshold: {psutil.Process(os.getpid()).memory_percent()}")
+
         self._threshold = thresh
         self.write(thresh, "threshold.jpg")
         kernel = np.ones((5, 5), np.uint8)
@@ -527,9 +692,11 @@ class ImageManipulation:
         # erosion = cv.erode(self._cartooned, kernel, iterations=4)
         # self.write(erosion, "erosion.jpg")
         erosion = cv.dilate(thresh, kernel, iterations=1)  # originally 3
+        # self.log.debug(f"Memory % used after dilation: {psutil.Process(os.getpid()).memory_percent()}")
         self.write(erosion, "after-dilation.jpg")
 
         closing = cv.morphologyEx(erosion, cv.MORPH_CLOSE, kernel)
+        # self.log.debug(f"Memory % used after closing: {psutil.Process(os.getpid()).memory_percent()}")
         # self.write(closing, "closing.jpg")
         self._logger.logImage("closing", closing)
         # self.show("binary", erosion)
@@ -551,9 +718,13 @@ class ImageManipulation:
         # contours, hierarchy = cv.findContours(erosion,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
         if strategy == constants.Strategy.PROCESSED:
             contours, hierarchy = cv.findContours(candidate, cv.RETR_TREE, cv.CHAIN_APPROX_NONE)
+            # self.log.debug(f"Memory % used after finding contours: {psutil.Process(os.getpid()).memory_percent()}")
         else:
+            # self.write(closing, "closing.jpg")
             # Find the contours in the threshold instead of the candidate
-            contours, hierarchy = cv.findContours(self._cartooned, cv.RETR_TREE, cv.CHAIN_APPROX_NONE)
+            #contours, hierarchy = cv.findContours(self._cartooned, cv.RETR_TREE, cv.CHAIN_APPROX_NONE)
+            contours, hierarchy = cv.findContours(self._cartooned, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE)
+            # self.log.debug(f"Memory % used after finding contours: {psutil.Process(os.getpid()).memory_percent()}")
 
         self._contours = contours
 
@@ -600,6 +771,7 @@ class ImageManipulation:
             # threshold.  Things in shadow and noise will be identified as shapes
             if area > threshold:
                 self._blobs[name] = infoAboutBlob
+                self._blobsWithVectors[name] = infoAboutBlob.copy()
                 i = i + 1
 
             # Determine the largest blob in the image
@@ -639,7 +811,7 @@ class ImageManipulation:
         # Convert to binary image
         # Works
         # ret,thresh = cv.threshold(self._cartooned,127,255,0)
-        ret, thresh = cv.threshold(self._imgAsGreyscale, 127, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)
+        #ret, thresh = cv.threshold(self._imgAsGreyscale, 127, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)
         ret, thresh = cv.threshold(self._imgAsGreyscale, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)
         self.write(thresh, "threshold.jpg")
         kernel = np.ones((5, 5), np.uint8)
@@ -783,141 +955,170 @@ class ImageManipulation:
         """
         self.log.debug("LBP")
 
+        # GREYSCALE
         lbp = LBP(self._blobs, constants.NAME_GREYSCALE_IMAGE, 24, 8)
+        lbp.prefix = constants.NAME_GREYSCALE + constants.DELIMETER + constants.NAME_LBP
         lbp.compute()
         self._blobs = lbp.blobs
+
+        colorBands = {
+            constants.NAME_YIQ_Y:                 {'base': constants.NAME_IMAGE_YIQ, 'prefix': constants.NAME_YIQ_Y + constants.DELIMETER + constants.NAME_LBP, "band": 0},
+            constants.NAME_YIQ_I:                 {'base': constants.NAME_IMAGE_YIQ, 'prefix': constants.NAME_YIQ_I + constants.DELIMETER + constants.NAME_LBP, "band": 1},
+            constants.NAME_YIQ_Q:                 {'base': constants.NAME_IMAGE_YIQ, 'prefix': constants.NAME_YIQ_Q + constants.DELIMETER + constants.NAME_LBP, "band": 2},
+            constants.NAME_HSI_HUE:               {'base': constants.NAME_IMAGE_HSI, 'prefix': constants.NAME_HSI_HUE + constants.DELIMETER + constants.NAME_LBP, "band": 0},
+            constants.NAME_HSI_SATURATION:        {'base': constants.NAME_IMAGE_HSI, 'prefix': constants.NAME_HSI_SATURATION + constants.DELIMETER + constants.NAME_LBP, "band": 1},
+            constants.NAME_HSI_INTENSITY:         {'base': constants.NAME_IMAGE_HSI, 'prefix': constants.NAME_HSI_INTENSITY + constants.DELIMETER + constants.NAME_LBP, "band": 2},
+            constants.NAME_RED:                   {'base': constants.NAME_IMAGE_RGB, 'prefix': constants.NAME_RED + constants.DELIMETER + constants.NAME_LBP, "band": 0},
+            constants.NAME_BLUE:                  {'base': constants.NAME_IMAGE_RGB, 'prefix': constants.NAME_BLUE + constants.DELIMETER + constants.NAME_LBP, "band": 1},
+            constants.NAME_GREEN:                 {'base': constants.NAME_IMAGE_RGB, 'prefix': constants.NAME_GREEN + constants.DELIMETER + constants.NAME_LBP, "band": 2},
+            constants.NAME_HSV_HUE:               {'base': constants.NAME_IMAGE_HSV, 'prefix': constants.NAME_HSV_HUE + constants.DELIMETER + constants.NAME_LBP, "band": 0},
+            constants.NAME_HSV_SATURATION:        {'base': constants.NAME_IMAGE_HSV, 'prefix': constants.NAME_HSV_SATURATION + constants.DELIMETER + constants.NAME_LBP, "band": 1},
+            constants.NAME_HSV_VALUE:             {'base': constants.NAME_IMAGE_HSV, 'prefix': constants.NAME_HSV_VALUE + constants.DELIMETER + constants.NAME_LBP, "band": 2},
+            constants.NAME_YCBCR_LUMA:            {'base': constants.NAME_IMAGE_YCBCR, 'prefix': constants.NAME_YCBCR_LUMA + constants.DELIMETER + constants.NAME_LBP, "band": 0},
+            constants.NAME_YCBCR_BLUE_DIFFERENCE: {'base': constants.NAME_IMAGE_YCBCR, 'prefix': constants.NAME_YCBCR_BLUE_DIFFERENCE + constants.DELIMETER + constants.NAME_LBP, "band": 1},
+            constants.NAME_YCBCR_RED_DIFFERENCE:  {'base': constants.NAME_IMAGE_YCBCR, 'prefix': constants.NAME_YCBCR_RED_DIFFERENCE + constants.DELIMETER + constants.NAME_LBP, "band": 2},
+            constants.NAME_CIELAB_L:              {'base': constants.NAME_IMAGE_CIELAB, 'prefix': constants.NAME_CIELAB_L + constants.DELIMETER + constants.NAME_LBP, "band": 0},
+            constants.NAME_CIELAB_A:              {'base': constants.NAME_IMAGE_CIELAB, 'prefix': constants.NAME_CIELAB_A + constants.DELIMETER + constants.NAME_LBP, "band": 1},
+            constants.NAME_CIELAB_B:              {'base': constants.NAME_IMAGE_CIELAB, 'prefix': constants.NAME_CIELAB_B + constants.DELIMETER + constants.NAME_LBP, "band": 2},
+
+        }
+
+        for color, details in colorBands.items():
+            lbp = LBP(self._blobs, details['base'], 24, 8, PREFIX=details['prefix'], BAND=int(details['band']))
+            lbp.compute()
+            self._blobs = lbp.blobs
 
     def computeGLCM(self):
         """
         GLCM Computations for all objects in image.
         """
-        self.log.debug("GLCM: Greyscale")
+        #self.log.debug("GLCM: Greyscale")
         self._performance.start()
         glcm = GLCM(self._blobs, constants.NAME_GREYSCALE_IMAGE, PREFIX=constants.NAME_GREYSCALE)
         glcm.computeAttributes()
         self._blobs = glcm.blobs
         self._performance.stopAndRecord(constants.PERF_GLCM_GREYSCALE)
 
-        self.log.debug("GLCM: YIQ Y")
+        #self.log.debug("GLCM: YIQ Y")
         self.performance.start()
         glcm = GLCM(self._blobs, constants.NAME_IMAGE_YIQ, PREFIX=constants.NAME_YIQ_Y, BAND=0)
         glcm.computeAttributes()
         self._blobs = glcm.blobs
         self._performance.stopAndRecord(constants.PERF_GLCM_YIQ_Y)
 
-        self.log.debug("GLCM: YIQ I")
+        #self.log.debug("GLCM: YIQ I")
         self._performance.start()
         glcm = GLCM(self._blobs, constants.NAME_IMAGE_YIQ, PREFIX=constants.NAME_YIQ_I, BAND=1)
         glcm.computeAttributes()
         self._blobs = glcm.blobs
         self._performance.stopAndRecord(constants.PERF_GLCM_YIQ_I)
 
-        self.log.debug("GLCM: YIQ Q")
+        #self.log.debug("GLCM: YIQ Q")
         self._performance.start()
         glcm = GLCM(self._blobs, constants.NAME_IMAGE_YIQ, PREFIX=constants.NAME_YIQ_Q, BAND=2)
         glcm.computeAttributes()
         self._blobs = glcm.blobs
         self._performance.stopAndRecord(constants.PERF_GLCM_YIQ_Q)
 
-        self.log.debug("GLCM: HSV Hue")
+        #self.log.debug("GLCM: HSV Hue")
         self._performance.start()
         glcm = GLCM(self._blobs, constants.NAME_IMAGE_HSV, PREFIX=constants.NAME_HSV_HUE, BAND=0)
         glcm.computeAttributes()
         self._blobs = glcm.blobs
         self._performance.stopAndRecord(constants.PERF_GLCM_HSV_H)
 
-        self.log.debug("GLCM: HSV Saturation")
+        #self.log.debug("GLCM: HSV Saturation")
         self._performance.start()
         glcm = GLCM(self._blobs, constants.NAME_IMAGE_HSV, PREFIX=constants.NAME_HSV_SATURATION, BAND=1)
         glcm.computeAttributes()
         self._blobs = glcm.blobs
         self._performance.stopAndRecord(constants.PERF_GLCM_HSV_H)
 
-        self.log.debug("GLCM: HSV Value")
+        #self.log.debug("GLCM: HSV Value")
         self._performance.start()
         glcm = GLCM(self._blobs, constants.NAME_IMAGE_HSV, PREFIX=constants.NAME_HSV_VALUE, BAND=2)
         glcm.computeAttributes()
         self._blobs = glcm.blobs
         self._performance.stopAndRecord(constants.PERF_GLCM_HSV_H)
 
-        self.log.debug("GLCM: Blue")
+        #self.log.debug("GLCM: Blue")
         self._performance.start()
         glcm = GLCM(self._blobs, constants.NAME_IMAGE, PREFIX=constants.NAME_BLUE, BAND=0)
         glcm.computeAttributes()
         self._blobs = glcm.blobs
         self._performance.stopAndRecord(constants.PERF_GLCM_RGB_B)
 
-        self.log.debug("GLCM: Green")
+        #self.log.debug("GLCM: Green")
         self._performance.start()
         glcm = GLCM(self._blobs, constants.NAME_IMAGE, PREFIX=constants.NAME_GREEN, BAND=1)
         glcm.computeAttributes()
         self._blobs = glcm.blobs
         self._performance.stopAndRecord(constants.PERF_GLCM_RGB_B)
 
-        self.log.debug("GLCM: Red")
+        #self.log.debug("GLCM: Red")
         self._performance.start()
         glcm = GLCM(self._blobs, constants.NAME_IMAGE, PREFIX=constants.NAME_RED, BAND=2)
         glcm.computeAttributes()
         self._blobs = glcm.blobs
         self._performance.stopAndRecord(constants.PERF_GLCM_RGB_B)
 
-        self.log.debug("GLCM: HSI H")
+        #self.log.debug("GLCM: HSI H")
         self._performance.start()
         glcm = GLCM(self._blobs, constants.NAME_IMAGE_HSI, PREFIX=constants.NAME_HSI_HUE, BAND=0)
         glcm.computeAttributes()
         self._blobs = glcm.blobs
         self._performance.stopAndRecord(constants.PERF_GLCM_HSI_H)
 
-        self.log.debug("GLCM: HSI S")
+        #self.log.debug("GLCM: HSI S")
         self._performance.start()
         glcm = GLCM(self._blobs, constants.NAME_IMAGE_HSI, PREFIX=constants.NAME_HSI_SATURATION, BAND=1)
         glcm.computeAttributes()
         self._blobs = glcm.blobs
         self._performance.stopAndRecord(constants.PERF_GLCM_HSI_S)
 
-        self.log.debug("GLCM: HSI I")
+        #self.log.debug("GLCM: HSI I")
         self._performance.start()
         glcm = GLCM(self._blobs, constants.NAME_IMAGE_HSI, PREFIX=constants.NAME_HSI_INTENSITY, BAND=2)
         glcm.computeAttributes()
         self._blobs = glcm.blobs
         self._performance.stopAndRecord(constants.PERF_GLCM_HSI_I)
 
-        self.log.debug("GLCM: YCBCR")
+        #self.log.debug("GLCM: YCBCR")
         self._performance.start()
         glcm = GLCM(self._blobs, constants.NAME_IMAGE_YCBCR, PREFIX=constants.NAME_YCBCR_LUMA, BAND=0)
         glcm.computeAttributes()
         self._blobs = glcm.blobs
         self._performance.stopAndRecord(constants.PERF_GLCM_YCBCR_Y)
 
-        self.log.debug("GLCM: YCBCR CB")
+        #self.log.debug("GLCM: YCBCR CB")
         self._performance.start()
         glcm = GLCM(self._blobs, constants.NAME_IMAGE_YCBCR, PREFIX=constants.NAME_YCBCR_BLUE_DIFFERENCE, BAND=1)
         glcm.computeAttributes()
         self._blobs = glcm.blobs
         self._performance.stopAndRecord(constants.PERF_GLCM_YCBCR_CB)
 
-        self.log.debug("GLCM: YCBCR CR")
+        #self.log.debug("GLCM: YCBCR CR")
         self._performance.start()
         glcm = GLCM(self._blobs, constants.NAME_IMAGE_YCBCR, PREFIX=constants.NAME_YCBCR_RED_DIFFERENCE, BAND=2)
         glcm.computeAttributes()
         self._blobs = glcm.blobs
         self._performance.stopAndRecord(constants.PERF_GLCM_YCBCR_CR)
 
-        self.log.debug("GLCM: CIELAB L")
+        #self.log.debug("GLCM: CIELAB L")
         self._performance.start()
         glcm = GLCM(self._blobs, constants.NAME_IMAGE_CIELAB, PREFIX=constants.NAME_CIELAB_L, BAND=0)
         glcm.computeAttributes()
         self._blobs = glcm.blobs
         self._performance.stopAndRecord(constants.PERF_GLCM_CIELAB_L)
 
-        self.log.debug("GLCM: CIELAB A")
+        #self.log.debug("GLCM: CIELAB A")
         self._performance.start()
         glcm = GLCM(self._blobs, constants.NAME_IMAGE_CIELAB, PREFIX=constants.NAME_CIELAB_A, BAND=1)
         glcm.computeAttributes()
         self._blobs = glcm.blobs
         self._performance.stopAndRecord(constants.PERF_GLCM_CIELAB_A)
 
-        self.log.debug("GLCM: CIELAB B")
+        #self.log.debug("GLCM: CIELAB B")
         self._performance.start()
         glcm = GLCM(self._blobs, constants.NAME_IMAGE_CIELAB, PREFIX=constants.NAME_CIELAB_B, BAND=2)
         glcm.computeAttributes()
@@ -1053,7 +1254,7 @@ class ImageManipulation:
                 #print(f"({contour[coordinate, 0, 0]},{contour[coordinate, 0, 1]}) differences ({xDifference}, {yDifference}))")
                 boundaryChain.append(codes[j][i])
             blobAttributes[constants.NAME_BOUNDARY_CHAIN] = boundaryChain
-            self.log.debug(f"Boundary chain computed for perimeter")
+            #self.log.info(f"Boundary chain computed for perimeter")
 
     def computeKslope(self, k: int):
         """
@@ -1147,7 +1348,7 @@ class ImageManipulation:
             # Adapted from https://stackoverflow.com/questions/32629806/how-can-i-calculate-the-curvature-of-an-extracted-contour-by-opencv
             assert stride < len(contour), "stride must be shorter than length of contour"
 
-            self.log.debug(f"Compute k-curvature for contour of length {len(contour)}")
+            #self.log.debug(f"Compute k-curvature for contour of length {len(contour)}")
             for i in range(len(contour)):
                 before = i - stride + len(contour) if i - stride < 0 else i - stride
                 after = i + stride - len(contour) if i + stride >= len(contour) else i + stride
@@ -1210,8 +1411,8 @@ class ImageManipulation:
             totalCurvature = np.sum(abs(slopes)) / len(slopes)
             blobAttributes[constants.NAME_BENDING] = bending
             blobAttributes[constants.NAME_ABSCURVATURE] = totalCurvature
-            self.log.debug(f"Bending energy for {blobName}: {bending}")
-            self.log.debug(f"Total absolute curvature for {blobName}: {totalCurvature}")
+            #self.log.debug(f"Bending energy for {blobName}: {bending}")
+            #self.log.debug(f"Total absolute curvature for {blobName}: {totalCurvature}")
 
 
     def computeRadialDistances(self):
@@ -1242,9 +1443,9 @@ class ImageManipulation:
             # Get the percentage  of crossings of the mean from the tuple returned
             percentCrossings = len(crossings[0]) / len(normRadialDistance)
             blobAttributes[constants.NAME_RADIAL_CROSSINGS_PCT] = percentCrossings
-            self.log.debug(f"Radial distances (sample): {distances[0]} {distances[1]}")
-            self.log.debug(f"Radial variance: {blobAttributes[constants.NAME_RADIAL_VAR]}")
-            self.log.debug(f"Radial crossings percentage: {percentCrossings}")
+            #self.log.debug(f"Radial distances (sample): {distances[0]} {distances[1]}")
+            #self.log.debug(f"Radial variance: {blobAttributes[constants.NAME_RADIAL_VAR]}")
+            #self.log.debug(f"Radial crossings percentage: {percentCrossings}")
 
 
     def computeFourier(self):
@@ -1463,33 +1664,42 @@ class ImageManipulation:
         return normalizedDistance
 
     def findCropLine(self):
+        """
+        Find the likely crop line in the image by finding the biggest items in the image.\n
+        WARNING: This is abandoned code that does nothing -- only here because the attributes are used elsewhere
 
+        :return:
+        """
         # Find the number of horizontal neighbors each element has.
 
+        # By default, the crop line is in the middle of the image -- likely for images taken by hand, not so much
+        # by drone
         likelyCropLineY = int(self._maxY / 2)
         weightedDistanceMax = 0
 
+        # This is the part that is not needed anymore
         # Find the biggest item closest to the center line
-        try:
-            for blobName, blobAttributes in self._blobs.items():
-                weightedDistance = blobAttributes[constants.NAME_AREA] * (
-                            1 - blobAttributes[constants.NAME_DISTANCE_NORMALIZED])
-
-                self.log.debug("Weighted distance of {}: {}".format(blobName, weightedDistance))
-                if weightedDistance > weightedDistanceMax:
-                    weightedDistanceMax = weightedDistance
-                    likelyCropLineBlob = blobName
-                    likelyCropLineY = blobAttributes[constants.NAME_CENTER][1]
-        except KeyError as key:
-            self.log.error("Normalized distance not found")
-            likelyCropLineY = 0
-            likelyCropLineBlob = "error"
+        # try:
+        #     for blobName, blobAttributes in self._blobs.items():
+        #         weightedDistance = blobAttributes[constants.NAME_AREA] * (
+        #                     1 - blobAttributes[constants.NAME_DISTANCE_NORMALIZED])
+        #
+        #         self.log.debug("Weighted distance of {}: {}".format(blobName, weightedDistance))
+        #         if weightedDistance > weightedDistanceMax:
+        #             weightedDistanceMax = weightedDistance
+        #             likelyCropLineBlob = blobName
+        #             likelyCropLineY = blobAttributes[constants.NAME_CENTER][1]
+        # except KeyError as key:
+        #     self.log.error(f"Attribute not found: {key}")
+        #     likelyCropLineY = 0
+        #     likelyCropLineBlob = "error"
 
         self._cropY = likelyCropLineY
         # self.log.debug("Crop line Y: {} for blob {}".format(self._cropY, likelyCropLineBlob))
 
         # Step through and replace the normalized distance to the center line
         # with the normalized distance to the crop line
+        # This is the bit that sets the attributes that are needed
         for blobName, blobAttributes in self._blobs.items():
             (x, y) = blobAttributes[constants.NAME_CENTER]
             blobAttributes[constants.NAME_DISTANCE_NORMALIZED] = self.normalizedDistanceToCropY(y)
@@ -1634,7 +1844,8 @@ class ImageManipulation:
         """
         for blobName, blobAttributes in self._blobs.items():
             contour = blobAttributes[constants.NAME_CONTOUR]
-            cv.drawContours(self._image, contour, contourIdx=-1, color=(255, 0, 0),
+            # Default color was (255. 0, 0), but that interfered with the blue bucket lid, so switch to red.
+            cv.drawContours(self._image, contour, contourIdx=-1, color=(0, 0, 255),
                             thickness=constants.SIZE_CONTOUR_LINE)
         # self._contours_image = np.zeros(self._image.shape, np.uint8)
         # cv.drawContours(self._contours_image, self._contours, contourIdx=-1, color=(255,0,0),thickness=2)
@@ -1655,7 +1866,7 @@ class ImageManipulation:
         :param convexHull: a convex hull or bounding bix should surround
         """
 
-        cv.putText(self._image, name, (50, 75), cv.FONT_HERSHEY_SIMPLEX, 2.0, (255, 255, 255), 2)
+        cv.putText(self._image, name, (50, 75), cv.FONT_HERSHEY_SIMPLEX, self._fontScale, (255, 255, 255), 2)
 
         # Convex hull
         if convexHull:
@@ -1703,73 +1914,105 @@ class ImageManipulation:
 
 
                 cv.circle(self._image, (cX, cY), 5, (255, 255, 255), -1)
-                location = "(" + str(cX) + "," + str(cY) + ")"
+                location = "Location: (" + str(cX) + "," + str(cY) + ")"
                 areaText = "Area: " + str(area)
-                shapeText = "Shape: " + "{:.4f}".format(rectAttributes[constants.NAME_SHAPE_INDEX])
-                lengthWidthRatioText = "L/W Ratio: " + "{:4f}".format(rectAttributes[constants.NAME_RATIO])
-                reasonText = "Classified By: " + constants.REASONS[rectAttributes[constants.NAME_REASON]]
-                classifiedText = "Classified As: " + constants.TYPES[rectAttributes[constants.NAME_TYPE]]
-                distanceText = "Normalized Distance: " + "{:.4f}".format(
-                    rectAttributes[constants.NAME_DISTANCE_NORMALIZED])
                 nameText = "Name: {}".format(rectName)
-                hueText = "Hue: {:.4f}".format(rectAttributes[constants.NAME_HUE])
-                yiqText = "In Phase: {:.4f}".format(rectAttributes[constants.NAME_I_YIQ])
-                elongationText = "Elongation: {:.4f}".format(rectAttributes[constants.NAME_ELONGATION])
-                eccentricityText = "Eccentricity: {:.4f}".format(rectAttributes[constants.NAME_ECCENTRICITY])
-                roundnessText = "Roundness: {:.4f}".format(rectAttributes[constants.NAME_ROUNDNESS])
-                convexityText = "Convexity: {:.4f}".format(rectAttributes[constants.NAME_CONVEXITY])
-                solidityText = "Solidity: {:.4f}".format(rectAttributes[constants.NAME_SOLIDITY])
-                distanceToEmitterText = "Distance to Emitter: {:.4f}".format(
-                    rectAttributes[constants.NAME_DIST_TO_LEADING_EDGE])
+
+
+                # Determine the starting location of the text.
+                # Text near the edges of the image will get cut off
+                # The Y offset of each decoration
+                yOffset = 25
+                xOffset = 25
+                decorationHeight = 45
+                decorationWidth = 500
+                # There is one decoration that does not take up space, contours
+                if constants.NAME_CONTOUR in decorations:
+                    decorationsTotalHeight = (len(decorations) - 1) * yOffset
+                else:
+                    decorationsTotalHeight = len(decorations) * yOffset
+
+                # Reversed these definitions
+                maxWidth = self._maxY
+                maxHeight = self._maxX
+
+                # Adjust the starting point if the text is too wide
+                self.log.debug(f"cX: {cX} cY: {cY}")
+                if cX - xOffset > maxWidth - decorationWidth:
+                    cX = cX - 500
+                # Adjust the starting point if all the decorations are too tall
+                if cY - decorationsTotalHeight < yOffset:
+                    cY += decorationsTotalHeight + (2 * yOffset)
+
+
+                # track each decoration
+                countOfDecorations = 0
                 if constants.NAME_LOCATION in decorations:
-                    cv.putText(self._image, location, (cX - 25, cY - 25), cv.FONT_HERSHEY_SIMPLEX, 0.75,
-                               (255, 255, 255), 2)
+                    countOfDecorations += 1
+                    cv.putText(self._image, location, (cX - 25, cY - (countOfDecorations * yOffset)), cv.FONT_HERSHEY_SIMPLEX, self._fontScale, (255, 255, 255), 2)
                 if constants.NAME_AREA in decorations:
-                    cv.putText(self._image, areaText, (cX - 25, cY - 50), cv.FONT_HERSHEY_SIMPLEX, 0.75,
-                               (255, 255, 255), 2)
+                    countOfDecorations += 1
+                    cv.putText(self._image, areaText, (cX - 25, cY - (countOfDecorations * yOffset)), cv.FONT_HERSHEY_SIMPLEX, self._fontScale, (255, 255, 255), 2)
+                if constants.NAME_BOX_DIMENSIONS in decorations:
+                    dimensionText = f"Box Dimensions:  {w}w x {h}h"
+                    countOfDecorations += 1
+                    cv.putText(self._image, dimensionText, (cX - 25, cY - (countOfDecorations * yOffset)), cv.FONT_HERSHEY_SIMPLEX, self._fontScale, (255, 255, 255), 2)
                 if constants.NAME_SHAPE_INDEX in decorations:
-                    cv.putText(self._image, shapeText, (cX - 25, cY - 75), cv.FONT_HERSHEY_SIMPLEX, 0.75,
-                               (255, 255, 255), 2)
+                    shapeText = "Shape: " + "{:.4f}".format(rectAttributes[constants.NAME_SHAPE_INDEX])
+                    countOfDecorations += 1
+                    cv.putText(self._image, shapeText, (cX - 25, cY - (countOfDecorations * yOffset)), cv.FONT_HERSHEY_SIMPLEX, self._fontScale, (255, 255, 255), 2)
                 if constants.NAME_RATIO in decorations:
-                    cv.putText(self._image, lengthWidthRatioText, (cX - 25, cY - 100), cv.FONT_HERSHEY_SIMPLEX, 0.75,
-                               (255, 255, 255), 2)
+                    lengthWidthRatioText = "L/W Ratio: " + "{:4f}".format(rectAttributes[constants.NAME_RATIO])
+                    countOfDecorations += 1
+                    cv.putText(self._image, lengthWidthRatioText, (cX - 25, cY - (countOfDecorations * yOffset)), cv.FONT_HERSHEY_SIMPLEX, self._fontScale, (255, 255, 255), 2)
                 if constants.NAME_REASON in decorations:
-                    cv.putText(self._image, reasonText, (cX - 25, cY - 125), cv.FONT_HERSHEY_SIMPLEX, 0.75,
-                               (255, 255, 255), 2)
+                    reasonText = "Classified By: " + constants.REASONS[rectAttributes[constants.NAME_REASON]]
+                    countOfDecorations += 1
+                    cv.putText(self._image, reasonText, (cX - 25, cY - (countOfDecorations * yOffset)), cv.FONT_HERSHEY_SIMPLEX, self._fontScale, (255, 255, 255), 2)
                 if constants.NAME_TYPE in decorations:
-                    cv.putText(self._image, classifiedText, (cX - 25, cY - 150), cv.FONT_HERSHEY_SIMPLEX, 0.75,
-                               (255, 255, 255), 2)
+                    classifiedText = "Classified As: " + constants.TYPES[rectAttributes[constants.NAME_TYPE]]
+                    countOfDecorations += 1
+                    cv.putText(self._image, classifiedText, (cX - 25, cY - (countOfDecorations * yOffset)), cv.FONT_HERSHEY_SIMPLEX, self._fontScale, (255, 255, 255), 2)
                 if constants.NAME_NAME in decorations:
-                    cv.putText(self._image, nameText, (cX - 25, cY - 175), cv.FONT_HERSHEY_SIMPLEX, 0.75,
-                               (255, 255, 255), 2)
+                    countOfDecorations += 1
+                    cv.putText(self._image, nameText, (cX - 25, cY - (countOfDecorations * yOffset)), cv.FONT_HERSHEY_SIMPLEX, self._fontScale, (255, 255, 255), 2)
                 if constants.NAME_DISTANCE_NORMALIZED in decorations:
-                    cv.putText(self._image, distanceText, (cX - 25, cY - 200), cv.FONT_HERSHEY_SIMPLEX, 0.75,
-                               (255, 255, 255), 2)
+                    distanceText = "Normalized Distance: " + "{:.4f}".format( rectAttributes[constants.NAME_DISTANCE_NORMALIZED])
+                    countOfDecorations += 1
+                    cv.putText(self._image, distanceText, (cX - 25, cY - (countOfDecorations * yOffset)), cv.FONT_HERSHEY_SIMPLEX, self._fontScale, (255, 255, 255), 2)
                     cv.line(self._image, (cX, cY), (cX, self._cropY), (255, 255, 255), 3)
                 if constants.NAME_HUE in decorations:
-                    cv.putText(self._image, hueText, (cX - 25, cY - 225), cv.FONT_HERSHEY_SIMPLEX, 0.75,
-                               (255, 255, 255), 2)
+                    hueText = "Hue: {:.4f}".format(rectAttributes[constants.NAME_HUE])
+                    countOfDecorations += 1
+                    cv.putText(self._image, hueText, (cX - 25, cY - (countOfDecorations * yOffset)), cv.FONT_HERSHEY_SIMPLEX, self._fontScale, (255, 255, 255), 2)
                 if constants.NAME_I_YIQ in decorations:
-                    cv.putText(self._image, yiqText, (cX - 25, cY - 250), cv.FONT_HERSHEY_SIMPLEX, 0.75,
-                               (255, 255, 255), 2)
+                    yiqText = "In Phase: {:.4f}".format(rectAttributes[constants.NAME_I_YIQ])
+                    countOfDecorations += 1
+                    cv.putText(self._image, yiqText, (cX - 25, cY - (countOfDecorations * yOffset)), cv.FONT_HERSHEY_SIMPLEX, self._fontScale, (255, 255, 255), 2)
                 if constants.NAME_ELONGATION in decorations:
-                    cv.putText(self._image, elongationText, (cX - 25, cY - 275), cv.FONT_HERSHEY_SIMPLEX, 0.75,
-                               (255, 255, 255), 2)
+                    elongationText = "Elongation: {:.4f}".format(rectAttributes[constants.NAME_ELONGATION])
+                    countOfDecorations += 1
+                    cv.putText(self._image, elongationText, (cX - 25, cY - (countOfDecorations * yOffset)), cv.FONT_HERSHEY_SIMPLEX, self._fontScale, (255, 255, 255), 2)
                 if constants.NAME_ECCENTRICITY in decorations:
-                    cv.putText(self._image, eccentricityText, (cX - 25, cY - 300), cv.FONT_HERSHEY_SIMPLEX, 0.75,
-                               (255, 255, 255), 2)
+                    eccentricityText = "Eccentricity: {:.4f}".format(rectAttributes[constants.NAME_ECCENTRICITY])
+                    countOfDecorations += 1
+                    cv.putText(self._image, eccentricityText, (cX - 25, cY - (countOfDecorations * yOffset)), cv.FONT_HERSHEY_SIMPLEX, self._fontScale, (255, 255, 255), 2)
                 if constants.NAME_ROUNDNESS in decorations:
-                    cv.putText(self._image, roundnessText, (cX - 25, cY - 325), cv.FONT_HERSHEY_SIMPLEX, 0.75,
-                               (255, 255, 255), 2)
+                    roundnessText = "Roundness: {:.4f}".format(rectAttributes[constants.NAME_ROUNDNESS])
+                    countOfDecorations += 1
+                    cv.putText(self._image, roundnessText, (cX - 25, cY - (countOfDecorations * yOffset)), cv.FONT_HERSHEY_SIMPLEX, self._fontScale, (255, 255, 255), 2)
                 if constants.NAME_CONVEXITY in decorations:
-                    cv.putText(self._image, convexityText, (cX - 25, cY - 350), cv.FONT_HERSHEY_SIMPLEX, 0.75,
-                               (255, 255, 255), 2)
+                    convexityText = "Convexity: {:.4f}".format(rectAttributes[constants.NAME_CONVEXITY])
+                    countOfDecorations += 1
+                    cv.putText(self._image, convexityText, (cX - 25, cY - (countOfDecorations * yOffset)), cv.FONT_HERSHEY_SIMPLEX, self._fontScale, (255, 255, 255), 2)
                 if constants.NAME_SOLIDITY in decorations:
-                    cv.putText(self._image, solidityText, (cX - 25, cY - 375), cv.FONT_HERSHEY_SIMPLEX, 0.75,
-                               (255, 255, 255), 2)
+                    solidityText = "Solidity: {:.4f}".format(rectAttributes[constants.NAME_SOLIDITY])
+                    countOfDecorations += 1
+                    cv.putText(self._image, solidityText, (cX - 25, cY - (countOfDecorations * yOffset)), cv.FONT_HERSHEY_SIMPLEX, self._fontScale, (255, 255, 255), 2)
                 if constants.NAME_DIST_TO_LEADING_EDGE in decorations:
-                    cv.putText(self._image, distanceToEmitterText, (cX - 25, cY - 400), cv.FONT_HERSHEY_SIMPLEX, 0.75,
-                               (255, 255, 255), 2)
+                    distanceToEmitterText = "Distance to Emitter: {:.4f}".format(rectAttributes[constants.NAME_DIST_TO_LEADING_EDGE])
+                    countOfDecorations += 1
+                    cv.putText(self._image, distanceToEmitterText, (cX - 25, cY - (countOfDecorations * yOffset)), cv.FONT_HERSHEY_SIMPLEX, self._fontScale, (255, 255, 255), 2)
 
         # cv.imwrite("opencv-centers.jpg", self._image)
         # self.show("centers", self._image)
@@ -1811,8 +2054,8 @@ class ImageManipulation:
             self._rectangles.append(rect)
 
             # cv.imwrite("centers.jpg", cv.cvtColor(self._image,))
-        self.show("centers", self._image)
-        cv.waitKey()
+        # self.show("centers", self._image)
+        # cv.waitKey()
         return
 
     # This does not do quite what is need.  If some unwanted vegetation is inside the bounding box, it is
@@ -1874,7 +2117,7 @@ class ImageManipulation:
                     self.log.error("All values for attribute are NaN: " + attribute)
                 # hueMean = np.nanmean(image)
                 hueMean = manipulation(image)
-                self.log.debug(attribute + ": " + str(hueMean))
+                #self.log.debug(attribute + ": " + str(hueMean))
                 blobAttributes[attribute] = hueMean
 
     def normalize(self) -> bool:
