@@ -1213,7 +1213,9 @@ class VegetationIndex:
                 'red1': [[180, 255, 255], [159, 50, 70]],
                 'red2': [[9, 255, 255], [0, 50, 70]],
                 'green': [[89, 255, 255], [36, 50, 70]],
-                'blue': [[128, 255, 255], [90, 50, 70]],
+                # The bucket lid index is interested in isolating something that is pretty solid blue, so bump up
+                # the saturation a bit -- this was 50 earlier
+                'blue': [[128, 255, 255], [90, 90, 70]],
                 'yellow': [[35, 255, 255], [25, 50, 70]],
                 'purple': [[158, 255, 255], [129, 50, 70]],
                 'orange': [[24, 255, 255], [10, 50, 70]],
@@ -1250,6 +1252,28 @@ class VegetationIndex:
         maskBlue = cv.inRange(hsv, lowerBlue, upperBlue)
 
         return maskBlue
+
+    #
+    # This index is specifically for segmenting out irrigation equipment
+    #
+    def pipes(self):
+        manipulatedImage = ImageManipulation(self.img, 0, None)
+        img = manipulatedImage.toYCBCR()
+        #img[:, :, 0] = cv.equalizeHist(img[:, :, 0])
+        self.yBand = img[:, :, 0]
+        self.cbBand = img[:, :, 1]
+        self.crBand = img[:, :, 2]
+
+        lessThan = self.cbBand <= self.crBand
+        # greaterThan = self.cbBand >= self.crBand
+        # delta = np.absolute(self.cbBand - self.crBand)
+        return lessThan
+
+        # Convert the image to YCBCR
+        ycbcr = cv.cvtColor(self.img.astype(np.uint8), cv.COLOR_BGR2YCR_CB)
+        maskYCBCR = np.where(ycbcr[1] < ycbcr[2], 0, 1)
+
+        return maskYCBCR
 
     def EI(self) -> np.ndarray:
         """
@@ -1494,10 +1518,15 @@ if __name__ == "__main__":
     import constants
 
     utility = VegetationIndex()
+    indexChoices = []
+    indexChoices = utility.GetSupportedAlgorithms()
+    indexChoices.append("all")
     parser = argparse.ArgumentParser("Show various vegetation indices")
 
     parser.add_argument('-i', '--input', action="store", required=True, type=str, help="Image or directory to process")
-    parser.add_argument('-o', '--output', action="store", help="Output directory for processed images")
+    parser.add_argument('-o', '--output', action="store", required=True,  help="Output directory for processed images")
+    parser.add_argument('-m', '--no-mask', action="store_true", required=False, default=False, help="Don't output mask")
+    parser.add_argument('-n', '--name', action="store", choices=indexChoices, nargs='*', required=False, help="Index name or all")
     parser.add_argument('-p', '--plot', action="store_true", default=False, help="Plot the index")
     parser.add_argument('-r', '--refine', action="store_true", default=False, help="Refine the mask before application")
     parser.add_argument('-s', '--show', action="store_true", default=False, help="Show intermediate images")
@@ -1614,7 +1643,7 @@ if __name__ == "__main__":
                "YCBCR Index": {"short": "YCbCrI", "create": utility.YCbCrI, "negate": False, "threshold": threholds["YCBCR"], "direction": 1, "normalize": True}}
 
     # Debug the implementations:
-    indices = {
+    _indices = {
         #"Excess Green - Excess Red": {"short": "ExGR", "create": utility.ExGR, "negate": False, "threshold": threholds["EXGEXR"], "direction": 1, "normalize": True},
         #"YIQ Index": {"short": "YI", "create": utility.YI, "negate": True, "threshold": threholds["YI"], "direction": 1, "normalize": False},
         #"Vegetative Index": {"short": "VEG", "create": utility.VEG, "negate": False, "threshold": threholds["VEG"], "direction": 1, "normalize": True},
@@ -1630,7 +1659,8 @@ if __name__ == "__main__":
         #"CIELAB Index": {"short": "CI", "create": utility.CI, "negate": False, "threshold": threholds["HV"], "direction": 1, "normalize": True}
         #"YCBCR Index": {"short": "YCbCrI", "create": utility.YCbCrI, "negate": False, "threshold": threholds["YCBCR"], "direction": 1, "normalize": True}
         #"Triangulation Greenness Index": {"short": "TGI", "create": utility.TGI, "negate": False, "threshold": threholds["TGI"], "direction": 1, "normalize": True},
-        "Bucket Lid": {"short": "BLI", "create": utility.bucketLid, "negate": False, "threshold": threholds["TGI"], "direction": 1, "normalize": False},
+        #"Bucket Lid": {"short": "BLI", "create": utility.bucketLid, "negate": False, "threshold": threholds["TGI"], "direction": 1, "normalize": False},
+        "Pipes": {"short": "PIPE", "create": utility.pipes, "negate": False, "threshold": threholds["TGI"], "direction": 1, "normalize": False},
     }
 
 
@@ -1639,6 +1669,11 @@ if __name__ == "__main__":
     for file in files:
         # Step through the indices and show the result on the target image
         for indexName, indexData in indices.items():
+
+            # If the user specified a specific index, use that one, otherwise skip it
+            if arguments.name and indexData["short"].lower() not in arguments.name:
+                continue
+
             utility.Load(file, equalize=False)
 
             if indexData["normalize"]:
@@ -1720,9 +1755,12 @@ if __name__ == "__main__":
             #image = cv.medianBlur(image, 5)
             if arguments.output is not None:
                 cv.imwrite(f"{arguments.output}/{Path(file).stem}-{indexData['short']}.jpg", image)
-                normalized = np.zeros_like(mask)
-                finalMask = cv.normalize(mask, normalized, 0, 255, cv.NORM_MINMAX)
-                cv.imwrite(f"{arguments.output}/{Path(file).stem}-mask-{indexData['short']}.jpg", finalMask)
+
+                # Unless the command line indicates otherwise, output the mask
+                if not arguments.no_mask:
+                    normalized = np.zeros_like(mask)
+                    finalMask = cv.normalize(mask, normalized, 0, 255, cv.NORM_MINMAX)
+                    cv.imwrite(f"{arguments.output}/{Path(file).stem}-mask-{indexData['short']}.jpg", finalMask)
 
             if showImages:
                 utility.ShowImage(indexName + " mask applied to source with threshold: " + str(thresholdUsed), image)
