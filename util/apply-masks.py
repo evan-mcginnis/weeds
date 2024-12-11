@@ -45,7 +45,7 @@ else:
         print(f"Unable to access image: {arguments.image}")
         sys.exit(-1)
     else:
-        imagesToProcess.append(arguments.images)
+        imagesToProcess.append(arguments.image)
     if not os.path.isfile(arguments.mask):
         print(f"Unable to access mask: {arguments.mask}")
         sys.exit(-1)
