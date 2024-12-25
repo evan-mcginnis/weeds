@@ -12,12 +12,14 @@ import logging.config
 import pandas as pd
 
 from Mask import Mask
-from Mask import Rate
+from Statistics import Rate
 
 
 parser = argparse.ArgumentParser("Evaluate Mask Differences", epilog="Plot error rates for mask production")
 
 parser.add_argument('-i', '--input', action="store", required=True, help="Input mask or directory")
+parser.add_argument('-ie', '--image-encoding', action="store", required=False, default="jpg", choices=["jpg", "png"], help="Image encoding")
+parser.add_argument('-me', '--mask-encoding', action="store", required=False, default="jpg", choices=["jpg", "png"], help="Mask encoding")
 parser.add_argument('-s', '--source', action="store", required=True, help="Original source image or directory")
 #parser.add_argument('-p', '--processing', action="store", required=False, default="mask", help="Operation")
 parser.add_argument('-t', '--target', action="store", required=True, help="Directory of reference masks")
@@ -53,7 +55,7 @@ if os.path.isdir(arguments.input):
         sys.exit(-1)
 
     # Find all the masks for all the images
-    masksToEvaluate = glob.glob(arguments.input + "*-mask-*.jpg")
+    masksToEvaluate = glob.glob(arguments.input + "*-mask-*." + arguments.mask_encoding)
     if len(masksToEvaluate) == 0:
         print(f"Unable to find masks in {arguments.input}")
         sys.exit(-1)
@@ -62,7 +64,7 @@ if os.path.isdir(arguments.input):
     for source in sourceFiles:
         baseSource = Path(source).stem
         # Check to see if corresponding masks are there
-        expectedMasks = glob.glob(arguments.input + baseSource + "-mask-*.jpg")
+        expectedMasks = glob.glob(arguments.input + baseSource + "-mask-*." + arguments.mask_encoding)
         if len(expectedMasks) == 0:
             print(f"Unable to find masks for image: {baseSource}")
             sys.exit(-1)
@@ -71,9 +73,9 @@ else:
     evaluateSingleImage = True
 
     # Find the masks associated with that image
-    masksToEvaluate = glob.glob(arguments.input + "-mask-*.jpg")
+    masksToEvaluate = glob.glob(arguments.input + "-mask-*." + arguments.mask_encoding)
     if len(masksToEvaluate) == 0:
-        print(f"Unable to access: {arguments.input}-mask-*.jpg")
+        print(f"Unable to access: {arguments.input}-mask-*." + arguments.mask_encoding)
         sys.exit(-1)
 
     # Find the source image -- this could be specified as the source directory, and we should figure it out,
@@ -84,7 +86,7 @@ else:
         sourceFiles = [arguments.source]
     # or if the directory was specified. just use the input specified
     elif os.path.isdir(arguments.source):
-        sourceFile = arguments.source + Path(arguments.input).stem + ".jpg"
+        sourceFile = arguments.source + Path(arguments.input).stem + "." + arguments.image_encoding
         if not os.path.isfile(sourceFile):
             print(f"Unable to access source image: {sourceFile}")
             sys.exit(-1)
@@ -92,6 +94,7 @@ else:
 
 # For each of the masks to evaluate, there must be a reference
 if os.path.isdir(arguments.target):
+    # This should be a PNG file, but I've saved them all as JPG -- change this after corrections
     referenceMasks = glob.glob(arguments.target + "*-mask.jpg")
     if len(referenceMasks) == 0:
         print(f"Unable to access reference masks in directory: {arguments.target}")
@@ -136,9 +139,9 @@ for source in sourceFiles:
         sys.exit(-1)
 
     if os.path.isdir(arguments.input):
-        masksToEvaluate = glob.glob(arguments.input + baseSource + "-mask-*.jpg")
+        masksToEvaluate = glob.glob(arguments.input + baseSource + "-mask-*." + arguments.mask_encoding)
     else:
-        masksToEvaluate = glob.glob(arguments.input + "-mask-*.jpg")
+        masksToEvaluate = glob.glob(arguments.input + "-mask-*." + arguments.mask_encoding)
 
     if len(masksToEvaluate) == 0:
         print(f"Unable to locate evaluation masks: {arguments.input}")
@@ -151,11 +154,11 @@ for source in sourceFiles:
         theMask.compare(referenceMask)
         print(f"{theMask}")
         technique = Path(mask).stem
-        print(f"Technique: {technique.split('-')[2]} FPR: {theMask.rate(Rate.FPR)} FNR: {theMask.rate(Rate.FNR)} Total {theMask.differences}")
+        print(f"Technique: {technique.split('-')[2]} FPR: {theMask.stats.rate(Rate.FPR)} FNR: {theMask.stats.rate(Rate.FNR)} F1: {theMask.stats.f1()} Total {theMask.stats.differences}")
         #results[technique.split('-')[2]] = [theMask.rate(Rate.FPR), theMask.rate(Rate.FNR), ((theMask.fp + theMask.fn) / (theMask.mask.shape[0] * theMask.mask.shape[1])) * 100]
-        results.append([Path(source).stem, technique.split('-')[2], theMask.rate(Rate.FPR), theMask.rate(Rate.FNR), theMask.rate(Rate.FPR) + theMask.rate(Rate.FNR)])
+        results.append([Path(source).stem, technique.split('-')[2], theMask.stats.rate(Rate.FPR), theMask.stats.rate(Rate.FNR), theMask.stats.f1(), theMask.stats.rate(Rate.FPR) + theMask.stats.rate(Rate.FNR)])
 
-df = pd.DataFrame(results, columns=['source', 'technique', 'FPR', 'FNR', 'Total'])
+df = pd.DataFrame(results, columns=['source', 'technique', 'FPR', 'FNR', 'F1', 'Total'])
 df.to_csv(arguments.output)
 sys.exit(0)
 
