@@ -99,10 +99,12 @@ subset %>%
   ggplot(aes(x = hue, y = mean)) + 
   geom_col()
 
-p<-ggplot(data=variancesByParameter, aes(x=name, y = variance)) +
-  geom_bar(color="blue", fill="blue" ,stat="identity") +
-  coord_flip()
-p + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
-
+p <-ggplot(data=variancesByParameter, aes(x=variance, y = name)) +
+  ylab("Higher Rank >") +
+  xlab("Variance of Normalized Feature") +
+  geom_bar(color="blue", fill="blue" ,stat="identity") + 
+  facet_wrap(. ~ as.factor(technique), scales='free_y') +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+p
 
 
