@@ -496,7 +496,11 @@ arguments = parser.parse_args()
 
 if not os.path.isfile(arguments.logging):
     print("Unable to access logging configuration file {}".format(arguments.logging))
-    sys.exit(1)
+    sys.exit(-1)
+
+if os.path.isfile(arguments.output):
+    print(f"Output file exists: {arguments.output}")
+    sys.exit(-1)
 
 # Initialize logging
 logging.config.fileConfig(arguments.logging)
