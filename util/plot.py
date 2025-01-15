@@ -5,6 +5,7 @@
 # Created to produce a figure for an ENVS508 assignment
 #
 import math
+import sys
 
 import argparse
 import cv2 as cv
@@ -39,15 +40,20 @@ bandNames = {
     "YCBCR": ["Luma", "Blue-difference", "Red-difference"],
     "YUV": ["Luma", "Croma-U", "Chroma-V"]
 }
-def magnitude(x):
+def magnitude(x: float, override: float):
     #print(f"X={x}")
-    return int(math.floor(math.log10(abs(x))))
+    if override is not None:
+        return override
+    else:
+        return int(math.floor(math.log10(abs(x))))
 
 parser.add_argument('-i', '--input', action="store", required=True, help="Image")
 parser.add_argument('-o', '--output', action="store", required=False, default=".", help="Output directory")
 parser.add_argument('-t', '--type', action="store", required=False, default="transect", choices=plotTypes, help="Type of plot")
 parser.add_argument('-y', '--y', action="store", required=False, default=1200, type=int, help="Y coordinate for transect")
 parser.add_argument('-x', '--x', action="store", required=False, default=1200, type=int, help="X coordinate for transect")
+parser.add_argument('-y2', '--y2', action="store", required=False, type=int, help="Y coordinate for transect 2")
+parser.add_argument('-x2', '--x2', action="store", required=False, type=int, help="X coordinate for transect 2")
 parser.add_argument('-len', '--length', action="store", required=False, default=-1, type=int, help="Transect length")
 parser.add_argument('-b', '--band', action="append", required=True, choices=[0, 1, 2], type=int, nargs='+', help="Band to plot")
 parser.add_argument('-hb', '--bins', action="store", required=False, default=25, type=int, help="Number of bins")
@@ -56,7 +62,28 @@ parser.add_argument('-l', '--logging', action="store", required=True, help="Logg
 parser.add_argument('-n', '--normalize', action="store_true", required=False, default=False, help="Normalize band to range 0..1")
 parser.add_argument('-r', '--rgb', action="store_true", required=False, default=False, help="Show the corresponding RGB band (band plot only")
 parser.add_argument('-s', '--subject', action="store", required=True, help="Subject of graph")
+parser.add_argument('-m', '--magnitude', action='store', required=False, help="Force magnitude value. Forces one axis")
 arguments = parser.parse_args()
+
+transectsRequested = 0
+#
+# If a second transect is requested, both x and y must be specified.
+# I suppose this could be generalized to N, but this is just 2 for now
+if arguments.x2 is not None and arguments.y2 is None or arguments.x2 is None and arguments.y2 is not None:
+    print(f"Location for transect 2 requires both x and y")
+    sys.exit(-1)
+
+if arguments.x2 is not None:
+    transectsRequested += 1
+
+# The first transect requires both to be specified as well
+if arguments.x is not None and arguments.y is None or arguments.x is None and arguments.y is not None:
+    print(f"Location for transect requires both x and y")
+    sys.exit(-1)
+
+if arguments.x is not None:
+    transectsRequested += 1
+
 
 if arguments.rgb and arguments.type != "band":
     print(f"-rgb option applies only to band plots")
@@ -125,10 +152,10 @@ else:
         exit(-1)
     stop = arguments.x + arguments.length
     #transect = image[arguments.x:stop, arguments.y, arguments.band[0]]
-    for bandNumber in range(len(arguments.band[0])):
+    for bandNumber in range(len(arguments.band)):
         start = arguments.x
         stop = arguments.x + arguments.length
-        transect = image[arguments.y, start:stop, arguments.band[0][bandNumber]]
+        transect = image[arguments.y, start:stop, arguments.band[bandNumber]]
         print(f"Band {bandNumber} range: {transect.min()} to {transect.max()} Magnitude {magnitude(transect.max())}")
 
         # Determine how many axis are required for the plot.
@@ -147,14 +174,14 @@ else:
         exit(-1)
 
 # Difference between two bands
-if arguments.type == "band":
-    difference = [0.0] * len(transects[0])
-    for i in range(len(transects[0])):
-        difference[i] = max(abs(transects[2][i]), abs(transects[1][i])) - min(abs(transects[2][i]), abs(transects[1][i]))
-        #difference[i] = math.log2(abs(float(transects[2][i]) - float(transects[1][i])))
-        #difference[i] = math.log2(abs(float(transects[1][i]))) * transects[0][i]
-
-    print(f"Difference range: {min(difference)}-{max(difference)}")
+# if arguments.type == "band":
+#     difference = [0.0] * len(transects[0])
+#     for i in range(len(transects[0])):
+#         difference[i] = max(abs(transects[2][i]), abs(transects[1][i])) - min(abs(transects[2][i]), abs(transects[1][i]))
+#         #difference[i] = math.log2(abs(float(transects[2][i]) - float(transects[1][i])))
+#         #difference[i] = math.log2(abs(float(transects[1][i]))) * transects[0][i]
+#
+#     print(f"Difference range: {min(difference)}-{max(difference)}")
 
 # Copy end
 
@@ -185,7 +212,7 @@ if arguments.type == "band":
 
     # Lines in the plot, irrespective of axis
     lines = []
-    x = np.arange(len(transects[0]))
+    x = np.arange(len(transects[0][0]))
     #plt.figure()
     fig, ax1 = plt.subplots(layout='constrained')
     # Make a long plot
@@ -207,18 +234,18 @@ if arguments.type == "band":
         # Determine which axis to use.  Axis 1 is the bigger magnitude
         if magnitude(transects[i].max()) == maxMagnitude:
             axis = ax1
-            ax1Ylabel += bandNames[arguments.color.upper()][int(arguments.band[0][i])] + " "
+            ax1Ylabel += bandNames[arguments.color.upper()][int(arguments.band[i][0])] + " "
             ax1.set_ylabel(ax1Ylabel, color=colors[i])
             ax1.tick_params(axis='y', labelcolor=colors[i])
         else:
             axis = ax2
-            ax2Ylabel += bandNames[arguments.color.upper()][int(arguments.band[0][i])] + " "
+            ax2Ylabel += bandNames[arguments.color.upper()][int(arguments.band[i][0])] + " "
             ax2.set_ylabel(ax2Ylabel, color=colors[i])
             ax2.tick_params(axis='y', labelcolor=colors[i])
 
-        lines.extend(axis.plot(x, transects[i], marker='.', markersize=5, color=colors[i]))
+        lines.extend(axis.plot(x, transects[i][0], marker='.', markersize=5, color=colors[i]))
 
-    axis.plot(x, difference, marker='.', markersize=3, color='black')
+    #axis.plot(x, difference, marker='.', markersize=3, color='black')
     #plt.scatter(x, transect, s=1)
     if arguments.rgb:
         plt.scatter(x, scaled, s=1, color='red')
@@ -226,8 +253,8 @@ if arguments.type == "band":
     else:
         #plt.legend([arguments.color.upper()], loc="lower right")
         legendItems = []
-        for selectedBand in arguments.band[0]:
-            legendItems.append(bandNames[arguments.color.upper()][selectedBand])
+        for selectedBand in arguments.band:
+            legendItems.append(bandNames[arguments.color.upper()][selectedBand[0]])
         print(f"Legend: {legendItems}")
 
         ax1.legend(lines, legendItems)
@@ -235,8 +262,9 @@ if arguments.type == "band":
     plt.show()
 
     log.debug(f"Draw line from ({arguments.x},{arguments.y}) to ({arguments.x + arguments.length},{arguments.y})")
-    cv.line(rgb, (arguments.x, arguments.y), (arguments.x + arguments.length, arguments.y), (0, 0, 255), 3, cv.LINE_AA)
-    #cv.line(rgb, (0, TRANSECT_LOCATION), (sizeX, TRANSECT_LOCATION), (0, 0, 255), 3, cv.LINE_AA)
+    cv.line(rgb, (arguments.x, arguments.y), (arguments.x + arguments.length, arguments.y), (0, 0, 255), 20, cv.LINE_AA)
+    if arguments.x2 is not None:
+        cv.line(rgb, (arguments.x2, arguments.y2), (arguments.x2 + arguments.length, arguments.y2), (0, 0, 255), 20, cv.LINE_AA)
     cv.imwrite(arguments.output + "/" + "transect-image.jpg", rgb)
 
 elif arguments.type == "transect":
