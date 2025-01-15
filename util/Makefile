@@ -28,6 +28,14 @@ training-file:
 
 LEN?=100
 
+# The MAGNITUDE will control the number of axes required for the plot.  Pass in 0, for instance to force a single axis
+# The default is to determine how may are required
+ifeq ($(MAGNITUDE),)
+_MAGNITUDE =
+else
+_MAGNITUDE = -m $(MAGNITUDE)
+endif
+
 plot-for-document:
 	test -n "$(X)"
 	test -n "$(Y)"
@@ -38,4 +46,4 @@ plot-for-document:
 	test -n "$(SUBJECT)"
 	test -n "$(LEN)"
 	$(eval _INPUT = `cygpath -w $(INPUT)`)
-	python plot.py -x $(X) -y $(Y) -x2 $(X2) -y2 $(Y2) -i $(_INPUT) -s $(SUBJECT) -l logging.ini -c $(COLOR) -b 0 -b 1 -b 2 -t band --length $(LEN)
+	python plot.py -x $(X) -y $(Y) -x2 $(X2) -y2 $(Y2) -i $(_INPUT) -s $(SUBJECT) -l logging.ini -c $(COLOR) -b 0 -b 1 -b 2 -t band --length $(LEN) $(_MAGNITUDE)

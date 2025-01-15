@@ -62,7 +62,7 @@ parser.add_argument('-l', '--logging', action="store", required=True, help="Logg
 parser.add_argument('-n', '--normalize', action="store_true", required=False, default=False, help="Normalize band to range 0..1")
 parser.add_argument('-r', '--rgb', action="store_true", required=False, default=False, help="Show the corresponding RGB band (band plot only")
 parser.add_argument('-s', '--subject', action="store", required=True, help="Subject of graph")
-parser.add_argument('-m', '--magnitude', action='store', required=False, help="Force magnitude value. Forces one axis")
+parser.add_argument('-m', '--magnitude', action='store', required=False, type=float, help="Force magnitude value. Forces one axis")
 arguments = parser.parse_args()
 
 transectsRequested = 0
@@ -156,15 +156,15 @@ else:
         start = arguments.x
         stop = arguments.x + arguments.length
         transect = image[arguments.y, start:stop, arguments.band[bandNumber]]
-        print(f"Band {bandNumber} range: {transect.min()} to {transect.max()} Magnitude {magnitude(transect.max())}")
+        print(f"Band {bandNumber} range: {transect.min()} to {transect.max()} Magnitude {magnitude(transect.max(), arguments.magnitude)}")
 
         # Determine how many axis are required for the plot.
-        if magnitude(transect.max()) > maxMagnitude:
+        if magnitude(transect.max(), arguments.magnitude) > maxMagnitude:
             axisRequired += 1
-            maxMagnitude = magnitude(transect.max())
-        elif magnitude(transect.max()) < minMagnitude:
+            maxMagnitude = magnitude(transect.max(), arguments.magnitude)
+        elif magnitude(transect.max(), arguments.magnitude) < minMagnitude:
             axisRequired += 1
-            minMagnitude = magnitude(transect.max())
+            minMagnitude = magnitude(transect.max(), arguments.magnitude)
 
         transects.append(transect)
 
@@ -232,7 +232,7 @@ if arguments.type == "band":
     ax2Ylabel = ""
     for i in range(len(transects)):
         # Determine which axis to use.  Axis 1 is the bigger magnitude
-        if magnitude(transects[i].max()) == maxMagnitude:
+        if magnitude(transects[i].max(), arguments.magnitude) == maxMagnitude:
             axis = ax1
             ax1Ylabel += bandNames[arguments.color.upper()][int(arguments.band[i][0])] + " "
             ax1.set_ylabel(ax1Ylabel, color=colors[i])
