@@ -8,7 +8,7 @@ library(gt)
 
 setwd("c:/uofa/weeds/jetson")
 
-input <- "results-current.csv"
+input <- "corrected.csv"
 #input <- "results-latest.csv"
 output <- "figures"
 
@@ -17,7 +17,7 @@ output <- "figures"
 cropPredictions <- read.csv(input)
 
 # GLCM
-
+pdf("glcm-pairs.pdf", height = 7, width = 7)
 p <- ggpairs(cropPredictions, 
              aes(col = as.character(type)),
              title = "GLCM Values",
@@ -34,10 +34,12 @@ p <- ggpairs(cropPredictions,
                               "Contrast",
                               "Dissimilarity",
                               "Correlation"))
-p
+
+print(p)
+dev.off()
 
 # HOG
-
+pdf("hog-pairs.pdf", height = 7, width = 7)
 p <- ggpairs(cropPredictions, 
              aes(col = as.character(type)), 
              title="HOG Values",
@@ -48,7 +50,9 @@ p <- ggpairs(cropPredictions,
                               "Variance",
                               "Mean"),
              diag = list(continuous = "blankDiag"))
-p
+
+print(p)
+dev.off()
 
 bones.d <- bones %>% select(-Species)
 nor <- scale(bones.d,center=means,scale=sds)
