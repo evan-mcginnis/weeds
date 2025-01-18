@@ -79,13 +79,21 @@ DBPORT?=27017
 DBNAME?=weeds
 
 # Corrections
-SUBSET?=ALL
-MINORITY?=1.0
+SUBSET?=train
 CORRECTION?=NONE
+RATIO?=0:0
 ifeq ($(CORRECTION),NONE)
-	CORRECTIONFLAGS=
+	CORRECTIONFLAGS= -ir $(RATIO)
 else
-	CORRECTIONFLAGS= --correct  --minority $(MINORITY) --imbalance $(CORRECTION) --subset $(SUBSET)
+	CORRECTIONFLAGS= --correct  -ir $(RATIO) --imbalance $(CORRECTION) --subset $(SUBSET)
+endif
+
+# Proximity to disk
+PROXIMITY?=0
+ifeq ($(PROXIMITY),0)
+	PROXIMITYFLAGS=
+else
+	PROXIMITYFLAGS=--proximity
 endif
 
 
@@ -105,7 +113,12 @@ else
 endif
 
 # Contours
-CONTOURS?=-c
+ifeq ($(CONTOURS), "true")
+	_CONTOURS=-c
+else
+	_COUNTOURS=
+endif
+
 # Standlone
 STANDALONE=--standalone
 # Init file
@@ -118,8 +131,6 @@ INI=standalone.ini
 # Operation
 OPERATION?=normal
 
-# Imbalance
-IMBALANCE?=
 
 # Clean this up a bit, reducing the ML algorithm to one parameter
 ALGFLAG = unknown
@@ -163,6 +174,8 @@ LOGFILE = jetson-right.log
 # Training
 TRAINING?=results-reviewed.csv
 
+OPERATION?=normal
+
 # FACTORS
 FACTORS?=4
 
@@ -174,30 +187,140 @@ TYPE?=all
 
 SUBTYPE?=all
 
+RESULTS?=results
+
+SEGMENTATION?=tgi
+
+SESSION?=unique
+
+#
+# W O R K F L O W
+#
+# 1) Produce the training data with something lik this:
+# make weeds-memory TRAINING=d:\maricopa\processed\2024-05-01\pivot-2m\test\training.csv OPERATION=evaluate ML=lda INPUT=c:\uofa\maricopa\corrected\2024-05-01\pivot-2m OUTPUT=d:\maricopa\processed\2024-05-01\pivot-2m THRESHOLD=TRIANGLE INDEX=com2 RESULTS=tmp DECORATIONS=name
+# 2) Review all the images and correct the assignments with something like this:
+# python review.py -i d:\maricopa\processed\2024-05-01\pivot-2m\test -p processed-*.jpg -o d:\maricopa\processed\2024-05-01\pivot-2m\test\training.csv -a ..\jetson\debug_dataframe.csv --type
+# 3) Find the optimal set of parameters to use:
+# make optimal TRAINING=d:\maricopa\processed\2024-05-01\pivot-2m\test\training.csv FACTORS=3 PREFIX=maricopa OUTPUT=..\..\output
+# 4) Edit the INI file to set the optimal parameters
+# 5) Rerun the classification from step 2
+
 # Until the DB is really optional, this is a bit broken
 weeds:
 	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a $(INDEX) -t $(THRESHOLDS) -df $(TRAINING) $(ALGFLAG) -sc -op $(OPERATION) -lg $(LOG) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE)
 
 # This is the one to use
 weeds-to-db:
-	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a $(INDEX) $(THRESHOLDFLAG) -df $(TRAINING) $(ALGFLAG) -sc -op $(OPERATION) -lg $(LOG) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE) -db -alt $(ALTITUDE) -cr $(CROP) $(CORRECTIONFLAGS)
+	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a $(INDEX) -df $(TRAINING) $(ALGFLAG) -sc -op $(OPERATION) -lg $(LOG) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE) -db -alt $(ALTITUDE) -cr $(CROP) $(CORRECTIONFLAGS) -t $(THRESHOLD) -c
+
+# This assumes cygwin style paths are passed in
+# INPUT = path to the images to be processed
+# For example
+# make weeds-no-db INPUT=/cygdrive/d/maricopa-test/imbalance OUTPUT=/cygdrive/d/maricopa-test/imbalance/processed TRAINING=/cygdrive/d/maricopa-test/imbalance/processed/final/corrected.csv THRESHOLD=TRIANGLE AREA=1200 INDEX=com2 DECORATIONS=name OPERATION=evaluate
+weeds-no-db:
+	$(eval _INPUT = `cygpath -w $(INPUT)`)
+	$(eval _OUTPUT = `cygpath -w $(OUTPUT)`)
+	$(eval _TRAINING = `cygpath -w $(TRAINING)`)
+	#$(eval _CLASSIFICATION = `cygpath -w $(CLASSIFICATION)`)
+	test -n "$(_TRAINING)"
+	#$(PYTHON) weeds.py -i $(_INPUT) -o $(_OUTPUT) -a $(INDEX) -df $(_TRAINING) $(ALGFLAG) -sc -op $(OPERATION) -lg $(LOG) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE)  -alt $(ALTITUDE) -cr $(CROP) $(CORRECTIONFLAGS) -t $(THRESHOLD) -c -ma $(AREA) --session-name $(SESSION)
+	$(PYTHON) weeds.py -i $(_INPUT) -o $(_OUTPUT) -a $(INDEX) -df $(_TRAINING) $(ALGFLAG) -sc -op $(OPERATION) -lg $(LOG) -d $(DECORATIONS)  $(_CONTOURS) -ini $(INI) $(STANDALONE)  -alt $(ALTITUDE) -cr $(CROP) $(CORRECTIONFLAGS) -t $(THRESHOLD) -ma $(AREA) --session-name $(SESSION)
+
+# Debug memory leak
+weeds-memory:
+	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a $(INDEX) -df $(TRAINING) $(ALGFLAG) -sc -op $(OPERATION) -lg $(LOG) -d $(DECORATIONS) -ini $(INI) $(STANDALONE) -alt $(ALTITUDE) -cr $(CROP) $(CORRECTIONFLAGS) -t $(THRESHOLD) -r $(RESULTS) $(PROXIMITYFLAGS)
 
 weeds-with-hull:
 	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a $(INDEX) $(THRESHOLDFLAG) -df $(TRAINING) $(ALGFLAG) -sc -op $(OPERATION) -lg $(LOG) -d $(DECORATIONS) -ini $(INI) $(STANDALONE) -db -alt $(ALTITUDE) -cr $(CROP) --hull
 
 weeds-plot:
-	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a $(INDEX) $(THRESHOLDFLAG) -df $(TRAINING) $(ALGFLAG) -sc -op $(OPERATION) -lg $(LOG) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE) -db -alt $(ALTITUDE) -cr $(CROP) -p
+	$(PYTHON) weeds.py -i $(INPUT) -o $(OUTPUT) -a $(INDEX) -df $(TRAINING) $(ALGFLAG) -sc -op $(OPERATION) -lg $(LOG) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE) -db -alt $(ALTITUDE) -cr $(CROP) -p -t $(THRESHOLD)
+
+comprehensive-plot:
+	$(PYTHON) weeds.py  -i $(INPUT) -o d:\comp-out -a $(SEGMENTATION) -df $(TRAINING) --knn -sc -op normal -lg standalone-logging.ini -d name -c -ini comprehensive.ini --standalone -db -alt 0.0 -cr unknown -r lettuce -t $(THRESHOLD) -p --minarea 750
+
+comprehensive:
+	$(PYTHON) weeds.py  -i $(INPUT) -o d:\comp-out -a $(SEGMENTATION) -df $(TRAINING) $(ALGFLAG) -sc -op $(OPERATION) -lg standalone-logging.ini -d name -c -ini comprehensive.ini --standalone -db -alt 0.0 -cr unknown -r lettuce -t $(THRESHOLD) --minarea 750
+	#$(PYTHON) weeds.py  -i d:\comprehensive -o d:\comp-out -a tgi  -df d:\comprehensive\lettuce-corrected.csv --knn -sc -op evaluate -lg standalone-logging.ini -d name -c -ini comprehensive.ini --standalone -db -alt 0.0 -cr unknown -r lettuce -t 6
+
+comprehensive-test:
+	$(PYTHON) weeds.py  -i $(INPUT) -o d:\comp-test -a $(SEGMENTATION) -df $(TRAINING) $(ALGFLAG) -sc -op normal -lg standalone-logging.ini -d name -c -ini comprehensive.ini --standalone -db -alt 0.0 -cr unknown -r lettuce -t $(THRESHOLD) --minarea 750
+
+
+# This will produce the table that can be copied into a document
+FORMAT?=latex
+LOGGING?=standalone-logging.ini
+optimal-results:
+	$(eval _PARAMETERS = `cygpath -w $(PARAMETERS)`)
+	$(eval _RESULTS = `cygpath -w $(RESULTS)`)
+	$(eval _ALL_RESULTS = `cygpath -w $(ALL_RESULTS)`)
+	test -n "$(TYPE)"
+	test -n "$(SUBTYPE)"
+	test -n "$(FORMAT)"
+	test -n "$(LOGGING)"
+	test -n "$(CAPTION_LONG)"
+	test -n "$(CAPTION_SHORT)"
+	test -n "$(LABEL)"
+	test -n "$(PREFIX)"
+	#$(PYTHON) results.py -r $(_RESULTS) -c $(_PARAMETERS) -o $(FORMAT) --type $(TYPE) --subtype $(SUBTYPE) -lg $(LOGGING) --directory $(_ALL_RESULTS) -n 2 --long "$(CAPTION_LONG)"  --short "$(CAPTION_SHORT)" --label $(LABEL)
+	$(PYTHON) results.py --prefix $(PREFIX) -c $(_PARAMETERS) -o $(FORMAT) --type $(TYPE) --subtype $(SUBTYPE) -lg $(LOGGING) --directory $(_ALL_RESULTS) --long "$(CAPTION_LONG)"  --short "$(CAPTION_SHORT)" --label $(LABEL) --summary
+
+PREFIX?=comprehensive
+OUTPUT?=c:\comp-results
+TYPES?=TEXTURE
+comprehensive-optimal:
+	$(PYTHON) Selection.py -df $(TRAINING) -ty $(TYPES) -fs ALL -f 4 -l -of CSV -lg logging.ini -p $(PREFIX) -o -od $(OUTPUT)
 
 report:
 	$(PYTHON) analyze.py -df results-current.csv
 
 # Report the selections to a file that can then be subsequently read
+# This needs to be done before the results are reported. An example:
+# make selections TRAINING=d:\comprehensive\mexg-manual-corrected.csv FACTORS=4 PREFIX=comprehensive TYPE=TEXTURE SUBTYPE=all FORMAT=PICKLE PREFIX=comprehensive
 selections:
-	$(PYTHON) Selection.py -df $(TRAINING) -fs ALL -f $(FACTORS) -l -lg logging.ini -of $(FORMAT) -ty $(TYPE) -s $(SUBTYPE)
+	$(PYTHON) Selection.py -df $(TRAINING) -fs ALL -f $(FACTORS) -l -lg logging.ini -of $(FORMAT) -co -ty $(TYPE) -s $(SUBTYPE) -p $(PREFIX)
+
+analyze:
+	$(eval _INPUT = `cygpath -w $(INPUT)`)
+	cd ../lib;$(PYTHON) Manipulate.py -i $(_INPUT)
 
 # Iterate over all the factors taken N at a time to find the optimum
+# OUTPUT -- location of output files
+# TYPE -- color, shape, texture, or ALL
+# SUBTYPE -- LBP, GLCM, HOG, or ALL
+# FACTORS -- number of factors
+# PREFIX -- text to precede the output, like "dissertation"
 optimal:
-	$(PYTHON) Selection.py -df $(TRAINING) -fs ALL -f $(FACTORS) -l -lg logging.ini -p $(PREFIX) -o -ty $(TYPE)
+	test -n "$(FACTORS)"
+	test -n "$(TYPE)"
+	test -n "$(SUBTYPE)"
+	test -n "$(PREFIX)"
+	$(eval _TRAINING = `cygpath -w $(TRAINING)`)
+	$(eval _OUTPUT = `cygpath -w $(OUTPUT)`)
+	$(PYTHON) Selection.py -df $(_TRAINING) -fs ALL -f $(FACTORS) -l -lg standalone-logging.ini -p $(PREFIX) -o -ty $(TYPE) -s $(SUBTYPE) -od $(_OUTPUT)
+	cp jetson.log $(_OUTPUT)
+
+# Test the various types and subtypes -- find the optimal set and then write that out
+optimal-detailed:
+	$(eval _TRAINING = `cygpath -w $(TRAINING)`)
+	$(PYTHON) Selection.py -df $(TRAINING) -fs ALL -f $(FACTORS) -l -lg unattended.ini -p COLOR -o -ty COLOR
+	$(PYTHON) Selection.py -df $(TRAINING) -fs ALL -f $(FACTORS) -l -lg unattended.ini -of $(FORMAT) -ty COLOR
+	mv parameters.pickle COLOR.parameters.pickle
+	$(PYTHON) Selection.py -df $(TRAINING) -fs ALL -f $(FACTORS) -l -lg unattended.ini -p TEXTURE -o -ty TEXTURE
+	$(PYTHON) Selection.py -df $(TRAINING) -fs ALL -f $(FACTORS) -l -lg unattended.ini -of $(FORMAT) -ty TEXTURE
+	mv parameters.pickle TEXTURE.parameters.pickle
+	$(PYTHON) Selection.py -df $(TRAINING) -fs ALL -f 3 -l -lg unattended.ini -p HOG -o -ty TEXTURE -s HOG
+	$(PYTHON) Selection.py -df $(TRAINING) -fs ALL -f 3 -l -lg unattended.ini -of $(FORMAT) -ty TEXTURE -s HOG
+	mv parameters.pickle HOG.parameters.pickle
+	$(PYTHON) Selection.py -df $(TRAINING) -fs ALL -f 3 -l -lg unattended.ini -p LBP -o -ty TEXTURE -s LBP
+	$(PYTHON) Selection.py -df $(TRAINING) -fs ALL -f 3 -l -lg unattended.ini -of $(FORMAT) -ty TEXTURE -s LBP
+	mv parameters.pickle LBP.parameters.pickle
+	$(PYTHON) Selection.py -df $(TRAINING) -fs ALL -f $(FACTORS) -l -lg unattended.ini -p GLCM -o -ty TEXTURE -s GLCM
+	$(PYTHON) Selection.py -df $(TRAINING) -fs ALL -f $(FACTORS) -l -lg unattended.ini -of $(FORMAT) -ty TEXTURE -s GLCM
+	mv parameters.pickle GLCM.parameters.pickle
+	$(PYTHON) Selection.py -df $(TRAINING) -fs ALL -f $(FACTORS) -l -lg unattended.ini -p SHAPE -o -ty SHAPE
+	$(PYTHON) Selection.py -df $(TRAINING) -fs ALL -f $(FACTORS) -l -lg unattended.ini -of $(FORMAT) -ty SHAPE
+	mv parameters.pickle SHAPE.parameters.pickle
 
 svm:
 	$(PYTHON) weeds.py -r ../../results/results.svm.csv -i $(INPUT) -o ../../results/output-svm -a $(INDEX) -t $(THRESHOLDS) -df $(TRAINING) -svm -sc -v -lg $(LOG) -se $(PARAMETERS) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE)
