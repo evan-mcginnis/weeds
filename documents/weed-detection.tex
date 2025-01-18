@@ -1429,7 +1429,7 @@ In \textit{Grey-level Co-occurrence Matrix} (GLCM) (\cite{Haralick1973-gr}, \cit
 	\caption[GLCM matrix explained]{The GLCM matrix concept is based on the contents of adjacent pixels. \ref{subfig:glcm_sample} shows a simple image containing only three values: 0, 1, and 2 -- as seen in a matrix of the numeric values shown in \ref{subfig:glcm_numeric}. A co-occurrence matrix is the count of the number of times adjacent pixels are found.  For instance, cell (0,0) contains a count of the times $0$ is adjacent to another $0$, $4$.}
 	\label{fig:glcm-explained}
 \end{figure}
-As Figure \ref{fig:glcm-explained} shows, a co-occurrence matrix is simply a count of a specific value appearing adjacent to another value. However, this brings up two additional factors of what is meant by \textit{adjacent}: how far away a neighbor is, and what angle is considered when forming the count. In the simplistic example, an adjacent neighbor is considered to be directly adjacent (1 away) at an angle of $90^o$ degrees. Alternatively, a neighbor might be considered directly adjacent, but $135^o$ away.  With this in mind the (0,0) count would be 3, instead of the 4 shown in \ref{subfig:glcm_matrix}. This study considers pixels immediately adjacent to be neighbors (neighbor distance of 1), but ignores an inconvenient  complication: in very high resolution images, the immediately adjacent neighbor is, quite often, nearly identical the pixel in question. The angle of the relationship is a bit more complicated. While images of crops are often gathered in an orderly manner along a row such that orientation is maintained (as can be expected from a camera aboard a UAV or mounted on the back of a tractor), the vegetation is not so orderly. Otherwise quite similar plants are encountered in the field have markedly different texture descriptors depending on orientation. That is, different GLCM values for the same plant or obtained simply by rotating it by 45$^{\circ}$. That is, the texture description of two lettuce plants might differ markedly based on their growing orientation. Expressing an orientation-independent feature (texture) as differing with rotation may work well for an analysis of a single, static image set, but may yield sub-optimal results when applied to a general case where rotational differences are expected. \citeauthor*{Haralick1973-gr} discuss this, suggesting that the mean of calculations be used instead of the individual angles (calculations performed at $0^o, 45^o, 90^o, 135^o$, and $180^o$ -- angles greater than $180^o$ are not considered.
+As Figure \ref{fig:glcm-explained} shows, a co-occurrence matrix is simply a count of a specific value appearing adjacent to another value. However, this brings up two additional factors of what is meant by \textit{adjacent}: how far away a neighbor is, and what angle is considered when forming the count. In the simplistic example, an adjacent neighbor is considered to be directly adjacent (1 away) at an angle of $90^o$ degrees. Alternatively, a neighbor might be considered directly adjacent, but $135^o$ away.  With this in mind the (0,0) count would be 3, instead of the 4 shown in \ref{subfig:glcm_matrix}. This study considers pixels immediately adjacent to be neighbors (neighbor distance of 1), but ignores an inconvenient  complication: in very high resolution images, the immediately adjacent neighbor is, quite often, nearly identical the pixel in question. The angle of the relationship is a bit more complicated. While images of crops are often gathered in an orderly manner along a row such that orientation is maintained (as can be expected from a camera aboard a UAV or mounted on the back of a tractor), the vegetation is not so orderly. Otherwise quite similar plants are encountered in the field have markedly different texture descriptors depending on orientation. That is, different GLCM values for the same plant or obtained simply by rotating it by 45$^{\circ}$. That is, the texture description of two lettuce plants might differ markedly based on their growing orientation. Expressing an orientation-independent feature (texture) as differing with rotation may work well for an analysis of a single, static image set, but may yield sub-optimal results when applied to a general case where rotational differences are expected. \citeauthor*{Haralick1973-gr} discuss this, suggesting that the mean of calculations be used instead of the individual angles (calculations performed at $0^o, 45^o, 90^o, 135^o$, and $180^o$ -- angles greater than $180^o$ are not considered. Computations are made for each of the angles (0$^{\circ}$, 45$^{\circ}$, 90$^{\circ}$, 135$^{\circ}$, 180$^{\circ}$). The angular computations are then averaged to address the orientation of the plant. That is, the computations made at one orientation differ when the plant is rotated by $45^o$. In instances where leaves can be laid out and assessed all in the same orientation, this it not a concern, but in field scenarios where plants can grow in unpredictable orientations, it is.
 
 Table~\ref{tab:glcm-formulae} details the subset that will be used in this analysis. The term \textit{grey-level} implies that the use of the co-occurrence matrix will be limited to greyscale images. Indeed, that is what \citeauthor{Haralick1973-gr} discuss in their article. Instead, the co-occurrence matrix will also be computed for each of the channels in the YIQ, RGB, CIELab, HSI, HSV, YCbCr colorspaces using the equations detailed in Table~\ref{tab:glcm-formulae}. For instance, the ASM calculation will be performed on the Cb channel of the image in YCbCr space. While co-occurrence matrices are used for channels in various colorspaces, this document will continue to reference the entire class as GLCM. 
 \begin{longtable}{x{\dimexpr.15\columnwidth-2\tabcolsep}
@@ -1525,12 +1525,14 @@ Figure~\ref{fig:glcm} illustrates an example of GLCM calculations in weed and cr
 	\label{fig:glcm}
 \end{figure}
 
-While the term \textit{Grey Level} is often applied to this technique (and will be used throughout this document with the GLCM abbreviation), the technique will be applied not just to images converted from the RGB colorspace to greyscale, but to the various colorspaces previously discussed. The calculations will be made on each component of those spaces.  That is, each of the seven calculations are made for each component of the various color spaces (YIQ, HSI, HSV, YCbCr, and CIELab). Computations are made for each of the angles (0$^{\circ}$, 45$^{\circ}$, 90$^{\circ}$, 135$^{\circ}$, 180$^{\circ}$). The angular computations are then averaged to address the orientation of the plant. That is, the computations made at one orientation differ when the plant is rotated by $45^o$. In instances where leaves can be laid out and assessed all in the same orientation, this it not a concern, but in field scenarios where plants can grow in unpredictable orientations, it is.
+While the term \textit{Grey Level} is often applied to this technique (and will be used throughout this document with the GLCM abbreviation), the technique will be applied not just to images converted from the RGB colorspace to greyscale, but to the various colorspaces previously discussed. The calculations will be made on each component of those spaces.  That is, each of the seven calculations are made for each component of the various color spaces (YIQ, HSI, HSV, YCbCr, and CIELab). 
 
 These computations, referenced in subsequent sections, take the form \textit{$<$colorspace$>$\_$<$component$>$\_$<$angle$>$}, i.e., \textit{yiq\_i\_energy\_135} to indicate the energy computation at 135$^{\circ}$ of the in-phase component of the blob in the YIQ colorspace.
 
 %
 % Produced with this script:
+% post/for-figure-glcm.R
+% This script produces two graphs, glcm-pairs.pdf and hog-pairs.pdf in the jetson directory.
 %
 
 \begin{figure}[H]
@@ -1541,6 +1543,17 @@ These computations, referenced in subsequent sections, take the form \textit{$<$
 
 \subsubsection{Local Binary Pattern}
 Often shortened to LBP, \citeauthor{Ojala1996-ps} first described Local Binary Patterns, concentrating on a pixel's immediate neighbors, and treating the result as a value that can be thought of as describing that central pixel. While first proposed as a texture descriptor, its use in more general computer vision problems has expanded since it was first introduced. One of the more salient advantages of LBP is that they are tend not to differ with illumination changes, as the descriptors are based on relative changes from a central pixel, not absolute. Color, in this approach, is ignored, as images are first converted to greyscale before being analyzed. However useful this approach is, it does have a hard limitation: only a 3x3 matrix can be used to produce the final value. This is more of a limitation than it first appears, as this technique is not suitable for capturing details at varying scales.
+
+The basic algorithm for LBP is reasonably uncomplicated:
+\begin{enumerate}
+	\item{Choose a pixel in the image and select its neighboring pixels in a circular or rectangular region around it.}
+	\item{Take the threshold (intensity of the selected pixel).}
+	\item{Go through every neighboring pixel and check whether its intensity is greater than or less than the threshold.}
+	\item{Assign 1 to the neighboring pixel, if the intensity of the neighboring pixel is greater than the threshold.}
+	\item{Assign 0 to the neighboring pixel, if the intensity of the neighboring pixel is less than the threshold.}
+	\item{Combine the binary values for all neighboring pixels to obtain a binary code for the central pixel.}
+	\item{Repeat steps 10-6 for each pixel in the image to obtain a binary code for each pixel.}
+\end{enumerate}
 
 \begin{figure}[H]
 	\begin{subfigure}[h]{0.48\linewidth}
@@ -1560,7 +1573,9 @@ Often shortened to LBP, \citeauthor{Ojala1996-ps} first described Local Binary P
 	\label{fig:lbp}
 \end{figure}
 
-LBP suffers from a few other disadvantages that must be taken into account. LBP is sensitive to noise in the image under consideration, yielding incorrect descriptors than have been ``contaminated'' with noise. Effective de-noising the images is essential in combatting this. A more substatial shortcoming is that the relativelty small sample size of a pixels immediate neighbors means that large scale texture may not be effectively captured. This shortcoming is exacerbated, of course, by extremely high-resolution images, where immediate neighbors are often not very different than a pixel under consideration. It is probably correct to view techniques such as GLCM as effective at capturing \textit{global} texture, and LBP more effective at describing \textit{local} texture.
+
+
+LBP suffers from a few other disadvantages that must be taken into account. LBP is sensitive to noise in the image under consideration, yielding incorrect descriptors than have been ``contaminated'' with noise. Effective de-noising the images is essential in combating this. A more substantial shortcoming is that the relatively small sample size of a pixels immediate neighbors means that large scale texture may not be effectively captured. This shortcoming is exacerbated, of course, by extremely high-resolution images, where immediate neighbors are often not very different than a pixel under consideration. In contrast to the rotational problems seen with GLCM, LBP is rotation invariate. It is probably correct to view techniques such as GLCM as effective at capturing \textit{global} texture, and LBP more effective at describing \textit{local} texture.
 
 To make this technique more useful, a variant of this is used, where a circular neighborhood is considered instead of a square. The radius of the circle allows consideration of features at different scales.  Subsets of an image can then be described by moving the square or circular neighborhood across the image.  Sampling in a circular pattern will mean that some samples will not be be between two pixels. In this case, the intensity value used for the comparison can be determined by bilinear interpolation. This sampling discrepancy between a pixel's center and the actual sampling point can be seen in the middle neighborhood diagram of Figure ~\ref{fig:lbp-circular}, where pixel centers and sampling points are not aligned in many instances.
 
@@ -1576,7 +1591,9 @@ An introduction to LBP concepts would not be complete without addressing the not
 %
 % Figures generated with:
 % python lbp-graph.py -l ../documents/figures/example-weed.jpg -r ../documents/figures/example-crop.jpg -o ../documents/figures -radius 5
-%
+% Using make
+% make lbp-figure LEFT=../documents/figures/example-weed.jpg RIGHT=../documents/figures/example-crop.jpg OUTPUT=../documents/figures
+
 \begin{figure}[H]
 	\centering
 	\begin{subfigure}{0.48\linewidth}
@@ -1591,7 +1608,7 @@ An introduction to LBP concepts would not be complete without addressing the not
 		\caption{LBP of crop}
 		\label{subfig:lbp-crop}		
 	\end{subfigure}%
-	\caption[Local Binary Pattern of a weed and crop plant]{Local Binary Pattern of a weed and crop plant. While the counts (note that the Y axis is log scale) show similar shapes, there are important differences between the two. The counts at the left and right edges of the histograms represent \textit{flat} areas -- regions where neighboring pixels are all white or all black (not surprising, given that the images are segmented, with black substituted for the background). The center peak seen in both images can be thought of as representing the \textit{edges} found in the images. The two dips seen in both graphs are typically refered to as \textit{corner} areas. Graphs taken of $radius=5$.}
+	\caption[Local Binary Pattern of a weed and crop plant histogram]{Local Binary Pattern of a weed and crop plant histogram. While the counts (note that the Y axis is log scale) show similar shapes, there are important differences between the two. The counts at the left and right edges of the histograms represent \textit{flat} areas -- regions where neighboring pixels are all white or all black (not surprising, given that the images are segmented, with black substituted for the background). The center peak seen in both images can be thought of as representing the \textit{edges} found in the images. The two dips seen in both graphs are typically referred to as \textit{corner} areas. While the shapes of the dips are similar, there are clear differences between the two. Graphs taken of $radius=5$.}
 	\label{fig:lbp}
 \end{figure}
 
@@ -1615,7 +1632,7 @@ The detail shown in Figure~\ref{fig:hog} is still recognizable as vegetation, bu
 
 
 \subsection{Distance from Cropline}
-The cropline in a planting is, simply, the line along the bed where crop can be expected. Under field conditions where images are acquired from a constant position the cropline will appear in the same spot in each photo. For classification purposes, the idea is obvious to anyone who has had the pleasure of performing weeding along a cropline: things along the cropline are likely to be crop, and things not along the cropline are likely to be weeds. Things are a bit more complicated than that, of course, and it is probably more accurate to use the terms \textit{desired} and \textit{undesired} to classify vegetation. Weeds may appear along the cropline or within close proximity to crop\footnote{The concept of a defining a buffer zone around crop to avoid damage during treatment will be discussed later in this document}, and crop may appear in places other than the main cropline, making it \textit{undesirable}, but referring to it as a weed would lead to confusion.
+The cropline in a planting is, simply, the line along the bed where crop can be expected. Under field conditions where images are acquired from a constant position (such as would be obtain from a towed system) the cropline will appear in the same spot in each photo. For classification purposes, the idea is obvious to anyone who has had the pleasure of performing weeding along a cropline: things along the cropline are likely to be crop, and things not along the cropline are likely to be weeds. Things are a bit more complicated than that, of course, and it is probably more accurate to use the terms \textit{desired} and \textit{undesired} to classify vegetation. Weeds may appear along the cropline or within close proximity to crop\footnote{The concept of a defining a buffer zone around crop to avoid damage during an negative treatment will be discussed later in this document}, and crop may appear in places other than the main cropline, making it \textit{undesirable}, but referring to it as a weed would lead to confusion.
 
 Crops will most often have a distance from the cropline very close to zero. Weeds, on the other hand, may have a distance close to zero if they appear within the line of crop, but often appear far from the crop line.
 \begin{figure}[h!]
@@ -1626,7 +1643,7 @@ Crops will most often have a distance from the cropline very close to zero. Weed
 \end{figure}
 Figure~\ref{fig:normalized-distance} illustrates the concept of a cropline and the distance of vegetation from it. In this image we see two growths of lettuce that are very close to the cropline (distances here are in pixels, but the units are not significant. This could be expressed in millimeters.) at 0 and 0.375 and a weed lying 0.4347 units from the cropline. The values normalized between 0 and 1 by considering the maximum distance the vegetation could be away from the crop line. The line marked \textit{Center Line} is for reference purposes and can be ignored for now.  There are two additional items that are worth noting about this image: the dots connecting the plant to the cropline are the {\it centroids} mentioned earlier, and the colored bounding boxes signify the class of the object, something we will return to in a later section.
 
-While images obtained in close proximity to the planting beds may contain only a single cropline, images contained from higher distances AGL will often contain multiple croplines. In the former case, it is often the case that fairly simple metrics can be used to determine the cropline -- size ratios between vegetation.  The line connecting the two largest plants, for instance, is, more often than not, the cropline. This is the case, however, only for those images taken from very low distances above ground (40 cm or so) where the image contains only a single row. For imagery taken from higher distances AGL, a different approach is called for. \citeauthor*{Dian_Bah2017-kd} discuss the use of a Hough Transform \parencite{Illingworth1988-nw} to identify planting rows in AUV imagery; a technique that will be used here. \citeauthor{Ji2011-qb} analyse Hough transforms and \textit{random} hough transforms \parencite{Ji2011-qb} for three different plant densities, showing that the random hough transform was more computational efficient than a simple hough transform. Exploiting a hough transform to find the cropline would involve a bit of pre-processing that is fairly easy, replacing the vegetation with a small square occupying the center, and a caveat that is difficult to overcome, depending on the development phase, it may be difficult to determine the center of or point of ground emergence of vining plants (such as cantaloupe)
+While images obtained in close proximity to the planting beds may contain only a single cropline, images contained from higher distances AGL will often contain multiple croplines. In the former case, it is often the case that fairly simple metrics can be used to determine the cropline -- size ratios between vegetation.  The line connecting the two largest plants, for instance, is, more often than not, the cropline. This is the case, however, only for those images taken from very low distances above ground (40 cm or so) where the image contains only a single row. For imagery taken from higher distances AGL, a different approach is called for. \citeauthor*{Dian_Bah2017-kd} discuss the use of a Hough Transform \parencite{Illingworth1988-nw} to identify planting rows in AUV imagery; a technique that will be used here. \citeauthor{Ji2011-qb} analyze Hough transforms and \textit{random} hough transforms \parencite{Ji2011-qb} for three different plant densities, showing that the random hough transform was more computational efficient than a simple hough transform. Exploiting a hough transform to find the cropline would involve a bit of pre-processing that is fairly easy, replacing the vegetation with a small square occupying the center, and a caveat that is difficult to overcome, depending on the development phase, it may be difficult to determine the center of or point of ground emergence of vining plants (such as cantaloupe).
 
 \begin{figure}[H]
 	\centering
@@ -1659,24 +1676,15 @@ While images obtained in close proximity to the planting beds may contain only a
 \label{problem-overlap}
 
 Before considering the details of classification, it is worth considering a problem that is sometimes seen: overlapping vegetation. While vegetation can overlap itself (in that leaves may obscure other leaves in the same plant), this becomes problematic when desired and undesired vegetation overlap, creating the appearance of two plants being seen as one. Normal overlap within a plant's leaves renders edge detection ineffective in this instance -- that is, distinguishing between expected, normally occurring overlap within a plant's leaves, and overlap between plants is problematic. Overlapping vegetation is problematic in the current processing flow, as a plant is identified by the pixels within a contiguous  perimeter. In this case it is detected as part of the adjoining vegetation, distorting the calculations detailed in previous sections.  Consider this portion of an image:
-\begin{figure}[H]
+
+\begin{figure*}[h]
 	\centering
-	\begin{subfigure}[h]{.45\textwidth}
-		\centering
-		\includegraphics[width=6cm]{./figures/overlapping-weed.jpg}
-		\caption{Raw image}
-		\label{fig:overlap-raw}
-	\end{subfigure}
+	\subfloat[Raw Image\centering]{\includegraphics[width=6cm]{./figures/overlapping-weed.jpg}}
 	\hfill
-	\begin{subfigure}[h]{.45\textwidth}
-		\centering
-		\includegraphics[width=6cm]{./figures/overlapping-weed-segmented.jpg}
-		\caption{Segmented image}
-		\label{fig:overlap-segmented}
-	\end{subfigure}
+	\subfloat[Segmented Image\centering]{\includegraphics[width=6cm]{./figures/overlapping-weed-segmented.jpg}}
 	\caption[Crop and Weed overlap]{Crop and Weed overlap -- this image contains a problem commonly encountered, the situation where there is overlap between the crop and weeds. In this instance, the crop partially obscures the weed. The blob detection algorithm does not use factors such as color differences to distinguish one blob from another, resulting in two plants being processed as a single one, as can be observed in~\ref{fig:overlap-segmented}. As the weed has been falsely identified as belonging to the crop plant, its characteristics contribute to the overall calculations for the blob. Most notably, the shape is distorted, but this also affects color and texture calculations. While the weed in question in the image is probably too close to the crop to treat, it is nevertheless a problem for classification that will be addressed in a later section of this document.}
 	\label{fig:overlap}
-\end{figure}
+\end{figure*}
 
 
 The object detection algorithms are based on shapes of binary images, leading to the case where a few leaves of the weed are incorrectly identified as part of the crop. In this case,some leaves are identified as separate plants and are marked as requiring treatment, but this may not be the case with a larger plant requiring treatment that happens to overlap with desired vegetation. This affects not only the inclusion of weeds with crop, but the misidentification of several weeds as a single plant, as this image demonstrates.  Two of the plants in the image are identified as a single blob as the overlapping leaves of multiple plants makes it appear as one. While this a mistake that will result in the distortion of metrics, the weed occupies a space so close to the crop that it would not be treated even if properly identified.
@@ -1747,15 +1755,15 @@ As the classification methods for the vegetation are supervised, producing a cla
 To allow for (relatively) painless class assignment for the images, a custom label application was developed\footnote{Development details are supplied elsewhere, but the application was developed in Python using the PyQt5 framework for GUI applications.} that presented each segmented image for manual classification. Each of the blobs in the image are assigned a class by the user. That is, a human establishes the ground truth of each plant by setting the ``correct'' type for each blob using the corresponding (highlighted) drop down. The end result of this is to produce a training set that can be used in subsequent algorithmic classification. Table \ref{tab:extract} shows a small sample. Here, the features for each blob are listed, but ignored. Only the type of each blob is set in this step -- 0 representing crop, and 1 representing weed.
 \begin{figure}[H]
 	\centering
-	\includegraphics[scale=0.25]{./figures/review-application.jpg}
-	\caption[Manual classification application screenshot]{Each blob is manually labeled with the correct class, allowing for the supervised classification approaches to classification presented later in this document to function and to assess accuracy. This application presented each image and initial assignment of the individual plants contained within that image, allowing the human expert to correct the initial assignment. Note that the initial assignment is merely for convenience -- the initial class assignment could just as well have been arbitrary. The correct classification is set by the user with the corresponding highlighted dropdown along the left-hand side of the screen. The output of this program is a CSV file that can subsequently be used to create a model.}
+	\includegraphics[scale=0.30]{./figures/review-application.jpg}
+	\caption[Manual classification application screenshot]{Each blob is manually labeled with the correct class, allowing for the supervised classification approaches to classification presented later in this document to function and to assess accuracy. This application presented each image and initial assignment of the individual plants contained within that image, allowing the human expert to correct the initial assignment. Note that the initial assignment is merely for convenience -- the initial class assignment could just as well have been arbitrary. The correct classification is set by the user with the corresponding highlighted dropdown along the left-hand side of the screen. The output of this program is a CSV file that can subsequently be used to create a model. Table \ref{tab:extract} shows a shortened version of this, omitting most of the attributes -- the highlighted column is the only one that is actually changed by this manual classification.}
 	\label{fig:review-application}
 \end{figure}
 
 \begin{tiny}
 % Highlight the last column
 \begin{longtable}{llllllh}
-\caption[Vegetation Type before Manual Classification]{Vegetation Type before Manual Classification}\\
+\caption[Vegetation Type after Manual Classification]{Vegetation Type after Manual Classification}\\
 \toprule
 All other & cie\_b\_contrast\_avg	 & cie\_b\_dissimilarity\_avg	& cie\_b\_ASM\_avg	& name & number & \textbf{type} \\
 \midrule
@@ -1780,6 +1788,7 @@ All other & cie\_b\_contrast\_avg	 & cie\_b\_dissimilarity\_avg	& cie\_b\_ASM\_a
 - &2488.164269406393	&29.97195585996956	&0.046253458	           &image-30-blob-3	&183	&0 \\
 - &4975.8718916524285	&45.74685146509714	&0.2129808994576038 &image-30-blob-6	&186	&0 \\
 - &3515.707728494623	&43.87426075268817	&0.028970925	           &image-30-blob-7	&187	&0
+
 \end{longtable}
 \end{tiny}
 
@@ -1789,8 +1798,11 @@ The final product of this manual classification is a collection of blobs found i
 %
 \section{Class Imbalance}
 Plantings often exhibit a somewhat inconvenient feature: weeds and crop do not appear in the same proportion. While having a low weed count is probably desirable for crop production, it is not for classification. While this can present itself as a relatively mild imbalance of nine weed plants for every 10 crop plants or a more extreme ratio of 1000 crop plants for every weed. In these extreme cases of imbalance, only a few samples of the minority class are used in classification -- and even more unfortunate case is that some weed species may not be present at all in the set used for training. \citeauthor{Fernandez2018-fw}, in a book discussing imbalanced datasets, detail several correction algorithms, among them SMOTE, ADASYN, Borderline SMOTE, kmeans, and SVM \parencite{Fernandez2018-fw}. These algorithms seek to address the imbalance by the creation of synthetic samples of the minority class. While the imbalance ratio of the training set will most assuredly deviate from the 1:1 ideal, it is not particularly important what the specific ratio is, as the data will be trimmed to reflect the various ratios. That is, while a dataset may have a relatively low imbalance of 10:8, samples of the minority class are discarded to achieve a much higher imbalance. In most cases. of course, the solution is to simply collect sufficient training data such that a severe imbalance does not exist, but this may not be a practical solution. This leaves two approaches: under-sample the majority or over-sample the minority. In cases where weeds (the minority) are relatively few, providing synthetic data to restore data to a 1:1 class ratio may be effective. There are various approaches that all have the same basic approach: generate data from the minority class that is similar -- but not identical -- to the data already present. That is, the minority class is over-sampled.
-\subsection{SMOTE}
-The \textit{Synthetic Minority Oversampling TEchnique} is the basic technique used for rebalancing the data set -- other techniques in this section are extensions to that approach \parencite{Chawla2002-dk}. Synthetic data is generated by selecting examples that are close in terms of the \textit{k} nearest neighbors, and selecting new points along the line connected those peers.
+
+\subsection{Over-sampling}
+\label{section:over}
+\subsubsection{SMOTE}
+The \textit{Synthetic Minority Oversampling TEchnique} is the basic technique used for rebalancing the data set -- other techniques in this section are extensions to that approach \parencite{Chawla2002-dk}. Synthetic data is generated by selecting examples that are close in terms of the \textit{k} nearest neighbors, and selecting new points along the line connected those peers. This technique is not without drawbacks worthy of consideration: it generates data in the same direction, a complication for classification in that the decision surface is distorted, and tends to generate noisy data. The synthetic data points do not exhibit the same variation of the underlying real data points, leading to an introduction of over-fitting.
 \begin{figure}[H]
 	\centering
 	\includegraphics[scale=0.35]{./figures/smote.png}
@@ -1798,18 +1810,24 @@ The \textit{Synthetic Minority Oversampling TEchnique} is the basic technique us
 	\label{fig:smote}
 \end{figure}
 
-\subsection{ADASYN}
-The Adaptive Synthetic Sampling approach considers the distribution of the minority points, giving more emphasis to points that a harder to learn. \parencite{He2008-xr} Points that are harder to learn are those that are close to a class border, and in that sense, this approach is close to the \text{borderline} proposal.
+\subsubsection{ADASYN}
+The Adaptive Synthetic Sampling approach considers the distribution of the minority points, giving more emphasis to points that a harder to learn. \cite{He2008-xr} Points that are harder to learn are those that are close to a class border, and in that sense, this approach is close to the \text{borderline} proposal. Contrast this with SMOTE. While sharing the same basic approach (considering the $k$ nearest neighbors), SMOTE samples the points uniformly, leading to an oversampling of dense areas, whereas ADASYN has no fixed ratio, but is based on learning difficulty. ADASYN will generate more points for these samples with high learning when processing the same dataset. The term \textit{harder to learn} is a bit imprecise, and warrants some further discussion. ADASYN creates as difficulty ratio for each point, representing the imbalance level in the local neighborhood of the point. This is done by comparing the number of majority class instances (non-minority) to the number of minority class instances within a specified radius around a point. Minority points with a large set of majority class neighbors are said to be harder to learn than those. A disadvantage of using ADASYN is that outlier points tend to have greater representation in the resulting dataset.
 
-\subsection{Borderline}
-In the standard SMOTE approach all members of the minority class are considered in synthetic data generation. In this variant first proposed by \citeauthor{Han2005-ui}, only those points far from the class border are considered. The rationale behind this approach is that points close to the border contribute little to distinguishing one class from the other, and should not form the basis for new data \parencite{Han2005-ui}.
+\subsubsection{Borderline}
+In the standard SMOTE approach all members of the minority class are considered in synthetic data generation. In this variant first proposed by \citeauthor{Han2005-ui}, only those points far from the class border are considered. The rationale behind this approach is that points close to the border contribute little to distinguishing one class from the other, and should not form the basis for new data \cite{Han2005-ui}. In this scheme, points are considered noise if all of their neighbors are of the majority class. To be eligible for resampling, however, a point must have both majority and minority class neighbors. The rationale here is that samples close to a class border tend to be misclassified, and that by limiting the resampling to those points with the smallest risk of misclassification, the overall correct classification rate would be improved.
+\begin{figure}[H]
+	\centering
+	\includegraphics[scale=0.30]{./figures/borderline.png}
+	\caption[Borderline selection of synthetic data points]{In the borderline variant of SMOTE, points close to the border having only majority class neighbors are considered noise, and are not considered as candidates for selection. }
+	\label{fig:borderline}
+\end{figure}
 %
 % This article seems to be available only for purchase as the library does not subscribe to that journal
 % This is the reference both for borderline and SVM
 %
 
 
-\subsection{KMeans}
+\subsubsection{KMeans}
 This variant, like many of the others described here, addresses a weakness in basic SMOTE: points are selected randomly for oversampling consideration. A further downside of the base algorithm is the noise it introduces. As the \citeauthor{Last2017-rh} state in a document introducing the algorithm:
 \begin{quote}
 Another major concern is that SMOTE may further amplify noise present in the data. This is likely
@@ -1818,17 +1836,92 @@ instances, and its nearest minority neighbor. \parencite{Last2017-rh}
 \end{quote}
 This approach differs from algorithms such as \textit{borderline} in that this approach views the class to be adjusted in terms of cluster membership.  In this approach, the clusters are formed with the \textit{kmeans} approach and SMOTE is applied to those clusters with a high portion of the minority class.
 
-\subsection{Support Vector Machine}
-SVM SMOTE increases the points for the minority class along the decision boundary by generating new points along the lines connecting the support vectors and nearest neighbors \parencite{Nguyen2011-cb}.
+\subsubsection{Support Vector Machine}
+SVM SMOTE increases the points for the minority class along the decision boundary by generating new points along the lines connecting the support vectors and nearest neighbors \cite{Nguyen2011-cb}. In contrast with the KMeans approach, but in the same spirit as the borderline approach, this approach considers those points more important for estimating the best decision boundary, and therefor the best candidates for synthetic data generation. This approach first uses SMOTE to create new minority class samples and then uses the new minority class to train SVM. The samples that are identified as the most difficult to learn are then candidates for oversampling.
+
+\subsection{Combined Under-sampling and Over-sampling}
+\label{section:under}
+Correcting the imbalance by under-sampling the majority class can have an unfortunate side-effect: information loss. Under-sampling, in its most basic form, involves discarding data to achieve the desired balance. Before the details of under-sampling are covered, perhaps this is a topic best addressed by a simple example. Consider the case where the majority class has 1000 samples, but only a few of those samples are representative without regard to the relationship between them (random discard), the discard may eliminate enough of those samples to have an appreciable effect when presented with a novel dataset. In weed/crop classification, however, members of the majority class (crop) are not likely to have small sets representative of a subset, especially if the sample set is taken from a single crop.
+First proposed in 1976, \citeauthor{Tomek1976-bg} described a mechanism to choose discard samples based on their relationship to members of the minority class \cite{Tomek1976-bg}. Unlike the random selection of candidates, samples must have these characteristics to be considered a \textit{Tomek link}:
+\begin{enumerate}
+\item{Sample a’s nearest neighbor is b.}
+\item{Sample b’s nearest neighbor is a.}
+\item{Sample a and b belong to a different class.}
+\end{enumerate}
+Links with the lowest euclidean distance to  minority class are eliminated.
+\begin{figure}[H]
+	\centering
+	\includegraphics[scale=0.30]{./figures/tomek-a.png}
+	\caption[Tomek links]{Tomek links are identified by the proximity of minority and majority class samples. Items with the lowest euclidean distance are eliminated.}
+	\label{fig:tomek}
+\end{figure}
+A second common processing technique is using \textit{edited nearest neighbors} (ENN). The fundamental principle underlying ENN is to remove instances that differ from their nearest neighbors, with the assumption that such instances are likely to be mislabeled (differ from their neighbors) or noisy. The subsequent clarification of the decision boundary may contribute to better outcomes when the dataset is used for training.
+\begin{enumerate}
+\item{Compute the $k$ nearest neighbors for each observation in the dataset.}
+\item{Compare the class label (crop or weed) of each instance with the class label of its $k$ nearest neighbors.}
+\item{Remove instances from the majority class that differ from their neighbors}
+\end{enumerate}
+
+Typically, both under-sampling and oversampling techniques are used to address the imbalance, as \citeauthor{Batista2004-qz} describes \cite{Batista2004-qz}. 
 
 \subsection{Assessing Techniques}
-To assess the efficacy of the creation of synthetic data, instances in a dataset were first dropped to achieve the imbalance ratio and then restored to a 1:1 ratio between the two classes. Models using the imbalanced data and the artificially balanced data were then compared in terms of the improvement (or degradation) of the F1 score. As Figure \ref{fig:imbalance} shows, substituting synthetic data improves the F1 scores of various classification techniques in most cases, but some of the impact is quite trivial and -- in rare cases -- detrimental (note the case of using a \textit{kmeans} approach to correct the data for a \textit{decision tree} classification). 
+To assess the efficacy of over-sampling the minority and a combined over- and under-sampling approach, random instances in a dataset were first dropped to achieve five imbalance ratios and then restored to a 1:1 ratio between the two classes using the over-sampling techniques discussed. Models using the imbalanced data and the artificially balanced data were then compared in terms of the improvement (or degradation) of the Area Under the Curve (AUC) using nine different techniques: Random Forest, Extra Trees, Gradient Boosting, KNN, Linear Discriminant Analysis, Logistic Regression, Multi-Layer Perceptron, Random Forest, and Support Vector Machine. The Receiver Operating Characteristic (ROC) curve represents the probability that the model, if given a randomly chosen positive and negative example, will rank the positive higher than the negative. The AUC is the area underneath this curve -- the closer this area is to 1.0, the better a model is said to be.
+
+As Figure \ref{fig:imbalance} shows, substituting synthetic data improves the AUC of various classification techniques in most cases, but some of the impact is quite trivial and -- in cases -- detrimental (note the case of using a \textit{Random Forest} approach to classification was almost always made worse by these approaches). 
+%
+% The imbalanced data and analysis requires 4 steps
+%
+%# 1) Copy the files to be analyzed
+%# 2) Classify the vegetation automatically
+%# 3) Correct the classifications manually
+%# 4) Analyze for imbalance
+%
+% In post directory:
+% make data-for-imbalance
+% make classify-for-imbalance
+% make review-for-imbalance
+% This step should be run twice, 
+% make analyze-imbalance INPUT=/cygdrive/d/maricopa-test/imbalance/processed/final/corrected.csv OUTPUT=imbalance.csv RATIO=30:5-10 STEPS=6 IMBALANCE=ALL-COMBINED
+% make analyze-imbalance INPUT=/cygdrive/d/maricopa-test/imbalance/processed/final/corrected.csv OUTPUT=imbalance.csv RATIO=30:5-10 STEPS=6 IMBALANCE=ALL-OVER
+%
+% The actual analysis is performed by this command
+% python ./imbalance.py -df ../jetson/training-from-dataframe.csv -ini ../jetson/standalone.ini -lg ../jetson/standalone-logging.ini -a ALL --classifier ALL
+%
+% The graph for the figure is created with the imbalanced.R script
+% imbalance.R
+%
 \begin{figure}[H]
 	\centering
 	\includegraphics[width=0.9\linewidth]{./figures/imbalance.png}
-	\caption[Class imbalance correction techniques]{The impact on F1 scores of class imbalance correction techniques for various ratios and classification strategies can be seen in this visualization. The F1 score of the multi-layer perceptron classification, for instance, starting with a dataset with a 30:2 imbalance, is increased by 85\% when the imbalance is corrected using the ADASYN algorithm. This dataset was first manipulated to achieve the desired ratio before the algorithms were applied. That is, to achieve a 30:1 imbalance, rows in the minority class were randomly dropped.}
+	\caption[Class imbalance correction techniques]{The impact on AUC of class over-sampling imbalance correction techniques for various ratios and classification strategies can be seen in this visualization. Each facet of this display shows the effect of a different over-sampling technique. While many classification techniques are improved, the effect on Decision Tree classification is most pronounced. This dataset was first manipulated to achieve the desired ratio before the algorithms were applied. That is, to achieve a 30:1 imbalance, rows in the minority class were randomly dropped. The change in the AUC scores is shown in this plot for various ML techniques and for each of the correction approaches discussed.}
 	\label{fig:imbalance}
 \end{figure}
+
+While the difference in the AUC achieved with classification using MLP and SVM (some clarification may be in order: SVM refers to a classification, and SVM-SMOTE refers to the correction technique.) stands out, almost all classification techniques were improved by the correction with a few exceptions. Correcting low-imbalance sets (30:5) yielded worse results in several instances. The postive impacts, however, can be characterized as minimal, however. Consider the ROC curves shown in Figure \ref{fig:auc}, showing the ROC curve achieved before and after correction using ADASYN.
+
+\begin{figure*}[h]
+	\centering
+	\includegraphics[height=0.25\textheight]{figures/roc-corrected.png}
+	\caption[Before and after correction]{Before and after correction by oversampling the minority class with the ADASYN approach. Note that in many instances the effect of the correction on the ROC curve is quite modest. The dashed green line appearing in each of the graphs is representative of a random classifier, and appears only as a reference. A positive impact on classification using a gradient boosted technique is present, and that technique can certainly benefit from correction. }
+	\label{fig:auc}
+\end{figure*}
+
+Combining over- and under-sampling techniques yielded worse results in many instances, but produced better results in most. As Figure \ref{fig:combined} shows, the impact tended to be more positive than negative.
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.9\linewidth]{./figures/combined.png}
+	\caption[Combined Over and Under-sampling]{The impact on AUC of using a combined over- and under-sampling approach to class imbalance correction techniques for various ratios and classification strategies can be seen in this visualization. The strategy of using SMOTE+ENN has a particularly negative effect for many of the classification techniques, but the improvement in Decision Tree classification is a clear standout for both techniques.}
+	\label{fig:combined}
+\end{figure}
+
+As with over-sampling the minority class, the effect was still modest, however. As seen in Figure \ref{fig:auc-tomek}, the ROC curves of uncorrected and corrected are, in general, quite close.  A notable exception was the difference in the curves shown by \textit{Gradient Boosting}. That classification technique visibly benefited from the combined approach of over- and under-sampling.
+
+\begin{figure*}[h]
+	\centering
+	\includegraphics[height=0.25\textheight]{figures/roc-corrected-tomek.png}
+	\caption[Before and after correction]{Before and after correction by a combined approach of over-sampling the minority class and under-sampling the majority class using Tomek links. Note that in many instances the effect of the correction is quite modest. A positive impact on classification using a gradient boosted technique is present, and that technique can certainly benefit from correction. }
+	\label{fig:auc-tomek}
+\end{figure*}
 
 %
 % S Y S T E M  D E S I G N
@@ -1914,7 +2007,7 @@ As Table \ref{table:captured} shows, the capture area is approaching the width o
 	\label{fig:field-layout}
 \end{figure}
 
-Images were color, white-balance, and exposure corrected against images taken before each flight of a Spyder CHECKR24 calibration target using Adobe Lightroom$^{\circledR}$. The digital negative of each image (DNG, a standard format for raw sensor data) was corrected and converted to JPG format for subsequent processing.\footnote{The merits of raw, uncompressed, and unprocessed sensor data versus compressed, processed formats like JPG are beyond the scope of this document, but it is fair to say taking raw sensor data, processing, and then producing a compressed JPG is precisely what consumer products like phone cameras do. So that the color correction step can be inserted, the process of producing an image that can be viewed with most software is altered a bit, but essentially unchanged from what would be expected from a consumer device. The images in all digital cameras start out as the values from a sensor; many cameras simply provide this in a convenient to use format, and JPG is the most widely usable. It is also fair to say that a format like JPG does not actually represent what the sensor ``sees'', but is the result of the in-camera processing of sensor data. This workflow also results in a JPG image set, but separates image acquisition from processing. Color correction, for instance, is more than a bit easier with raw sensor data than a JPG due to  the much wider color spectrum present in the raw sensor data (16.7 million vs 68.7 billion is a big difference)} In addition to color correction, two measurements describing the light were also taken: the ambient lighting levels (recorded as lux) and the temperature of the light (recorded as degrees Kelvin). The light level reading was obtained with an iPhone application, \textit{LM 3000}, with a recommended diffuser constructed from a strip of white paper. The color temperature reading was obtained from an iPhone application, \textit{Kevin Meter}, and taken from the side of the color correction target featuring a large white-balance area.
+Images were color, white-balance, and exposure corrected against images taken before each flight of a Spyder CHECKR24 calibration target using Adobe Lightroom$^{\circledR}$. The digital negative of each image (DNG, a standard format for raw sensor data) was corrected and converted to JPG format for subsequent processing.\footnote{The merits of raw, uncompressed, and unprocessed sensor data versus compressed, processed formats like JPG are beyond the scope of this document, but it is fair to say taking raw sensor data, processing, and then producing a compressed JPG is precisely what consumer products like phone cameras do. So that the color correction step can be inserted, the process of producing an image that can be viewed with most software is altered a bit, but essentially unchanged from what would be expected from a consumer device. The images in all digital cameras start out as the values from a sensor; many cameras simply provide this in a convenient to use format, and JPG is the most widely usable. It is also fair to say that a format like JPG does not actually represent what the sensor ``sees'', but is the result of the in-camera processing of sensor data. This workflow also results in a JPG image set, but separates image acquisition from processing. Color correction, for instance, is more than a bit easier with raw sensor data than a JPG due to  the much wider color spectrum present in the raw sensor data (16.7 million vs 68.7 billion is a big difference)}
 
 \begin{figure}[h!]
 	\centering
@@ -1947,19 +2040,6 @@ Bucket lids are identified by the number of colored stickers they contain -- for
 	\label{fig:bucket-segmented}
 	\caption[Identification of specific bucket lids]{The lids themselves are isolated the same way vegetation is, by applying an index. In this case, the index isolates the blue hue found in the lid, but is not found in the study area. The stickers on the lid and the lid itself are both an easily detected shape, a circle. This figure shows both treatments: the lid itself is separated from the background and circles within the image are highlighted in green. This image shows bucket lid \# 2, as three circles are found: one for the lid itself, and two stickers. Identification of the circle that is the lid is more important than it first appears, as only those stickers completely contained within the lid contribute to its identity.}
 \end{figure}	
-
-%
-% L A B E L S
-%
-%\section{Manual Classification}
-%Each image was manually classified using a Python application that took the initial results of the image segmentation, blob identification, and classification to allow the user to assign the correct assignment for each plant. This process was not to part of the process to provide an accuracy score, but to label each blob with the true classification to be used in the supervised approach discussed in subsequent sections. As individual plants are not geo-located -- and assignments could not simply be made once for a location and then applied to all image sets -- it was necessary to perform this manual step for each image acquired at each altitude, as the exact position of a specific plant differed in each image set.
-%
-%\begin{figure}[h!]
-%	\centering
-%	\includegraphics[width=12cm]{./figures/label-screenshot.png}
-%	\label{fig:label-screenshot}
-%	\caption[Screenshot of application for manually labeling blobs]{Each blob is manually labeled with the correct class, allowing for the supervised classification approaches to classification presented later in this document to function and to assess accuracy. This application presented each image and initial assignment of the individual plants contained within that image, allowing the human expert to correct the initial assignment. Note that the initial assignment is merely for convenience -- the initial class assignment could just as well have been arbitrary.}
-%\end{figure}
 
 
 \section{Feature Selection}
@@ -2038,7 +2118,90 @@ As there was no clear agreement between the parameters identified by the selecti
 the parameters selected by that technique were to the ones identified by other techniques. 
 
 \subsection{Texture}
+Table \ref{table:texture} shows the optimal parameters for each classification technique if only texture is considered.
+
+\begin{tiny}
+
+% Copied from this command
+% make optimal-results TYPE=TEXTURE SUBTYPE=all FORMAT=latex PARAMETERS=parameters.pickle LOGGING=tucson-logging.ini ALL_RESULTS=/cygdrive/d/maricopa-test/dissertation/ CAPTION_LONG="Classification using texture" CAPTION_SHORT="Classification using texture" LABEL=table:texture PREFIX=dissertation_auc
+
+
+
+\begin{longtable}{lcl}
+\caption[Classification using texture]{Classification using texture}
+\label{table:texture}\\
+\toprule
+Technique &  AUC &                                                                       Parameters \\
+\midrule
+\endfirsthead
+\caption[]{Classification using texture} \\
+\toprule
+Technique &  AUC &                                                                       Parameters \\
+\midrule
+\endhead
+\midrule
+\multicolumn{3}{r}{{Continued on next page}} \\
+\midrule
+\endfoot
+
+\bottomrule
+\endlastfoot
+DECISIONTREE & 0.88 &         cie\_b\_lbp\_variance hog\_variance ycbcr\_cr\_lbp\_variance ycbcr\_y\_lbp\_stddev \\
+       EXTRA & 0.90 &                     hog\_mean hog\_stddev ycbcr\_cr\_lbp\_variance ycbcr\_y\_lbp\_stddev \\
+    GRADIENT & 0.90 & hog\_variance hsi\_intensity\_lbp\_variance ycbcr\_cr\_lbp\_variance ycbcr\_y\_lbp\_stddev \\
+         KNN & 0.90 &                hog\_mean hog\_stddev hsi\_intensity\_lbp\_variance ycbcr\_y\_lbp\_stddev \\
+         LDA & 0.89 &                     hog\_mean hog\_stddev ycbcr\_cr\_lbp\_variance ycbcr\_y\_lbp\_stddev \\
+         MLP & 0.89 &                              hog\_mean hog\_stddev hog\_variance ycbcr\_y\_lbp\_stddev \\
+RANDOMFOREST & 0.90 &              hog\_mean hog\_variance hsi\_intensity\_lbp\_variance ycbcr\_y\_lbp\_stddev \\
+         SVM & 0.89 &   cie\_b\_lbp\_variance hog\_stddev hsi\_intensity\_lbp\_variance ycbcr\_cr\_lbp\_variance \\
+\end{longtable}
+
+
+% End copy
+\end{tiny}
+
 \subsection{Color}
+Table \ref{table:color} shows the optimal parameters for each classification technique if only color is considered.
+
+\begin{tiny}
+
+% Generated with this command
+% make optimal-results TYPE=COLOR SUBTYPE=all FORMAT=latex PARAMETERS=parameters.pickle LOGGING=tucson-logging.ini ALL_RESULTS=/cygdrive/d/maricopa-test/dissertation/ CAPTION_LONG="Classification using color" CAPTION_SHORT="Classification using color" LABEL=table:color PREFIX=color_auc
+
+\begin{longtable}{lcl}
+\caption[Classification using color]{Classification using color}
+\label{table:color}\\
+\toprule
+Technique &  AUC &                           Parameters \\
+\midrule
+\endfirsthead
+\caption[]{Classification using color} \\
+\toprule
+Technique &  AUC &                           Parameters \\
+\midrule
+\endhead
+\midrule
+\multicolumn{3}{r}{{Continued on next page}} \\
+\midrule
+\endfoot
+
+\bottomrule
+\endlastfoot
+DECISIONTREE & 0.82 & cb\_mean hue in\_phase saturation\_mean \\
+EXTRA & 0.91 & cb\_mean hue in\_phase saturation\_mean \\
+GRADIENT & 0.89 & cb\_mean hue in\_phase saturation\_mean \\
+KNN & 0.79 & cb\_mean hue in\_phase saturation\_mean \\
+LDA & 0.84 & cb\_mean hue in\_phase saturation\_mean \\
+LOGISTIC & 0.87 & cb\_mean hue in\_phase saturation\_mean \\
+MLP & 0.87 & cb\_mean hue in\_phase saturation\_mean \\
+RANDOMFOREST & 0.91 & cb\_mean hue in\_phase saturation\_mean \\
+SVM & 0.71 & cb\_mean hue in\_phase saturation\_mean \\
+\end{longtable}
+
+
+
+\end{tiny}
+
 \subsection{Shape}
 \subsection{Optimal}
 
@@ -2071,7 +2234,7 @@ the parameters selected by that technique were to the ones identified by other t
 Technique &  Precision &  Recall &   F1 &  MAP &  AUC \\
 \midrule
 \endfirsthead
-\caption[]{This is a long caption} \\
+\caption[]{Classification results for various techniques} \\
 \toprule
 Technique &  Precision &  Recall &   F1 &  MAP &  AUC \\
 \midrule
@@ -2195,56 +2358,7 @@ RANDOMFOREST & 0.85 &      0.50 & 0.00 &       1.00 &       0.50 \\
 \end{small}
 Table~\ref{table:optimal-auc} contains the result of this search with the accuracy scores using an average across 5 folds.
 
-%{
-%\begin{tiny}
-%\renewcommand{\arraystretch}{0.7}
-%
-%% Begin copy
-%\begin{longtable}{lrrrrr}
-%\caption[Scoring for various ML approaches]{Scoring for various ML approaches using only texture}
-%\label{table:results}\\
-%% Begin edits
-%& & \multicolumn{4}{c}{Similarity to Parameters Found}\\
-%\cmidrule{3-6} 
-%\multicolumn{1}{c}{Classification} & \multicolumn{1}{c}{AUC} & \multicolumn{1}{c}{Recursive} &  \multicolumn{1}{c}{PCA} & \multicolumn{1}{c}{Importance} & \multicolumn{1}{c}{Univariate} \\
-%\toprule
-%   Technique &  Precision &  Recall &   F1 &  MAP &  AUC \\
-%\midrule
-%\endfirsthead
-%\caption[]{Scoring for various ML approaches using only texture} \\
-%\toprule
-%   Technique &  Precision &  Recall &   F1 &  MAP &  AUC \\
-%\midrule
-%\endhead
-%\midrule
-%\multicolumn{6}{r}{{Continued on next page}} \\
-%\midrule
-%\endfoot
-%
-%\bottomrule
-%\endlastfoot
-%DECISIONTREE &       0.72 &    0.78 & 0.75 & 0.80 & 0.79 \\
-%       EXTRA &       0.74 &    0.83 & 0.78 & 0.83 & 0.90 \\
-%       EXTRA &       0.67 &    0.85 & 0.75 & 0.78 & 0.88 \\
-%       EXTRA &       0.73 &    0.83 & 0.78 & 0.82 & 0.90 \\
-%    GRADIENT &       0.74 &    0.79 & 0.77 & 0.81 & 0.89 \\
-%    GRADIENT &       0.69 &    0.81 & 0.74 & 0.79 & 0.88 \\
-%         KNN &       0.72 &    0.88 & 0.79 & 0.83 & 0.85 \\
-%         LDA &       0.67 &    0.86 & 0.76 & 0.79 & 0.83 \\
-%         LDA &       0.66 &    0.93 & 0.77 & 0.79 & 0.85 \\
-%         LDA &       0.66 &    0.93 & 0.77 & 0.79 & 0.85 \\
-%    LOGISTIC &       0.63 &    0.93 & 0.75 & 0.77 & 0.83 \\
-%    LOGISTIC &       0.63 &    0.93 & 0.75 & 0.77 & 0.83 \\
-%         MLP &       0.39 &    0.99 & 0.56 & 0.41 & 0.86 \\
-%         MLP &       0.00 &    0.00 & 0.00 & 0.62 & 0.85 \\
-%RANDOMFOREST &       0.75 &    0.82 & 0.78 & 0.83 & 0.90 \\
-%RANDOMFOREST &       0.72 &    0.81 & 0.76 & 0.80 & 0.91 \\
-%         SVM &       0.62 &    0.96 & 0.75 & 0.76 & 0.89 \\
-%\end{longtable}
-%
-%% end copy
-%\end{tiny}
-%}
+
 
 \begin{tiny}
 % -- begin copied table
@@ -2287,110 +2401,111 @@ saturation\_mean & saturation\_mean & saturation\_mean & ycbcr\_cr\_ASM\_avg & y
 
 % TEMPORARY
 
-% Begin Drip/Pivot
+
+%% Begin Drip/Pivot
+%%
+%\begin{tiny}
+%% Begin copied table
+%\begin{longtable}{lrrrrr}
+%\caption[Parameter selection similarities]{Parameter selection similarities for Drip/Pivot}
+%\label{table:matches-selection}\\
+%\toprule
+%% Begin edits
+%& & \multicolumn{4}{c}{Similarity to Parameters Found}\\
+%\cmidrule{3-6} 
+%\multicolumn{1}{c}{Technique} & \multicolumn{1}{c}{Accuracy} & \multicolumn{1}{c}{Recursive} &  \multicolumn{1}{c}{PCA} & \multicolumn{1}{c}{Importance} & \multicolumn{1}{c}{Univariate} \\
+%% End edits
+%\midrule
+%\endfirsthead
+%\caption[]{long caption} \\
+%\toprule
+%% Begin edits
+%& & \multicolumn{2}{c}{Similarity to Parameters Found}\\
+%\cmidrule{3-6} 
+%\multicolumn{1}{c}{Technique} & \multicolumn{1}{c}{Accuracy} & \multicolumn{1}{c}{Recursive} &  \multicolumn{1}{c}{PCA} & \multicolumn{1}{c}{Importance} & \multicolumn{1}{c}{Univariate} \\
+%% End edits
+%\midrule
+%\endhead
+%\midrule
+%\multicolumn{6}{r}{{Continued on next page}} \\
+%\midrule
+%\endfoot
 %
-\begin{tiny}
-% Begin copied table
-\begin{longtable}{lrrrrr}
-\caption[Parameter selection similarities]{Parameter selection similarities for Drip/Pivot}
-\label{table:matches-selection}\\
-\toprule
-% Begin edits
-& & \multicolumn{4}{c}{Similarity to Parameters Found}\\
-\cmidrule{3-6} 
-\multicolumn{1}{c}{Technique} & \multicolumn{1}{c}{Accuracy} & \multicolumn{1}{c}{Recursive} &  \multicolumn{1}{c}{PCA} & \multicolumn{1}{c}{Importance} & \multicolumn{1}{c}{Univariate} \\
-% End edits
-\midrule
-\endfirsthead
-\caption[]{long caption} \\
-\toprule
-% Begin edits
-& & \multicolumn{2}{c}{Similarity to Parameters Found}\\
-\cmidrule{3-6} 
-\multicolumn{1}{c}{Technique} & \multicolumn{1}{c}{Accuracy} & \multicolumn{1}{c}{Recursive} &  \multicolumn{1}{c}{PCA} & \multicolumn{1}{c}{Importance} & \multicolumn{1}{c}{Univariate} \\
-% End edits
-\midrule
-\endhead
-\midrule
-\multicolumn{6}{r}{{Continued on next page}} \\
-\midrule
-\endfoot
-
-\bottomrule
-\endlastfoot
-DECISIONTREE & 0.69 &      0.00 & 1.00 &       0.00 &       0.00 \\
-EXTRA & 0.66 &      0.00 & 1.00 &       0.00 &       0.00 \\
-GRADIENT & 0.67 &      0.00 & 1.00 &       0.00 &       0.00 \\
-KNN & 0.64 &      0.00 & 1.00 &       0.00 &       0.00 \\
-LDA & 0.65 &      0.00 & 1.00 &       0.00 &       0.00 \\
-LOGISTIC & 0.67 &      0.00 & 1.00 &       0.00 &       0.00 \\
-MLP & 0.71 &      0.00 & 1.00 &       0.00 &       0.00 \\
-RANDOMFOREST & 0.68 &      0.00 & 1.00 &       0.00 &       0.00 \\
-SVM & 0.69 &      0.00 & 1.00 &       0.00 &       0.00 \\
-\end{longtable}
-\end{tiny}
-
+%\bottomrule
+%\endlastfoot
+%DECISIONTREE & 0.69 &      0.00 & 1.00 &       0.00 &       0.00 \\
+%EXTRA & 0.66 &      0.00 & 1.00 &       0.00 &       0.00 \\
+%GRADIENT & 0.67 &      0.00 & 1.00 &       0.00 &       0.00 \\
+%KNN & 0.64 &      0.00 & 1.00 &       0.00 &       0.00 \\
+%LDA & 0.65 &      0.00 & 1.00 &       0.00 &       0.00 \\
+%LOGISTIC & 0.67 &      0.00 & 1.00 &       0.00 &       0.00 \\
+%MLP & 0.71 &      0.00 & 1.00 &       0.00 &       0.00 \\
+%RANDOMFOREST & 0.68 &      0.00 & 1.00 &       0.00 &       0.00 \\
+%SVM & 0.69 &      0.00 & 1.00 &       0.00 &       0.00 \\
+%\end{longtable}
+%\end{tiny}
 %
-% End Drip/Pivot
-
-
-\begin{tiny}
-% Begin copied table
-\begin{longtable}{lrrrrr}
-\caption[Parameter selection similarities]{Parameter selection similarities}
-\label{table:matches-selection}\\
-\toprule
-% Begin edits
-& & \multicolumn{4}{c}{Similarity to Parameters Found}\\
-\cmidrule{3-6} 
-\multicolumn{1}{c}{Technique} & \multicolumn{1}{c}{Accuracy} & \multicolumn{1}{c}{Recursive} &  \multicolumn{1}{c}{PCA} & \multicolumn{1}{c}{Importance} & \multicolumn{1}{c}{Univariate} \\
-% End edits
-\midrule
-\endfirsthead
-\caption[]{long caption} \\
-\toprule
-% Begin edits
-& & \multicolumn{2}{c}{Similarity to Parameters Found}\\
-\cmidrule{3-6} 
-\multicolumn{1}{c}{Technique} & \multicolumn{1}{c}{Accuracy} & \multicolumn{1}{c}{Recursive} &  \multicolumn{1}{c}{PCA} & \multicolumn{1}{c}{Importance} & \multicolumn{1}{c}{Univariate} \\
-% End edits
-\midrule
-\endhead
-\midrule
-\multicolumn{6}{r}{{Continued on next page}} \\
-\midrule
-\endfoot
-
-\bottomrule
-\endlastfoot
-DECISIONTREE & 0.979454 &      0.25 & 1.00 &        0.0 &       0.50 \\
-DECISIONTREE & 0.964706 &      0.25 & 0.50 &        0.0 &       1.00 \\
-DECISIONTREE & 0.967690 &      1.00 & 0.25 &        0.0 &       0.25 \\
-GRADIENT & 0.982353 &      0.25 & 1.00 &        0.0 &       0.50 \\
-GRADIENT & 0.955925 &      0.25 & 0.50 &        0.0 &       1.00 \\
-GRADIENT & 0.967690 &      1.00 & 0.25 &        0.0 &       0.25 \\
-KNN & 0.955968 &      0.25 & 1.00 &        0.0 &       0.50 \\
-KNN & 0.958866 &      0.25 & 0.50 &        0.0 &       1.00 \\
-KNN & 0.958866 &      1.00 & 0.25 &        0.0 &       0.25 \\
-LDA & 0.970631 &      0.25 & 1.00 &        0.0 &       0.50 \\
-LDA & 0.976471 &      0.25 & 0.50 &        0.0 &       1.00 \\
-LDA & 0.955968 &      1.00 & 0.25 &        0.0 &       0.25 \\
-LOGISTIC & 0.961807 &      0.25 & 1.00 &        0.0 &       0.50 \\
-LOGISTIC & 0.955968 &      0.25 & 0.50 &        0.0 &       1.00 \\
-LOGISTIC & 0.853325 &      1.00 & 0.25 &        0.0 &       0.25 \\
-MLP & 0.975610 &      0.25 & 1.00 &        0.0 &       0.50 \\
-MLP & 0.970732 &      0.25 & 0.50 &        0.0 &       1.00 \\
-MLP & 0.956098 &      1.00 & 0.25 &        0.0 &       0.25 \\
-RANDOMFOREST & 0.994118 &      0.25 & 1.00 &        0.0 &       0.50 \\
-RANDOMFOREST & 0.982353 &      0.25 & 0.50 &        0.0 &       1.00 \\
-RANDOMFOREST & 0.964749 &      1.00 & 0.25 &        0.0 &       0.25 \\
-SVM & 0.950085 &      0.25 & 1.00 &        0.0 &       0.50 \\
-SVM & 0.961850 &      0.25 & 0.50 &        0.0 &       1.00 \\
-SVM & 0.780051 &      1.00 & 0.25 &        0.0 &       0.25 \\
-\end{longtable}
-\end{tiny}
-
-% End copied table
+%%
+%% End Drip/Pivot
+%
+%
+%\begin{tiny}
+%% Begin copied table
+%\begin{longtable}{lrrrrr}
+%\caption[Parameter selection similarities]{Parameter selection similarities}
+%\label{table:matches-selection}\\
+%\toprule
+%% Begin edits
+%& & \multicolumn{4}{c}{Similarity to Parameters Found}\\
+%\cmidrule{3-6} 
+%\multicolumn{1}{c}{Technique} & \multicolumn{1}{c}{Accuracy} & \multicolumn{1}{c}{Recursive} &  \multicolumn{1}{c}{PCA} & \multicolumn{1}{c}{Importance} & \multicolumn{1}{c}{Univariate} \\
+%% End edits
+%\midrule
+%\endfirsthead
+%\caption[]{long caption} \\
+%\toprule
+%% Begin edits
+%& & \multicolumn{2}{c}{Similarity to Parameters Found}\\
+%\cmidrule{3-6} 
+%\multicolumn{1}{c}{Technique} & \multicolumn{1}{c}{Accuracy} & \multicolumn{1}{c}{Recursive} &  \multicolumn{1}{c}{PCA} & \multicolumn{1}{c}{Importance} & \multicolumn{1}{c}{Univariate} \\
+%% End edits
+%\midrule
+%\endhead
+%\midrule
+%\multicolumn{6}{r}{{Continued on next page}} \\
+%\midrule
+%\endfoot
+%
+%\bottomrule
+%\endlastfoot
+%DECISIONTREE & 0.979454 &      0.25 & 1.00 &        0.0 &       0.50 \\
+%DECISIONTREE & 0.964706 &      0.25 & 0.50 &        0.0 &       1.00 \\
+%DECISIONTREE & 0.967690 &      1.00 & 0.25 &        0.0 &       0.25 \\
+%GRADIENT & 0.982353 &      0.25 & 1.00 &        0.0 &       0.50 \\
+%GRADIENT & 0.955925 &      0.25 & 0.50 &        0.0 &       1.00 \\
+%GRADIENT & 0.967690 &      1.00 & 0.25 &        0.0 &       0.25 \\
+%KNN & 0.955968 &      0.25 & 1.00 &        0.0 &       0.50 \\
+%KNN & 0.958866 &      0.25 & 0.50 &        0.0 &       1.00 \\
+%KNN & 0.958866 &      1.00 & 0.25 &        0.0 &       0.25 \\
+%LDA & 0.970631 &      0.25 & 1.00 &        0.0 &       0.50 \\
+%LDA & 0.976471 &      0.25 & 0.50 &        0.0 &       1.00 \\
+%LDA & 0.955968 &      1.00 & 0.25 &        0.0 &       0.25 \\
+%LOGISTIC & 0.961807 &      0.25 & 1.00 &        0.0 &       0.50 \\
+%LOGISTIC & 0.955968 &      0.25 & 0.50 &        0.0 &       1.00 \\
+%LOGISTIC & 0.853325 &      1.00 & 0.25 &        0.0 &       0.25 \\
+%MLP & 0.975610 &      0.25 & 1.00 &        0.0 &       0.50 \\
+%MLP & 0.970732 &      0.25 & 0.50 &        0.0 &       1.00 \\
+%MLP & 0.956098 &      1.00 & 0.25 &        0.0 &       0.25 \\
+%RANDOMFOREST & 0.994118 &      0.25 & 1.00 &        0.0 &       0.50 \\
+%RANDOMFOREST & 0.982353 &      0.25 & 0.50 &        0.0 &       1.00 \\
+%RANDOMFOREST & 0.964749 &      1.00 & 0.25 &        0.0 &       0.25 \\
+%SVM & 0.950085 &      0.25 & 1.00 &        0.0 &       0.50 \\
+%SVM & 0.961850 &      0.25 & 0.50 &        0.0 &       1.00 \\
+%SVM & 0.780051 &      1.00 & 0.25 &        0.0 &       0.25 \\
+%\end{longtable}
+%\end{tiny}
+%
+%% End copied table
 
 % LBP %
 \begin{tiny}
