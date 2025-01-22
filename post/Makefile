@@ -89,3 +89,32 @@ analyze-imbalance:
 	# Originally
 	# python ./imbalance.py -df ../jetson/training-from-dataframe.csv -ini ../jetson/standalone.ini -lg ../jetson/standalone-logging.ini -a ALL --classifier ALL
 	python ./imbalance.py -df $(_INPUT) -ini ../jetson/standalone.ini -lg ../jetson/standalone-logging.ini -a $(IMBALANCE) --classifier ALL -o $(_OUTPUT) -ir $(RATIO) -t "$(TITLE)" --graph-correction $(CORRECTION) --graph-ratio $(RATIO)
+
+
+# Plot a factor across the development cycle
+# FACTOR = Name of parameter. like hue
+# TTTLE = Title of the plot
+# INPUT = Input CSV files (1 or more)
+# OUTPUT = name of graph file
+plot-season:
+	test -n "$(FACTOR)"
+	test -n "$(TITLE)"
+	test -n "$(OUTPUT)"
+	test -n "$(INPUT)"
+	$(eval _INPUT = `cygpath -w $(INPUT) | tr '\n' ' '`)
+	$(eval _OUTPUT = `cygpath -w $(OUTPUT)`)
+	python plot-development.py -i $(_INPUT) -f $(FACTOR) -t $(TITLE) -o $(_OUTPUT)
+
+plot-debug:
+	python plot-development.pt --help
+
+plot-debug:
+	#test -n "$(FACTOR)"
+	#test -n "$(TITLE)"
+	# The input may be multiple files, get the paths, and then put them on one line
+    $(eval _INPUT = `cygpath -w $(INPUT) | tr '\n' ' '`)
+    ALLFILES=""
+	#ALLFILES+="-i"
+	#$(foreach dir, $(INPUT), $(info $(dir)))
+    ALLFILES=$(foreach dir, $(_INPUT), -i $(dir))
+    $(info $(ALLFILES))
