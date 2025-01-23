@@ -1,9 +1,13 @@
 #
 # P O S T  M A K E F I L E
 #
+PATH_TO_ROOT=..
 
 default:
 	@echo Choose: application, data-for-imbalance, imbalance
+
+
+include $(PATH_TO_ROOT)/common.mk
 
 application: review_ui.py
 
@@ -96,17 +100,20 @@ analyze-imbalance:
 # TTTLE = Title of the plot
 # INPUT = Input CSV files (1 or more)
 # OUTPUT = name of graph file
+
+# Use the source images
+IMAGES=$(SOURCE_IMAGES)
+# There is one result file per source directory
+INPUT=$(foreach dir, $(IMAGES), $(dir)/processed/final/results_dataframe.csv)
+
 plot-season:
 	test -n "$(FACTOR)"
 	test -n "$(TITLE)"
 	test -n "$(OUTPUT)"
-	test -n "$(INPUT)"
+	#test -n "$(INPUT)"
 	$(eval _INPUT = `cygpath -w $(INPUT) | tr '\n' ' '`)
 	$(eval _OUTPUT = `cygpath -w $(OUTPUT)`)
-	python plot-development.py -i $(_INPUT) -f $(FACTOR) -t $(TITLE) -o $(_OUTPUT)
-
-plot-debug:
-	python plot-development.pt --help
+	python plot-development.py -i $(_INPUT) -f $(FACTOR) -t "$(TITLE)" -o $(_OUTPUT)
 
 plot-debug:
 	#test -n "$(FACTOR)"

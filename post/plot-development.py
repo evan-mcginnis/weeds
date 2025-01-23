@@ -38,8 +38,29 @@ for datafile in arguments.input:
     dfAll = dfAll.append(df)
 
 # Compute the mean where there are several dates in the result file
-dfGrouped = dfAll.groupby(constants.NAME_DATE).agg(factor=(arguments.factor, "mean"))
-print(f"{dfGrouped}")
+dfGrouped = dfAll.groupby([constants.NAME_TYPE, constants.NAME_DATE]).agg(factor=(arguments.factor, "mean"))
+# We won't do much with this -- this is so we can then get the names for the legend
+dfGroupedByDate = dfAll.groupby(constants.NAME_DATE).agg(factor=(arguments.factor, "mean"))
 
 
-print(f"Mean of {arguments.factor}: {df[arguments.factor].mean()}")
+#print(f"{dfGrouped}")
+
+unstacked = dfGrouped.unstack()
+
+plt.style.use('ggplot')
+# Plot the means
+unstacked.plot.barh(title=arguments.title)
+ax = plt.gca()
+xAxisNames = ["Weed", "Crop"]
+ax.set_yticklabels(xAxisNames, rotation='vertical')
+plt.ylabel("Type")
+plt.xlabel(arguments.factor)
+# Form the legend from the index names -- the dates of the observations
+ax.legend(list(dfGroupedByDate.index))
+
+if arguments.output is not None:
+    plt.savefig(arguments.output)
+else:
+    plt.show()
+
+sys.exit(0)
