@@ -8,6 +8,7 @@ import sys
 import os
 import glob
 from exif import Image
+from enum import Enum
 
 from GPSUtilities import GPSUtilities
 from OptionsFile import OptionsFile
@@ -31,6 +32,14 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 
 from review_ui import Ui_MainWindow
+
+class VegetationType(Enum):
+    CROP = 0
+    WEED = 1
+    MISTAKE = 2
+
+    def __str__(self):
+        return str(self.value)
 
 FILE_PROGRESS = "progress.ini"
 ATTRIBUTE_CURRENT = "CURRENT"
@@ -67,6 +76,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         # Wire up the buttons
         self.button_next.clicked.connect(self.nextImage)
         self.button_previous.clicked.connect(self.previousImage)
+        self.weed.clicked.connect(lambda: self.setBlobTypes(VegetationType.WEED))
+        self.crop.clicked.connect(lambda: self.setBlobTypes(VegetationType.CROP))
+        self.mistake.clicked.connect(lambda: self.setBlobTypes(VegetationType.MISTAKE))
 
         # Set the initial button states
         self.button_next.setEnabled(True)
@@ -91,6 +103,17 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         shortcut = QKeySequence(Qt.Key_P)
         self._shortcutPrevious = QShortcut(shortcut, self)
         self._shortcutPrevious.activated.connect(self.previousImage)
+
+        # Shortcuts for the buttons for fast assignment to all
+        shortcut = QKeySequence(Qt.Key_W)
+        self._shortcutWeed = QShortcut(shortcut, self)
+        self._shortcutWeed.activated.connect(lambda: self.setBlobTypes(VegetationType.WEED))
+        shortcut = QKeySequence(Qt.Key_C)
+        self._shortcutCrop = QShortcut(shortcut, self)
+        self._shortcutCrop.activated.connect(lambda: self.setBlobTypes(VegetationType.CROP))
+        shortcut = QKeySequence(Qt.Key_M)
+        self._shortcutMistake = QShortcut(shortcut, self)
+        self._shortcutMistake.activated.connect(lambda: self.setBlobTypes(VegetationType.MISTAKE))
 
     @property
     def correctType(self) -> bool:
@@ -296,6 +319,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             self.button_previous.setEnabled(False)
 
         self._displayImage(self._fileNames[self._currentFileNumber])
+        self.populateBlobTypes(self._currentFileNumber)
         self.updateInformationForCurrentImage()
 
     def safeExit(self):
@@ -325,9 +349,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             print("Unable to find file: {}".format(attributes))
             rc = False
 
-        # If there is no "actual" column, insert one, setting the actual type to the predicted
-        if constants.NAME_ACTUAL not in self._attributes.columns:
-            self._attributes[constants.NAME_ACTUAL] = self._attributes[constants.NAME_TYPE]
+        if not self.correctType:
+            # If there is no "actual" column, insert one, setting the actual type to the predicted
+            if constants.NAME_ACTUAL not in self._attributes.columns:
+                self._attributes[constants.NAME_ACTUAL] = self._attributes[constants.NAME_TYPE]
 
         print(f"Loaded from csv")
         return rc
@@ -354,9 +379,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         # There should be only one row
         rows = self._attributes.loc[self._attributes[constants.NAME_NAME] == text[0]]
         for index, row in rows.iterrows():
-            self._attributes.iloc[index, actualLocation] = value
             if self._correctType:
                 self._attributes.iloc[index, typeLocation] = value
+            else:
+                self._attributes.iloc[index, actualLocation] = value
 
         return
 
@@ -381,12 +407,32 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             # setting geometry of combo box
             #comboBox.setGeometry(200, 150, 120, 40)
 
-            # Put both choices in the combo-box, but the selected one will be the one predicted
-            comboBox.addItem(f"{row[constants.NAME_NAME]} is {names[int(row[constants.NAME_TYPE])]}", row[constants.NAME_NAME])
-            comboBox.addItem(f"{row[constants.NAME_NAME]} is {names[not int(row[constants.NAME_TYPE])]}", row[constants.NAME_NAME])
-            comboBox.addItem(f"{row[constants.NAME_NAME]} is {constants.NAME_MISTAKE}", row[constants.NAME_NAME])
+            # Put all choices in the combo-box, but the selected one will be the one predicted
+            for type in [t.name for t in VegetationType]:
+                comboBox.addItem(f"{row[constants.NAME_NAME]} is {type}", row[constants.NAME_NAME])
+            comboBox.setCurrentIndex(int(row[constants.NAME_TYPE]))
+
+            # Originally
+            # comboBox.addItem(f"{row[constants.NAME_NAME]} is {names[int(row[constants.NAME_TYPE])]}", row[constants.NAME_NAME])
+            # comboBox.addItem(f"{row[constants.NAME_NAME]} is {names[not int(row[constants.NAME_TYPE])]}", row[constants.NAME_NAME])
+            # comboBox.addItem(f"{row[constants.NAME_NAME]} is {constants.NAME_MISTAKE}", row[constants.NAME_NAME])
             self.blobType.addWidget(comboBox)
         return
+
+    def setBlobTypes(self, vegType: VegetationType):
+        """
+        Set all the types in the combo boxes based on the name of the sender button
+        """
+        # rbt = self.sender()
+        # #print(f"Button name is: {rbt.text()}")
+        # vegType = VegetationType[rbt.text().upper()]
+        # Iterate over all the combo boxes
+        for i in range(self.blobType.count()):
+            myWidget = self.blobType.itemAt(i).widget()
+            if isinstance(myWidget, QComboBox):
+                #print(f"Setting combobox {i} type to: {vegType}")
+                myWidget.setCurrentIndex(vegType.value)
+                self._selected(myWidget.currentText())
 
 
 
@@ -489,7 +535,7 @@ parser.add_argument('-i', '--input', action="store", required=False,  help="Inpu
 parser.add_argument('-p', '--pattern', action="store", required=False,  default="*.jpg", help="Pattern, i.e., processed-*.jpg")
 parser.add_argument('-o', '--output', action="store", required=False,  default="classifications.csv", help="Output CSV")
 parser.add_argument('-a', '--attributes', action="store", required=False,  default="results.csv", help="Classification CSV")
-parser.add_argument('-t', '--type', action="store_true", required=False, default=False, help="Correct the type")
+parser.add_argument('-t', '--type', action="store_true", required=False, default=False, help="Correct the type and don't write actual column")
 parser.add_argument('-l', '--logging', action="store", required=False, default='../jetson/logging.ini', help="Logging configuration")
 
 arguments = parser.parse_args()
