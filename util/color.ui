@@ -33,6 +33,12 @@
             <height>768</height>
            </size>
           </property>
+          <property name="maximumSize">
+           <size>
+            <width>1024</width>
+            <height>768</height>
+           </size>
+          </property>
           <property name="cursor">
            <cursorShape>CrossCursor</cursorShape>
           </property>

@@ -523,7 +523,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self._pixmap = QPixmap(imageName)
         originalWidth = self._pixmap.width()
         originalHeight = self._pixmap.height()
-        print(f"Original image of {imageName} is {self._pixmap.width()} x {self._pixmap.height()}")
+        print(f"Original image of {imageName} is ({originalWidth} W x {originalHeight} H)")
         #scaled = pixmap.scaled(width, height, Qt.KeepAspectRatio)
         #scaled = pixmap.scaled(self.image.size(), Qt.KeepAspectRatio)
         scaled = self._pixmap.scaled(width, height, Qt.KeepAspectRatio, Qt.SmoothTransformation)
