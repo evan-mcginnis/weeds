@@ -2,6 +2,8 @@
 # U T I L I T Y
 #
 
+include ../common.mk
+
 TRAINING?=training.csv
 application: color_ui.py
 
@@ -36,6 +38,25 @@ else
 _MAGNITUDE = -m $(MAGNITUDE)
 endif
 
+
+# Combine the results from several days to yield one classification file
+broccoli-season:
+	$(eval INPUT = $(BROCCOLI_CLASSIFICATIONS))
+	test -n "$(INPUT)"
+	test -n "$(OUTPUT)"
+	$(eval _INPUT = `cygpath -w $(INPUT)`)
+	$(eval _OUTPUT = `cygpath -w $(OUTPUT)`)
+	python combine.py -i $(_INPUT) --output $(_OUTPUT)
+
+cantaloupe-season:
+	$(eval INPUT = $(CANTALOUPE_CLASSIFICATIONS))
+	test -n "$(INPUT)"
+	test -n "$(OUTPUT)"
+	$(eval _INPUT = `cygpath -w $(INPUT)`)
+	$(eval _OUTPUT = `cygpath -w $(OUTPUT)`)
+	python combine.py -i $(_INPUT) --output $(_OUTPUT)
+
+
 plot-for-document:
 	test -n "$(X)"
 	test -n "$(Y)"
@@ -47,3 +68,13 @@ plot-for-document:
 	test -n "$(LEN)"
 	$(eval _INPUT = `cygpath -w $(INPUT)`)
 	python plot.py -x $(X) -y $(Y) -x2 $(X2) -y2 $(Y2) -i $(_INPUT) -s $(SUBJECT) -l logging.ini -c $(COLOR) -b 0 -b 1 -b 2 -t band --length $(LEN) $(_MAGNITUDE)
+
+lbp-figure:
+	test -n "$(LEFT)"
+	test -n "$(RIGHT)"
+	test -n "$(OUTPUT)"
+	$(eval _LEFT = `cygpath -w $(LEFT)`)
+	$(eval _RIGHT = `cygpath -w $(RIGHT)`)
+	$(eval _OUTPUT = `cygpath -w $(OUTPUT)`)
+	python lbp-graph.py -l $(_LEFT) -r $(_RIGHT) -o $(_OUTPUT)
+
