@@ -4,6 +4,7 @@ import os.path
 import glob
 import matplotlib.pyplot as plt
 import numpy as np
+from tqdm import tqdm
 
 from pathlib import Path
 import logging
@@ -128,8 +129,9 @@ if os.path.isfile(arguments.output):
 results = []
 
 # For each one of the files, there should be 1 reference and N techniques
-for source in sourceFiles:
-    baseSource = Path(source).stem
+#for source in sourceFiles:
+for j in tqdm(range(len(sourceFiles))):
+    baseSource = Path(sourceFiles[j]).stem
     if os.path.isdir(arguments.target):
         referenceMask = arguments.target + baseSource + "-mask.jpg"
     elif os.path.isfile(arguments.target):
@@ -147,14 +149,14 @@ for source in sourceFiles:
         print(f"Unable to locate evaluation masks: {arguments.input}")
         sys.exit(-1)
 
-    for mask in masksToEvaluate:
+    for i in range(len(masksToEvaluate)):
         theMask = Mask()
-        theMask.load(mask)
-        print(f"\nEvaluating {mask} vs {referenceMask}")
+        theMask.load(masksToEvaluate[i])
+        #print(f"\nEvaluating {masksToEvaluate[i]} vs {referenceMask}")
         theMask.compare(referenceMask)
-        print(f"{theMask}")
+        #print(f"{theMask}")
         technique = Path(mask).stem
-        print(f"Technique: {technique.split('-')[2]} FPR: {theMask.stats.rate(Rate.FPR)} FNR: {theMask.stats.rate(Rate.FNR)} F1: {theMask.stats.f1()} Total {theMask.stats.differences}")
+        #print(f"Technique: {technique.split('-')[2]} FPR: {theMask.stats.rate(Rate.FPR)} FNR: {theMask.stats.rate(Rate.FNR)} F1: {theMask.stats.f1()} Total {theMask.stats.differences}")
         #results[technique.split('-')[2]] = [theMask.rate(Rate.FPR), theMask.rate(Rate.FNR), ((theMask.fp + theMask.fn) / (theMask.mask.shape[0] * theMask.mask.shape[1])) * 100]
         results.append([Path(source).stem, technique.split('-')[2], theMask.stats.rate(Rate.FPR), theMask.stats.rate(Rate.FNR), theMask.stats.f1(), theMask.stats.rate(Rate.FPR) + theMask.stats.rate(Rate.FNR)])
 
