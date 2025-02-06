@@ -9,7 +9,7 @@ import os
 import constants
 
 parser = argparse.ArgumentParser("Plot factor over development cycle")
-parser.add_argument("-i", "--input", action="store", required=True, nargs="*", help="Image to process")
+parser.add_argument("-i", "--input", action="store", required=True, nargs="*", help="CSV to process")
 parser.add_argument("-f", "--factor", action="store", required=True, help="Name of factor")
 parser.add_argument("-t", "--title", action="store", required=False, type=str, help="Title of plot")
 parser.add_argument("-o", "--output", action="store", required=False, help="Output graph")
@@ -26,6 +26,8 @@ for datafile in arguments.input:
 
     # Read in datafile as a dataframe
     df = pd.read_csv(datafile)
+    # Force the date column to be a date
+    df['date'] = pd.to_datetime(df['date'])
 
     # See if the factor is there
     if arguments.factor not in df.columns:
