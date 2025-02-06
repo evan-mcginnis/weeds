@@ -18,8 +18,10 @@ if os.path.isfile(arguments.output) and not arguments.force:
     print(f"Output file exists: {arguments.output}")
     sys.exit(-1)
 
-data = {}
+data = []
+#print(f"Input: {arguments.input}")
 for file in arguments.input:
+    print(f"Reading: {file}")
     # Confirm the input file exists
     if not os.path.isfile(file):
         print(f"Unable to access: {file}")
@@ -32,14 +34,9 @@ for file in arguments.input:
     except pandas.errors.ParserError:
         print(f"Unable to parse: {file}")
         sys.exit(-1)
-    data[file] = df
+    data.append(df)
 
-consolidated = None
-for file, frame in data.items():
-    if consolidated is None:
-        consolidated = frame
-    else:
-        consolidated.append(frame)
+consolidated = pd.concat(data)
 
 if consolidated is not None:
     try:
