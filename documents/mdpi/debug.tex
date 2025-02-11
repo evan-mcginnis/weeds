@@ -1,0 +1,326 @@
+% !TeX TS-program = pdflatex
+    
+%=================================================================
+\documentclass[journal,article,submit,moreauthors,pdftex]{Definitions/mdpi}
+
+\usepackage{amssymb,tikz-cd,hyperref,amsmath,algorithm,enumitem,longtable,tikz,qtree,tabu,mathtools,amsthm,pdflscape,lmodern,xcolor,lipsum,subcaption,makecell}
+
+%\usepackage{array} % loaded by the class <<<<<<
+\newcolumntype{L}[1]{>{\raggedright\let\newline\\\arraybackslash\hspace{0pt}}m{#1}}
+\setlength\extrarowheight{2pt} 
+
+\usepackage{longtable}
+
+%=================================================================
+% MDPI internal commands
+\firstpage{1} 
+\makeatletter 
+\setcounter{page}{\@firstpage} 
+\makeatother
+\pubvolume{1}
+\issuenum{1}
+\articlenumber{0}
+\pubyear{2021}
+\copyrightyear{2020}
+%\externaleditor{Academic Editor: Firstname Lastname} % For journal Automation, please change Academic Editor to "Communicated by"
+\datereceived{} 
+\dateaccepted{} 
+\datepublished{} 
+\hreflink{https://doi.org/} % If needed use \linebreak
+%------------------------------------------------------------------
+% Full title of the paper (Capitalized)
+\Title{Title}
+
+% MDPI internal command: Title for citation in the left column
+\TitleCitation{Title}
+
+% Author Orchid ID: enter ID or remove command
+\newcommand{\orcidauthorA}{0000-0000-0000-000X} % Add \orcidA{} behind the author's name
+%\newcommand{\orcidauthorB}{0000-0000-0000-000X} % Add \orcidB{} behind the author's name
+
+% Authors, for the paper (add full first names)
+\Author{Firstname Lastname $^{1,\dagger,\ddagger}$\orcidA{}, Firstname Lastname $^{1,\ddagger}$ and Firstname Lastname $^{2,}$*}
+
+% MDPI internal command: Authors, for metadata in PDF
+\AuthorNames{Firstname Lastname, Firstname Lastname and Firstname Lastname}
+
+% MDPI internal command: Authors, for citation in the left column
+\AuthorCitation{Lastname, F.; Lastname, F.; Lastname, F.}
+% If this is a Chicago style journal: Lastname, Firstname, Firstname Lastname, and Firstname Lastname.
+
+% Affiliations / Addresses (Add [1] after \address if there is only one affiliation.)
+\address{%
+    $^{1}$ \quad Affiliation 1; e-mail@e-mail.com\\
+    $^{2}$ \quad Affiliation 2; e-mail@e-mail.com}
+
+% Contact information of the corresponding author
+\corres{Correspondence: e-mail@e-mail.com; Tel.: (optional; include country code; if there are multiple corresponding authors, add author initials) +xx-xxxx-xxx-xxxx (F.L.)}
+
+% Current address and/or shared authorship
+\firstnote{Current address: Affiliation 3} 
+\secondnote{These authors contributed equally to this work.}
+% The commands \thirdnote{} till \eighthnote{} are available for further notes
+
+%\simplesumm{} % Simple summary
+
+%\conference{} % An extended version of a conference paper
+
+% Abstract (Do not insert blank lines, i.e. \\) 
+\abstract{A single paragraph of about 200 words maximum. For research articles, abstracts should give a pertinent overview of the work. We strongly encourage authors to use the following style of structured abstracts, but without headings: (1) Background: place the question addressed in a broad context and highlight the purpose of the study; (2) Methods: describe briefly the main methods or treatments applied; (3) Results: summarize the article's main findings; (4) Conclusion: indicate the main conclusions or interpretations. The abstract should be an objective representation of the article, it must not contain results which are not presented and substantiated in the main text and should not exaggerate the main conclusions.}
+
+% Keywords
+\keyword{keyword 1; keyword 2; keyword 3 (List three to ten pertinent keywords specific to the article; yet reasonably common within the subject discipline.)} 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{document}
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    
+    \section{Introduction}
+    
+    The introduction should briefly place the study in a broad context and highlight why it is important. It should define the purpose of the work and its significance. The current state of the research field should be reviewed carefully and key publications cited. Please highlight controversial and diverging hypotheses when necessary. Finally, briefly mention the main aim of the work and highlight the principal conclusions. As far as possible, please keep the introduction comprehensible to scientists outside your particular field of research. Citing a journal paper \cite{ref-journal}. Now citing a book reference \cite{ref-book1,ref-book2} or other reference types \cite{ref-unpublish,ref-communication,ref-proceeding}. Please use the command \citep{ref-thesis,ref-url} for the following MDPI journals, which use author--date citation: Administrative Sciences, Arts, Econometrics, Economies, Genealogy, Histories, Humanities, IJFS, Journal of Intelligence, Journalism and Media, JRFM, Languages, Laws, Religions, Risks, Social Sciences.
+    
+\end{paracol}   % added <<<<<<<<<<<<<<<<
+
+%longtable here 
+\begin{paracol}{1} % added <<<<<<<<<<<<<<<<
+    \onecolumn  
+        \small
+        \setlength{\arrayrulewidth}{0.2mm}
+    \renewcommand{\arraystretch}{1.2}
+    \begin{longtable}{p{2cm}L{3.9cm}L{3.9cm}L{3.9cm}}   
+        \caption{Summary of decomposition techniques executed on the EEG signals and their significant results}\label{tab:summary}\\
+        \hline
+        \textbf{Ordering techniques} &  \textbf{Real-world applications}    &   \textbf{Advantages} & \textbf{Limitations} \\
+        \hline
+        \endfirsthead
+        \multicolumn{4}{c}%
+        {\tablename\ \thetable\ -- \textit{Continued from previous page}} \\
+        \hline
+        \textbf{Ordering techniques} &  \textbf{Real-world applications}    &   \textbf{Advantages} & \textbf{Limitations} \\
+        \hline
+        \endhead
+        \hline \multicolumn{4}{r}{\textit{Continued on next page}} \\
+        \endfoot
+        \hline
+        \endlastfoot
+        Multivariate majorization & \begin{itemize}[leftmargin=*]
+            \item Comparing the information contents of experiments \cite{Marshall2011a,Dahl2018}. 
+            \item Comparing the information content of classical or quantum physical states \cite{Alberti2008}.
+            \item Network flow theory \cite{Dahl1999a}.
+            \item Measuring income inequalities \cite{Koshevoy1992,Koshevoy1995b,Koshevoy1997}.
+            \item Measuring experimental designs and survey sampling \cite{Giovagnoli1985}.
+        \end{itemize} & \begin{itemize}[leftmargin=*]
+            \item More than one attribute of a system, such as income inequality, can be compared.
+            \item Comparison between matrices that have different dimensions.
+        \end{itemize} & \begin{itemize}[leftmargin=*]
+            \item Requires the existence of a doubly stochastic matrix.
+        \end{itemize} \\ \hline
+        Quantum majorization & \begin{itemize}[leftmargin=*]
+            \item Comparing and ranking correlation matrices to assess portfolio risk in a unified framework \cite{Fontanari2019a}.
+            \item Comparing quantum processes in which, a complete set of entropic conditions for state transformations in resources theories of asymmetry and quantum thermodynamics are derived \cite{Gour2018}. 
+        \end{itemize} & \begin{itemize}[leftmargin=*]
+            \item It is a generalization of matrix majorization.
+            \item The technique can be applied to all quantum states, whereas the previous results are limited to a restricted family of states.
+            \item Quantum majorization is preferred mainly for two reasons:
+            \begin{enumerate}[leftmargin=*,label=(\roman*)]
+                \item Verification in the data can be easily done.
+                \item The axiomatic approach commonly used in financial and actuarial mathematics is satisfied.
+            \end{enumerate}
+        \end{itemize} & \begin{itemize}[leftmargin=*]
+            \item Requires the existence of completely positive and trace-preserving (CPTP) maps.
+            \item Additional tools are required for the case of approximate transformations.
+        \end{itemize}   \\
+        \hline
+        & Multivariate analysis \cite{Siotani1967} & Generalization of univariate statistical analysis. & 
+        Limited to symmetric matrices of the same order. \\\cline{2-4}
+        Loewner's ordering & Matrix ordering of special C-Matrices for statistical analysis \cite{Baksalary1985}. & Facilitate the comparison of information matrices between corresponding block designs and dispersion of two multinomial distributions. & Limited to the special case of a C-matrix in experimental design theory. \\\cline{2-4}
+        & Image processing. \cite{Burgeth2005a,Burgeth2006,Burgeth2007} & \begin{itemize}[leftmargin=*]
+            \item Fundamental concepts of mathematical morphology could be transferred to matrix-valued-data.
+            \item The ordering technique can be applied to higher-dimensional tensor data.
+        \end{itemize} & Limited to the set of symmetric matrices. \\
+        \hline
+        Partial order induced by affine-invariant geometry & Information geometry to perform statistical analysis \cite{Mostajeran2018}. & \begin{itemize}[leftmargin=*]
+            \item The ordering technique is critical to study the monocity of functions.
+            \item The ordering technique can be applied to study dynamical systems and convergence analysis of algorithms defined on matrices.
+        \end{itemize} & Limited to the set of positive definite matrices of dimension $n$ derived from the affine-invariant geometry.   \\
+        \hline
+        Star partial order & Comparison of two Gauss-Markov linear systems \cite{Mitra2010,Dolinar2020}. & It is a partial order. & Requires the existence of Moore-Penrose inverse.    \\
+        \hline
+        Sharp partial order & Autonomous linear systems \cite{Coll2017,Herrero2020} & Enables a comparison between two autonomous systems, and extraction of much more information. & Requires the existence of group inverses. \\
+        \hline
+        Minus partial order & Compartmental control systems \cite{Coll2020b}. & \begin{itemize}[leftmargin=*]
+            \item The compartmental control systems models' performance and efficiency, such as infectious disease evolution, are improved.
+            \item A reachable successor system can be obtained from a non-reachable one. 
+        \end{itemize} & Requires the existence of generalized inverses
+    \end{longtable} 
+\end{paracol}% added <<<<<<<<<<<<<<<<
+
+\begin{paracol}{2} % added <<<<<<<<<<<<<<<<
+    \switchcolumn % added <<<<<<<<<<<<<<<<
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \section{Materials and Methods}
+    
+    Materials and Methods should be described with sufficient details to allow others to replicate and build on published results. Please note that publication of your manuscript implicates that you must make all materials, data, computer code, and protocols associated with the publication available to readers. Please disclose at the submission stage any restrictions on the availability of materials or information. New methods and protocols should be described in detail while well-established methods can be briefly described and appropriately cited.
+    
+    Research manuscripts reporting large datasets that are deposited in a publicly avail-able database should specify where the data have been deposited and provide the relevant accession numbers. If the accession numbers have not yet been obtained at the time of submission, please state that they will be provided during review. They must be provided prior to publication.
+    
+    Interventionary studies involving animals or humans, and other studies require ethical approval must list the authority that provided approval and the corresponding ethical approval code.
+    \begin{quote}
+        This is an example of a quote.
+    \end{quote}
+    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \section{Results}
+    
+    This section may be divided by subheadings. It should provide a concise and precise description of the experimental results, their interpretation as well as the experimental conclusions that can be drawn.
+    \subsection{Subsection}
+    \subsubsection{Subsubsection}
+    
+    Bulleted lists look like this:
+    \begin{itemize}
+        \item   First bullet;
+        \item   Second bullet;
+        \item   Third bullet.
+    \end{itemize}
+    
+    Numbered lists can be added as follows:
+    \begin{enumerate}
+        \item   First item; 
+        \item   Second item;
+        \item   Third item.
+    \end{enumerate}
+    
+    The text continues here. 
+    
+    \subsection{Figures, Tables and Schemes}
+    
+    All figures and tables should be cited in the main text as Figure~\ref{fig1}, Table~\ref{tab1}, etc.
+    
+    \begin{figure}[H]
+        \includegraphics[width=10.5 cm]{Definitions/logo-mdpi}
+        \caption{This is a figure. Schemes follow the same formatting. If there are multiple panels, they should be listed as: (\textbf{a}) Description of what is contained in the first panel. (\textbf{b}) Description of what is contained in the second panel. Figures should be placed in the main text near to the first time they are cited. A caption on a single line should be centered.\label{fig1}}
+    \end{figure}   
+    
+    % The MDPI table float is called specialtable
+    \begin{specialtable}[H] 
+        \caption{This is a table caption. Tables should be placed in the main text near to the first time they are~cited.\label{tab1}}
+        %%% \tablesize{} %% You can specify the fontsize here, e.g., \tablesize{\footnotesize}. If commented out \small will be used.
+        \begin{tabular}{ccc}
+            \toprule
+            \textbf{Title 1}    & \textbf{Title 2}  & \textbf{Title 3}\\
+            \midrule
+            Entry 1     & Data          & Data\\
+            Entry 2     & Data          & Data\\
+            \bottomrule
+        \end{tabular}
+    \end{specialtable}
+    
+    
+    \subsection{Formatting of Mathematical Components}
+    
+    This is the example 1 of equation:
+    \begin{equation}
+        a = 1,
+    \end{equation}
+    the text following an equation need not be a new paragraph. Please punctuate equations as regular text.
+    %% If the documentclass option "submit" is chosen, please insert a blank line before and after any math environment (equation and eqnarray environments). This ensures correct linenumbering. The blank line should be removed when the documentclass option is changed to "accept" because the text following an equation should not be a new paragraph.
+    
+    This is the example 2 of equation:
+\end{paracol}
+\nointerlineskip
+\begin{equation}
+    a = b + c + d + e + f + g + h + i + j + k + l + m + n + o + p + q + r + s + t + u + v + w + x + y + z
+\end{equation}
+
+% Example of a figure that spans the whole page width (the commands \widefigure and \begin{paracol}{2}, \linenumbers, and\switchcolumn need to be present). The same concept works for tables, too.
+\begin{figure}[H]   
+    \widefigure
+    \includegraphics[width=15 cm]{Definitions/logo-mdpi}
+    \caption{This is a wide figure.\label{fig2}}
+\end{figure}  
+\begin{paracol}{2}
+    \linenumbers
+    \switchcolumn
+    
+    Please punctuate equations as regular text. Theorem-type environments (including propositions, lemmas, corollaries etc.) can be formatted as follows:
+    %% Example of a theorem:
+    \begin{Theorem}
+        Example text of a theorem.
+    \end{Theorem}
+    
+    The text continues here. Proofs must be formatted as follows:
+    
+    %% Example of a proof:
+    \begin{proof}[Proof of Theorem 1]
+        Text of the proof. Note that the phrase ``of Theorem 1'' is optional if it is clear which theorem is being referred to.
+    \end{proof}
+    The text continues here.
+    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \section{Discussion}
+    
+    Authors should discuss the results and how they can be interpreted from the perspective of previous studies and of the working hypotheses. The findings and their implications should be discussed in the broadest context possible. Future research directions may also be highlighted.
+    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \section{Conclusions}
+    
+    This section is not mandatory, but can be added to the manuscript if the discussion is unusually long or complex.
+    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \section{Patents}
+    
+    This section is not mandatory, but may be added if there are patents resulting from the work reported in this manuscript.
+    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    \vspace{6pt} 
+    
+    
+    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %% Only for journal Encyclopedia
+    %\entrylink{The Link to this entry published on the encyclopedia platform.}
+    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %% Optional
+    \abbreviations{Abbreviations}{The following abbreviations are used in this manuscript:\\
+        
+        \noindent 
+        \begin{tabular}{@{}ll}
+            MDPI & Multidisciplinary Digital Publishing Institute\\
+            DOAJ & Directory of open access journals\\
+            TLA & Three letter acronym\\
+            LD & Linear dichroism
+    \end{tabular}}
+    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %% Optional
+    \appendixtitles{no} % Leave argument "no" if all appendix headings stay EMPTY (then no dot is printed after "Appendix A"). If the appendix sections contain a heading then change the argument to "yes".
+    \appendixstart
+    \appendix
+    \section{}
+    \subsection{}
+    The appendix is an optional section that can contain details and data supplemental to the main text---for example, explanations of experimental details that would disrupt the flow of the main text but nonetheless remain crucial to understanding and reproducing the research shown; figures of replicates for experiments of which representative data are shown in the main text can be added here if brief, or as Supplementary Data. Mathematical proofs of results not central to the paper can be added as an appendix.
+    
+    \begin{specialtable}[H] 
+        %\tablesize{\scriptsize}
+        \caption{This is a table caption. Tables should be placed in the main text near to the first time they are~cited.\label{tab2}}
+        %\tablesize{} % You can specify the fontsize here, e.g., \tablesize{\footnotesize}. If commented out \small will be used.
+        \begin{tabular}{ccc}
+            \toprule
+            \textbf{Title 1}    & \textbf{Title 2}  & \textbf{Title 3}\\
+            \midrule
+            Entry 1     & Data          & Data\\
+            Entry 2     & Data          & Data\\
+            \bottomrule
+        \end{tabular}
+    \end{specialtable}
+    
+    \section{}
+    All appendix sections must be cited in the main text. In the appendices, Figures, Tables, etc. should be labeled, starting with ``A''---e.g., Figure A1, Figure A2, etc. 
+    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\end{paracol}
+\reftitle{References}
+
+\end{document}
