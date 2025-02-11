@@ -1,0 +1,30 @@
+\begin{longtable}{lcl}
+\caption[Classification over season]{Classification over season}
+\label{table:results-season}\\
+\toprule
+   Technique &  AUC &                                                                            Parameters \\
+\midrule
+\endfirsthead
+\caption[]{Classification over season} \\
+\toprule
+   Technique &  AUC &                                                                            Parameters \\
+\midrule
+\endhead
+\midrule
+\multicolumn{3}{r}{{Continued on next page}} \\
+\midrule
+\endfoot
+
+\bottomrule
+\endlastfoot
+DECISIONTREE & 0.84 &                             greyscale\_contrast\_avg hog\_mean roundness saturation\_mean \\
+       EXTRA & 0.88 &                              hog\_mean hog\_variance hsi\_hue\_lbp\_stddev saturation\_mean \\
+    GRADIENT & 0.90 &                           greyscale\_contrast\_avg hog\_stddev roundness saturation\_mean \\
+         KNN & 0.84 & greyscale\_contrast\_avg greyscale\_dissimilarity\_avg hsi\_hue\_lbp\_stddev saturation\_mean \\
+         LDA & 0.83 &                                 hog\_mean hsi\_hue\_lbp\_stddev roundness saturation\_mean \\
+    LOGISTIC & 0.76 &                          compactness convexity eccentricity greyscale\_correlation\_avg \\
+         MLP & 0.84 &                              hog\_variance hsi\_hue\_lbp\_stddev in\_phase saturation\_mean \\
+RANDOMFOREST & 0.91 &                        greyscale\_correlation\_avg hog\_stddev roundness saturation\_mean \\
+         SVM & 0.82 &       greyscale\_correlation\_avg greyscale\_dissimilarity\_avg roundness saturation\_mean \\
+    LOGISTIC & 0.77 &                          compactness convexity eccentricity greyscale\_correlation\_avg \\
+\end{longtable}

@@ -1,0 +1,29 @@
+\begin{longtable}{lcl}
+\caption[Classify by All Parameters]{Classify by All Parameters}
+\label{table:results-color-texture}\\
+\toprule
+   Technique &  AUC &                                                                                       Parameters \\
+\midrule
+\endfirsthead
+\caption[]{Classify by All Parameters} \\
+\toprule
+   Technique &  AUC &                                                                                       Parameters \\
+\midrule
+\endhead
+\midrule
+\multicolumn{3}{r}{{Continued on next page}} \\
+\midrule
+\endfoot
+
+\bottomrule
+\endlastfoot
+DECISIONTREE & 0.85 &                     hog\_stddev hog\_variance hsi\_saturation\_homogeneity\_avg ycbcr\_cr\_lbp\_variance \\
+       EXTRA & 0.94 &          greyscale\_correlation\_avg hog\_variance hsi\_intensity\_lbp\_variance ycbcr\_cr\_lbp\_variance \\
+    GRADIENT & 0.96 &     greyscale\_correlation\_avg hog\_mean hsi\_intensity\_lbp\_variance hsi\_saturation\_homogeneity\_avg \\
+         KNN & 0.92 &                              greyscale\_correlation\_avg hog\_mean hog\_stddev ycbcr\_cr\_lbp\_variance \\
+         LDA & 0.96 &  cie\_l\_lbp\_stddev greyscale\_correlation\_avg hsi\_saturation\_homogeneity\_avg ycbcr\_cr\_lbp\_variance \\
+    LOGISTIC & 0.97 &              cie\_l\_lbp\_stddev hog\_mean hsi\_intensity\_lbp\_variance hsi\_saturation\_homogeneity\_avg \\
+         MLP & 0.97 &                    hog\_mean hog\_stddev hsi\_intensity\_lbp\_variance hsi\_saturation\_homogeneity\_avg \\
+RANDOMFOREST & 0.96 & greyscale\_correlation\_avg hog\_variance hsi\_intensity\_lbp\_variance hsi\_saturation\_homogeneity\_avg \\
+         SVM & 0.96 &                                  hog\_mean hog\_stddev hog\_variance hsi\_saturation\_homogeneity\_avg \\
+\end{longtable}

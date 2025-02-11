@@ -1,0 +1,29 @@
+\begin{longtable}{lcl}
+\caption[Classify by All Parameters]{Classify by All Parameters}
+\label{table:results-all}\\
+\toprule
+   Technique &  AUC &                                                                                  Parameters \\
+\midrule
+\endfirsthead
+\caption[]{Classify by All Parameters} \\
+\toprule
+   Technique &  AUC &                                                                                  Parameters \\
+\midrule
+\endhead
+\midrule
+\multicolumn{3}{r}{{Continued on next page}} \\
+\midrule
+\endfoot
+
+\bottomrule
+\endlastfoot
+DECISIONTREE & 0.90 & hsi\_intensity\_lbp\_variance hsi\_saturation\_homogeneity\_avg shape\_index ycbcr\_cr\_lbp\_variance \\
+       EXTRA & 0.96 &                 greyscale\_correlation\_avg hog\_stddev hsi\_intensity\_lbp\_variance shape\_index \\
+    GRADIENT & 0.95 & hsi\_intensity\_lbp\_variance hsi\_saturation\_homogeneity\_avg shape\_index ycbcr\_cr\_lbp\_variance \\
+         KNN & 0.92 &                                   hog\_stddev hog\_variance shape\_index ycbcr\_cr\_lbp\_variance \\
+         LDA & 0.96 & hsi\_intensity\_lbp\_variance hsi\_saturation\_homogeneity\_avg shape\_index ycbcr\_cr\_lbp\_variance \\
+    LOGISTIC & 0.93 &                              cie\_l\_lbp\_stddev convexity hog\_mean hsi\_intensity\_lbp\_variance \\
+         MLP & 0.96 & hsi\_intensity\_lbp\_variance hsi\_saturation\_homogeneity\_avg shape\_index ycbcr\_cr\_lbp\_variance \\
+RANDOMFOREST & 0.96 &                 greyscale\_correlation\_avg hog\_stddev hsi\_intensity\_lbp\_variance shape\_index \\
+         SVM & 0.93 &                             elongation hog\_mean hog\_variance hsi\_saturation\_homogeneity\_avg \\
+\end{longtable}
