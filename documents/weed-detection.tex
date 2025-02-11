@@ -13,11 +13,21 @@
 %\usepackage{lipsum}
 %\usepackage{natbib}
 \usepackage{siunitx}
+%\usepackage{setspace}
 
 % C I T A T I O N S
 \usepackage[backend=biber, style=apa]{biblatex}  
 %\usepackage{biblatex} 
 \addbibresource{paperpile.bib}
+
+% A B R E V A T I O N S
+%\usepackage[printonlyused,withpage]{acronym}
+%\usepackage[nopostdot,toc,acronym,nomain,nonumberlist]{glossaries}
+%\usepackage{glossaries-extra}
+%
+%\setabbreviationstyle[acronym]{long-short}
+%\loadglsentries{glossary}
+%\makeglossaries
 
 \usepackage[hidelinks]{hyperref}
 
@@ -178,48 +188,96 @@ contents={\begin{tikzpicture}[remember picture,overlay]
     {\large \@author}}              
 \makeatother
 \author{%
-    Evan McGinnis \\
-    Graduate Student \\
-    Biosystems Analytics \\
-    \texttt{evanmc@arizona.edu}\vspace{40pt} \\
+Copyright Brian Evan McGinnis 2025 \\
+A Dissertation Submitted to the Faculty of the \\
+DEPARTMENT OF AGRICULTURAL AND BIOSYSTEMS ENGINEERING \\
+With a major in Biosystems Analytics \\
+In Partial Fulfillment of the Requirements \\
+For the Degree of \\
+DOCTOR OF PHILOSOPHY \\
+In the Graduate College \\
+THE UNIVERSITY OF ARIZONA \\
+2025 \\
     }
 \begin{document}
-\begin{titlepage}
-\BgThispage
-\newgeometry{left=1cm,right=4cm}
-\vspace*{1cm}
-\noindent
-%%\vspace*{0.4\textheight}
-\textcolor{white}{\Huge\textbf{\textsf{Weed Classification in Row Crops}}}
-\vspace*{3.5cm}\par
-\noindent
-\begin{minipage}{0.35\linewidth}
-    \begin{flushright}
-        \printauthor
-    \end{flushright}
-\end{minipage} \hspace{15pt}
+%\begin{titlepage}
+%\BgThispage
+%\newgeometry{left=1cm,right=4cm}
+%\vspace*{1cm}
+%\noindent
+%%%\vspace*{0.4\textheight}
+%\textcolor{white}{\Huge\textbf{\textsf{Weed Classification in Row Crops}}}
+%\vspace*{3.5cm}\par
+%\noindent
+%\begin{minipage}{0.50\linewidth}
+%    \begin{flushright}
+%        \printauthor
+%    \end{flushright}
+%\end{minipage} \hspace{15pt}
+%%
+%\begin{minipage}{0.02\linewidth}
+%    \rule{1pt}{175pt}
+%\end{minipage} \hspace{-10pt}
+%%
+%\begin{minipage}{0.50\linewidth}
+%\vspace{5pt}
+%    \begin{abstract} 
+%The precision treatment of weeds within a crop depends first on accurate classification of plants into two classes: desired plants and undesired plants. Once classified, both positive treatments or assessment of the crop and negative treatment of the weeds is possible, but both of these depend on making this classification. This paper presents the findings that weeds and crop can be distinguished from each other using shape, color, texture, and placement, all factors that can be extracted from RGB images. The shape factors found to be significant were the length to width ratio, and the shape index. The color factor found to be significant was the mean Y value in the YIQ color space. The placement factor found to be significant was the distance the plant was from the crop-line. Using these factors in classification resulted in the correct classification rate of weeds at 100\%, but an incorrect classification rate of crop as weeds of 6.9\% using logistic regression.
+%    \end{abstract}
+%\end{minipage}
+%\end{titlepage}
+%\restoregeometry
+%%
+
+% Title page
+\begin{center}
+\huge
+CROP AND WEED CLASSIFICATION IN ROW CROPS \\
+\large
+\setstretch{2} 
+\vspace{3cm}
+by\\
+Brian Evan McGinnis \\
+\vspace{1cm}
+\hrule
+\vspace{1cm}
+Copyright \textcopyright  Brian Evan McGinnis 2025 \\
+A Dissertation Submitted to the Faculty of the \\
+DEPARTMENT OF AGRICULTURAL AND BIOSYSTEMS ENGINEERING \\
+With a major in Biosystems Analytics \\
+In Partial Fulfillment of the Requirements \\
+For the Degree of \\
+DOCTOR OF PHILOSOPHY \\
+In the Graduate College \\
+THE UNIVERSITY OF ARIZONA \\
+2025 \\
+\end{center}
+\newpage
 %
-\begin{minipage}{0.02\linewidth}
-    \rule{1pt}{175pt}
-\end{minipage} \hspace{-10pt}
-%
-\begin{minipage}{0.70\linewidth}
-\vspace{5pt}
-    \begin{abstract} 
-The precision treatment of weeds within a crop depends first on accurate classification of plants into two classes: desired plants and undesired plants. Once classified, both positive treatments or assessment of the crop and negative treatment of the weeds is possible, but both of these depend on making this classification. This paper presents the findings that weeds and crop can be distinguished from each other using shape, color, texture, and placement, all factors that can be extracted from RGB images. The shape factors found to be significant were the length to width ratio, and the shape index. The color factor found to be significant was the mean Y value in the YIQ color space. The placement factor found to be significant was the distance the plant was from the crop-line. Using these factors in classification resulted in the correct classification rate of weeds at 100\%, but an incorrect classification rate of crop as weeds of 6.9\% using logistic regression.
-    \end{abstract}
-\end{minipage}
-\end{titlepage}
-\restoregeometry
+\begin{center}
+\huge
+\textit{Adobe Sign Approvals will be copied here.} \\\
+\end{center}
+\textit{Committee Chair:} Kamel Didan
+\newpage
+
 %
 % F R O N T  M A T T E R
 %
+%\newacronym{glcm}{GLCM}{Grey-level Co-occurrence matrix}
 \tableofcontents
 \listoffigures
 \listoftables
+
+%\glsaddall
+%\printglossary[title=Abbreviations,type=\acronymtype]
 %\listofequations
+
 \newpage
 
+\section{Abstract}
+The precision treatment of weeds within a crop depends first on accurate classification of plants into two classes: desired plants and undesired plants. Once classified, both positive treatments or assessment of the crop and negative treatment of the weeds is possible, but both of these depend on making this classification. This paper presents the findings that weeds and crop can be distinguished from each other using shape, color, texture, and placement, all factors that can be extracted from RGB images. The shape factors found to be significant were the length to width ratio, and the shape index. The color factor found to be significant was the mean Y value in the YIQ color space. The placement factor found to be significant was the distance the plant was from the crop-line. Using these factors in classification resulted in the correct classification rate of weeds at 100\%, but an incorrect classification rate of crop as weeds of 6.9\% using logistic regression.
+\newpage
 %
 % O V E R V I E W 
 %
@@ -2042,7 +2100,7 @@ Bucket lids are identified by the number of colored stickers they contain -- for
 \end{figure}	
 
 
-\section{Feature Selection}
+\section{Feature Selection \& Classification}
 The features described in the previous section were generated for a set of segmented images, resulting in each plant being described by 715 attributes. Several techniques were then used to explore the relationship between these attributes and the labeled class: Recursive Feature Elimination, Principle Component Analysis (PCA), Feature Importance, and Univariate feature selection.  Specifically, only the most important variables will be selected in the predictions, and those parameters with a weak association are dropped. Unfortunately, different feature ranking techniques identified sets of the most significant features without a clear overlap. There were exceptions to this, of course, as can be seen with the feature \textit{saturation\_mean} identified with the in multiple of the techniques. Among the four techniques there are 10 unique parameters.
 
 %
@@ -2062,33 +2120,17 @@ The features described in the previous section were generated for a set of segme
 \begin{small}
 % Reduce the row spacing, so to table looks a bit more packed
 \renewcommand{\arraystretch}{0.9}
+% Make the table page width
+\setlength\LTleft{0pt}
+\setlength\LTright{0pt}
 
-% Begin copied table
-\begin{longtable}{lllll}
-\caption[Parameter Rankings]{Parameter Rankings}\\
-\toprule
-{} & Recursive &          PCA &                   Importance &                   Univariate \\
-\midrule
-\endfirsthead
-\caption[]{Parameter Rankings} \\
-\toprule
-{} & Recursive &          PCA &                   Importance &                   Univariate \\
-\midrule
-\endhead
-\midrule
-\multicolumn{5}{r}{{Continued on next page}} \\
-\midrule
-\endfoot
+% Produced with this command:
+% make TRAINING=/cygdrive/d/maricopa/corrected/2024-05-15/iphone-pivot/processed/final/corrected.csv TYPE=all SUBTYPE=all OUTPUT=../documents/tables/selections.tex selections
 
-\bottomrule
-\endlastfoot
-0& greyscale\_contrast\_avg &  shape\_index &  greyscale\_dissimilarity\_avg &              saturation\_mean \\
-1 & saturation\_mean &  compactness &                     solidity &  greyscale\_dissimilarity\_avg \\
-2 & greyscale\_dissimilarity\_avg &    convexity &    greyscale\_correlation\_avg &       greyscale\_contrast\_avg \\
-3 & greyscale\_correlation\_avg &   elongation &                    roundness &                    roundness \\
-\end{longtable}
+\input{./tables/selections.tex}
 
-% End copied table
+
+
 \end{small}
 }
 
@@ -2118,66 +2160,218 @@ As there was no clear agreement between the parameters identified by the selecti
 the parameters selected by that technique were to the ones identified by other techniques. 
 
 \subsection{Texture}
-Table \ref{table:texture} shows the optimal parameters for each classification technique if only texture is considered.
+Table \ref{table:results-texture} shows the optimal parameters for each classification technique if only texture is considered. Specifically, these parameters produced the highest AUC in the classification:
+\begin{itemize}
+	\item{\textit{greyscale\_lbp\_stddev} -- The standard deviation of the LBP of the blob after greyscale conversion.}
+	\item{\textit{hog\_mean} -- The mean of the HOG of the blob}
+	\item{\textit{hog\_stddev} -- The standard deviation of the HOG of the blob}
+	\item{\textit{hog\_variance} -- The variance of the HOG of the blob}
+	\item{\textit{hsi\_intensity\_lbp\_variance} -- the variance of the LBP of the $I$ channel in HSI colorspace}
+	\item{\textit{ycbcr\_y\_lbp\_stddev} -- the standard deviation of the LBP of the $Y$ channel in YCbCr colorspace}
+	\item{\textit{ycbcr\_cr\_lbp\_variance} -- the variance of the LBP of the $Cr$ channel in YCbCr colorspace}	
+	\item{\textit{cie\_l\_lbp\_stddev} -- the standard deviation of the LBP of the $L$ channel in CIELab colorspace}
+\end{itemize}
+
+% Generate the data with this command
+% make optimal FACTORS=4 TYPE=TEXTURE SUBTYPE=all PREFIX=texture TRAINING=/cygdrive/d/maricopa-test/imbalance/processed/final/corrected.csv OUTPUT=/cygdrive/d/maricopa-test/dissertation/
 
 \begin{tiny}
+% Reduce the row spacing, so to table looks a bit more packed
+\renewcommand{\arraystretch}{1.2}
 
-% Copied from this command
 % make optimal-results TYPE=TEXTURE SUBTYPE=all FORMAT=latex PARAMETERS=parameters.pickle LOGGING=tucson-logging.ini ALL_RESULTS=/cygdrive/d/maricopa-test/dissertation/ CAPTION_LONG="Classification using texture" CAPTION_SHORT="Classification using texture" LABEL=table:texture PREFIX=dissertation_auc
 
+\input{./tables/results-texture.tex}
 
-
-\begin{longtable}{lcl}
-\caption[Classification using texture]{Classification using texture}
-\label{table:texture}\\
-\toprule
-Technique &  AUC &                                                                       Parameters \\
-\midrule
-\endfirsthead
-\caption[]{Classification using texture} \\
-\toprule
-Technique &  AUC &                                                                       Parameters \\
-\midrule
-\endhead
-\midrule
-\multicolumn{3}{r}{{Continued on next page}} \\
-\midrule
-\endfoot
-
-\bottomrule
-\endlastfoot
-DECISIONTREE & 0.88 &         cie\_b\_lbp\_variance hog\_variance ycbcr\_cr\_lbp\_variance ycbcr\_y\_lbp\_stddev \\
-       EXTRA & 0.90 &                     hog\_mean hog\_stddev ycbcr\_cr\_lbp\_variance ycbcr\_y\_lbp\_stddev \\
-    GRADIENT & 0.90 & hog\_variance hsi\_intensity\_lbp\_variance ycbcr\_cr\_lbp\_variance ycbcr\_y\_lbp\_stddev \\
-         KNN & 0.90 &                hog\_mean hog\_stddev hsi\_intensity\_lbp\_variance ycbcr\_y\_lbp\_stddev \\
-         LDA & 0.89 &                     hog\_mean hog\_stddev ycbcr\_cr\_lbp\_variance ycbcr\_y\_lbp\_stddev \\
-         MLP & 0.89 &                              hog\_mean hog\_stddev hog\_variance ycbcr\_y\_lbp\_stddev \\
-RANDOMFOREST & 0.90 &              hog\_mean hog\_variance hsi\_intensity\_lbp\_variance ycbcr\_y\_lbp\_stddev \\
-         SVM & 0.89 &   cie\_b\_lbp\_variance hog\_stddev hsi\_intensity\_lbp\_variance ycbcr\_cr\_lbp\_variance \\
-\end{longtable}
-
-
-% End copy
 \end{tiny}
 
-\subsection{Color}
-Table \ref{table:color} shows the optimal parameters for each classification technique if only color is considered.
+It is worthwhile to examine what is not present here: GLCM attributes. While HOG and LBP feature prominently. GLCM attributes are not present at all. Table \ref{table:results-glcm} presents the AUC values using GLCM exclusively. While the results cannot be described as awful, for the most part, they are all well below the classification achieved with using HOG and LBP. A clear exception is the AUC achieved with \textit{Logistic Regression} of $0.52$, a result that is only slightly better than chance.
 
 \begin{tiny}
+% Reduce the row spacing, so to table looks a bit more packed
+\renewcommand{\arraystretch}{1.2}
+\input{./tables/results-glcm.tex}
+\end{tiny}
 
+%\begin{tiny}
+%% Reduce the row spacing, so to table looks a bit more packed
+%\renewcommand{\arraystretch}{1.2}
+%% Copied from this command & Edit the header a bit
+%% python Selection.py -df `cygpath -w /cygdrive/d/maricopa-test/imbalance/processed/final/corrected.csv` -fs ALL -f 4 -l -lg standalone-logging.ini -p glcm -o -ty TEXTURE -s GLCM -od `cygpath -w /cygdrive/d/maricopa-test/dissertation/` 
+%
+%\begin{longtable}{lcl}
+%\caption[Classification using GLCM]{Classification using GLCM}
+%\label{table:only-glcm}\\
+%\toprule
+%Technique &  AUC &                                                                                           Parameters \\
+%\midrule
+%\endfirsthead
+%\caption[]{Classification using GLCM} \\
+%\toprule
+%Technique &  AUC &                                                                                           Parameters \\
+%\midrule
+%\endhead
+%\midrule
+%\multicolumn{3}{r}{{Continued on next page}} \\
+%\midrule
+%\endfoot
+%
+%\bottomrule
+%\endlastfoot
+%DECISIONTREE & 0.71 &                   greyscale\_energy\_avg greyscale\_homogeneity\_avg value\_ASM\_avg ycbcr\_cr\_contrast\_avg \\
+%       EXTRA & 0.83 &    greyscale\_dissimilarity\_avg greyscale\_homogeneity\_avg value\_homogeneity\_avg ycbcr\_cr\_contrast\_avg \\
+%    GRADIENT & 0.77 &           hsi\_intensity\_ASM\_avg value\_homogeneity\_avg ycbcr\_cr\_contrast\_avg ycbcr\_cr\_homogeneity\_avg \\
+%         KNN & 0.74 &                      greyscale\_homogeneity\_avg red\_energy\_avg value\_ASM\_avg ycbcr\_cr\_homogeneity\_avg \\
+%         LDA & 0.82 &                value\_homogeneity\_avg ycbcr\_cr\_ASM\_avg ycbcr\_cr\_contrast\_avg ycbcr\_cr\_homogeneity\_avg \\
+%    LOGISTIC & 0.84 &                  greyscale\_dissimilarity\_avg hsi\_intensity\_energy\_avg value\_ASM\_avg ycbcr\_cr\_ASM\_avg \\
+%         MLP & 0.83 &     greyscale\_dissimilarity\_avg hsi\_intensity\_ASM\_avg ycbcr\_cr\_contrast\_avg ycbcr\_cr\_homogeneity\_avg \\
+%RANDOMFOREST & 0.85 & greyscale\_dissimilarity\_avg greyscale\_homogeneity\_avg ycbcr\_cr\_contrast\_avg ycbcr\_cr\_homogeneity\_avg \\
+%         SVM & 0.83 &                                 greyscale\_dissimilarity\_avg red\_ASM\_avg red\_energy\_avg value\_ASM\_avg \\
+%\end{longtable}
+%
+%
+%% End copy
+%\end{tiny}
+
+% Generate the results with:
+% $ make optimal TRAINING=/cygdrive/d/maricopa/corrected/2024-05-15/iphone-pivot/processed/final/corrected.csv FACTORS=4 PREFIX=lbp_auc TYPE=TEXTURE SUBTYPE=LBP OUTPUT=/cygdrive/d/maricopa/corrected/2024-05-15/iphone-pivot/processed/final/optimal  
+% Generate the table with:
+% make optimal-results PREFIX=texture_auc PARAMETERS=./parameters.pickle ALL_RESULTS=/cygdrive/d/maricopa/corrected/2024-05-15/iphone-pivot/processed/final/optimal/ TYPE=TEXTURE SUBTYPE=LBP CAPTION_LONG="Classify by LBP" CAPTION_SHORT="Classify by LBP" LABEL=table:results-lbp FORMAT=latex OUTPUT=../documents/tables/results-lbp.tex
+
+Classifying using LBP yields much better results for \textit{Logistic Regression,} with an AUC of $0.96$
+\begin{tiny}
+\renewcommand{\arraystretch}{1.2}
+\input{./tables/results-lbp.tex}
+\end{tiny}
+
+Some features do not remain stable over the development cycle. As illustrated by Figure \ref{fig:season-texture}, only a subset of the textural features can be considered stable over the development cycle, but using features from this subset is advisable, as those features can be exploited at any point in the development cycle.  Each feature is tested over the season to determine if it changes over the development cycle (perhaps a texture feature \textit{trends} toward a value at the end of the season.
+
+%
+% Plot generated with:
+%  make plot-adf  TYPE=TEXTURE SUBTYPE=all TITLE="Texture Features Over Season" LABEL="stability-texture" OUTPUT=../documents/figures/season-texture.png INPUT=/cygdrive/d/dissertation/broccoli/season.csv
+
+
+\begin{figure}[h!]
+	\centering
+	\includegraphics[width=6cm]{./figures/season-texture.png}
+	\caption[Stability of factor over growing season]{A feature is considered \textit{stable} if it does not change significantly (no trend, constant variance) over the development cycle for both classes of vegetation. The stability of a feature across time series is calculated with an Augmented Dickey-Fuller (ADF) test ($\alpha=0.05$) \parencite{Dickey1979-ft}. As several hundred textural features are considered, the stability is presented as a summary plot in this view. The majority of features ($117$) are unstable over the development cycle, pointing to a relatively inconvenient observation: the training data must capture these changes when making predictions for images acquired during this time.}
+	\label{fig:season-texture}
+\end{figure}
+
+An illustration of a specific parameter is probably useful for illustrating the concept of seasonality change. Figure \ref{fig:season-texture-correlation} shows the \textit{greyscale\_correlation\_avg} parameter across a large portion of the development cycle. Note the relative stability in the crop vegetation and relative instability in the weed vegetation. This is an example of an \textit{unstable} feature, changing over a development cycle for one of the classes (p-value of $0.24$ for crop and $6.942985735524264e-09$ for weed)
+
+% Plot generated with
+% make plot-season FACTOR=greyscale_homogenity_avg TITLE="Greyscale homogenity average over season" OUTPUT=./plot-over-season.png INPUT=/cygdrive/d/dissertation/broccoli/season.csv
+
+\begin{figure}[h!]
+	\centering
+	\includegraphics[width=6cm]{./figures/plot-over-season.png}
+	\caption[Greyscale Correlation Average over growing season]{The greyscale correlation average feature for weeds and crops over a large portion of the growing season is presented in this graph. While casual inspection shows that the values are relatively constant for crop in the early stages of development, the same is not true of crops. Intuitively, this makes sense: periodic weeding results in new plants whose texture differs from those eliminated.}
+	\label{fig:season-texture-correlation}
+\end{figure}
+
+\subsection{Color}
+Table \ref{table:results-color} shows the optimal parameters for each classification technique if only color is considered. For the most part, the classification AUC is lower than seen with texture alone, with a few performing acceptably: \textit{Extra Trees}, \textit{Gradient Boosted}, and \textit{Multi-Layer Perceptron}.  The parameter sets for classification have one obvious characteristic: they are identical across classification techniques.
+
+
+%\begin{tiny}
+{
+\renewcommand{\arraystretch}{0.9}
 % Generated with this command
 % make optimal-results TYPE=COLOR SUBTYPE=all FORMAT=latex PARAMETERS=parameters.pickle LOGGING=tucson-logging.ini ALL_RESULTS=/cygdrive/d/maricopa-test/dissertation/ CAPTION_LONG="Classification using color" CAPTION_SHORT="Classification using color" LABEL=table:color PREFIX=color_auc
+% Generate table with this command
+% make optimal-results PREFIX=color_auc PARAMETERS=./parameters.pickle ALL_RESULTS=/cygdrive/d/maricopa/corrected/2024-05-15/iphone-pivot/processed/final/optimal/ TYPE=COLOR SUBTYPE=all CAPTION_LONG="Classify by Color" CAPTION_SHORT="Classify by Color" LABEL=table:results-color FORMAT=latex OUTPUT=../documents/tables/results-color.tex
+
+\input{./tables/results-color.tex}
+%\begin{longtable}{lcl}
+%\caption[Classification using color]{Classification using color}
+%\label{table:color}\\
+%\toprule
+%Technique &  AUC &                           Parameters \\
+%\midrule
+%\endfirsthead
+%\caption[]{Classification using color} \\
+%\toprule
+%Technique &  AUC &                           Parameters \\
+%\midrule
+%\endhead
+%\midrule
+%\multicolumn{3}{r}{{Continued on next page}} \\
+%\midrule
+%\endfoot
+%
+%\bottomrule
+%\endlastfoot
+%DECISIONTREE & 0.82 & cb\_mean hue in\_phase saturation\_mean \\
+%EXTRA & 0.91 & cb\_mean hue in\_phase saturation\_mean \\
+%GRADIENT & 0.89 & cb\_mean hue in\_phase saturation\_mean \\
+%KNN & 0.79 & cb\_mean hue in\_phase saturation\_mean \\
+%LDA & 0.84 & cb\_mean hue in\_phase saturation\_mean \\
+%LOGISTIC & 0.87 & cb\_mean hue in\_phase saturation\_mean \\
+%MLP & 0.87 & cb\_mean hue in\_phase saturation\_mean \\
+%RANDOMFOREST & 0.91 & cb\_mean hue in\_phase saturation\_mean \\
+%SVM & 0.71 & cb\_mean hue in\_phase saturation\_mean \\
+%\end{longtable}
+
+
+}
+%\end{tiny}
+
+Each classification technique performed best when fitting these parameters:
+\begin{itemize}
+	\item{\textit{cb\_mean} -- the mean value of the Cb channel of the blob in YCbCr colorspace}
+	\item{\textit{hue} -- the mean value of the hue of the blob in RGB colorspace}
+	\item{\textit{in\_phase} -- the mean value of the $I$ channel of the blob in YIQ colorspace}
+	\item{\textit{saturation\_mean} -- the mean value of the saturation channel of the blob in HSI colorspace}
+\end{itemize}
+
+As seen with texture, some features do not exhibit stability over the development cycle. As Table \ref{stability-color} illustrates, the \textit{hue} and \textit{saturation\_mean} of the blobs changes over the development cycle (ADF, $\alpha = 0.05$). While this feature instability does not account for the lower classification AUC, it does point to an inconvenient
+
+% Table generated with
+% make plot-adf TYPE=COLOR SUBTYPE=all TITLE="Color over season" LABEL="stability-color" OUTPUT=../documents/tables/season-color.tex INPUT=/cygdrive/d/dissertation/broccoli/season.csv
+{
+\renewcommand{\arraystretch}{1.2}
+\input{./tables/season-color.tex}
+}
+
+
+\subsection{Shape}
+Classification using the shape of the object suffers from a topic touched on previously: the entire plant must be visible for the shape metric to be calculated accurately. For images acquired 1m above the ground this is not a concern, as unclassified vegetation is fully in view or a full view can be constructed by stitching together images. The same is not the case with images acquired closer to the ground, as would be the case with a towed system where the camera captures a limited view of a planting bed. While adjacent images can be stitched together to compensate for vegetation that is cut off in the images along the planting bed (as a towed system passes overhead, for instance), it is not feasible to correct for images cut off along the sides of the images. How much of the planting bed is captured depends, of course on camera and 
+optics characteristics, described by Equation \ref{eqn:gsd}.
+
+\begin{equation}
+\label{eqn:gsd}
+GSD = (Flight\ Altitude \times Sensor\ Height) / (Focal\ Length \times Image\ Height)
+\end{equation}
+
+The parameters used in classification using shape attributes was a bit more diverse than as was seen with color, but not completely so. As Table \ref{table:shape} shows, these attributes appeared in the classifications:
+\begin{itemize}
+	\item{\textit{shape\_index} -- the shape index appeared in every approach}
+	\item{\textit{roundness} -- the roundness of the blob appeared in every approach}
+	\item{\textit{radial\_var} -- the variance of the radial distance of the blob}
+	\item{\textit{compactness} -- the compactness of the blob}
+	\item{\textit{elongation} -- the elongation of the blob}
+	\item{\textit{bending} -- the bending energy of the blob}
+	\item{\textit{convexity} -- the convexity of the blob}
+\end{itemize}
+
+Shape, however, is highly dependent on the phase of the development cycle, as Figure \ref{fig:cantaloupe} shows. The shape of early and late stage plants is quite different. The classification rates here should be treated with no small amount of skepticism, as they are valid for only a single point in time.
+
+{
+\renewcommand{\arraystretch}{0.9}
+% Copied from this command
+% make optimal-results TYPE=SHAPE SUBTYPE=all FORMAT=latex PARAMETERS=parameters.pickle LOGGING=tucson-logging.ini ALL_RESULTS=/cygdrive/d/maricopa-test/dissertation/ CAPTION_LONG="Classification using shape" CAPTION_SHORT="Classification using shape" LABEL=table:shape PREFIX=shape_auc
 
 \begin{longtable}{lcl}
-\caption[Classification using color]{Classification using color}
-\label{table:color}\\
+\caption[Classification using shape]{Classification using shape}
+\label{table:shape}\\
 \toprule
-Technique &  AUC &                           Parameters \\
+Technique &  AUC &                                   Parameters \\
 \midrule
 \endfirsthead
-\caption[]{Classification using color} \\
+\caption[]{Classification using shape} \\
 \toprule
-Technique &  AUC &                           Parameters \\
+Technique &  AUC &                                   Parameters \\
 \midrule
 \endhead
 \midrule
@@ -2187,22 +2381,19 @@ Technique &  AUC &                           Parameters \\
 
 \bottomrule
 \endlastfoot
-DECISIONTREE & 0.82 & cb\_mean hue in\_phase saturation\_mean \\
-EXTRA & 0.91 & cb\_mean hue in\_phase saturation\_mean \\
-GRADIENT & 0.89 & cb\_mean hue in\_phase saturation\_mean \\
-KNN & 0.79 & cb\_mean hue in\_phase saturation\_mean \\
-LDA & 0.84 & cb\_mean hue in\_phase saturation\_mean \\
-LOGISTIC & 0.87 & cb\_mean hue in\_phase saturation\_mean \\
-MLP & 0.87 & cb\_mean hue in\_phase saturation\_mean \\
-RANDOMFOREST & 0.91 & cb\_mean hue in\_phase saturation\_mean \\
-SVM & 0.71 & cb\_mean hue in\_phase saturation\_mean \\
+DECISIONTREE & 0.80 & compactness radial\_var roundness shape\_index \\
+       EXTRA & 0.92 &  elongation radial\_var roundness shape\_index \\
+    GRADIENT & 0.90 &     bending radial\_var roundness shape\_index \\
+         KNN & 0.87 &   convexity elongation roundness shape\_index \\
+         LDA & 0.91 & compactness radial\_var roundness shape\_index \\
+    LOGISTIC & 0.87 &   convexity radial\_var roundness shape\_index \\
+         MLP & 0.90 &   convexity radial\_var roundness shape\_index \\
+RANDOMFOREST & 0.89 &    bending compactness roundness shape\_index \\
+         SVM & 0.87 &   convexity radial\_var roundness shape\_index \\
 \end{longtable}
 
+}
 
-
-\end{tiny}
-
-\subsection{Shape}
 \subsection{Optimal}
 
 %
@@ -2211,7 +2402,7 @@ SVM & 0.71 & cb\_mean hue in\_phase saturation\_mean \\
 %
 
 % Generate the optimal combination data
-% make optimal TRAINING=d:\maricopa\processed\2024-05-01\pivot-2m\final\training.csv FACTORS=4 PREFIX=maricopa TYPE=all SUBTYPE=all OUTPUT=d:\maricopa\processed\2024-05-01\pivot-2m\final\classification
+% make ./ TRAINING=d:\maricopa\processed\2024-05-01\pivot-2m\final\training.csv FACTORS=4 PREFIX=maricopa TYPE=all SUBTYPE=all OUTPUT=d:\maricopa\processed\2024-05-01\pivot-2m\final\classification
 %
 % Produce the similarity report
 % 
@@ -2628,9 +2819,8 @@ Plotting these attributes along with their classification via Logistic Regressio
 	\label{fig:factors}
 \end{figure}
   
-\section{Classification}
-Before delving into the details of classification, it is worthwhile to consider an aspect of the images that must be considered in classification: most of the vegetation appearing is crop; very few of the plants are actually weeds. While the scarcity of weeds is certainly a good thing for farmer, that scarcity has some odd effects on the data. If a dataset contains attributes of 1000 crop plants and 100 weeds, for instance, a 99\% accurate classifier is easily achieved by simply classifying every plant as a crop (a reminder than overall accuracy claims are almost always dubious, and are rightly treated as suspect -- here, a high accuracy claim is perilously close to useless). \citeauthor{Fernandez2018-fw}  deals with the topic of imbalanced data (sets where a majority class is seen several times more often as a minority class) at length in his book on the subject, outlining details of solutions to this imbalance between majority (crop) and minority (weed) classes: sampling, algorithmic changes, and cost-sensitive learning \parencite{Fernandez2018-fw}. Sampling corrections fall into two categories: under sample the majority to lower the number in the final set or over sample the minority class to lower the imbalance ratio. While over sampling the minority class has a set of problems that are best summarized as \textit{``there may be only a few samples to even use -- we need to synthesize more''}, under sampling the majority class has its own set of problems that comes down to choosing the \textit{best} samples that are representative of the class. Synthesizing new instances of the minority class and the using those in an over sampling technique are frequently addressed by using Synthetic Minority Oversampling Technique (SMOTE). Numerous variants of SMOTE exist as do alternatives\footnote{\citeauthor{Fernandez2018-fw} discuss the details of SMOTE, SMOTE variants and extensions, and alternative approaches (such as ADASYN, which addresses linear dependencies between synthetic data points) in their book on imbalanced learning \parencite[p.~101]{Fernandez2018-fw}. While the details of these techniques is beyond the scope of this paper, the pre-processing techniques described in that publication will be used in this problem space.} While choosing between the two techniques (over-sample minority or under-sample majority) is frequently done, applying a hybrid technique of both reducing the majority and generating new minority class samples to address the imbalance is also performed. Here, \citeauthor{Fernandez2018-fw} describe two techniques: SMOTE+Tomek Link, and SMOTE+ENN. Tomek links exist between instances of different classes that are close to each other. Removing the majority class instances subsequently increases the distance separating the two classes. The Edited Nearest Neighbor (ENN) algorithm removes instances whose class label differs from two of three nearest neighbors.
-Cost sensitive learning formalizes the concept that some mistakes are more costly than others. Consider the case of weed control: mistakenly stating that a weed is a crop and not treating it is not immediately costly, as no vegetation is altered, but mistakenly stating that a crop is a weed and then applying a treatment is immediately costly, as marketable vegetation has been damaged.
+\section{Classification Mistakes}
+Before delving into the details of classification, it bears mention that, while all predictions contain errors, some errors are more costly than others
 
 Using the subset of the parameters identified in the previous section, various approaches were used in classifying the objects isolated in the images and detailed in Table~\ref{fig:learning}. The feature sets were split into a 80\%/20\% for these results: 
 
@@ -2689,7 +2879,7 @@ Figure~\ref{fig:classified} shows an annotated classification result. In this fi
 \end{figure}
 
 
-\section{Treatment Maps}
+\section{Performance}
 
 \section{Future Work}
 
