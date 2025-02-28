@@ -4,10 +4,13 @@
 import csv
 import random
 
+import sklearn.exceptions
+
 #import random
 
 import constants
 from constants import Score
+from constants import Classification
 #import cv2 as cv
 import numpy as np
 import matplotlib.pyplot as plt
@@ -35,6 +38,10 @@ from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.exceptions import ConvergenceWarning
 
 from imblearn.over_sampling import SMOTE, ADASYN, BorderlineSMOTE, KMeansSMOTE, SVMSMOTE
+from imblearn.combine import SMOTETomek
+from imblearn.combine import SMOTEENN
+from imblearn.under_sampling import TomekLinks
+
 from WeedExceptions import ProcessingError
 from abc import ABC, abstractmethod
 
@@ -43,6 +50,8 @@ from enum import Enum
 
 import warnings
 warnings.filterwarnings("error")
+
+from Utility import Utility
 
 class Subset(Enum):
     TRAIN = 0
@@ -55,11 +64,15 @@ class Type(Enum):
     WEED = 1
 
 class ImbalanceCorrection(Enum):
+    # Undersampling
     SMOTE = 0
     ADASYN = 1
     BORDERLINE = 2
     KMEANS = 3
     SVM = 4
+    # Combined Under+Over
+    SMOTETOMEK = 5
+    SMOTEENN = 6
 
     def __str__(self):
         return self.name
@@ -81,6 +94,17 @@ class ClassificationTechniques(Enum):
 class Classifier:
     name = "Base"
 
+    # Oversample correction techniques
+    oversampleCorrectionChoices = [ImbalanceCorrection.SMOTE.name.lower(),
+                                   ImbalanceCorrection.ADASYN.name.lower(),
+                                   ImbalanceCorrection.BORDERLINE.name.lower(),
+                                   ImbalanceCorrection.KMEANS.name.lower(),
+                                   ImbalanceCorrection.SVM.name.lower()]
+
+    # Combined correction techniques
+    combinedCorrectionChoices = [ImbalanceCorrection.SMOTETOMEK.name.lower(),
+                                 ImbalanceCorrection.SMOTEENN.name.lower()]
+
     def __init__(self):
 
         self._model = None
@@ -92,8 +116,8 @@ class Classifier:
         self._xTest = []
         self._yTest = []
         # The actual type of the blob
-        self._actual = []
-        self._predictions = []
+        self._actual = np.empty([1, 1])
+        self._predictions = np.empty([1, 1])
 
         # Scoring
         self._confusion = []
@@ -118,10 +142,13 @@ class Classifier:
         self._name = "Base"
         self._loaded = False
 
+        # Imbalance
         self._correctImbalance = False
         self._writeDatasetToDisk = False
         self._correctImbalanceAlgorithm = ImbalanceCorrection.SMOTE
-        self._desiredImbalanceRatio = 1.0
+        self._desiredImbalanceRatio = "0:0" # unchanged
+        self._desiredCrop = 0
+        self._desiredWeed = 0
         self._correctSubset = Subset.TRAIN
 
         # Expect dedicated train and test sets if the split is 0
@@ -138,7 +165,9 @@ class Classifier:
         # self._ann.setTermCriteria((cv.TERM_CRITERIA_MAX_ITER | cv.TERM_CRITERIA_EPS, 100, 1.0))
         self._scaler = StandardScaler()
         self._scalerTest = StandardScaler()
-        return
+
+        self._outputDirectory = "."
+        self._assessed = False
 
     # ANN Support routines start
     # def _record(self, sample: [], classification: []):
@@ -197,6 +226,18 @@ class Classifier:
         return choices
 
     @property
+    def outputDirectory(self) -> str:
+        return self._outputDirectory
+
+    @outputDirectory.setter
+    def outputDirectory(self, directory: str):
+        if not os.path.isdir(directory):
+            self.log.error(f"Unable to access directory: {self._outputDirectory}")
+            raise ValueError(f"Unable to access directory: {self._outputDirectory}")
+        self._outputDirectory = directory
+
+
+    @property
     def correctSubset(self) -> Subset:
         return self._correctSubset
 
@@ -213,14 +254,19 @@ class Classifier:
         self._writeDatasetToDisk = writeData
 
     @property
-    def minority(self) -> float:
+    def targetImbalanceRatio(self) -> str:
         return self._desiredImbalanceRatio
 
-    @minority.setter
-    def minority(self, desiredMinority: float):
-        if desiredMinority < 0.0 or desiredMinority > 1.0:
-            raise AttributeError(f"Minority {desiredMinority} not within range 0..1")
-        self._desiredImbalanceRatio = desiredMinority
+    @targetImbalanceRatio.setter
+    def targetImbalanceRatio(self, ratio: str):
+        self.log.debug(f"Imbalance ratio: {ratio}")
+        desiredRatio = ratio.split(':')
+        if len(desiredRatio) != 2:
+            raise ValueError(f"Ratio must be float:float.  Got: {ratio}")
+        else:
+            self._desiredCrop = float(desiredRatio[0])
+            self._desiredWeed = float(desiredRatio[1])
+            self._desiredImbalanceRatio = ratio
 
     @property
     def correct(self) -> bool:
@@ -246,12 +292,31 @@ class Classifier:
     def correctionAlgorithm(self, theAlgorithm: ImbalanceCorrection):
         self._correctImbalanceAlgorithm = theAlgorithm
 
-    def createImbalance(self, percentage: float, location: Subset):
+    @property
+    def yTrain(self) -> pd.Series:
+        return self._yTrain
+
+    def createImbalance(self, location: Subset) -> bool:
         """
         Create an imbalance in the data set -- should be called before a split
         :param location: Create imbalance in train, test, or all
-        :param percentage: percentage between 0..1 of the minority class that remains
         """
+        # If things are unchanged, just return
+        if self._desiredImbalanceRatio == "0:0":
+            self.log.info("No imbalance requested")
+            return False
+
+        # More crop than weeds
+        if self._desiredCrop > self._desiredWeed:
+            dropDenominator = self._desiredCrop / self._desiredWeed
+        elif self._desiredCrop == self._desiredWeed:
+            self.log.debug(f"Imbalance is 1:1 ({self._desiredImbalanceRatio}).  No action taken")
+            return False
+        else:
+            self.log.error(f"Unable to correct to ratio: {self.imbalanceRatio}")
+            return False
+
+
         self.log.debug(f"Imbalance before creation: {self.imbalanceRatio(location)}")
         if location == Subset.ALL:
             candidates = self._df.index[self._df[constants.NAME_TYPE] == 0].tolist()
@@ -263,20 +328,26 @@ class Classifier:
             self._df.drop(index=indicesToDrop, inplace=True)
             self.log.debug(f"Created imbalance in {location.name} by dropping {indicesToDrop}")
         elif location == Subset.TRAIN:
+            # Find all the weeds
             candidates = self._yTrain.index[self._yTrain == 1].tolist()
+            crop = self._yTrain.index[self._yTrain == 0].tolist()
+            finalWeedCount = len(crop) / dropDenominator
+            dropPercentage = finalWeedCount / len(candidates)
             indicesToDrop = []
             random.seed(42)
             for index in candidates:
-                if random.random() > percentage:
+                if random.random() > dropPercentage:
                     indicesToDrop.append(index)
             self._xTrain.drop(index=indicesToDrop, inplace=True)
             self._yTrain.drop(index=indicesToDrop, inplace=True)
+            self.log.debug(f"Final weed count: {finalWeedCount}  Achieved by dropping: {dropPercentage}")
             self.log.debug(f"Created imbalance in {location.name} by dropping {indicesToDrop}")
         elif location == Subset.NONE:
-            return
+            return False
         else:
             self.log.error(f"Unable to create imbalance in subset of data")
         self.log.debug(f"Imbalance after: {self.imbalanceRatio(location)}")
+        return True
 
     def correctImbalance(self, location: Subset = Subset.NONE):
         """
@@ -292,36 +363,48 @@ class Classifier:
         # debug the correction
         # df = pd.DataFrame(self._xTrain)
         # df.to_csv("before-imbalance-correction.csv")
+        corrected = False
 
         self.log.debug(f"Correcting imbalance in {location.name} using {self._correctImbalanceAlgorithm.name}  Currently {self.imbalanceRatio(location)}")
 
         if self._correctImbalanceAlgorithm == ImbalanceCorrection.SMOTE:
             corrector = SMOTE(random_state=2)
+        elif self._correctImbalanceAlgorithm == ImbalanceCorrection.SMOTETOMEK:
+            corrector = SMOTETomek(random_state=2, tomek=TomekLinks(sampling_strategy='majority'))
+        elif self._correctImbalanceAlgorithm == ImbalanceCorrection.SMOTEENN:
+            corrector = SMOTEENN(random_state=2)
         elif self._correctImbalanceAlgorithm == ImbalanceCorrection.ADASYN:
             corrector = ADASYN(random_state=2)
         elif self._correctImbalanceAlgorithm == ImbalanceCorrection.BORDERLINE:
             corrector = BorderlineSMOTE(random_state=2)
         elif self._correctImbalanceAlgorithm == ImbalanceCorrection.KMEANS:
-            corrector = KMeansSMOTE(random_state=2)
+            corrector = KMeansSMOTE(random_state=2, cluster_balance_threshold=0.01)
         elif self._correctImbalanceAlgorithm == ImbalanceCorrection.SVM:
             corrector = SVMSMOTE(random_state=2)
         else:
             raise AttributeError(f"Requested algorithm not supported: {self._correctImbalanceAlgorithm.name}")
 
 
-        if location == Subset.TRAIN:
-            self._xTrain, self._yTrain = corrector.fit_resample(self._xTrain, self._yTrain)
-        elif location == Subset.ALL:
-            self._x, self._y = corrector.fit_resample(self._x, self._y)
-        elif location == Subset.TEST:
-            raise NotImplementedError("Unable to correct test subset")
-        elif location == Subset.NONE:
-            self.log.debug("No subset selected for correction")
-        else:
-            raise AttributeError(f"Unknown location {location}")
+        try:
+            if location == Subset.TRAIN:
+                self._xTrain, self._yTrain = corrector.fit_resample(self._xTrain, self._yTrain)
+            elif location == Subset.ALL:
+                self._x, self._y = corrector.fit_resample(self._x, self._y)
+            elif location == Subset.TEST:
+                raise NotImplementedError("Unable to correct test subset")
+            elif location == Subset.NONE:
+                self.log.debug("No subset selected for correction")
+            else:
+                raise AttributeError(f"Unknown location {location}")
+            self.log.debug(f"Corrected imbalance.  Currently {self.imbalanceRatio(location)}")
+        except RuntimeError as run:
+            self.log.error(f"Unable to correct {location} with {self._correctImbalanceAlgorithm} to {self._desiredImbalanceRatio}: {run}")
+            return False
+        except ValueError as val:
+            self.log.error(f"Unable to correct {location} with {self._correctImbalanceAlgorithm} to {self._desiredImbalanceRatio}: {val}")
+            return False
 
-        self.log.debug(f"Corrected imbalance.  Currently {self.imbalanceRatio(location)}")
-
+        return True
 
         # debug the correction
         # df = pd.DataFrame(self._xTrain)
@@ -390,7 +473,9 @@ class Classifier:
         The average of the model cross validations
         :return:
         """
-        assert (len(self._scores) > 0)
+        #assert (len(self._scores) > 0)
+        if len(self._scores) == 0:
+            return 0
         return sum(self._scores) / len(self._scores)
 
     @property
@@ -459,6 +544,10 @@ class Classifier:
     def assess(self):
         try:
             self._predictions = self._model.predict(self._xTest)
+            # Check if this predicted all 0s
+            if np.all(self._predictions == 0):
+                self._predictions[0] = 1
+
             self._confusion = confusion_matrix(self._yTest, self._predictions)
             self.log.debug(f"Confusion: \t {self._confusion}")
             self._accuracy = accuracy_score(self._yTest, self._predictions)
@@ -630,7 +719,30 @@ class Classifier:
     def selections(self, selectionList: []):
         self._selections = selectionList
 
+    def _clean(self):
+        """
+        Clean the dataset by removing rows with zeros in them
+        """
+        columns = self._df.columns.tolist()
+        columns.remove(constants.NAME_TYPE)
+
+        lengthBefore = len(self._df)
+        # This would probably be much easier if we had NANs instead of 0
+        # to get rid of -- replace all the 0s with NANs
+        for column in columns:
+            self._df[column] = self._df[column].replace(0, np.nan)
+
+        # And then drop rows where there is a NAN for any of the columns
+        # This should work in the case where we had 0s as well as NANs, so if we switch over, it has no effect
+
+        self._df = self._df.dropna()
+        lengthAfter = len(self._df)
+
+        if lengthBefore > lengthAfter:
+            self.log.warning(f"Dropped {lengthBefore - lengthAfter} rows from dataset.")
+
     def load(self, filename: str, stratify: bool):
+        imbalanceCreated = False
         # Confirm the file exists
         if not os.path.isfile(filename):
             self.log.critical("Unable to load file: {}".format(filename))
@@ -642,21 +754,13 @@ class Classifier:
 
         self.log.info("Load training file")
 
-        # This reads the hard-coded selectioni (this works)
-        # self._df = pd.read_csv(filename,
-        #                        usecols=[constants.NAME_RATIO,
-        #                                 constants.NAME_SHAPE_INDEX,
-        #                                 constants.NAME_DISTANCE,
-        #                                 constants.NAME_DISTANCE_NORMALIZED,
-        #                                 constants.NAME_HUE,
-        #                                 constants.NAME_I_YIQ,
-        #                                 constants.NAME_TYPE])
-
         # Get the type as well as everything in the selection
         s = list(self._selections)
         s.append(constants.NAME_TYPE)
         self.log.debug("Using columns: {}".format(s))
         self._df = pd.read_csv(filename, usecols=s)
+
+        self._clean()
 
         # Keep a copy of this -- we will use this elsewhere
         self._rawData = self._df.copy(deep=True)
@@ -678,7 +782,8 @@ class Classifier:
         if self._writeDatasetToDisk:
             df = pd.DataFrame(self._xTrain, columns=s)
             df.type = self._yTrain
-            df.to_csv(f"before-{self._correctImbalanceAlgorithm.name.lower()}-{self._desiredImbalanceRatio:.2f}-correction.csv")
+            self.log.debug(os.path.join(self._outputDirectory, f"before-{self._correctImbalanceAlgorithm.name.lower()}-{Utility.validAsFilename(self._desiredImbalanceRatio)}-correction.csv"))
+            df.to_csv(os.path.join(self._outputDirectory, f"before-{self._correctImbalanceAlgorithm.name.lower()}-{Utility.validAsFilename(self._desiredImbalanceRatio)}-correction.csv"))
 
         # If we want the entire dataset corrected, do so before the split into train and test
         if self._correctImbalance and self._correctSubset == Subset.ALL:
@@ -695,18 +800,19 @@ class Classifier:
         self._yTest = y_test
 
         # Create the imbalance before anything else is done
-        if self._desiredImbalanceRatio != 1.0:
-            self.createImbalance(self._desiredImbalanceRatio, Subset.TRAIN)
-
+        if self._desiredImbalanceRatio != "0:0":
+            imbalanceCreated = self.createImbalance(Subset.TRAIN)
 
         # If we are correcting just the train portion, that should be done after the split
+        #if self._correctImbalance and self._correctSubset == Subset.TRAIN and imbalanceCreated:
         if self._correctImbalance and self._correctSubset == Subset.TRAIN:
             self.correctImbalance(Subset.TRAIN)
 
         if self._writeDatasetToDisk:
             df = pd.DataFrame(self._xTrain, columns=s)
             df.type = self._yTrain
-            df.to_csv(f"after-{self._correctImbalanceAlgorithm.name.lower()}-{self._desiredImbalanceRatio:.2f}-correction.csv")
+            self.log.debug(f"Writing: {os.path.join(self._outputDirectory, f'after-{self._correctImbalanceAlgorithm.name.lower()}-{Utility.validAsFilename(self._desiredImbalanceRatio)}-correction.csv')}")
+            df.to_csv(os.path.join(self._outputDirectory, f"after-{self._correctImbalanceAlgorithm.name.lower()}-{Utility.validAsFilename(self._desiredImbalanceRatio)}-correction.csv"))
 
         self._loaded = True
 
@@ -970,13 +1076,19 @@ class MLP(Classifier):
             raise RuntimeError("Exception encountered in pixel classification")
 
         return predictions[0]
+
     def assess(self):
+        """
+        Assess the results of a classifier model
+        """
         try:
             self._predictions = self._model.predict(self._xTestScaled)
+            if np.all(self._predictions == 0):
+                self._predictions[0] = 1
             self._confusion = confusion_matrix(self._yTest, self._predictions)
             self.log.debug(f"Confusion: \t {self._confusion}")
             self._accuracy = accuracy_score(self._yTest, self._predictions)
-            self._precision = precision_score(self._yTest, self._predictions)
+            self._precision = precision_score(self._yTest, self._predictions, zero_division=1)
             self._recall = recall_score(self._yTest, self._predictions)
             self._f1 = f1_score(self._yTest, self._predictions)
             self._map = accuracy_score(self._yTest, self._predictions)
@@ -986,8 +1098,9 @@ class MLP(Classifier):
             self.log.debug(f"Precision: \t {precision_score(self._yTest, self._predictions):.3f}")
             self.log.debug(f"Recall: \t {recall_score(self._yTest, self._predictions):.3f}")
             self.log.debug(f"F1: \t {f1_score(self._yTest, self._predictions):.2f}")
+            self._assessed = True
         except Exception as e:
-            self.log.error(e)
+            self.log.error(f"Unable to assess: {e}")
 
 class LDA(Classifier):
     name = ClassificationTechniques.LDA.name
@@ -1155,7 +1268,15 @@ class LogisticRegressionClassifier(Classifier):
         self._model = LogisticRegression(C=100, max_iter=300)
         self._model.fit(self._xTrain, self._yTrain)
 
-        self._scores = cross_val_score(self._model, self._x, self._y)
+        try:
+            self._scores = cross_val_score(self._model, self._x, self._y)
+        except sklearn.exceptions.FitFailedWarning as e:
+            self.log.error(f"Fit failed for {self.name}: {e}")
+            self._fpr = 0
+            self._tpr = 0
+            self._threshold = 0
+            self._auc = 0
+            return
 
         self._y_scores = self._model.predict_proba(self._xTest)
         self._fpr, self._tpr, self._threshold = roc_curve(self._yTest, self._y_scores[:, 1])
@@ -1164,10 +1285,10 @@ class LogisticRegressionClassifier(Classifier):
         # Debug
         if score:
             self.log.debug(f"LR Cross validation scores: {self._scores}")
-            print("Logistic regression prediction")
-            print(self._model.predict(self._xTest))
-            print("Training Score: {:.3f}".format(self._model.score(self._xTrain, self._yTrain)))
-            print("Testing Score: %s" % self._model.score(self._xTest,self._yTest))
+            self.log.debug("Logistic regression prediction")
+            self.log.debug(self._model.predict(self._xTest))
+            self.log.debug("Training Score: {:.3f}".format(self._model.score(self._xTrain, self._yTrain)))
+            self.log.debug("Testing Score: %s" % self._model.score(self._xTest,self._yTest))
 
         return
 
@@ -1217,7 +1338,8 @@ class KNNClassifier(Classifier):
 
     def createModel(self, score: bool):
 
-        self._model = KNeighborsClassifier(n_neighbors=5)
+        # Try different values for neighbors - 5 produces poor results
+        self._model = KNeighborsClassifier(n_neighbors=5, weights="distance", p=1)
         #model = forest.fit(train_fold, train_y.values.ravel())
         self._model.fit(self._xTrain, pd.DataFrame(self._yTrain).values.ravel())
 
