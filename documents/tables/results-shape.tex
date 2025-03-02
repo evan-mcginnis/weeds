@@ -1,0 +1,29 @@
+\begin{longtable}{lcl}
+\caption[Classify by shape]{Classify by shape}
+\label{table:results-shape}\\
+\toprule
+   Technique &  AUC &                                                                  Parameters \\
+\midrule
+\endfirsthead
+\caption[]{Classify by shape} \\
+\toprule
+   Technique &  AUC &                                                                  Parameters \\
+\midrule
+\endhead
+\midrule
+\multicolumn{3}{r}{{Continued on next page}} \\
+\midrule
+\endfoot
+
+\bottomrule
+\endlastfoot
+DECISIONTREE & 0.76 & compactness convexity eccentricity elongation radial\_var roundness solidity \\
+       EXTRA & 0.88 &     bending convexity eccentricity elongation radial\_var roundness solidity \\
+    GRADIENT & 0.87 &   bending compactness eccentricity elongation radial\_var roundness solidity \\
+         KNN & 0.84 &    bending compactness convexity eccentricity radial\_var roundness solidity \\
+         LDA & 0.85 & compactness convexity eccentricity elongation radial\_var roundness solidity \\
+    LOGISTIC & 0.85 & compactness convexity eccentricity elongation radial\_var roundness solidity \\
+         MLP & 0.86 &    bending compactness convexity eccentricity radial\_var roundness solidity \\
+RANDOMFOREST & 0.88 &     bending convexity eccentricity elongation radial\_var roundness solidity \\
+         SVM & 0.84 &      bending compactness convexity elongation radial\_var roundness solidity \\
+\end{longtable}
