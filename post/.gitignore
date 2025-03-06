@@ -2,4 +2,6 @@ progress.ini
 *.csv
 *.jpg
 *.png
+*.xlsx
+.Rhistory
 __pycache__/
