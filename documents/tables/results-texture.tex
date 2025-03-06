@@ -1,13 +1,13 @@
-\begin{longtable}{lcl}
-\caption[Classify by Texture]{Classify by Texture}
+\begin{longtable}{lcll}
+\caption[Classification using texture]{Classification using texture}
 \label{table:results-texture}\\
 \toprule
-   Technique &  AUC &                                                                              Parameters \\
+   Technique &   AUC &                                                                               Parameters \\
 \midrule
 \endfirsthead
-\caption[]{Classify by Texture} \\
+\caption[]{Classification using texture} \\
 \toprule
-   Technique &  AUC &                                                                              Parameters \\
+   Technique &   AUC &                                                                               Parameters \\
 \midrule
 \endhead
 \midrule
@@ -17,13 +17,13 @@
 
 \bottomrule
 \endlastfoot
-DECISIONTREE & 0.89 &              greyscale\_correlation\_avg hog\_mean hog\_variance hsi\_intensity\_lbp\_variance \\
-       EXTRA & 0.95 & greyscale\_correlation\_avg hog\_variance hsi\_intensity\_lbp\_variance ycbcr\_cr\_lbp\_variance \\
-    GRADIENT & 0.96 &                   greyscale\_correlation\_avg hog\_mean hog\_variance ycbcr\_cr\_lbp\_variance \\
-         KNN & 0.92 &                    hog\_mean hog\_stddev hsi\_intensity\_lbp\_variance ycbcr\_cr\_lbp\_variance \\
-         LDA & 0.97 &                                  hog\_mean hog\_stddev hog\_variance ycbcr\_cr\_lbp\_variance \\
-    LOGISTIC & 0.97 &     greyscale\_correlation\_avg hog\_mean hsi\_intensity\_lbp\_variance ycbcr\_cr\_lbp\_variance \\
-         MLP & 0.97 &                hog\_stddev hog\_variance hsi\_intensity\_lbp\_variance ycbcr\_cr\_lbp\_variance \\
-RANDOMFOREST & 0.96 &      greyscale\_correlation\_avg greyscale\_lbp\_stddev hog\_mean hsi\_intensity\_lbp\_variance \\
-         SVM & 0.96 &                                   greyscale\_lbp\_stddev hog\_mean hog\_stddev hog\_variance \\
+DECISIONTREE & 0.880 &            hog\_mean hsi\_intensity\_lbp\_variance ycbcr\_cr\_lbp\_variance ycbcr\_y\_lbp\_stddev \\
+       EXTRA & 0.914 &                greyscale\_lbp\_stddev hog\_stddev ycbcr\_cr\_lbp\_variance ycbcr\_y\_lbp\_stddev \\
+    GRADIENT & 0.920 &          greyscale\_lbp\_stddev hog\_variance hsi\_intensity\_lbp\_variance ycbcr\_y\_lbp\_stddev \\
+         KNN & 0.886 &                               cie\_l\_lbp\_stddev greyscale\_lbp\_stddev hog\_mean hog\_stddev \\
+         LDA & 0.901 & greyscale\_lbp\_stddev hsi\_intensity\_lbp\_variance ycbcr\_cr\_lbp\_variance ycbcr\_y\_lbp\_stddev \\
+    LOGISTIC & 0.893 &                                  cie\_l\_lbp\_stddev hog\_mean hog\_stddev ycbcr\_y\_lbp\_stddev \\
+         MLP & 0.904 &                       greyscale\_lbp\_stddev hog\_stddev hog\_variance ycbcr\_cr\_lbp\_variance \\
+RANDOMFOREST & 0.921 &                      greyscale\_lbp\_stddev hog\_mean hog\_stddev hsi\_intensity\_lbp\_variance \\
+         SVM & 0.892 &             cie\_l\_lbp\_stddev hog\_stddev hsi\_intensity\_lbp\_variance ycbcr\_cr\_lbp\_variance \\
 \end{longtable}

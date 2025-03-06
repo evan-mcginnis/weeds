@@ -1,0 +1,29 @@
+\begin{longtable}{lcll}
+\caption[Classification using texture for a single day]{Classification using texture for a single day}
+\label{table:results-texture-single-day}\\
+\toprule
+   Technique &   AUC & Correction &                                                                        Parameters \\
+\midrule
+\endfirsthead
+\caption[]{Classification using texture for a single day} \\
+\toprule
+   Technique &   AUC & Correction &                                                                        Parameters \\
+\midrule
+\endhead
+\midrule
+\multicolumn{4}{r}{{Continued on next page}} \\
+\midrule
+\endfoot
+
+\bottomrule
+\endlastfoot
+DECISIONTREE & 0.853 &       none &        blue\_lbp\_mean cie\_a\_lbp\_mean yiq\_q\_dissimilarity\_avg yiq\_y\_homogeneity\_avg \\
+       EXTRA & 0.936 &       none &              blue\_lbp\_mean ycbcr\_y\_lbp\_stddev yiq\_q\_ASM\_avg yiq\_q\_homogeneity\_avg \\
+    GRADIENT & 0.938 &       none &                  blue\_lbp\_mean cie\_a\_lbp\_mean yiq\_q\_ASM\_avg yiq\_q\_homogeneity\_avg \\
+         KNN & 0.936 &       none &        blue\_lbp\_mean cie\_a\_lbp\_mean yiq\_q\_dissimilarity\_avg yiq\_y\_homogeneity\_avg \\
+         LDA & 0.949 &       none &      ycbcr\_y\_lbp\_stddev yiq\_q\_ASM\_avg yiq\_q\_homogeneity\_avg yiq\_y\_correlation\_avg \\
+    LOGISTIC & 0.934 &       none &                blue\_lbp\_mean cie\_a\_lbp\_mean hsi\_saturation\_lbp\_mean yiq\_q\_ASM\_avg \\
+         MLP & 0.925 &       none &         blue\_lbp\_mean yiq\_q\_ASM\_avg yiq\_q\_dissimilarity\_avg yiq\_q\_homogeneity\_avg \\
+RANDOMFOREST & 0.939 &       none & blue\_lbp\_mean yiq\_q\_dissimilarity\_avg yiq\_q\_homogeneity\_avg yiq\_y\_homogeneity\_avg \\
+         SVM & 0.936 &       none &                  blue\_lbp\_mean cie\_a\_lbp\_mean yiq\_q\_ASM\_avg yiq\_y\_homogeneity\_avg \\
+\end{longtable}

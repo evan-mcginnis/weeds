@@ -1,0 +1,29 @@
+\begin{longtable}{lcll}
+\caption[Classification using a single day]{Classification using a single day}
+\label{table:results-single-day}\\
+\toprule
+   Technique &   AUC &                                                                 Parameters \\
+\midrule
+\endfirsthead
+\caption[]{Classification using a single day} \\
+\toprule
+   Technique &   AUC &                                                                 Parameters \\
+\midrule
+\endhead
+\midrule
+\multicolumn{3}{r}{{Continued on next page}} \\
+\midrule
+\endfoot
+
+\bottomrule
+\endlastfoot
+DECISIONTREE & 0.936 &          cie\_a\_lbp\_mean elongation yiq\_q\_ASM\_avg yiq\_q\_dissimilarity\_avg \\
+       EXTRA & 0.971 &                    cb\_mean cie\_a\_lbp\_mean elongation yiq\_q\_homogeneity\_avg \\
+    GRADIENT & 0.988 &                             blue\_lbp\_mean cb\_mean elongation yiq\_q\_ASM\_avg \\
+         KNN & 0.936 & blue\_lbp\_mean cie\_a\_lbp\_mean yiq\_q\_dissimilarity\_avg yiq\_y\_homogeneity\_avg \\
+         LDA & 0.956 &          elongation ycbcr\_y\_lbp\_stddev yiq\_q\_ASM\_avg yiq\_y\_correlation\_avg \\
+    LOGISTIC & 0.970 &                       cb\_mean elongation shape\_index yiq\_i\_correlation\_avg \\
+         MLP & 0.971 &                    cb\_mean shape\_index yiq\_i\_correlation\_avg yiq\_q\_ASM\_avg \\
+RANDOMFOREST & 0.966 &           cb\_mean elongation yiq\_q\_dissimilarity\_avg yiq\_q\_homogeneity\_avg \\
+         SVM & 0.943 & cie\_a\_lbp\_mean hsi\_saturation\_lbp\_mean yiq\_q\_ASM\_avg yiq\_y\_homogeneity\_avg \\
+\end{longtable}

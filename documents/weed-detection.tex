@@ -281,7 +281,11 @@ THE UNIVERSITY OF ARIZONA \\
 \newpage
 
 \section{Abstract}
-The precision treatment of weeds within a crop depends first on accurate classification of plants into two classes: desired plants and undesired plants. Once classified, both positive treatments or assessment of the crop and negative treatment of the weeds is possible, but both of these depend on making this classification. This paper presents the findings that weeds and crop can be distinguished from each other using shape, color, and texture all factors that can be extracted from RGB images. The shape factors found to be significant were the length to width ratio, and the shape index. The color factor found to be significant was the mean Y value in the YIQ color space. .
+The precision treatment of weeds within a crop depends first on accurate classification of plants into two classes: desired plants and undesired plants. Once classified, both positive treatments or assessment of the crop and negative treatment of the weeds is possible, but both of these depend on making this classification. This paper presents the findings that weeds and crop can be distinguished from each other using shape, color, and texture all factors that can be extracted from RGB images.  Nine different classification approaches were examined: Decision Tree, Extra Trees, Gradient Boosting, KNN, LDA, Logistic Regression, Multi-layer Perceptron, Random Forest, and Support Vector Machine. Two sets of crop images were used in the preparation of this report: broccoli and cantaloupe. As the shape of the cantaloupe changed over the development cycle, emphasis was given to cantaloupe images. An AUC of 0.925 was obtained using a combination of shape (compactness) and texture (HOG and LBP).  While the shape attribute is fairly self-explanatory, the texture attributes are not as simple as it first appears. The textural attributes are computed for the items in the image in non-RGB colorspaces. Specifically, the texture attributes are drawn from channels in the HSI ($H$ channel) and YCbCr ($Y$ channel) spaces. Using only texture attributes resulted in an AUC of 0.92, indicating that texture alone can be used in prediction with reasonably good performance. Using only color or shape in classification resulted in lower AUC performance ($0.88$ with Extra Trees, and $0.88$ with Random Forest). These values reflect using images of the vegetation acquired over several weeks of the development cycle. Significantly higher AUC values are obtained using images from a specific day. An AUC of 0.99 was obtained using Boosted Gradient classification on images acquired four weeks into the broccoli development cycle. Some of this can be explained by the factors exhibiting changes across the development cycle. A Dickey-Fuller test ($\alpha = 0.05$) shows, for instance that the \textit{hue} of vegetation is constant over the development cycle, but a shape attribute such as the \textit{radial variance} is.
+
+Additionally two other topics are evaluated: image segmentation, and class imbalance. While these two topics are not central to the topic of this study, they are nevertheless worthy of mention. For image segmentation, a set of eight indices previously defined indices (Excessive Red, Excessive Green, Color Index of Vegetation, Mixed Excess Green, Vegetative, Normalized Green-Red Difference, Triangular Greenness, and Normalized Difference) and five new indices defined in this document (based on the HSI, HSV, YCbCr, YIQ, and CIELab colorspaces) were evaluated, with an approach segmenting images using the technique based on the HSI based index showing the lowest error count. A deep-learning approach to segmentation based on the U-Net architecture was also evaluated, achieving a FPR of $0.0005$ and a FNR of $0.06$. 
+Class imbalance correction using oversampling algorithms SMOTE, borderline, Kmeans, ADASYN, SVM as well as combined oversampling/undersampling algorithms of SMOTE+ENN and SMOTE+TOMEK were also evaluated. For oversampling approaches Decision Tree benefited the most, Random Forest the least. For the combined approach, Decision Tree once again benefited the most, however this technique lead to much lower F1 scores from Logistic Regression (SMOTE+ENN) and Random Forest (SMOTE+TOMEK).
+
 \newpage
 %
 % O V E R V I E W 
@@ -2281,7 +2285,7 @@ Table \ref{table:results-texture} shows the optimal parameters for each classifi
 
 \end{tiny}
 
-It is worthwhile to examine what is not present here: GLCM attributes. While HOG and LBP feature prominently. GLCM attributes are not present at all. Table \ref{table:results-glcm} presents the AUC values using GLCM exclusively. While the results cannot be described as awful, for the most part, they are all well below the classification achieved with using HOG and LBP. A clear exception is the AUC achieved with \textit{Logistic Regression} of $0.52$, a result that is only slightly better than chance.
+It is worthwhile to examine what is not present here in some of the entries: GLCM attributes. While HOG and LBP feature prominently. GLCM attributes are not present at all with some classification techniques. Table \ref{table:results-glcm} presents the AUC values using GLCM exclusively. While the results cannot be described as awful, for the most part, they are all well below the classification achieved with using HOG and LBP. A clear exception is the AUC achieved with \textit{Logistic Regression} of $0.52$, a result that is only slightly better than chance.
 
 \begin{tiny}
 % Reduce the row spacing, so to table looks a bit more packed
@@ -2371,17 +2375,46 @@ Some features do not remain stable over the development cycle. As illustrated by
 	\label{fig:season-texture}
 \end{figure}
 
-An illustration of a specific parameter is probably useful for illustrating the concept of seasonality change. Figure \ref{fig:season-texture-correlation} shows the \textit{greyscale\_correlation\_avg} parameter across a large portion of the development cycle. Note the relative stability in the crop vegetation and relative instability in the weed vegetation. This is an example of an \textit{unstable} feature, changing over a development cycle for one of the classes (p-value of $0.24$ for crop and $6.942985735524264e-09$ for weed)
+An illustration of a specific parameter is probably useful for illustrating the concept of seasonality change. Figure \ref{fig:season-texture-correlation} shows the \textit{greyscale\_correlation\_avg} parameter across a large portion of the development cycle. Note the relative stability in the crop vegetation and relative instability in the weed vegetation. This is an example of an \textit{unstable} feature, changing over a development cycle for one of the classes (p-value of $0.05$)
 
 % Plot generated with
 % make plot-season FACTOR=greyscale_homogenity_avg TITLE="Greyscale homogenity average over season" OUTPUT=./plot-over-season.png INPUT=/cygdrive/d/dissertation/broccoli/season.csv
 
-\begin{figure}[h!]
+\begin{figure}[H]
 	\centering
 	\includegraphics[width=6cm]{./figures/plot-over-season.png}
 	\caption[Greyscale Correlation Average over growing season]{The greyscale correlation average feature for weeds and crops over a large portion of the growing season is presented in this graph. While casual inspection shows that the values are relatively constant for crop in the early stages of development, the same is not true of crops. Intuitively, this makes sense: periodic weeding results in new plants whose texture differs from those eliminated.}
 	\label{fig:season-texture-correlation}
 \end{figure}
+ 
+ Table \ref{table:seasonality-texture} shows a breakdown of the seasonality of each parameter seen in Table \ref{table:results-texture}. The results presented are a bit mixed, as no set of parameters was drawn exclusively from parameters that do not have a seasonal aspect. The highest AUC, in fact, was seen with Random Forest, where three of the four parameters exhibited change across the growth cycle.
+ 
+ {
+\renewcommand{\arraystretch}{1.2}
+
+% Data production
+% Table production
+% make optimal-results-seasonality SOURCE_CSV=/cygdrive/d/dissertation/cantaloupe/season.csv TYPE=TEXTURE SUBTYPE=all FORMAT=latex PARAMETERS=parameters.pickle LOGGING=tucson-logging.ini ALL_RESULTS=/cygdrive/d/dissertation/debug/ CAPTION_LONG="Seasonality of Parameters" CAPTION_SHORT="Seasonality of Parameters" LABEL=table:seasonality-texture PREFIX=uncorrected_texture OUTPUT=../documents/tables/seasonality-texture.tex
+
+\input{./tables/seasonality-texture.tex}
+
+}
+
+
+ Much higher AUC scores can be seen if the training set is limited to a specific day, avoiding all seasonal changes.  Consider the results presented in Table \ref{table:results-single-day}. The highest AUC was obtained was with Boosted Gradient, where it approached 0.99.
+
+
+\begin{tiny}
+\renewcommand{\arraystretch}{1.2}
+
+% Data production
+% Table production
+
+\input{./tables/results-single-day.tex}
+
+\end{tiny}
+
+
 
 \subsection{Color}
 Table \ref{table:results-color} shows the optimal parameters for each classification technique if only color is considered. For the most part, the classification AUC is lower than seen with texture alone, with a few performing acceptably: \textit{Extra Trees}, \textit{Gradient Boosted}, and \textit{Multi-Layer Perceptron}.  The parameter sets for classification have one obvious characteristic: they are identical across classification techniques. Though a wide variety of color attributes were tested -- YCbCr had three means computed, for instance, as one was derived for each channel -- the final set for all techniques was the same.
@@ -2536,6 +2569,13 @@ Considering all the parameter types (color, shape, texture), the results are sho
 % make optimal TRAINING=/cygdrive/d/dissertation/shape/season.csv FACTORS=7 PREFIX=shape TYPE=SHAPE SUBTYPE=all OUTPUT=/cygdrive/d/dissertation/shape 
 % make optimal-results TYPE=all SUBTYPE=all FORMAT=latex PARAMETERS=parameters.pickle LOGGING=tucson-logging.ini ALL_RESULTS=/cygdrive/d/dissertation/debug/ CAPTION_LONG="Classification using all features" CAPTION_SHORT="Classification using all features" LABEL=table:optimal PREFIX=uncorrected_all_auc OUTPUT=../documents/tables/results-optimal.tex
 \input{./tables/results-optimal.tex}
+}
+
+{
+% Produced with:
+% make optimal-results-seasonality TYPE=all SUBTYPE=all FORMAT=latex PARAMETERS=parameters.pickle LOGGING=tucson-logging.ini ALL_RESULTS=/cygdrive/d/dissertation/debug/ CAPTION_LONG="Seasonality of all features" CAPTION_SHORT="Seasonality of all features" LABEL=table:optimal-seasonality PREFIX=uncorrected_all_auc OUTPUT=../documents/tables/seasonality-optimal.tex SOURCE_CSV=/cygdrive/d/dissertation/cantaloupe/season.csv
+
+\input{./tables/seasonality-optimal.tex}
 }
 %
 % MARICOPA 
@@ -2716,25 +2756,26 @@ Considering all the parameter types (color, shape, texture), the results are sho
 %	\item{The distance from the cropline}
 %\end{itemize}
 
-Plotting these attributes along with their classification via Logistic Regression yields Figure~\ref{fig:factors}. This plot shows that items correctly classified as weeds are are tightly grouped. Vegetation correctly classified as crop shows a somewhat looser, but still quite evident grouping.
+Plotting the attributes found to produce the best model for LDA yields Figure~\ref{fig:factors}. Here, we see what appear to be two clusters for vegetation, with the shapes used indicative of class.  Close examination will show weeds within the crop cluster, and weeds blobs that are assigned a yellow color and near the top of the image. These weeds are not part of the crop cluster after all, but the visualization makes in appear that way.
+
  \begin{figure}[H]
 	\centering
 	\includegraphics[width=0.9\linewidth]{./figures/plot-factors.png}
-	\caption[Factors selected for discrimination]{A plot of the four factors selected with the shape noting the true classification of the blob. In this graph the factors selected occupy space and color, with the shape of the object noting the classification.}
+	\caption[Factors selected for discrimination]{A plot of the four factors selected with the shape noting the true classification of the blob. In this graph the factors selected occupy space and color, with the shape of the object noting the classification. The (X, Y, Z) coordinates of each blob are the compactness (a shape descriptor), the standard deviation of the HOG (texture), and the variance of the LBP of the $intensity$ channel of the blob in HSI colorspace. The color of the object corresponds to the standard deviation of the LBP of the $Y$ channel in YCbCr colorspace.}
 	\label{fig:factors}
 \end{figure}
   
 \section{Classification Mistakes}
 As good as the results are. it bears mention that, while all predictions contain errors, some errors are more costly than others. Specifically, the cost of the mistake made depends on the intent. Consider a negative treatment: incorrectly classifying a weed as a crop and not treating it is lower cost than incorrectly classifying a crop as a weed and then treating it with a herbicide.  In the former case, the weed will cause indirect damage to the crop by competing with marketable crop for water and nutrients, but in the latter case otherwise marketable crop has been damaged or destroyed. This is, in part, why there is an emphasis in this document for considering mistakes by using F1 and AUC scores to evaluate models, but even that approach does not capture this concern. The opposite holds, of course, for a positive treatment, although the stakes are much lower: incorrectly classifying a crop as a weed, and then failing to treat it may lead to damage in that the crop is not treated for pests or the crop is not supplied with required nutrients, and incorrectly classifying a weed as a crop and then providing a treatment may improve the weed's fate, but will ultimately not directly have a negative impact on crop.
  
-Misclassification rates where crop is identified as a weed is the most pressing concern here, so it is worthwhile evaluating the performance of these approaches with the goal of minimizing that class of misclassification while maximizing the correct classification of weeds as weeds. Figure~\ref{fig:classification-rates} addresses this goal by showing percentages of correct and incorrect classifications. While there several approaches showed quite similar acceptable  results (SVM, Random Forest, and Logistic Regression) and three approaches with unacceptable results (KNN, Boosted Gradient, and Decision Tree). While it is likely the case that the unacceptable approaches can be optimized to the point that their results would migrate them to the acceptable category, this paper will concentrate only on the approaches will acceptable results.
+%Misclassification rates where crop is identified as a weed is the most pressing concern here, so it is worthwhile evaluating the performance of these approaches with the goal of minimizing that class of misclassification while maximizing the correct classification of weeds as weeds. Figure~\ref{fig:classification-rates} addresses this goal by showing percentages of correct and incorrect classifications. While there several approaches showed quite similar acceptable  results (SVM, Random Forest, and Logistic Regression) and three approaches with unacceptable results (KNN, Boosted Gradient, and Decision Tree). While it is likely the case that the unacceptable approaches can be optimized to the point that their results would migrate them to the acceptable category, this paper will concentrate only on the approaches will acceptable results.
 
-\begin{figure}[h]
-	\centering
-	\includegraphics[width=0.7\linewidth]{./figures/classification-rates.png}
-	\caption[Misclassification rates of various algorithms]{The correct and misclassification rates of various algorithms are shown here. While an overall accuracy of 95.7\% may sound impressive for the Boosted Gradient algorithm (See Table~\ref{fig:learning}), considering the salient misclassification and correct classification rates, 24.1\% and 98.6\%, respectively, that algorithm does not support the accuracy needed in this use case.}
-	\label{fig:classification-rates}
-\end{figure}
+%\begin{figure}[h]
+%	\centering
+%	\includegraphics[width=0.7\linewidth]{./figures/classification-rates.png}
+%	\caption[Misclassification rates of various algorithms]{The correct and misclassification rates of various algorithms are shown here. While an overall accuracy of 95.7\% may sound impressive for the Boosted Gradient algorithm (See Table~\ref{fig:learning}), considering the salient misclassification and correct classification rates, 24.1\% and 98.6\%, respectively, that algorithm does not support the accuracy needed in this use case.}
+%	\label{fig:classification-rates}
+%\end{figure}
 
 Figure~\ref{fig:classified} shows an annotated classification result. In this figure, we see desirable (crop) bounded by a green box, and undesirable (not crop) bounded in red. The blue box bounds vegetation for which we can't reliably determine its class. Computations that depend on an unimpeded view of the vegetation ({\it length/width ratio}, for instance) can't be reliably performed, so classification of elements that are not fully captured are not classified. Some color computations could be, but may not be as representative as required. The {\it hue} value, for example, is the mean value across the entire plant, and the hue may not be consistent across the entire plant. The portion that is visible may not be representative of the plant as a whole.
 
@@ -2748,14 +2789,32 @@ Figure~\ref{fig:classified} shows an annotated classification result. In this fi
 
 \section{Performance}
 \label{section:performance}
-Additionally, there is a criterion that is both not addressed, but beyond the scope of this document: the computational cost of achieving each result. In-field solutions supporting immediate treatment systems are sensitive to this; data-center solutions, not so much.\footnote{The timings discussed here are for a CPU, not GPU. While portions of the code will support a GPU if present, other sections do not, so it was disabled everywhere. Comparing the performance in an interpreted language (Python) and a compiled language using a GPU is not quite entirely appropriate, but is instructive. The computation of an index for segmentation of an image took less than 1ms on a GPU, but 75 ms on a CPU -- a rather large difference} While a result of an approach yielding results above 98\% may sound impressive, if that prediction using logistic regression takes a few hundred milliseconds and a decision tree takes well under 100 milliseconds, it may be the case that using that logistic regression in practice is not viable.\footnote{Some context is probably needed here. An in-field solution might be hosted on  tractor moving along, and the time spent on prediction is part of an overall time budget that will ultimately limit the forward speed of the tractor. 2 MPH is commercially viable. 1 MPH is not.}
+Additionally, there is a criterion that is both not addressed and beyond the scope of this document: the computational cost of achieving each result. In-field solutions supporting immediate treatment systems are sensitive to this; data-center solutions, not so much.\footnote{The timings discussed here are for a CPU, not GPU. While portions of the code will support a GPU if present, other sections do not, so it was disabled everywhere. Comparing the performance in an interpreted language (Python) and a compiled language using a GPU is not quite entirely appropriate, but is instructive. The computation of an index for segmentation of an image took less than 1ms on a GPU, but 75 ms on a CPU -- a rather large difference} While a result of an approach yielding results above 98\% may sound impressive, if that prediction using logistic regression takes a few hundred milliseconds and a decision tree takes well under 100 milliseconds, it may be the case that using that logistic regression in practice is not viable.\footnote{Some context is probably needed here. An in-field solution might be hosted on  tractor moving along, and the time spent on prediction is part of an overall time budget that will ultimately limit the forward speed of the tractor. 2 MPH is commercially viable. 1 MPH is not.}
 
-%\section{Future Work}
+{
+\renewcommand{\arraystretch}{0.9}
+% Produced with:
+% make optimal TRAINING=/cygdrive/d/dissertation/shape/season.csv FACTORS=7 PREFIX=shape TYPE=SHAPE SUBTYPE=all OUTPUT=/cygdrive/d/dissertation/shape 
+% make optimal-results TYPE=all SUBTYPE=all FORMAT=latex PARAMETERS=parameters.pickle LOGGING=tucson-logging.ini ALL_RESULTS=/cygdrive/d/dissertation/debug/ CAPTION_LONG="Classification using all features" CAPTION_SHORT="Classification using all features" LABEL=table:optimal PREFIX=uncorrected_all_auc OUTPUT=../documents/tables/results-optimal.tex
+\input{./tables/performance.tex}
+}
+
+Table \ref{table:performance} needs some context, as the values presented are not for the optimal set of parameters used in classification, but all possible parameters. Further complicating an analysis of performance is that some items are always required, but vary. The computation of an \textit{index}, for instance, is shown as having a mean time of $883401.65 \mu$s, but that figure is for determining only the NDI index, not other schemes covered. Using the optimal set of parameters would require $1666065.32 \mu$s. 
+
+\begin{multline}
+883401.65 \mu s\ (index) + 581119.37 \mu s\  (contours) + 78389 \mu s\ (shape metrics) + 116794.15 \mu s\ (HOG) \\ + 178.14 \mu s\ (shape\ index) + 6183.15 \mu s (classification\ using\ LR) = 1666065.32 \mu s
+\end{multline}
+
+A camera with parameters to the one on the DJI Drone at 500cm captures 1 meter of the ground, so the processing rate of the system is 1.6s per meter, or 2.25 kph. Many would consider this a commercially unviable speed, so the image processing and classification needs a bit of optimization. The easiest is to state, but hardest to deliver is, perhaps the language used. Transitioning the implementation to a compiled language (C, C++, or Rust) need not be for the entire code, just for sections that require optimization. Consider the time taken for an index computation. Tests conducted for this study show that the same index can be computed an order of magnitude faster with a C++ implementation that can be achieved using an interpreted one. Now the forward progress of the system is much faster, as image processing supports a much more viable 4.13 kph. On the lower end of what many would consider commercially viable, but a step in the right direction.
+
+
+\section{Conclusions}
+This study has shown that vegetation can be classified accurately, but what that accuracy is depends on what the goals are. If incorrectly classifying crops as weeds has a higher cost than incorrectly classifying weeds as crop, a cost-sensitive approach may be appropriate, than the classification approaches studied here. Changes to features used in classification over a development cycle may make models built on that data less effective -- models built considering data from only a single day yield much higher scores. It was not clear that 
 
 \newpage
 \section{References}
 \printbibliography[heading=none]
 
-%\cite{Wirth2004-li}
+
 \end{document}
 

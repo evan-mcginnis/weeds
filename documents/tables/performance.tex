@@ -1,0 +1,51 @@
+\begin{longtable}{lrl}
+\caption[Time Taken for Processing Activities]{Time Taken for Processing Activites}
+\label{table:performance}\\
+\toprule
+Activity & Mean $\mu$s   & Details                   \\
+\midrule
+\endfirsthead
+\caption[]{Time Taken for Processing Activities} \\
+\toprule
+Actvity & Mean $\mu$s   & Details                    \\
+\midrule
+\endhead
+\midrule
+\multicolumn{3}{r}{{Continued on next page}} \\
+\midrule
+\endfoot
+
+\bottomrule
+\endlastfoot
+LWRatio         &     934.19 & Length/Width Ratio\\
+classify        &    6183.15 & Classification using Logistic Regression\\
+contours        &  581119.37 & Find Contours\\
+glcm-cielab-a   &  212789.56 & GLCM Computations in A channel of CIELab\\
+glcm-cielab-b   &  211781.47 & GLCM Computations in B channel of CIELab\\
+glcm-cielab-l   &  213022.38 & GLCM Computations in C channel of CIELab\\
+glcm-greyscale  &  226782.92 & GLCM Computations in Greyscale\\
+glcm-hsv-h      &  213067.89 & GLCM Computations in H channel of HSI\\
+glcm-hsv-i      &  212777.60 &GLCM Computations in I channel of HSI\\
+glcm-hsv-s      &  212390.88 &GLCM Computations in S channel of HSI\\
+glcm-rgb-b      &  213020.22 &GLCM Computations in RGB\\
+glcm-ycbcr-cb   &  211877.85 &GLCM Computations in Cb channel of YCbCr\\
+glcm-ycbcr-cr   &  211795.92 &GLCM Computations in Cr channel of YCbCr\\
+glcm-ycbcr-y    &  210776.26 &GLCM Computations in Y channel of YCbCr\\
+glcm-yiq-i      &  213393.63 &GLCM Computations in I channel of YIQ\\
+glcm-yiq-q      &  211718.79 &GLCM Computations in Q channel of YIQ\\
+glcm-yiq-y      &  213273.27 &GLCM Computations in Y channel of YIQ\\
+hog             &  116794.15 & HOG Computations\\
+hsi             &   42297.38 & Conversion to HSI\\
+hsv             &   34716.81 & Conversion to HSV\\
+ycc             &   35047.94 & Conversion to YCC\\
+yiq             &  362398.51 & Conversion to YIQ\\
+cielab          &   42619.31 & Coversion to CIELab\\
+index           &  883401.65 & Calculate index for image\\
+lbp             &  159805.53 & Computation of LBP\\
+mean-blue-diff  &    1378.35 & Calculate mean of I channel in YIQ\\
+mean-hue        &    1634.62 & Calculate mean of H channel in HSV\\
+mean-saturation &    1435.40 & Calculate mean of S channel in HSV\\
+shapes      &     78389.56 & Calcuate shape metrics\\
+shapes\_idx      &     178.14 & Calcuate shape index\\
+stddev-yiq      &    2465.64 & Calculate standatd deviation of I chanel of YIQ\\
+\end{longtable}
