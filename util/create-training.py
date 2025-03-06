@@ -18,8 +18,8 @@ parser = argparse.ArgumentParser("Create training file")
 parser.add_argument("-ba", "--beginAGL", action="store", type=float, required=False, default=0.0, help="Begin Distance AGL")
 parser.add_argument("-ea", "--endAGL", action="store", type=float, required=False, default=0.0, help="End Distance AGL")
 parser.add_argument("-c", "--crop", action="store", required=False, default="unknown", help="Crop")
-parser.add_argument("-bd", "--beginAcquired", action="store", required=False, type=datetime.date.fromisoformat, help="Beginning Date -- YYYY-MM-DD")
-parser.add_argument("-ed", "--endAcquired", action="store", required=False, type=datetime.date.fromisoformat, help="Ending Date -- YYYY-MM-DD")
+parser.add_argument("-bd", "--beginAcquired", action="store", required=False, type=datetime.datetime.fromisoformat, help="Beginning Date -- YYYY-MM-DD")
+parser.add_argument("-ed", "--endAcquired", action="store", required=False, type=datetime.datetime.fromisoformat, help="Ending Date -- YYYY-MM-DD")
 parser.add_argument('-ini', '--ini', action="store", required=False, default=constants.PROPERTY_FILENAME, help="Options INI")
 parser.add_argument("-lg", "--logging", action="store", default="info-logging.ini", help="Logging configuration file")
 parser.add_argument("-m", "--ml", action="store", required=False, default="lr", help="ML technique (lr, svm, etc.")
@@ -70,8 +70,8 @@ if not persistenceConnection.connected:
 images = Persistence.RawImage.findByParameters(persistenceConnection,
                                                begin_agl=arguments.beginAGL,
                                                end_agl=arguments.endAGL,
-                                               #begin=arguments.beginAcquired,
-                                               #end=arguments.endAcquired,
+                                               begin_date=arguments.beginAcquired,
+                                               end_date=arguments.endAcquired,
                                                crop=arguments.crop)
 
 blobs = []

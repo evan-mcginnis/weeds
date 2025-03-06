@@ -13,6 +13,7 @@ parser = argparse.ArgumentParser("Plot LBP for two images")
 parser.add_argument('-l', '--left', action="store", required=True, type=str, help="left image")
 parser.add_argument('-r', '--right', action="store", required=True, type=str, help="right image")
 parser.add_argument('-o', '--output', action="store", help="Output directory for graph")
+parser.add_argument('-radius', '--radius', action="store", type=int, required=False, default=4, help="Output directory for graph")
 
 arguments = parser.parse_args()
 
@@ -110,7 +111,13 @@ image = data.brick()
 lbp = local_binary_pattern(image, n_points, radius, METHOD)
 
 
-def hist(ax, lbp):
+def hist(ax: plt.Axes, lbp: object) -> []:
+    """
+    PLot the histogram on the given axis
+    :param ax:
+    :param lbp:
+    :return:
+    """
     n_bins = int(lbp.max() + 1)
     ignored = 0
     # Originally
@@ -165,7 +172,7 @@ def histBrokenY(ax, lbp):
 # BEM REMOVE END
 
 # settings for LBP
-radius = 4
+radius = arguments.radius
 n_points = 8 * radius
 
 
@@ -219,9 +226,17 @@ refs = {
 fig, ((ax1), (ax3)) = plt.subplots(nrows=2, ncols=1, figsize=(4, 6))
 plt.gray()
 
+# Ensure the graphs have the same ylimits
+# But to do that, we have to calculate the histogram
+lowerY = min(refs['left'].min(), refs['right'].min())
+upperY = max(refs['left'].max(), refs['right'].max())
+print(f"ylim ({lowerY},{upperY})")
 ax1.imshow(left)
 ax1.axis('off')
-hist(ax3, refs['left'])
+theHistogram = np.histogram(refs['left'], int(refs['left'].max() + 1))
+print(f"left ylim = {theHistogram[0].min(), theHistogram[0].max()}")
+#ax3.set_ylim(theHistogram[0].min() - 100, theHistogram[0].max() + 100)
+values = hist(ax3, refs['left'])
 ax3.set_ylabel('Counts (log scale)')
 plt.savefig(os.path.join(arguments.output, "lbp-left.jpg"), bbox_inches='tight')
 print(f"Figure written as lbp-left.jpg")
@@ -229,8 +244,11 @@ print(f"Figure written as lbp-left.jpg")
 fig, ((ax2), (ax4)) = plt.subplots(nrows=2, ncols=1, figsize=(4, 6))
 ax2.imshow(right)
 ax2.axis('off')
+#ax2.set_ylim(theHistogram[0].min() - 100, theHistogram[0].max() + 100)
 hist(ax4, refs['right'])
+print(f"right ylim = {ax4.get_ylim()}")
 #ax4.set_xlabel('Uniform LBP values')
+ax4.set_ylabel('Counts (log scale)')
 plt.savefig(os.path.join(arguments.output, "lbp-right.jpg"), bbox_inches='tight')
 print(f"Figure written as lbp-right.jpg")
 #plt.show()

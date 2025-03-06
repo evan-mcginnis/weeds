@@ -56,6 +56,12 @@ cantaloupe-season:
 	$(eval _OUTPUT = `cygpath -w $(OUTPUT)`)
 	python combine.py -i $(_INPUT) --output $(_OUTPUT)
 
+shape-season:
+	$(eval INPUT = $(SHAPE_CLASSIFICATIONS))
+	test -n "$(OUTPUT)"
+	$(eval _INPUT = `cygpath -w $(INPUT)`)
+	$(eval _OUTPUT = `cygpath -w $(OUTPUT)`)
+	python combine.py -i $(_INPUT) --output $(_OUTPUT)
 
 plot-for-document:
 	test -n "$(X)"
