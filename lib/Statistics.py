@@ -206,7 +206,11 @@ class Statistics:
         :return:
         """
         #f1Score = (2 * self._tp) / ((2 * self._tp) + self._fp + self._fn)
-        f1Score = 2 * ((self.precision() * self.recall()) / (self.precision() + self.recall()))
+        f1Score = 0
+        try:
+            f1Score = 2 * ((self.precision() * self.recall()) / (self.precision() + self.recall()))
+        except ZeroDivisionError:
+            self._log.error(f"Zero division error computing f1")
         return f1Score
 
     def accuracy(self) -> float:

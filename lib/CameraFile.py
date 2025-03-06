@@ -25,9 +25,11 @@ from Camera import Camera
 class CameraFile(Camera):
     def __init__(self, **kwargs):
         self._connected = False
-        self.directory = kwargs[constants.KEYWORD_DIRECTORY]
+        self._directories = kwargs[constants.KEYWORD_DIRECTORY]
+        self._directory = self._directories[0]
         self._type = kwargs[constants.KEYWORD_TYPE]
         self._currentImage = 0
+        self._ignored = []
         super().__init__(**kwargs)
         self.log = logging.getLogger(__name__)
         return
@@ -37,11 +39,12 @@ class CameraFile(Camera):
         Connects to a directory and finds all images there. This method will not traverse subdirectories
         :return:
         """
-        self._connected = os.path.isdir(self.directory)
+        self._connected = os.path.isdir(self._directory)
         if not self._connected:
-            self.log.error("Unable to connect to directory: {}".format(self.directory))
+            self.log.error("Unable to connect to directory: {}".format(self._directory))
+            raise NotADirectoryError(f"Unable to connect to directory: {self._directory}")
         else:
-            self.log.debug("Connected to directory: {}".format(self.directory))
+            self.log.debug("Connected to directory: {}".format(self._directory))
 
         if self._connected:
             # Images are .jpg files
@@ -52,8 +55,11 @@ class CameraFile(Camera):
                 pattern = "/*" + constants.EXTENSION_NPY
             else:
                 self.log.error("Can't process type: {}".format(self._type))
-            files = self.directory + pattern
-            self._flist = glob.glob(files)
+            files = self._directory + pattern
+
+            # Get the file names, but ignore all files in the list of excluded files
+            self._flist = [fn for fn in glob.glob(files)
+                           if not os.path.basename(fn) in self._ignored]
             #self._flist = [p for p in pathlib.Path(self.directory).iterdir() if p.is_file()]
         return self._connected
 
@@ -114,6 +120,35 @@ class CameraFile(Camera):
 
     def getMMPerPixel(self) -> float:
         return 0.5
+
+    @property
+    def ignored(self) -> []:
+        return self._ignored
+
+    @ignored.setter
+    def ignored(self, files: []):
+        self._ignored = files
+
+    @property
+    def directory(self) -> str:
+        return self._directory
+
+    @directory.setter
+    def directory(self, theDirectory: str):
+        print(f"Check directory for access: {theDirectory}")
+        if not os.path.isdir(theDirectory):
+            raise NotADirectoryError(f"Unable to access image directory {theDirectory}")
+
+        self._directory = theDirectory
+
+    @property
+    def type(self) -> str:
+        return self._type
+
+    @type.setter
+    def type(self, theType: str):
+        # Make sure it is one of the known types
+        self._type = constants.ImageType[theType].name
 
 if __name__ == "__main__":
     print("No test method")

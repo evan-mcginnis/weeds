@@ -31,6 +31,7 @@ class Metadata:
         self._lat = 0.0
         self._long = 0.0
         self._altitude = 0.0
+        self._base = 0.0
         self._agl = 0.0
         self._focal = 0.0
         self._taken = ""
@@ -38,6 +39,7 @@ class Metadata:
         self._y = 0
         self._make = "Unknown"
         self._model = "Unknown"
+        self._hasEXIF = False
 
         # The pixel size in micrometers at various resolutions for the cameras we will use
         # Apple specs: https://www.kenrockwell.com/apple/iphone-14-pro-max.htm#spex
@@ -48,6 +50,10 @@ class Metadata:
         # For example, an iphone 14 @ 12MP, will have a pixel size of 2.44 micrometers
         self._pixelSizes = {'iPhone 14 Pro': {4032 * 3024: 2.44, 6048 * 8064: 1.22},
                             'FC3411': {5464 * 3640: 2.4}}
+
+    @property
+    def hasEXIF(self) -> bool:
+        return self._hasEXIF
 
     def pixelSize(self, make: str, x: int, y: int) -> float:
         """
@@ -147,6 +153,22 @@ class Metadata:
         return self._altitude
 
     @property
+    def base(self) -> float:
+        """
+        The base altitude of the ground. Used to compute distance AGL.
+        :return: float of base altitude
+        """
+        return self._base
+
+    @base.setter
+    def base(self, altitude):
+        """
+        Set the ground altitude so the distance AGL can be computed
+        :param altitude: ground altitude
+        """
+        self._base = altitude
+
+    @property
     def taken(self) -> str:
         """
         Timestamp when image was taken
@@ -157,10 +179,10 @@ class Metadata:
     @property
     def agl(self) -> float:
         """
-        Distance AGL -- DNG only
+        Distance AGL -- relative to base setting. If base reading is not set, the AGL is the altitude of image acquisition.
         :return: Float of AGL
         """
-        return self._agl
+        return self._altitude - self._base
 
     def getMetadata(self):
         """
@@ -184,12 +206,14 @@ class Metadata:
                         taken = d["EXIF:DateTimeOriginal"]
                         # Not given in EXIF, but we can access it in DNG
                         agl = d["XMP:RelativeAltitude"]
+                        self._hasEXIF = True
                     except KeyError:
                         self._log.error("Unable to find expected EXIF in DNG: latitude, longitude, AGL, and altitude")
                         altitude = 0.0
                         latitude = 0.0
                         longitude = 0.0
                         agl = 0.0
+                        self._hasEXIF = False
 
                     self._altitude = float(altitude)
                     self._taken = taken
@@ -221,10 +245,13 @@ class Metadata:
                             # image size itself, not the metadata
                             # self._x = my_image.pixel_x_dimension
                             # self._y = my_image.pixel_y_dimension
+                            self._hasEXIF = True
                         except AttributeError:
                             self._log.error("Unable to find expected EXIF in JPG: make, model, latitude, longitude, altitude, and focal length")
+                            self._hasEXIF = False
                     else:
                         self._log.error("JPG Image contains no EXIF data")
+                        self._hasEXIF = False
             except FileNotFoundError:
                 self._log.error(f"Unable to access: {self._image}")
         else:

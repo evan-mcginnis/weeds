@@ -26,6 +26,7 @@ class LBP:
         self._histogram = None
         self._prefix = constants.NAME_LBP
         self._log = logging.getLogger(constants.NAME_LBP)
+        self._band = -1
 
         for key, value in kwargs.items():
             if key == constants.KEYWORD_IMAGE:
@@ -34,8 +35,31 @@ class LBP:
                 self._prefix = value
             elif key == constants.KEYWORD_OUTPUT:
                 self._outputDirectory = value
+            elif key == constants.KEYWORD_BAND:
+                self._band = int(value)
             else:
                 raise TypeError(f"Unknown keyword: {key}")
+
+    @property
+    def prefix(self) -> str:
+        return self._prefix
+
+    @prefix.setter
+    def prefix(self, thePrefix: str):
+        self._prefix = thePrefix
+
+    @property
+    def image(self) -> str:
+        return self._image
+
+    @image.setter
+    def image(self, theImage):
+
+        # Check if the file can be accessed
+        if os.path.isfile(theImage):
+            self._image = theImage
+        else:
+            raise FileNotFoundError
 
     @property
     def histogram(self) -> np.histogram:
@@ -77,7 +101,6 @@ class LBP:
         Compute the LBP
         :return:
         """
-
         if self._image is None and self._selectedImage is None:
             raise ValueError("Image or selected blob must be specified")
 
@@ -89,53 +112,67 @@ class LBP:
             image = cv2.imread(self._image)
             gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
             self._histogram = self._computeHistogram(gray)
-
+            return
 
         # Process the actual blobs
-        else:
-            for blobName, blobAttributes in self._blobs.items():
-                #img = np.empty_like(blobAttributes[self._selectedImage])
+        for blobName, blobAttributes in self._blobs.items():
+            #img = np.empty_like(blobAttributes[self._selectedImage])
+            # Greyscale has one band
+            if self._band == -1:
                 img = blobAttributes[self._selectedImage]
-                if len(img) > 0:
-                    try:
-                        self._histogram = self._computeHistogram(img)
+            else:
+                img = blobAttributes[self._selectedImage][self._band]
 
-                    except ValueError as v:
-                        self._log.error(f"Problems computing LBP for image with shape: {img.shape}")
-                        self._log.error(v)
-                        name = self._prefix + constants.DELIMETER + constants.NAME_STDDEV
-                        blobAttributes[name] = 0
-                        name = self._prefix + constants.DELIMETER + constants.NAME_MEAN
-                        blobAttributes[name] = 0
-                        name = self._prefix + constants.DELIMETER + constants.NAME_VAR
-                        blobAttributes[name] = 0
-                        continue
+            if len(img) > 0:
+                try:
+                    self._histogram = self._computeHistogram(img)
 
-                    lbpNonZero = np.nonzero(self._histogram)
-                    if not len(lbpNonZero) > 0:
-                        self._log.error("LBP is empty")
-                        name = self._prefix + constants.DELIMETER + constants.NAME_STDDEV
-                        blobAttributes[name] = 0
-                        name = self._prefix + constants.DELIMETER + constants.NAME_MEAN
-                        blobAttributes[name] = 0
-                        name = self._prefix + constants.DELIMETER + constants.NAME_VAR
-                        blobAttributes[name] = 0
-                        continue
-                    #print(f"Std Deviation: {hogNonZero.std()}")
-
+                except ValueError as v:
+                    self._log.error(f"Problems computing LBP for image with shape: {img.shape}")
+                    self._log.error(v)
                     name = self._prefix + constants.DELIMETER + constants.NAME_STDDEV
-                    blobAttributes[name] = self._histogram.std()
-                    #self._log.debug(f"{name}: {blobAttributes[name]}")
+                    blobAttributes[name] = 0
                     name = self._prefix + constants.DELIMETER + constants.NAME_MEAN
-                    blobAttributes[name] = self._histogram.mean()
-                    #self._log.debug(f"{name}: {blobAttributes[name]}")
+                    blobAttributes[name] = 0
                     name = self._prefix + constants.DELIMETER + constants.NAME_VAR
-                    blobAttributes[name] = self._histogram.var()
-                    #self._log.debug(f"{name}: {blobAttributes[name]}")
-                else:
-                    self._log.error("Empty blob encountered in LBP calculations")
+                    blobAttributes[name] = 0
+                    continue
+
+                lbpNonZero = np.nonzero(self._histogram)
+                if not len(lbpNonZero) > 0:
+                    self._log.error("LBP is empty")
+                    name = self._prefix + constants.DELIMETER + constants.NAME_STDDEV
+                    blobAttributes[name] = 0
+                    name = self._prefix + constants.DELIMETER + constants.NAME_MEAN
+                    blobAttributes[name] = 0
+                    name = self._prefix + constants.DELIMETER + constants.NAME_VAR
+                    blobAttributes[name] = 0
+                    continue
+                #print(f"Std Deviation: {hogNonZero.std()}")
+
+                # The scalar values
+                name = self._prefix + constants.DELIMETER + constants.NAME_STDDEV
+                blobAttributes[name] = self._histogram.std()
+                #self._log.debug(f"{name}: {blobAttributes[name]}")
+                name = self._prefix + constants.DELIMETER + constants.NAME_MEAN
+                blobAttributes[name] = self._histogram.mean()
+                #self._log.debug(f"{name}: {blobAttributes[name]}")
+                name = self._prefix + constants.DELIMETER + constants.NAME_VAR
+                blobAttributes[name] = self._histogram.var()
+                #self._log.debug(f"{name}: {blobAttributes[name]}")
+                # The vector values
+                name = self._prefix
+                self._log.debug(f"Setting LBP vector values for image as: {name}")
+                blobAttributes[name] = self._histogram
+            else:
+                self._log.fatal("Empty blob encountered in LBP calculations")
+
+
 
 if __name__ == "__main__":
+    import argparse
+    import matplotlib.pyplot as plt
+
     parser = argparse.ArgumentParser("Local Binary Pattern")
 
     parser.add_argument("-i", "--input", action="store", required=True, help="Image to process")
@@ -146,5 +183,7 @@ if __name__ == "__main__":
 
     pattern = LBP(None, "", 24, 8, image=arguments.input, output=arguments.output)
     pattern.compute()
+    plt.hist(pattern.histogram, 25)
+    plt.show()
 
 

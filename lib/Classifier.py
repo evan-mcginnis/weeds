@@ -1265,7 +1265,7 @@ class LogisticRegressionClassifier(Classifier):
         # X_train, X_test, y_train, y_test = train_test_split(self._df,y,train_size=0.4)
 
         self.log.debug("Creating LR Model")
-        self._model = LogisticRegression(C=100, max_iter=300)
+        self._model = LogisticRegression(C=100, max_iter=500)
         self._model.fit(self._xTrain, self._yTrain)
 
         try:

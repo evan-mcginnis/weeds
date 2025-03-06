@@ -98,8 +98,11 @@ class ImageManipulation:
 
         self._hash = sha1(numpy.ascontiguousarray(img)).hexdigest()
 
-        # Look of thinss in decorated images
+        # Look of things in decorated images
         self._fontScale = 2.0
+
+        # The bucket lids
+        self._lids = {}
 
     def unload(self):
         """
@@ -126,6 +129,22 @@ class ImageManipulation:
         del self._imgAsYCBCR
         del self._imgAsGreyscale
         gc.collect()
+
+    @property
+    def fontscale(self) -> float:
+        return self._fontScale
+
+    @fontscale.setter
+    def fontscale(self, scale: float):
+        self._fontScale = scale
+
+    @property
+    def lids(self) -> {}:
+        """
+        Bucket lids in image.  Call the
+        :return: list of lids
+        """
+        return self._lids
 
     @property
     def performance(self) -> Performance:
@@ -789,6 +808,178 @@ class ImageManipulation:
             blobAttributes[constants.NAME_SIZE_RATIO] = blobAttributes[constants.NAME_AREA] / largest
 
         return contours, hierarchy, self._blobs, largestName
+
+    @staticmethod
+    def _contains(circle: [], circle2: []) -> bool:
+        """
+        Check if circle1 is completely contained within circle2.
+        :param circle: Array of [x, y, radius]
+        :param circle2: Array of [x, y, radius]
+        :return: True if circle2 contained within circle1, False otherwise
+        """
+        # Adapted from https://stackoverflow.com/questions/33490334/check-if-a-circle-is-contained-in-another-circle
+        d = math.sqrt(
+            (circle[0] - circle2[0]) ** 2 +
+            (circle[1] - circle2[1]) ** 2)
+        return circle2[2] > (d + circle[2])
+
+    def nameLids(self, blobs: {}):
+        """
+        Find objects within the current image
+        :param threshold: Minimum area of object to be considered a blob
+        :param strategy:
+        :param lids: The lids in the image
+        :return: (contours, hierarchy, bounding rectangles)
+        """
+        # A Hough transform approach
+        self.toGreyscale()
+        blur = cv.medianBlur(self._imgAsGreyscale, 41)
+        #blur = cv.blur(self._imgAsGreyscale, (7, 7))
+        self._logger.logImage("blur", blur)
+
+        # Perhaps there is an opencv bug or something I don't understand.  If the circles are perfectly concentric,
+        # with centers 0 pixels apart, both the circles are found. Depending on the lighting conditions, this could be several circles
+        # that are all larger than the stickers applied.  The solution to this is to throw away everything but the largest
+        # and the smallest. The problem is that there may be two lids in view, so we can't just throw away everything but the
+        # smallest and largest overall, we need to throw away everything in each lid _except_ the smallest.
+
+        circles = cv.HoughCircles(blur, cv.HOUGH_GRADIENT_ALT, 1.5, minDist=20, param1=150, param2=0.8, minRadius=5, maxRadius=0)
+        circles = np.uint16(np.around(circles))
+        self.log.debug(f"Circles in image prior to correction: {np.shape(circles)[1]}")
+
+        # No circles were found
+        if np.shape(circles)[1] == 0:
+            return
+
+        # This is the case where a circular lid and at least one sticker can't be located
+        if np.shape(circles)[1] == 1:
+            for i in circles[0, :]:
+                cv.circle(self._image, (i[0], i[1]), i[2], (0, 255, 0), 3)
+            self._logger.logImage("circles", self._image)
+            return
+
+        # If the circle count is 2+, there must be at least one lid
+
+        # Initially, all the lids have 0 stickers
+        stickers = np.zeros((circles[0].shape[0], 1))
+        types = np.zeros((circles[0].shape[0], 1))
+
+        withStickers = np.concatenate((circles[0], stickers), axis=1)
+        hierarchy = np.concatenate((withStickers, types), axis=1)
+
+        largestRadius = np.max(hierarchy[:, 2])
+        LID = 0
+        STICKER = 1
+        # Determine the types of things
+        lids = []
+        stickers = []
+
+        # Eliminate the concentric circles found
+        x = 0
+        y = 0
+        candidates = []
+        concentricCircleFound = False
+        while not concentricCircleFound:
+            concentricCircleFound = False
+            candidates = []
+            concentricWith = -1
+            currentCircle = -1
+            for i in hierarchy:
+                currentCircle += 1
+                if math.isclose(i[0], x, abs_tol=5) and math.isclose(i[1], y, abs_tol=5):
+                    self.log.debug(f"Found concentric circle at ({i[0]},{i[1]})")
+                    concentricCircleFound = True
+                else:
+                    concentricWith = currentCircle
+                    x = i[0]
+                    y = i[1]
+                    candidates.append(i)
+
+
+        for i in candidates:
+            # Lids are several times the size of the stickers. This should even identify a lid that is further away.
+            if largestRadius / i[2] < 2:
+                i[4] = LID
+                lids.append(i)
+            else:
+                i[4] = STICKER
+                stickers.append(i)
+
+            self.log.debug(f"Center of circle: ({i[0]},{i[1]}) Radius: {i[2]} Parent: {i[3]}")
+
+
+        # Step through the lids and stickers to determine the number of stickers on a lid
+        lidID = 0
+        for lid in lids:
+            stickerCount = 0
+            stickerID = 0
+            for sticker in stickers:
+                if self._contains(sticker, lid):
+                    self.log.debug(f"Lid {lidID} at ({lid[0]},{lid[1]}) contains sticker {stickerID}")
+                    stickerCount += 1
+                stickerID += 1
+            # The name of the lid is determined by the number of stickers it contains
+            lidName = constants.NAME_LID + constants.DASH + str(stickerCount)
+            self.log.debug(f"Lid name is {lidName} at ({lid[0]},{lid[1]})")
+
+            # Rename the blob to the lid name by looking at the blob center proximity to the lid
+            # This gets a bit messy as we want to update the key in the dictionary, so it's easier to just create
+            # a new one and use that
+            lidsFinal = {}
+            for blobName, blobProperties in blobs.items():
+                (xBlob, yBlob) = blobProperties[constants.NAME_CENTER]
+                if math.isclose(xBlob, lid[0], abs_tol=10) and math.isclose(yBlob, lid[1], abs_tol=10):
+                    self.log.debug(f"Blob {blobName} should be renamed {lidName}")
+                    blobProperties[constants.NAME_NAME] = lidName
+                    lidsFinal[lidName] = blobProperties
+                else:
+                    self.log.debug(f"Blob at ({xBlob},{yBlob}) does not match position")
+
+            lidID += 1
+        self._lids = lidsFinal
+
+        # Debug -- safe to remove
+        #for i in circles[0, :]:
+        circles = np.array(candidates)
+        circles = np.uint16(np.around(circles))
+        for i in circles:
+            cv.circle(self._image, (i[0], i[1]), i[2], (0, 255, 0), 3)
+        self._logger.logImage("circles", self._image)
+        # End debug
+
+        # The blobs parameter is the list of lids, but has slightly different centers to the circle we determined was a lid
+        for blobName, blobProperties in blobs.items():
+            (xBlob, yBlob) = blobProperties[constants.NAME_CENTER]
+            self.log.debug(f"{blobName} is at ({xBlob}, {yBlob})")
+
+        return
+
+        # Adapted from this discusssion:
+        # https://stackoverflow.com/questions/51456660/opencv-detecting-drilled-holes
+        self.toGreyscale()
+        blur = cv.medianBlur(self._imgAsGreyscale, 31)
+
+        ret, thresh = cv.threshold(blur, 127, 255, cv.THRESH_OTSU)
+
+        canny = cv.Canny(thresh, 150, 200)
+        self._logger.logImage("edges", canny)
+        # cv2.imshow('canny', canny)
+
+        contours, hierarchy = cv.findContours(canny, cv.RETR_TREE, cv.CHAIN_APPROX_NONE)
+
+        contour_list = []
+        for contour in contours:
+            approx = cv.approxPolyDP(contour, 0.01 * cv.arcLength(contour, True), True)
+            area = cv.contourArea(contour)
+            self.log.debug(f"Contour area: {area}")
+            if 1000 < area < 15000:
+                contour_list.append(contour)
+
+        msg = "Total holes: {}".format(len(contour_list) // 2)
+        cv.putText(self._image, msg, (20, 40), cv.FONT_HERSHEY_PLAIN, 2, (0, 0, 255), 2, cv.LINE_AA)
+
+        cv.drawContours(self._image, contour_list, -1, (0, 255, 0), 2)
+        self._logger.logImage("holes", self._image)
 
     # This is the original logic
     def _findBlobs(self, threshold: int) -> ([], np.ndarray, {}, str):
@@ -2011,6 +2202,10 @@ class ImageManipulation:
                     cv.putText(self._image, solidityText, (cX - 25, cY - (countOfDecorations * yOffset)), cv.FONT_HERSHEY_SIMPLEX, self._fontScale, (255, 255, 255), 2)
                 if constants.NAME_DIST_TO_LEADING_EDGE in decorations:
                     distanceToEmitterText = "Distance to Emitter: {:.4f}".format(rectAttributes[constants.NAME_DIST_TO_LEADING_EDGE])
+                    countOfDecorations += 1
+                    cv.putText(self._image, distanceToEmitterText, (cX - 25, cY - (countOfDecorations * yOffset)), cv.FONT_HERSHEY_SIMPLEX, self._fontScale, (255, 255, 255), 2)
+                if constants.NAME_BENDING in decorations:
+                    distanceToEmitterText = "Bending Energy: {:.4f}".format(rectAttributes[constants.NAME_BENDING])
                     countOfDecorations += 1
                     cv.putText(self._image, distanceToEmitterText, (cX - 25, cY - (countOfDecorations * yOffset)), cv.FONT_HERSHEY_SIMPLEX, self._fontScale, (255, 255, 255), 2)
 

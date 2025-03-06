@@ -16,18 +16,39 @@ class Proximity:
     def __init__(self, pathToImage, pathToDebug):
         self._pathToImage = pathToImage
         self._pathToDebug = pathToDebug
-        self._closestBlobs = []
+        self._closestBlobs = {}
         self._log = logging.getLogger(constants.NAME_PROXIMITY)
         self._lids = None
+        self._holes = []
+        self._image = None
+        self._manipulated = None
 
         if not os.path.isfile(pathToImage):
             raise FileNotFoundError(f"Unable to access: {pathToImage}")
         if not os.path.isdir(pathToDebug):
             raise NotADirectoryError(f"Unable to access directory: {pathToDebug}")
         self._logger = ImageLogger()
-        if not self._logger.connect(arguments.output):
-            self._log.error("Unable to connect to logging. {} does not exist.".format(arguments.output))
+        if not self._logger.connect(pathToDebug):
+            self._log.error("Unable to connect to logging. {} does not exist.".format(pathToDebug))
 
+
+    @property
+    def holes(self) -> []:
+        self._findHoles()
+        return self._holes
+
+    def _findHoles(self):
+        """
+        Find holes in the disk. The holes are not actual holes, of course, but are gaps made by the bucket index.
+        The holes are made by applying yellow dots to the blue lid.  When the index is applied, these appear as holes.
+        """
+        if len(self._holes) == 0:
+            self._manipulated.findHoles(1000, constants.Strategy.CARTOON)
+
+    def lidID(self) -> str:
+        self._findLids()
+        self._manipulated.nameLids(self._lids)
+        return "NO-ID"
 
     @property
     def lids(self) -> []:
@@ -35,6 +56,7 @@ class Proximity:
         The lids found in the image
         :return:
         """
+        self._findLids()
         return self._lids
 
     def _findLids(self):
@@ -44,24 +66,23 @@ class Proximity:
         # The lids haven't been located
         if self._lids is None:
             vi = VegetationIndex()
-            vi.Load(arguments.input)
+            vi.Load(self._pathToImage)
             rawMask = vi.bucketLid()
             threshold = 0.0
             negate = False
             direction = 1
             mask, thresholdUsed = vi.createMask(rawMask, negate, direction, threshold)
             vi.applyMask()
-            image = vi.GetImage()
+            self._image = vi.GetImage()
             # Debug
-            cv.imwrite(f"{arguments.output}/{Path(self._pathToImage).stem}-bi.jpg", image)
+            cv.imwrite(f"{self._pathToDebug}/{Path(self._pathToImage).stem}-bi.jpg", self._image)
 
-            manipulatedImage = ImageManipulation(image, 0, self._logger)
+            self._manipulated = ImageManipulation(self._image, 0, self._logger)
 
-            # Find the blobs in the image -- there should be only the lid
-            # For now, this only works with a single lid
+            # Find the blobs in the image
             # The threshold for area is completely arbitrary -- as we really only care about the bucket lid, this may
             # need to be changed to reflect what is seen at higher distances AGL
-            contours, hierarchy, blobs, largest = manipulatedImage.findBlobs(10000, constants.Strategy.CARTOON)
+            contours, hierarchy, blobs, largest = self._manipulated.findBlobs(10000, constants.Strategy.CARTOON)
 
             self._lids = blobs
 
@@ -73,18 +94,24 @@ class Proximity:
         """
         return len(self._lids) > 0
 
-    def closestBlobs(self, blobs: {}) -> []:
+    def closestBlobs(self, blobs: {}) -> {}:
         """
         The name of the blob that is the closest to the center of the blue disk
-        The list of blob names is in the same order as was passed in originally
+        This returns a dictionary with the name of the closest lid for a blob.
+        i.e. 'blob-22': 'lid-02'
+        There are as many entries in this dictionary as lids in the image.
+
         :param blobs:
-        :return:
+        :return: dictionary of blobs and the closest lid.
         """
-        # Find the center of the blue disks
+        # Find the lids and name them after the number of stickers they contain
         self._findLids()
+        self._manipulated.nameLids(self._lids)
+
         for lidName, lidProperties in self._lids.items():
             (cXLid, cYLid) = lidProperties[constants.NAME_CENTER]
-            self._log.debug(f"Lid Center: ({cXLid},{cYLid})")
+            #lidName - lidProperties[constants.NAME_NAME]
+            self._log.debug(f"Lid {lidName} center:: ({cXLid},{cYLid})")
             shortestDistance = 999
             shortestBlobName = ""
             for blobName, blobProperties in blobs.items():
@@ -94,7 +121,10 @@ class Proximity:
                 if distanceToBlob < shortestDistance:
                     shortestDistance = distanceToBlob
                     shortestBlobName = blobName
-            self._closestBlobs.append(shortestBlobName)
+
+            self._closestBlobs[shortestBlobName] = lidProperties[constants.NAME_NAME]
+            #self._closestBlobs.append(shortestBlobName)
+            #self._closestLids.append(lidName)
 
         return self._closestBlobs
 
@@ -198,8 +228,12 @@ if __name__ == "__main__":
         log.error(f"Unable to find vegetation in the image: {arguments.input}")
         sys.exit(-1)
 
+    lidID = target.lidID()
+
     # Find the list blobs that are closest to disks
-    log.info(f"Closest blobs to lids in {arguments.input}: {target.closestBlobs(blobs)}")
+    closest = target.closestBlobs(blobs)
+    for blobName, blobAttributes in closest.items():
+        log.info(f"Closest blob to {blobAttributes} is {blobName} in {arguments.input}")
 
     # There is a bug in opencv where files are not closed when read, resulting in a warning about an unclosed file
     # This is a bit of a hack to supress all the warnings on exit(). This is safe to remove, but the warning is a bit annoying

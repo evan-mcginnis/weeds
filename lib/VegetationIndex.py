@@ -106,6 +106,7 @@ class VegetationIndex:
         #self.ALG_DGCI="dgci"
         self.ALG_DI="di"
         self.ALG_YCBCRI="ycbcri"
+        self.ALG_HV="hv"
 
         self.algorithms = [self.ALG_NDI,
                            self.ALG_TGI,
@@ -123,7 +124,8 @@ class VegetationIndex:
                            self.ALG_SI,
                            #self.ALG_DGCI,
                            self.ALG_DI,
-                           self.ALG_YCBCRI]
+                           self.ALG_YCBCRI,
+                           self.ALG_HV]
 
         thresholds = {"NDI": 0,
                       "EXG": 200,
@@ -400,9 +402,9 @@ class VegetationIndex:
         # The small value to add to avoid a runtime error when we divide
         minValue = 1e-5
 
-        print(f"Red Range: {self.redBand.min()} to {self.redBand.max()}")
-        print(f"Blue Range: {self.blueBand.min()} to {self.blueBand.max()}")
-        print(f"Green Range: {self.greenBand.min()} to {self.greenBand.max()}")
+        # print(f"Red Range: {self.redBand.min()} to {self.redBand.max()}")
+        # print(f"Blue Range: {self.blueBand.min()} to {self.blueBand.max()}")
+        # print(f"Green Range: {self.greenBand.min()} to {self.greenBand.max()}")
         try:
             self.redBand = self.redBand / (self.redBand + self.greenBand + self.blueBand + minValue)
             self.greenBand = self.greenBand / (self.redBand + self.greenBand + self.blueBand + minValue)
@@ -634,7 +636,7 @@ class VegetationIndex:
         normalized = np.zeros_like(filledMask)
         debugMask = cv.normalize(filledMask, normalized, 0, 255, cv.NORM_MINMAX)
         cv.imwrite("mask-without-floodfill.jpg", normalized)
-        print(f"Before floodfill range: {normalized.min()} to {normalized.max()} Counts: {np.unique(normalized, return_counts=True)}")
+        # print(f"Before floodfill range: {normalized.min()} to {normalized.max()} Counts: {np.unique(normalized, return_counts=True)}")
         # DEBUG
         # At this point, the mask looks fine -- vegetation is white, ground is black
         # TODO: The floodfill does bad things to the mask.
@@ -1309,7 +1311,7 @@ class VegetationIndex:
         #yiqIndex = 1.262 * self.greenBand - 0.884 * self.redBand - 0.311 * self.blueBand
         #yiqIndex = 0.0 * self.yBand + 2 * differences * self.iBand + 2 * differences * self.qBand
         yiqIndex = np.where(self.qBand < 0.04, self.qBand, 0)
-        print(f"Range of data: {np.min(yiqIndex)} to {np.max(yiqIndex)}")
+        #print(f"Range of data: {np.min(yiqIndex)} to {np.max(yiqIndex)}")
 
         self._index = yiqIndex
         self._name = "YI"
@@ -1368,8 +1370,8 @@ class VegetationIndex:
         bandDF = pd.DataFrame(self.vBand)
         self.vBand = scaler.fit_transform(bandDF)
 
-        print(f"Sband range: {self.sBand.min()} to {self.sBand.max()}")
-        print(f"Vband range: {self.vBand.min()} to {self.vBand.max()}")
+        # print(f"Sband range: {self.sBand.min()} to {self.sBand.max()}")
+        # print(f"Vband range: {self.vBand.min()} to {self.vBand.max()}")
 
         #hsvIndex = 1 * self.hBand + 1 * self.sBand + 1 * self.vBand
         hsvIndex = self.hBand * self.vBand
@@ -1392,7 +1394,7 @@ class VegetationIndex:
 
         difference = self.bBand.astype(np.float64) - self.aBand.astype(np.float64)
         difference[difference < 30] = 0
-        print(f"Difference range: {np.min(difference)} to {np.max(difference)}")
+        #print(f"Difference range: {np.min(difference)} to {np.max(difference)}")
 
         self.aBand[(self.aBand >= 125)] = 0
         self.aBand[(self.aBand <= 105)] = 0
@@ -1514,6 +1516,7 @@ if __name__ == "__main__":
     import sys
     import glob
     from pathlib import Path
+    from tqdm import tqdm
 
     import constants
 
@@ -1523,9 +1526,11 @@ if __name__ == "__main__":
     indexChoices.append("all")
     parser = argparse.ArgumentParser("Show various vegetation indices")
 
+    parser.add_argument('-e', '--encoding', action="store", required=False, default="jpg", choices=["jpg", "png"], help="Image encoding for output")
     parser.add_argument('-i', '--input', action="store", required=True, type=str, help="Image or directory to process")
     parser.add_argument('-o', '--output', action="store", required=True,  help="Output directory for processed images")
-    parser.add_argument('-m', '--no-mask', action="store_true", required=False, default=False, help="Don't output mask")
+    parser.add_argument('-m', '--masks', action="store", required=True,  help="Output directory for masks")
+    parser.add_argument('-nm', '--no-mask', action="store_true", required=False, default=False, help="Don't output mask")
     parser.add_argument('-n', '--name', action="store", choices=indexChoices, nargs='*', required=False, help="Index name or all")
     parser.add_argument('-p', '--plot', action="store_true", default=False, help="Plot the index")
     parser.add_argument('-r', '--refine', action="store_true", default=False, help="Refine the mask before application")
@@ -1666,7 +1671,8 @@ if __name__ == "__main__":
 
     thresholdTechniques = ["OTSU", "TRIANGLE"]
 
-    for file in files:
+    for n in tqdm(range(len(files))):
+        file = files[n]
         # Step through the indices and show the result on the target image
         for indexName, indexData in indices.items():
 
@@ -1689,7 +1695,7 @@ if __name__ == "__main__":
             finishTime = datetime.datetime.now()
             computeTime = finishTime - startTime
             indexData["time"] = computeTime.microseconds
-            print("Index: " + indexName + " " + str(computeTime))
+            #print("Index: " + indexName + " " + str(computeTime))
 
             if arguments.threshold is not None:
                 try:
@@ -1727,7 +1733,9 @@ if __name__ == "__main__":
             # mask, thresholdUsed = utility.MaskFromIndex(vegIndex, negate, direction, threshold)
             performance.start()
             mask, thresholdUsed = utility.createMask(vegIndex, negate, direction, threshold)
-            print(f"Using threshold {thresholdUsed}")
+            #print(f"Using threshold {thresholdUsed}")
+            # Record the performance of the index creation
+            performance.stopAndRecord(indexName)
 
             if arguments.refine:
                 mask = utility.refine()
@@ -1739,8 +1747,6 @@ if __name__ == "__main__":
                 cv.imwrite(f"mask-{indexName}-{file}.jpg", finalMask)
 
             utility.applyMask()
-            # Record the performance of the index creation
-            performance.stopAndRecord(indexName)
 
             # This is the slow call
             #image = veg.GetMaskedImage()
@@ -1754,13 +1760,16 @@ if __name__ == "__main__":
 
             #image = cv.medianBlur(image, 5)
             if arguments.output is not None:
-                cv.imwrite(f"{arguments.output}/{Path(file).stem}-{indexData['short']}.jpg", image)
+                cv.imwrite(f"{arguments.output}/{Path(file).stem}-masked-{indexData['short']}.{arguments.encoding}", image)
 
                 # Unless the command line indicates otherwise, output the mask
                 if not arguments.no_mask:
                     normalized = np.zeros_like(mask)
-                    finalMask = cv.normalize(mask, normalized, 0, 255, cv.NORM_MINMAX)
-                    cv.imwrite(f"{arguments.output}/{Path(file).stem}-mask-{indexData['short']}.jpg", finalMask)
+                    # The main code uses None, so mirror that
+                    #finalMask = cv.normalize(mask, normalized, 0, 255, cv.NORM_MINMAX)
+                    finalMask = cv.normalize(mask, None, 0, 255, cv.NORM_MINMAX)
+                    finalMask = np.where(finalMask < 250, 0, 255)
+                    cv.imwrite(f"{arguments.masks}/{Path(file).stem}-mask-{indexData['short']}.{arguments.encoding}", finalMask)
 
             if showImages:
                 utility.ShowImage(indexName + " mask applied to source with threshold: " + str(thresholdUsed), image)

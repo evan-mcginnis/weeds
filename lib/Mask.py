@@ -46,7 +46,7 @@ class Mask:
 
     def load(self, source: str):
         self._mask = cv.imread(source, cv.IMREAD_GRAYSCALE)
-        cv.imwrite("test-mask.jpg", self._mask)
+        #cv.imwrite("test-mask.jpg", self._mask)
         # The mask may be 255s and 0s.  Make it 1s and 0s to make things a bit easier
         # There seems to be a bug -- or I am making a mistake -- with photoshop.  Sometimes white is 254, not 255
         self._mask = np.where(self._mask < 254, 0, 1)
@@ -76,8 +76,8 @@ class Mask:
             raise RuntimeError(f"No mask loaded")
 
         self._target = cv.imread(target, cv.IMREAD_GRAYSCALE)
-        cv.imwrite("test-target.jpg", self._target)
-        print(f"Reference mask before: {np.histogram(self._target, 5)}")
+        #cv.imwrite("test-target.jpg", self._target)
+        #print(f"Reference mask before: {np.histogram(self._target, 5)}")
         #self._target = np.where(self._target > 1, 1, 0)
         # Photoshop bug where white is sometimes 254
         self._target = np.where(self._target < 254, 0, 1)
@@ -87,7 +87,7 @@ class Mask:
 
         histTarget, binsTarget = np.histogram(self._target, bins=[0.0, 1.0, 255])
         histMask, binsMask = np.histogram(self._mask, bins=[0.0, 1.0, 255])
-        print(f"Reference: {histTarget} Bins: {binsTarget}\nMask: {histMask} Bins: {binsMask}")
+        #print(f"Reference: {histTarget} Bins: {binsTarget}\nMask: {histMask} Bins: {binsMask}")
 
         rows, columns = self._target.shape
         for row in range(rows):

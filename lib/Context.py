@@ -20,6 +20,15 @@ class Context:
         self._timestamp = ""
         self._altitude = 0.0
         self._log = logging.getLogger(__name__)
+        self._datestamp = ""
+
+    @property
+    def datestamp(self) -> str:
+        return self._datestamp
+
+    @datestamp.setter
+    def datestamp(self, theDate: str):
+        self._datestamp = theDate
 
     @property
     def timestamp(self) -> str:

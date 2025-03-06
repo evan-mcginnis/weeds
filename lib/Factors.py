@@ -288,6 +288,25 @@ class Factors:
     def angleNames(self) -> []:
         return self._angleNames
 
+    def composedOfSubtypes(self, factorTypes: List[FactorSubtypes], factors: []) -> bool:
+        """
+        Determine if all of the factors are of the type provided.
+        :param factorType:
+        :param factors:
+        :return:
+        """
+
+        countOfType = 0
+        for factor in factors:
+            row = self._data.loc[factor]
+            #self._log.debug(f"Determine if {row[constants.COLUMN_NAME_SUBTYPE]} is in subtype {factorTypes}")
+            if row[constants.COLUMN_NAME_SUBTYPE] in factorTypes:
+                countOfType += 1
+        # if countOfType == len(factors):
+        #     print(f"{factors} is completely composed of subtype {factorTypes}")
+        return countOfType == len(factors)
+
+
     def composedOfTypes(self, factorTypes: List[FactorTypes], factors: []) -> bool:
         """
         Determine if all of the factors are of the type provided.
@@ -316,6 +335,8 @@ class Factors:
         """
         if "blacklist" in kwargs:
             blacklist = kwargs["blacklist"]
+            if blacklist is None:
+                blacklist = []
         else:
             blacklist = []
 
@@ -349,7 +370,7 @@ class Factors:
         subset = []
         if kind == FactorKind.SCALAR:
             for index, row in self._data.iterrows():
-                #print(f"Consider: {index}")
+                #print(f"Consider: {index}\n{row}")
                 if row[constants.COLUMN_NAME_TYPE] in factorTypes \
                         and row[constants.COLUMN_NAME_SUBTYPE] in factorSubtype \
                         and row[constants.COLUMN_NAME_KIND] == kind \

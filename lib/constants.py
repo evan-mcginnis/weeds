@@ -76,6 +76,8 @@ MSG_NO_PROBLEM_FOUND = "No problem found"
 
 # Names for the attributes
 # Some of these are a bit redundant and are there for backwards compatibility
+NAME_TECHNIQUE              = "Technique"
+NAME_DATE                   = "date"
 NAME_BLOB                   = "blob"
 NAME_AREA                   = "area"
 NAME_TYPE                   = "type"
@@ -98,6 +100,7 @@ NAME_GREEN                  = "green"
 NAME_RED                    = "red"
 NAME_DISTANCE               = "distance"
 NAME_DISTANCE_NORMALIZED    = "normalized_distance"
+NAME_AGL                    = "agl"
 NAME_NAME                   = "name"
 NAME_NUMBER                 = "number"
 NAME_HEIGHT                 = "height"
@@ -164,9 +167,11 @@ NAME_IMAGE_HSI              = "hsi"
 NAME_IMAGE_YCBCR            = "ycbcr"
 NAME_IMAGE_CIELAB           = "cielab"
 
-
+# Values
+VALUE_UNKNOWN               = "unknown"
 
 # Column names in pandas
+COLUMN_NAME_NAME            = "name"
 COLUMN_NAME_VALUE           = "value"
 COLUMN_NAME_SUBTYPE         = "subtype"
 COLUMN_NAME_TYPE            = "type"
@@ -197,6 +202,8 @@ NAME_VAR                    = "variance"
 
 # P R O X I M I T Y
 NAME_PROXIMITY              = "proximity"
+NAME_LID                    = "lid"
+NAME_STICKER                = "sticker"
 
 # L B P
 NAME_LBP                    = "lbp"
