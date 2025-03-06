@@ -68,7 +68,7 @@ review-for-imbalance:
 	$(eval _INPUT = `cygpath -w $(INPUT)`)
 	$(eval _OUTPUT = `cygpath -w $(OUTPUT)`)
 	$(eval _CLASSIFICATION = `cygpath -w $(CLASSIFICATION)`)
-	python review.py -i $(_INPUT) -o $(_OUTPUT) -a $(_CLASSIFICATION) -p processed-*.jpg -l logging.ini
+	python review.py -i $(_INPUT) -o $(_OUTPUT) -a $(_CLASSIFICATION) -p processed-*.jpg -l logging.ini --type
 
 
 # All imbalance techniques
@@ -114,6 +114,17 @@ plot-season:
 	$(eval _INPUT = `cygpath -w $(INPUT) | tr '\n' ' '`)
 	$(eval _OUTPUT = `cygpath -w $(OUTPUT)`)
 	python plot-development.py -i $(_INPUT) -f $(FACTOR) -t "$(TITLE)" -o $(_OUTPUT)
+
+plot-adf:
+	test -n "$(TYPE)"
+	test -n "$(SUBTYPE)"
+	test -n "$(TITLE)"
+	test -n "$(SHORT)"
+	test -n "$(OUTPUT)"
+	test -n "$(LABEL)"
+	$(eval _INPUT = `cygpath -w $(INPUT) | tr '\n' ' '`)
+	$(eval _OUTPUT = `cygpath -w $(OUTPUT)`)
+	python plot-adf.py -i $(_INPUT) -t $(TYPE) -s $(SUBTYPE) --caption "$(TITLE)" --caption-short "$(SHORT)" -o $(_OUTPUT) -l $(LABEL)
 
 plot-debug:
 	#test -n "$(FACTOR)"

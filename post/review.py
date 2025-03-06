@@ -184,6 +184,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         """
         # Write out a dataframe, including only crop and weed
         finalDF = self._attributes[(self._attributes.actual == constants.TYPE_WEED) | (self._attributes.actual == constants.TYPE_CROP)]
+        # If we are just correcting the type, drop the ACTUAL column
+        if self._correctType:
+            finalDF.drop([constants.NAME_ACTUAL], axis=1, inplace=True)
         finalDF.to_csv(self._processedFileName, encoding="UTF-8", index=False)
 
         finalDF = self._attributes[self._attributes.actual == constants.TYPE_MISTAKE]
@@ -306,6 +309,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
         if self._currentFileNumber == self._maxFileNumber:
             self.button_next.setEnabled(False)
+            self._shortcutNext.setEnabled(False)
         self.button_previous.setEnabled(True)
 
         self._displayImage(self._fileNames[self._currentFileNumber])
@@ -349,10 +353,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             print("Unable to find file: {}".format(attributes))
             rc = False
 
-        if not self.correctType:
-            # If there is no "actual" column, insert one, setting the actual type to the predicted
-            if constants.NAME_ACTUAL not in self._attributes.columns:
-                self._attributes[constants.NAME_ACTUAL] = self._attributes[constants.NAME_TYPE]
+        # If there is no "actual" column, insert one, setting the actual type to the predicted
+        if constants.NAME_ACTUAL not in self._attributes.columns:
+            self._attributes[constants.NAME_ACTUAL] = self._attributes[constants.NAME_TYPE]
 
         print(f"Loaded from csv")
         return rc
@@ -379,10 +382,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         # There should be only one row
         rows = self._attributes.loc[self._attributes[constants.NAME_NAME] == text[0]]
         for index, row in rows.iterrows():
-            if self._correctType:
-                self._attributes.iloc[index, typeLocation] = value
-            else:
-                self._attributes.iloc[index, actualLocation] = value
+            self._attributes.iloc[index, typeLocation] = value
+            self._attributes.iloc[index, actualLocation] = value
 
         return
 

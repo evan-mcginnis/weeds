@@ -8,6 +8,9 @@ import os
 
 import constants
 
+from statsmodels.tsa.stattools import adfuller
+from statsmodels.tsa.stattools import kpss
+
 parser = argparse.ArgumentParser("Plot factor over development cycle")
 parser.add_argument("-i", "--input", action="store", required=True, nargs="*", help="CSV to process")
 parser.add_argument("-f", "--factor", action="store", required=True, help="Name of factor")
@@ -49,6 +52,14 @@ dfGroupedByDate = dfAll.groupby(constants.NAME_DATE).agg(factor=(arguments.facto
 
 unstacked = dfGrouped.unstack()
 
+cropObservations = unstacked.iloc[0].to_numpy()
+weedObservations = unstacked.iloc[1].to_numpy()
+
+adf = adfuller(cropObservations, autolag='t-stat')
+print(f"Crop {cropObservations} ADF: {adf}")
+adf = adfuller(weedObservations, autolag='t-stat')
+print(f"Weed {weedObservations} ADF: {adf}")
+
 plt.style.use('ggplot')
 # Plot the means
 unstacked.plot.barh(title=arguments.title)
@@ -58,10 +69,14 @@ ax.set_yticklabels(xAxisNames, rotation='vertical')
 plt.ylabel("Type")
 plt.xlabel(arguments.factor)
 # Form the legend from the index names -- the dates of the observations
-ax.legend(list(dfGroupedByDate.index))
+dates = list(dfGroupedByDate.index)
+formatted_dates = [date.strftime('%Y-%m-%d') for date in dates]
+print(f"Dates: {formatted_dates}")
+plt.legend(formatted_dates, bbox_to_anchor=(1.04, 0.5), loc='center left')
+#ax.legend(list(dfGroupedByDate.index), loc='upper left')
 
 if arguments.output is not None:
-    plt.savefig(arguments.output)
+    plt.savefig(arguments.output, bbox_inches="tight")
 else:
     plt.show()
 
