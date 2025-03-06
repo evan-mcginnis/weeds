@@ -217,14 +217,17 @@ weeds-to-db:
 # INPUT = path to the images to be processed
 # For example
 # make weeds-no-db INPUT=/cygdrive/d/maricopa-test/imbalance OUTPUT=/cygdrive/d/maricopa-test/imbalance/processed TRAINING=/cygdrive/d/maricopa-test/imbalance/processed/final/corrected.csv THRESHOLD=TRIANGLE AREA=1200 INDEX=com2 DECORATIONS=name OPERATION=evaluate
+# There are two ways to get the date -- specify it explicitly or get it from the image
+DATE?="0001-01-01"
 weeds-no-db:
 	$(eval _INPUT = `cygpath -w $(INPUT)`)
 	$(eval _OUTPUT = `cygpath -w $(OUTPUT)`)
+	$(eval _DATE = `cygpath -w $(DATE)`)
 	$(eval _TRAINING = `cygpath -w $(TRAINING)`)
 	#$(eval _CLASSIFICATION = `cygpath -w $(CLASSIFICATION)`)
 	test -n "$(_TRAINING)"
 	#$(PYTHON) weeds.py -i $(_INPUT) -o $(_OUTPUT) -a $(INDEX) -df $(_TRAINING) $(ALGFLAG) -sc -op $(OPERATION) -lg $(LOG) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE)  -alt $(ALTITUDE) -cr $(CROP) $(CORRECTIONFLAGS) -t $(THRESHOLD) -c -ma $(AREA) --session-name $(SESSION)
-	$(PYTHON) weeds.py -i $(_INPUT) -o $(_OUTPUT) -a $(INDEX) -df $(_TRAINING) $(ALGFLAG) -sc -op $(OPERATION) -lg $(LOG) -d $(DECORATIONS)  $(_CONTOURS) -ini $(INI) $(STANDALONE)  -alt $(ALTITUDE) -cr $(CROP) $(CORRECTIONFLAGS) -t $(THRESHOLD) -ma $(AREA) --session-name $(SESSION)
+	$(PYTHON) weeds.py -i $(_INPUT) -o $(_OUTPUT) -a $(INDEX) -df $(_TRAINING) $(ALGFLAG) -sc -op $(OPERATION) -lg $(LOG) -d $(DECORATIONS)  $(_CONTOURS) -ini $(INI) $(STANDALONE)  -alt $(ALTITUDE) -cr $(CROP) $(CORRECTIONFLAGS) -t $(THRESHOLD) -c -ma $(AREA) --session-name $(SESSION) --date $(_DATE) --fontscale $(SCALE)
 
 # Debug memory leak
 weeds-memory:
@@ -262,8 +265,28 @@ optimal-results:
 	test -n "$(CAPTION_SHORT)"
 	test -n "$(LABEL)"
 	test -n "$(PREFIX)"
+	test -n "$(OUTPUT)"
+	$(eval _OUTPUT = `cygpath -w $(OUTPUT)`)
 	#$(PYTHON) results.py -r $(_RESULTS) -c $(_PARAMETERS) -o $(FORMAT) --type $(TYPE) --subtype $(SUBTYPE) -lg $(LOGGING) --directory $(_ALL_RESULTS) -n 2 --long "$(CAPTION_LONG)"  --short "$(CAPTION_SHORT)" --label $(LABEL)
-	$(PYTHON) results.py --prefix $(PREFIX) -c $(_PARAMETERS) -o $(FORMAT) --type $(TYPE) --subtype $(SUBTYPE) -lg $(LOGGING) --directory $(_ALL_RESULTS) --long "$(CAPTION_LONG)"  --short "$(CAPTION_SHORT)" --label $(LABEL) --summary
+	$(PYTHON) results.py --prefix $(PREFIX) -c $(_PARAMETERS) -o $(FORMAT) --type $(TYPE) --subtype $(SUBTYPE) -lg $(LOGGING) --directory $(_ALL_RESULTS) --long "$(CAPTION_LONG)"  --short "$(CAPTION_SHORT)" --label $(LABEL) --summary --table $(_OUTPUT)
+
+optimal-results-seasonality:
+	$(eval _PARAMETERS = `cygpath -w $(PARAMETERS)`)
+	$(eval _RESULTS = `cygpath -w $(RESULTS)`)
+	$(eval _ALL_RESULTS = `cygpath -w $(ALL_RESULTS)`)
+	$(eval _SOURCE_CSV = `cygpath -w $(SOURCE_CSV)`)
+	test -n "$(TYPE)"
+	test -n "$(SUBTYPE)"
+	test -n "$(FORMAT)"
+	test -n "$(LOGGING)"
+	test -n "$(CAPTION_LONG)"
+	test -n "$(CAPTION_SHORT)"
+	test -n "$(LABEL)"
+	test -n "$(PREFIX)"
+	test -n "$(OUTPUT)"
+	$(eval _OUTPUT = `cygpath -w $(OUTPUT)`)
+	#$(PYTHON) results.py -r $(_RESULTS) -c $(_PARAMETERS) -o $(FORMAT) --type $(TYPE) --subtype $(SUBTYPE) -lg $(LOGGING) --directory $(_ALL_RESULTS) -n 2 --long "$(CAPTION_LONG)"  --short "$(CAPTION_SHORT)" --label $(LABEL)
+	$(PYTHON) results.py --source $(_SOURCE_CSV) --seasonality --prefix $(PREFIX) -c $(_PARAMETERS) -o $(FORMAT) --type $(TYPE) --subtype $(SUBTYPE) -lg $(LOGGING) --directory $(_ALL_RESULTS) --long "$(CAPTION_LONG)"  --short "$(CAPTION_SHORT)" --label $(LABEL) --summary --table $(_OUTPUT)
 
 PREFIX?=comprehensive
 OUTPUT?=c:\comp-results
@@ -278,7 +301,18 @@ report:
 # This needs to be done before the results are reported. An example:
 # make selections TRAINING=d:\comprehensive\mexg-manual-corrected.csv FACTORS=4 PREFIX=comprehensive TYPE=TEXTURE SUBTYPE=all FORMAT=PICKLE PREFIX=comprehensive
 selections:
-	$(PYTHON) Selection.py -df $(TRAINING) -fs ALL -f $(FACTORS) -l -lg logging.ini -of $(FORMAT) -co -ty $(TYPE) -s $(SUBTYPE) -p $(PREFIX)
+	test -n "$(FACTORS)"
+	test -n "$(TYPE)"
+	test -n "$(SUBTYPE)"
+	$(eval _TRAINING = `cygpath -w $(TRAINING)`)
+	$(PYTHON) Selection.py -df $(_TRAINING) -fs ALL -f $(FACTORS) -l -lg logging.ini -of $(FORMAT) -co -ty $(TYPE) -s $(SUBTYPE) -p $(PREFIX) --table $(OUTPUT)
+
+select-features:
+	test -n "$(FACTORS)"
+	test -n "$(TYPE)"
+	test -n "$(SUBTYPE)"
+	$(eval _TRAINING = `cygpath -w $(TRAINING)`)
+	$(PYTHON) Selection.py -df $(_TRAINING) -fs univariate -f $(FACTORS) --latex -lg unattended.ini --type $(TYPE) --subtype $(SUBTYPE)
 
 analyze:
 	$(eval _INPUT = `cygpath -w $(INPUT)`)
@@ -290,6 +324,14 @@ analyze:
 # SUBTYPE -- LBP, GLCM, HOG, or ALL
 # FACTORS -- number of factors
 # PREFIX -- text to precede the output, like "dissertation"
+
+# Imbalance correction
+ifeq ($(CORRECT), TRUE)
+_CORRECT=-c
+else
+_CORRECT=
+endif
+
 optimal:
 	test -n "$(FACTORS)"
 	test -n "$(TYPE)"
@@ -297,8 +339,7 @@ optimal:
 	test -n "$(PREFIX)"
 	$(eval _TRAINING = `cygpath -w $(TRAINING)`)
 	$(eval _OUTPUT = `cygpath -w $(OUTPUT)`)
-	$(PYTHON) Selection.py -df $(_TRAINING) -fs ALL -f $(FACTORS) -l -lg standalone-logging.ini -p $(PREFIX) -o -ty $(TYPE) -s $(SUBTYPE) -od $(_OUTPUT)
-	cp jetson.log $(_OUTPUT)
+	$(PYTHON) Selection.py -df $(_TRAINING) -fs ALL -f $(FACTORS) -l -lg standalone-logging.ini -p $(PREFIX) -o -ty $(TYPE) -s $(SUBTYPE) -od $(_OUTPUT) $(_CORRECT)
 
 # Test the various types and subtypes -- find the optimal set and then write that out
 optimal-detailed:
@@ -321,6 +362,7 @@ optimal-detailed:
 	$(PYTHON) Selection.py -df $(TRAINING) -fs ALL -f $(FACTORS) -l -lg unattended.ini -p SHAPE -o -ty SHAPE
 	$(PYTHON) Selection.py -df $(TRAINING) -fs ALL -f $(FACTORS) -l -lg unattended.ini -of $(FORMAT) -ty SHAPE
 	mv parameters.pickle SHAPE.parameters.pickle
+
 
 svm:
 	$(PYTHON) weeds.py -r ../../results/results.svm.csv -i $(INPUT) -o ../../results/output-svm -a $(INDEX) -t $(THRESHOLDS) -df $(TRAINING) -svm -sc -v -lg $(LOG) -se $(PARAMETERS) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE)

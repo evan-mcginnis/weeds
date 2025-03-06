@@ -9,6 +9,8 @@ import sys
 import threading
 from typing import Callable
 from pathlib import Path
+from dateutil.parser import parse
+import gc
 
 import configparser
 
@@ -35,6 +37,11 @@ import xmpp
 # from xmpp import protocol
 
 import shortuuid
+
+from memory_profiler import profile
+import psutil
+
+import pickle
 
 from urllib.request import url2pathname
 from urllib.parse import urlparse
@@ -68,8 +75,11 @@ from Persistence import Disk
 from Persistence import RawImage
 from Persistence import Blob
 from Factors import Factors
+from Factors import FactorKind
 from Metadata import Metadata
 from Classifier import ImbalanceCorrection
+from Proximity import Proximity
+
 
 SQUARE_SIZE = 40
 
@@ -770,6 +780,8 @@ def tuple_type(strings):
     mapped_int = map(int, strings.split(","))
     return tuple(mapped_int)
 
+# C O N S T A N T S
+UNIQUE = "unique"
 
 # This is here so we can extract the supported algorithms
 veg = VegetationIndex()
@@ -779,11 +791,13 @@ parser = argparse.ArgumentParser("Weed recognition system")
 parser.add_argument("-a", '--algorithm', action="store", help="Vegetation Index algorithm",
                     choices=veg.GetSupportedAlgorithms(),
                     default="ngrdi")
+parser.add_argument("-b", "--base", action="store", required=False, help="Base altitude - specified as a float or the name of the image that will have it in EXIF")
 parser.add_argument("-c", "--contours", action="store_true", default=False, help="Show contours on images")
 parser.add_argument("-ch", "--hull", action="store_true", default=False, help="Show convex hull instead of bounding box")
 parser.add_argument("-cl", "--cropline", action="store_true", default=False, help="Detect and show cropline in image")
 parser.add_argument("-d", "--decorations", action="store", type=str, default="all",
                     help="Decorations on output images (all and none are shortcuts)")
+parser.add_argument("-da", "--date", action="store", required=False, help="Date of acquisition or file with that in EXIF")
 parser.add_argument("-plain", "--plain", action="store_true", default=False, help="Plain")
 
 # Database specifications
@@ -804,16 +818,21 @@ parser.add_argument("-df", "--data", action="store",
 parser.add_argument("-e", "--edge", action="store_true", default=False, help="Ignore items at edge of image")
 parser.add_argument("-hg", "--histograms", action="store_true", default=False, help="Show histograms")
 parser.add_argument("-he", "--height", action="store_true", default=False, help="Consider height in scoring")
-parser.add_argument('-i', '--input', action="store", required=False, help="Images directory")
+#parser.add_argument('-i', '--input', action="store", required=False, help="Images directory")
+# Allowing multiple input directories doesn't quite work yet
+parser.add_argument('-i', '--input', action="store", required=False, nargs='*', help="Images directory")
 
 
 parser.add_argument('-s', '--split', action="store", required=False, default=0.4, type=float, help="Split for training")
+parser.add_argument('-fs', '--fontscale', action="store", required=False, default=2.0, type=float, help="Font scale for decorations")
 
 parser.add_argument("-gr", "--grab", action="store_true", default=False,
                     help="Just grab images. No processing")
 
 # Imbalance in data
-parser.add_argument('-mi', '--minority', action="store", required=False, type=float, default=1.0, help="Adjust minority class to represent this percentage")
+#parser.add_argument('-ma', '--majority', action="store", required=False, type=float, default=1.0, help="Adjust majority class to represent this percentage")
+#parser.add_argument('-mi', '--minority', action="store", required=False, type=float, default=1.0, help="Adjust minority class to represent this percentage")
+parser.add_argument('-ir', '--ratio', action="store", required=False, type=str, help="Adjust data to this imbalance ratio")
 parser.add_argument("-ic", '--correct', action="store_true", required=False, default=False, help="Correct data imbalance")
 parser.add_argument("-ia", '--imbalance', action="store", required=False, choices=Classifier.correctionAlgorithms(), default='SMOTE', help="Data imbalance algorithm")
 parser.add_argument("-sub", "--subset", action="store", required=False, default=Subset.TRAIN.name.lower(), choices=[i.name.lower() for i in Subset])
@@ -863,13 +882,60 @@ parser.add_argument("-di", "--direction", action="store", type=int, required=Fal
 parser.add_argument("-t", "--threshold", action="store", required=False, help="Threshold for index mask")
 parser.add_argument("-op", "--operation", action="store", default=OPERATION_NORMAL, choices=allOperations, help="Operation")
 parser.add_argument("-x", "--xtract", action="store_true", default=False, help="Extract each crop plant into images")
+parser.add_argument("-sess", "--session-name", action="store", required=False, default=UNIQUE, help="Session name to use instead of generating it")
+
+# The proximity flag is for considering only blobs closest to the bucket lid.
+# 0 lids: ignore image
+# 1+ lists: Equal number of blobs
+# The rationale here is to collect attributes of the same plant from multiple distances AGL
+parser.add_argument("-px", "--proximity", action="store_true", required=False, default=False, help="Collect information only on blobs close to bucket lid")
 
 arguments = parser.parse_args()
 
+if arguments.proximity and arguments.base is None:
+    print(f"The base altitude must be specified if proximity is.")
+    sys.exit(-1)
 
-# This creates a unique session -- nothing special here & could be changed to something human readable
-currentSessionName = shortuuid.uuid()
+# If the base is set to a float, use that. If it is an image, extract the altitude from that.
+# However, the image must be present for each image set, so it is not global. Additionally, the image used for the AGL
+# should not be processed.
+
+# A list of files that should be ignored in each directory -- only JPG files are found, and the image used for the base
+# altitude is a JPG, so it's probably the only one.
+filesToIgnore = []
+base = 0
+
+if arguments.base is not None:
+    try:
+        base = float(arguments.base)
+    except ValueError:
+        filesToIgnore.append(arguments.base)
+
+
+
+# If the session name was specified, use that. Otherwise generate
+if arguments.session_name == UNIQUE:
+    # This creates a unique session -- nothing special here & could be changed to something human-readable
+    currentSessionName = shortuuid.uuid()
+else:
+    currentSessionName = arguments.session_name
+
 outputDirectory = arguments.output + "/" + currentSessionName + "/"
+
+try:
+    Path(outputDirectory).mkdir(parents=False, exist_ok=True)
+except FileNotFoundError:
+    print(f"Unable to create path: {outputDirectory}")
+    sys.exit(-1)
+
+# Record the details used
+try:
+    with open(os.path.join(outputDirectory, constants.FILENAME_DETAILS), "w") as details:
+        details.write(f"Arguments: {sys.argv}")
+except FileNotFoundError:
+    print(f"Unable to access: {os.path.join(outputDirectory, constants.FILENAME_DETAILS)}")
+    exit(-1)
+
 
 factorsToExtract = []
 
@@ -1054,9 +1120,10 @@ def plot3D(index: np.ndarray, planeLocation: int, title: str):
     # I can get plotly to work only with square arrays, not rectangular, so just take a subset
     height, width = index.shape
     subsetLength = min(height, width)
+    offset = 0
     if subsetLength > 2100:
         subsetLength = 2100
-    subset = index[0:subsetLength, 0:subsetLength]
+    subset = index[0:subsetLength, offset:offset + subsetLength]
     log.debug("Index is {}".format(index.shape))
     log.debug("Subset is {}".format(subset.shape))
     xi = np.linspace(0, subset.shape[0], num=subset.shape[0])
@@ -1065,12 +1132,15 @@ def plot3D(index: np.ndarray, planeLocation: int, title: str):
     fig = go.Figure(data=[go.Surface(x=xi, y=yi, z=subset)])
 
     # The plane represents the threshold value
-    x1 = np.linspace(0, subsetLength, subsetLength)
-    y1 = np.linspace(0, subsetLength, subsetLength)
-    z1 = np.ones(subsetLength) * planeLocation
-    plane = go.Surface(x=x1, y=y1, z=np.array([z1] * len(x1)).T, opacity=0.5, showscale=False, showlegend=False)
+    if planeLocation < np.max(index) and planeLocation > np.min(index):
+        x1 = np.linspace(0, subsetLength, subsetLength)
+        y1 = np.linspace(0, subsetLength, subsetLength)
+        z1 = np.ones(subsetLength) * planeLocation
+        plane = go.Surface(x=x1, y=y1, z=np.array([z1] * len(x1)).T, opacity=0.5, showscale=False, showlegend=False)
 
-    fig.add_traces([plane])
+        fig.add_traces([plane])
+    else:
+        log.error("Threshold location is not within range of data")
 
 
     # Can't get these to work
@@ -1111,7 +1181,7 @@ def plot3Dmatplotlib(index, title):
 
 # Keep track of attributes in processing
 
-reporting = Reporting(arguments.results)
+reporting = Reporting(os.path.join(arguments.output, currentSessionName, arguments.results))
 
 (reportingOK, reportingReason) = reporting.initialize()
 if not reportingOK:
@@ -1138,6 +1208,18 @@ log.debug(f"Selected parameters from INI file: {selections}")
 
 mlApproach = "unknown"
 
+#
+# I M B A L A N C E
+#
+if arguments.ratio is not None:
+    # Imbalance ratio is expected to be something like 10:1
+    ratio = arguments.ratio.split(':')
+    if len(ratio) != 2:
+        print(f"Unable to convert ratio: {arguments.ratio}")
+    crop = float(ratio[0])
+    weed = float(ratio[1])
+    print(f"Converted ratio (crop:weed): {crop}:{weed}")
+
 if arguments.logistic:
     try:
         classifier = LogisticRegressionClassifier()
@@ -1145,7 +1227,8 @@ if arguments.logistic:
         classifier.selections = selections
         classifier.correct = arguments.correct
         classifier.correctionAlgorithm = ImbalanceCorrection[arguments.imbalance]
-        classifier.minority = arguments.minority
+        if arguments.ratio is not None:
+            classifier.targetImbalanceRatio = arguments.ratio
         classifier.correctSubset = Subset[arguments.subset.upper()]
         log.debug(f"Loaded selections: {classifier.selections}")
         classifier.load(arguments.data, stratify=False)
@@ -1231,10 +1314,11 @@ else:
     classifier = Classifier()
     print("Classify using heuristics\n")
 
+classifier.assess()
 
 # If this is just to visualize, exit afterwards
 if arguments.operation == OPERATION_VISUALIZE:
-    #classifier.visualize()
+    #classifier.visualizeModel()
     classifier.visualizeFolds()
 
     sys.exit(0)
@@ -1376,11 +1460,35 @@ def storeImage(contextForImage: Context, captureType: constants.Capture,
 mmPerPixel = 0.01
 
 
-def processImage(contextForImage: Context) -> constants.ProcessResult:
+def get_size(obj, seen=None):
+    """Recursively finds size of objects"""
+    size = sys.getsizeof(obj)
+    if seen is None:
+        seen = set()
+    obj_id = id(obj)
+    if obj_id in seen:
+        return 0
+    # Important mark as seen *before* entering recursion to gracefully handle
+    # self-referential objects
+    seen.add(obj_id)
+    if isinstance(obj, dict):
+        size += sum([get_size(v, seen) for v in obj.values()])
+        size += sum([get_size(k, seen) for k in obj.keys()])
+    elif hasattr(obj, '__dict__'):
+        size += get_size(obj.__dict__, seen)
+    elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes, bytearray)):
+        size += sum([get_size(i, seen) for i in obj])
+    return size
+
+# uncomment following line for memory profile
+#@profile
+def processImage(contextForImage: Context, sessionPath: str) -> constants.ProcessResult:
     global imageNumberBasler
     global sequence
     global previousImage
     global currentSessionName
+
+    #log.debug(f"Memory % used at start of processing: {psutil.Process(os.getpid()).memory_percent()}")
 
     try:
         log.info("Processing image " + str(imageNumberBasler))
@@ -1399,19 +1507,39 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
             log.error("Encountered I/O Error {}".format(io))
             return constants.ProcessResult.INTERNAL_ERROR
 
-        performance.stopAndRecord(constants.PERF_ACQUIRE_BASLER_RGB)
+        # Restrict processing to blobs close to lids
+        if arguments.proximity:
+            log.debug("Process only blobs close to disk")
+            p = Proximity(processed.source, sessionPath)
+            lids = p.lids
+
+            # If no lids are found in the image, just return
+            if len(lids) == 0:
+                log.debug("Image does not contain disk")
+                logger.increment()
+                sequence = sequence + 1
+                imageNumberBasler = imageNumberBasler + 1
+                return constants.ProcessResult.NOT_PROCESSED
+            else:
+                log.debug(f"Detected {len(lids)} lids in image")
+
+
+
+        #performance.stopAndRecord(constants.PERF_ACQUIRE_BASLER_RGB)
 
         # ImageManipulation.show("Source",image)
         veg.SetImage(rawImage)
-        veg.TemporaryLoad(processed.source)
+        #log.debug(f"Vegetation object: {get_size(veg)}")
+        #veg.TemporaryLoad(processed.source)
 
-        performance.stopAndRecord(constants.PERF_ACQUIRE_BASLER_RGB)
+        #performance.stopAndRecord(constants.PERF_ACQUIRE_BASLER_RGB)
 
-        manipulated = ImageManipulation(rawImage, imageNumberBasler, logger)
+        manipulatedImage = ImageManipulation(rawImage, imageNumberBasler, logger)
+        manipulatedImage.fontscale = arguments.fontscale
 
 
 
-        rawImage = logger.logImage(constants.FILENAME_RAW, manipulated.image)
+        rawImage = logger.logImage(constants.FILENAME_RAW, manipulatedImage.image)
 
         # manipulated.mmPerPixel = mmPerPixel
         # ImageManipulation.show("Greyscale", manipulated.toGreyscale())
@@ -1419,7 +1547,10 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
         # TODO: Simply this to just imsge=brg.GetMaskedImage(results.algorithm)
         # Compute the index using the requested algorithm
         performance.start()
+        veg.depth = processed.depth
         index = veg.Index(arguments.algorithm)
+        # if the index is refined, OTSU works for indices it didn't before
+        index = veg.refine()
         performance.stopAndRecord(constants.PERF_INDEX)
 
 
@@ -1439,31 +1570,36 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
         else:
             thresholdForMask = None
 
-        # Orignal before direction was configurable
-        #mask, threshold = veg.MaskFromIndex(index, not arguments.nonegate, 1, thresholdForMask)
-        mask, threshold = veg.MaskFromIndex(index, not arguments.nonegate, arguments.direction, thresholdForMask)
+        mask, threshold = veg.createMask(index, arguments.nonegate, arguments.direction, thresholdForMask)
         log.debug(f"Use threshold: {threshold}")
-        normalized = np.zeros_like(mask)
-        finalMask = cv.normalize(mask, normalized, 0, 255, cv.NORM_MINMAX)
+        # W A R N I N G
+        # debug memory
+        # normalized = np.zeros_like(mask)
+        # finalMask = cv.normalize(mask, normalized, 0, 255, cv.NORM_MINMAX)
+        finalMask = cv.normalize(mask, None, 0, 255, cv.NORM_MINMAX)
         logger.logImage("mask", finalMask)
 
-        # ImageManipulation.show("index", index)
+        # BmageManipulation.show("index", index)
         # cv.imwrite("index.jpg", index)
         if arguments.plot:
-            plot3D(index, threshold, arguments.algorithm)
+            title = "Segmentation: " + arguments.algorithm + " Threshold: " + arguments.threshold + " Image: " + str(imageNumberBasler)
+            plot3D(index, threshold, title)
 
         veg.applyMask()
+
         # This is the slow call
         # image = veg.GetMaskedImage()
         image = veg.GetImage()
-        normalized = np.zeros_like(image)
-        finalImage = cv.normalize(image, normalized, 0, 255, cv.NORM_MINMAX)
+        # Debug memory
+        # normalized = np.zeros_like(image)
+        # finalImage = cv.normalize(image, normalized, 0, 255, cv.NORM_MINMAX)
+        finalImage = cv.normalize(image, None, 0, 255, cv.NORM_MINMAX)
         if arguments.mask:
             filledMask = mask.copy().astype(np.uint8)
             cv.floodFill(filledMask, None, (0, 0), 255)
             filledMaskInverted = cv.bitwise_not(filledMask)
-            manipulated.toGreyscale()
-            threshold, imageThresholded = cv.threshold(manipulated.greyscale, 0, 255, cv.THRESH_BINARY_INV)
+            manipulatedImage.toGreyscale()
+            threshold, imageThresholded = cv.threshold(manipulatedImage.greyscale, 0, 255, cv.THRESH_BINARY_INV)
             finalMask = cv.bitwise_not(filledMaskInverted)
             logger.logImage("processed", finalImage)
             # veg.ShowImage("Thresholded", imageThresholded)
@@ -1479,7 +1615,11 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
         # logger.logImage("mask", veg.imageMask)
         # ImageManipulation.show("Masked", image)
 
+        #log.debug(f"Image object: {get_size(finalImage)}")
         manipulated = ImageManipulation(finalImage, imageNumberBasler, logger)
+        manipulated.fontscale = arguments.fontscale
+        #log.debug(f"Manipulation object start: {get_size(manipulated)}")
+        manipulated.performance = performance
 
         if arguments.database:
             imageInDB = RawImage.find(manipulated.hash, persistenceConnection)
@@ -1512,7 +1652,7 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
         performance.stopAndRecord(constants.PERF_CIELAB)
 
         # use finalImage for indexed image
-        manipulated.toDGCI(processed.source)
+        #manipulated.toDGCI(processed.source)
 
         # Find the plants in the image
         performance.start()
@@ -1538,9 +1678,37 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
             logger.logImage("error", manipulated.image)
             return constants.ProcessResult.NOT_PROCESSED
 
+        # Find the plant closest to the named lid, and keep that, pruning the list down before everything is calculated
+        if arguments.proximity:
+            p = Proximity(processed.source, sessionPath)
+            closest = p.closestBlobs(blobs)
+            #log.debug(f"Found {len(closest)} blobs close to lids")
+
+            # Safe to move this out so the distance AGL is always included, but the retrieval
+            # of the EXIF is not particularly efficient, as it re-reads a file that has already been read.
+            meta = Metadata(processed.source)
+            meta.getMetadata()
+            meta.base = base
+            agl = meta.agl
+
+            # Prune the list down to just the close blobs
+            pruned = {}
+            closestBlobs = [list(closest.keys())[0]]
+            for key, value in blobs.items():
+                if key in closestBlobs:
+                    value[constants.NAME_NAME] = closest[key]
+                    value[constants.NAME_AGL] = agl
+                    pruned[key] = value
+            blobs = pruned
+            log.debug(f"Blob list is pruned to only include: {closestBlobs}")
+            log.debug(f"Blob list has {len(blobs)} entries")
+
+
+
+
         performance.start()
-        manipulated.identifyOverlappingVegetation()
-        performance.stopAndRecord(constants.PERF_OVERLAP)
+        #manipulated.identifyOverlappingVegetation()
+        #performance.stopAndRecord(constants.PERF_OVERLAP)
 
         # Set the classifier blob set to be the set just identified
         classifier.blobs = blobs
@@ -1550,6 +1718,7 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
         # This takes too long and is not needed right now
         # manipulated.fitSquares(SQUARE_SIZE)
         # manipulated.drawSquares(SQUARE_SIZE)
+
         performance.start()
         manipulated.extractImages()
         manipulated.computeGLCM()
@@ -1566,11 +1735,13 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
         # H O G
         performance.start()
         manipulated.computeHOG()
+        performance.stopAndRecord(constants.PERF_HOG)
 
         # L B P
         performance.start()
         manipulated.computeLBP()
         performance.stopAndRecord(constants.PERF_LBP)
+
 
         # New image analysis based on readings here:
         # http://www.cyto.purdue.edu/cdroms/micro2/content/education/wirth10.pdf
@@ -1599,27 +1770,29 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
             classifier.classifyByPosition(size=manipulated.image.shape)
 
         # Determine the distance from the object to the edge of the image given  the pixel size of the camera
-        performance.start()
+        #performance.start()
         manipulated.computeDistancesToImageEdge(camera.getMMPerPixel(), camera.getResolution())
-        performance.stopAndRecord(constants.PERF_DISTANCE)
+        #performance.stopAndRecord(constants.PERF_DISTANCE)
 
         classifiedBlobs = classifier.blobs
 
         performance.start()
         # manipulated.findAngles()
         manipulated.findCropLine()
-        performance.stopAndRecord(constants.PERF_ANGLES)
+        #performance.stopAndRecord(constants.PERF_ANGLES)
 
         # Crop row processing
-        manipulated.identifyCropRowCandidates()
+        #manipulated.identifyCropRowCandidates()
 
         # Extract various features
         performance.start()
 
         # Compute the mean of the hue across the plant
         manipulated.extractImagesFrom(manipulated.hsi, 0, constants.NAME_HUE, np.nanmean)
-        performance.stopAndRecord(constants.PERF_MEAN)
+        performance.stopAndRecord(constants.PERF_MEAN_HUE)
+        performance.start()
         manipulated.extractImagesFrom(manipulated.hsv, 1, constants.NAME_SATURATION, np.nanmean)
+        performance.stopAndRecord(constants.PERF_MEAN_SAT)
 
         # Discussion of YIQ can be found here
         # Sabzi, Sajad, Yousef Abbaspour-Gilandeh, and Juan Ignacio Arribas. 2020.
@@ -1631,20 +1804,26 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
         # Compute the standard deviation of the I portion of the YIQ color space
         performance.start()
         manipulated.extractImagesFrom(manipulated.yiq, 1, constants.NAME_I_YIQ, np.nanstd)
-        performance.stopAndRecord(constants.PERF_STDDEV)
+        performance.stopAndRecord(constants.PERF_STDDEV_YIQ)
 
         # Compute the mean of the blue difference in the ycc color space
         performance.start()
         manipulated.extractImagesFrom(manipulated.ycbcr, 1, constants.NAME_BLUE_DIFFERENCE, np.nanmean)
-        performance.stopAndRecord(constants.PERF_MEAN)
+        performance.stopAndRecord(constants.PERF_MEAN_DIFF)
 
         # Use either heuristics or logistic regression
         if arguments.logistic or arguments.knn or arguments.tree or arguments.forest or arguments.gradient or arguments.support or arguments.lda or arguments.perceptron or arguments.extra:
-            log.debug(f"Classify by {mlApproach}")
+            #log.debug(f"Classify by {mlApproach}")
             performance.start()
+            # This is sort of a dummy classifier for debugging
+            #classifier.classifyAs(constants.TYPE_UNKNOWN)
+            #log.debug(f"Classification object: {len(pickle.dumps(classifier))}")
+            #log.debug(f"Manipulation object finish: {get_size(manipulated)}")
+            #log.debug(f"Performance object: {get_size(performance)}")
             classifier.classify()
             performance.stopAndRecord(constants.PERF_CLASSIFY)
             classifiedBlobs = classifier.blobs
+
         else:
             performance.start()
             classifier.classifyByRatio(largest, size=manipulated.image.shape, ratio=arguments.minratio)
@@ -1655,7 +1834,7 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
             manipulated.drawBoxes(manipulated.name, classifiedBlobs, featuresToShow, arguments.hull)
 
         # Eliminate vegetation we would damage
-        classifier.classifyByDamage(classifiedBlobs)
+        #classifier.classifyByDamage(classifiedBlobs)
 
         #
         # C R O P L I N E S
@@ -1675,7 +1854,7 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
             manipulated.drawContours()
 
         # Everything in the image is classified, so decorate the image with distances
-        manipulated.drawDistances()
+        #manipulated.drawDistances()
 
         # Just a test of stitching. This needs some more thought
         # we can't stitch things where there is nothing in common between the two images
@@ -1697,77 +1876,84 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
         originalImage = logger.logImage(constants.FILENAME_ORIGINAL + "-" + arguments.algorithm, manipulated.original)
         # ImageManipulation.show("Greyscale", manipulated.toGreyscale())
 
+
         #
         # D A T A B A S E
         #
 
-        # If the image is not already in DB, put it there
-        imageInDB  = RawImage.find(manipulated.hash, persistenceConnection)
-        if imageInDB is None:
-            url = "file://" + currentSessionName + "/" + rawImage
-            lat = processed.latitude
-            long = processed.longitude
+        if arguments.database:
+            # If the image is not already in DB, put it there
+            imageInDB  = RawImage.find(manipulated.hash, persistenceConnection)
+            if imageInDB is None:
+                url = "file://" + currentSessionName + "/" + rawImage
+                lat = processed.latitude
+                long = processed.longitude
 
-            # If the altitude on the command line overrides the image
-            if arguments.altitude > 0.0:
-                agl = arguments.altitude
+                # If the altitude on the command line overrides the image
+                if arguments.altitude > 0.0:
+                    agl = arguments.altitude
+                else:
+                    agl = processed.altitude
+
+                hash = manipulated.hash
+                date_format = '%Y:%m:%d %H:%M:%S'
+                try:
+                    acquired = datetime.strptime(processed.takenAt, date_format)
+                except ValueError as val:
+                    log.error(f"Unable to determine image acquired date from [{processed.takenAt}]")
+                    acquired = datetime.now()
+                processedURL = "file://" + currentSessionName + "/" + processedImage
+                processedEntry = {arguments.algorithm + "-" + mlApproach: processedURL}
+                segmentedURL = "file://" + currentSessionName + "/" + originalImage
+                segmented = {arguments.algorithm: segmentedURL}
+
+                # The image does not have a human-readable name yet
+                imageName = constants.NAME_IMAGE + "-" + str(sequence)
+
+                image = RawImage(imageName, url, lat, long, agl, acquired, arguments.crop, segmented, processedEntry, hash, None)
+                image.save(persistenceConnection)
+                # For blobs to point back to the parent
+                parentId = ObjectId(image.id)
             else:
-                agl = processed.altitude
+                log.debug(f"Image {manipulated.hash} is already in DB")
+                processedURL = "file://" + currentSessionName + "/" + processedImage
+                imageInDB.addProcessed(arguments.algorithm + "-" + mlApproach, processedURL)
+                segmentedURL = "file://" + currentSessionName + "/" + originalImage
+                imageInDB.addSegmented(arguments.algorithm, segmentedURL)
+                imageInDB.save(persistenceConnection)
+                parentId = ObjectId(imageInDB.id)
 
-            hash = manipulated.hash
-            date_format = '%Y:%m:%d %H:%M:%S'
-            acquired = datetime.strptime(processed.takenAt, date_format)
-            processedURL = "file://" + currentSessionName + "/" + processedImage
-            processedEntry = {arguments.algorithm + "-" + mlApproach: processedURL}
-            segmentedURL = "file://" + currentSessionName + "/" + originalImage
-            segmented = {arguments.algorithm: segmentedURL}
+        if arguments.database:
+            # So at this point, the raw image, the segmented image, and the processed image should be in the DB
+            # Construct the list of all attributes
+            logger.reportIndex = False
+            for blobName, blobAttributes in manipulated.blobs.items():
+                log.debug(f"Inserting blob {blobName} of {originalImage} into DB")
+                allFactors = Factors()
 
-            # The image does not have a human-readable name yet
-            imageName = constants.NAME_IMAGE + "-" + str(sequence)
-
-            image = RawImage(imageName, url, lat, long, agl, acquired, arguments.crop, segmented, processedEntry, hash, None)
-            image.save(persistenceConnection)
-            # For blobs to point back to the parent
-            parentId = ObjectId(image.id)
-        else:
-            log.debug(f"Image {manipulated.hash} is already in DB")
-            processedURL = "file://" + currentSessionName + "/" + processedImage
-            imageInDB.addProcessed(arguments.algorithm + "-" + mlApproach, processedURL)
-            segmentedURL = "file://" + currentSessionName + "/" + originalImage
-            imageInDB.addSegmented(arguments.algorithm, segmentedURL)
-            imageInDB.save(persistenceConnection)
-            parentId = ObjectId(imageInDB.id)
-
-        # So at this point, the raw image, the segmented image, and the processed image should be in the DB
-        # Construct the list of all attributes
-        logger.reportIndex = False
-        for blobName, blobAttributes in manipulated.blobs.items():
-            log.debug(f"Inserting blob {blobName} of {originalImage} into DB")
-            allFactors = Factors()
-
-            allAttributes = {}
-            columns = allFactors.getColumns([], [])
-            for factor in columns:
-                allAttributes[factor] = blobAttributes[factor]
-            #log.debug(f"Attribute list: {allAttributes}")
-            fileName = Path(originalImage)
-            blobFilename = str(fileName.with_suffix('')) + "-" + blobName
-            blobImage = logger.logImage(blobFilename, blobAttributes[constants.NAME_IMAGE])
-            blobURL = "file://" + currentSessionName + "/" + blobImage
-            # TODO: Not correct -- this should really be the location of the blob, not the image
-            lat = processed.latitude
-            long = processed.longitude
-            # This could be obtained from looking at the parent's image, but just for convenience, put it here.
-            # If the altitude on the command line overrides the image
-            if arguments.altitude > 0.0:
-                altitude = arguments.altitude
-            else:
-                altitude = processed.altitude
-            technique = mlApproach
-            hash = sha1(np.ascontiguousarray(blobAttributes[constants.NAME_IMAGE])).hexdigest()
-            classifiedAs = int(blobAttributes[constants.NAME_TYPE])
-            blobInDB = Blob(blobName, blobURL, lat, long, altitude, allAttributes, factors, technique, classifiedAs, parentId, hash, None)
-            blobInDB.save(persistenceConnection)
+                allAttributes = {}
+                columns = allFactors.getColumns([], [])
+                for factor in columns:
+                    allAttributes[factor] = blobAttributes[factor]
+                #log.debug(f"Attribute list: {allAttributes}")
+                fileName = Path(originalImage)
+                blobFilename = str(fileName.with_suffix('')) + "-" + blobName
+                blobImage = logger.logImage(blobFilename, blobAttributes[constants.NAME_IMAGE])
+                blobURL = "file://" + currentSessionName + "/" + blobImage
+                # TODO: Not correct -- this should really be the location of the blob, not the image
+                lat = processed.latitude
+                long = processed.longitude
+                # This could be obtained from looking at the parent's image, but just for convenience, put it here.
+                # If the altitude on the command line overrides the image
+                if arguments.altitude > 0.0:
+                    altitude = arguments.altitude
+                else:
+                    altitude = processed.altitude
+                technique = mlApproach
+                hash = sha1(np.ascontiguousarray(blobAttributes[constants.NAME_IMAGE])).hexdigest()
+                classifiedAs = int(blobAttributes[constants.NAME_TYPE])
+                blobInDB = Blob(blobName, blobURL, lat, long, altitude, allAttributes, factors, technique, classifiedAs, parentId, hash, None)
+                blobInDB.save(persistenceConnection)
         logger.reportIndex = True
 
         # Write out the crop images so we can use them later
@@ -1780,19 +1966,25 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
                     logger.logImage("weed", blobAttributes[constants.NAME_IMAGE])
 
 
-        reporting.addBlobs(sequence, blobs)
+
+        # Scalars
+        reporting.addBlobs(sequence, contextForImage, blobs)
+        # Vectors
+        #reporting.addBlobsWithVectors(sequence, manipulated.blobsByType(FactorKind.VECTOR).copy())
         sequence = sequence + 1
 
-        if arguments.spray:
-            performance.start()
-            treatment = Treatment(manipulated.original, manipulated.binary)
-            treatment.overlayTreatmentLanes()
-            treatment.generatePlan(classifiedBlobs)
-            # treatment.drawTreatmentLanes(classifiedBlobs)
-            performance.stopAndRecord(constants.PERF_TREATMENT)
-            logger.logImage("treatment", treatment.image)
+        # Not needed
+        # if arguments.spray:
+        #     performance.start()
+        #     treatment = Treatment(manipulated.original, manipulated.binary)
+        #     treatment.overlayTreatmentLanes()
+        #     treatment.generatePlan(classifiedBlobs)
+        #     # treatment.drawTreatmentLanes(classifiedBlobs)
+        #     performance.stopAndRecord(constants.PERF_TREATMENT)
+        #     logger.logImage("treatment", treatment.image)
 
         imageNumberBasler = imageNumberBasler + 1
+        #veg.Unload()  # debug memory leak
 
     except IOError as e:
         print("There was a problem communicating with the camera")
@@ -1812,16 +2004,20 @@ def processImage(contextForImage: Context) -> constants.ProcessResult:
 
 
 #
+# D E A D  C O D E
+#
+# This is not needed  --- we always run standalone
+#
 # Set up the processor for the image.
 #
 # This could be simplified a bit by having only one processing routine
 # and figuring out the intent there
-if arguments.grab:
-    # If all we want is just to take pictures
-    processor = storeImage
-else:
-    # This is the normal run state, where items in images are classified
-    processor = processImage
+# if arguments.grab:
+#     # If all we want is just to take pictures
+#     processor = storeImage
+# else:
+#     # This is the normal run state, where items in images are classified
+#     processor = processImage
 
 
 def postWeedingCleanup():
@@ -2431,11 +2627,11 @@ def enrichImages():
 # Start up various subsystems
 #
 
-if not arguments.standalone:
-    # Diagnostics will appear in the same directory structure as the output files
-    systemDiagnostics = Diagnostics("../output", options.option(constants.PROPERTY_SECTION_GENERAL,
-                                                                constants.PROPERTY_POSITION) + constants.EXTENSION_HTML)
-    systemDiagnostics.writeHTML()
+# if not arguments.standalone:
+#     # Diagnostics will appear in the same directory structure as the output files
+#     systemDiagnostics = Diagnostics("../output", options.option(constants.PROPERTY_SECTION_GENERAL,
+#                                                                 constants.PROPERTY_POSITION) + constants.EXTENSION_HTML)
+#     systemDiagnostics.writeHTML()
 
 # Set the status of all components to failed initially
 systemStatus = constants.OperationalStatus.FAIL
@@ -2496,11 +2692,11 @@ gsdBasler = (1 - float(
 camera.gsdAdjusted = gsdBasler
 log.debug("GSD Basler: {}/{}".format(gsdBasler, camera.gsd))
 
-(roomOdometry, roomSystem, roomTreatment) = startupCommunications(options, messageOdometryCB, messageSystemCB,
-                                                                  messageTreatmentCB)
-log.debug("Communications started")
-
-odometryMQ = startupMQCommunications(options, processOdometryMessage)
+# (roomOdometry, roomSystem, roomTreatment) = startupCommunications(options, messageOdometryCB, messageSystemCB,
+#                                                                   messageTreatmentCB)
+# log.debug("Communications started")
+#
+# odometryMQ = startupMQCommunications(options, processOdometryMessage)
 
 performance = startupPerformance()
 log.debug("Performance started")
@@ -2511,71 +2707,61 @@ threads = list()
 #
 # There are two modes of operation here: standalone or part of a system.
 #
-# If this is part of a system, startup all the threads required, and have the odometry messages drive things
-#
-if not arguments.standalone:
 
-    # Images before and after processing
-    rawImages = Images()
-    processedImages = Images()
-
-    log.debug("Start camera image acquisition")
-    acquire = threading.Thread(name=constants.THREAD_NAME_ACQUIRE, target=takeRGBImages, args=(camera,))
-    acquire.daemon = True
-    threads.append(acquire)
-    acquire.start()
-
-    # log.debug("Start post-emitter camera image acquisition")
-    # acquire = threading.Thread(name=constants.THREAD_NAME_ACQUIRE_POST, target=takeRGBImages, args=(None,))
-    # acquire.daemon = True
-    # threads.append(acquire)
-    # acquire.start()
-
-    log.debug("Starting odometry MQ receiver")
-    odometryProcessor = threading.Thread(name=constants.THREAD_NAME_REQ_RSP, target=processMQ, args=(odometryMQ,))
-    odometryProcessor.daemon = True
-    threads.append(odometryProcessor)
-    odometryProcessor.start()
-
-    log.debug("Starting system receiver")
-    # sys = threading.Thread(name=constants.THREAD_NAME_SYSTEM, target=processMessages, args=(roomSystem,))
-    sys = threading.Thread(name=constants.THREAD_NAME_SYSTEM, target=roomSystem.processMessages, args=())
-    sys.daemon = True
-    threads.append(sys)
-    sys.start()
-
-    # Not needed for post-emitter assessment
-    if arguments.weeds:
-        log.debug("Starting treatment thread")
-        # treat = threading.Thread(name=constants.THREAD_NAME_TREATMENT, target=processMessages, args=(roomTreatment,))
-        treat = threading.Thread(name=constants.THREAD_NAME_TREATMENT, target=roomTreatment.processMessages, args=())
-        treat.daemon = True
-        threads.append(treat)
-        treat.start()
-
-    log.debug("Starting enrichment thread")
-    enrich = threading.Thread(name=constants.THREAD_NAME_TREATMENT, target=enrichImages, args=())
-    enrich.daemon = True
-    threads.append(enrich)
-    enrich.start()
-
-    # Wait for the workers to finish
-    threadsAreAlive = True
-    while threadsAreAlive:
-        time.sleep(5)
-        for thread in threads:
-            if not thread.is_alive():
-                log.error("Thread {} exited. This is not normal.".format(thread.name))
-                threadsAreAlive = False
-
-else:  # if not arguments.standalone
-
-    # Connect to the camera and process until an error is hit
+# Connect to the camera and process until an error is hit
+for dir in arguments.input:
+    # Set up to read the images
+    #camera.ignored = arguments.base
+    camera.directory = dir
     camera.connect()
+
     contextForImage = Context()
+    exif = None
+
+    # Read the altitude for the image set
+    # OK, the statements above noted that this should not be global, so this is just for debug for now
+    if arguments.base is not None:
+        print(f"Extract altitude from {arguments.base} and determine distance AGL")
+        if not os.path.isfile(arguments.base):
+            print(f"Base must either be specified directly with specific float value or indirectly with an image. Can't access file: {arguments.base}")
+            sys.exit(-1)
+        exif = Metadata(arguments.base)
+        exif.getMetadata()
+        base = exif.altitude
+    else:
+        base = 0
+
+    acquisitionDate = constants.VALUE_UNKNOWN
+    # The date of the acquisition is different for each data set
+    if arguments.date is not None:
+        if os.path.isfile(arguments.date):
+            print(f"Extract date from {arguments.date}")
+            if exif is None:
+                exif = Metadata(arguments.date)
+                exif.getMetadata()
+            exifDate = exif.taken
+
+            # Convert the timestamp to just a ISO date
+            dateTimeFormat = '%Y:%m:%d %H:%M:%S'
+            dateTime = datetime.strptime(exifDate, dateTimeFormat)
+            acquisitionDate = dateTime.strftime('%Y-%m-%d')
+            print(f"Image was acquired on {acquisitionDate}")
+        else:
+            # Verify the date
+            try:
+                parse(arguments.date)
+            except ValueError:
+                raise ValueError("Incorrect data format, should be YYYY-MM-DD")
+            acquisitionDate = arguments.date
+    contextForImage.datestamp = acquisitionDate
+
     processing = True
     while processing:
-        result = processor(contextForImage)
+        before = psutil.Process(os.getpid()).memory_percent()
+        #log.debug(f"Memory % used before: {before}")
+        result = processImage(contextForImage, outputDirectory)
+        after = psutil.Process(os.getpid()).memory_percent()
+        #log.debug(f"Memory % used after : {after} Delta: {after - before}")
         processing = (result == constants.ProcessResult.OK or result == constants.ProcessResult.NOT_PROCESSED)
 
 performance.cleanup()
@@ -2583,7 +2769,9 @@ performance.cleanup()
 # Not quite right here to get the list of all blobs from the reporting module
 # classifier.train(reporting.blobs)
 
-result, reason = reporting.writeSummary()
+# W A R N I N G
+# memory debug
+#result, reason = reporting.writeSummary()
 
 # if not result:
 #     print(reason)

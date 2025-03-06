@@ -7,6 +7,9 @@ import os.path
 from collections import Counter
 import math
 import glob
+import sys
+
+from statsmodels.tsa.stattools import adfuller
 
 import argparse
 import pickle
@@ -28,6 +31,7 @@ from Factors import FactorTypes
 from Factors import FactorSubtypes
 
 from Classifier import ClassificationTechniques
+from Classifier import ImbalanceCorrection
 
 
 def similarity(l1: [], l2: []) -> float:
@@ -92,7 +96,7 @@ criteriaChoices.append(constants.NAME_ALL)
 
 attributeTypes = [e for e in FactorTypes]
 attributeChoices = [e.name for e in FactorTypes]
-#attributeChoices.append(constants.NAME_ALL)
+attributeChoices.append(constants.NAME_ALL)
 
 attributeSubtypes = [e for e in FactorSubtypes]
 attributeSubtypeChoices = [e.name for e in FactorSubtypes]
@@ -101,6 +105,8 @@ attributeSubtypeChoices.append(constants.NAME_ALL)
 classifications = [e for e in ClassificationTechniques]
 classificationChoices = [e.name for e in ClassificationTechniques]
 classificationChoices.append(constants.NAME_ALL)
+
+imbalanceNames = [e.name for e in ImbalanceCorrection]
 
 parser.add_argument("-c", "--computed", action="store", required=True, help="Pickle format file with computed parameters")
 parser.add_argument("-cr", "--criteria", action="store", required=False, default="AUC", choices=criteriaChoices, help="Criteria to determine maximum")
@@ -122,6 +128,16 @@ options.add_argument("-r", "--results", action="store", help="Pickle file for te
 parser.add_argument("-si", "--similarity", action="store", required=False, type=float, help="Show items where similarity matches")
 parser.add_argument("-su", "--summary", action="store_true", required=False, help="Show a summary of the results")
 
+# Produce seasonality comparison table instead of just the attributes
+parser.add_argument("-se", "--seasonality", action="store_true", required=False, default=False, help="Show seasonality instead of attribute names")
+parser.add_argument("-so", "--source", action="store", required=False, help="The original data for these results")
+
+# The --compare option will produce a table that contains only the before and after scores between the two files
+# For instance the first file was uncorrected, and the second was corrected.
+parser.add_argument("-co", "--compare", action="store_true", required=False, default=False, help="Compare results to specified set")
+parser.add_argument("-t", "--target", action="store", required=False, help="Compare results to this file (required if --compare is")
+
+parser.add_argument("-table", "--table", action="store", required=False, help="Output file for table")
 # The classification techniques
 # Don't make this selectable for now -- not needed
 #parser.add_argument("-s", "--subtypes", action="store", required=False, default=constants.NAME_ALL, nargs='*', choices=attributeSubtypeChoices, help="Attribute types used")
@@ -140,14 +156,38 @@ niceColumnNames = {"_accuracy": "Accuracy",
                    "_f1": "F1",
                    "_parameters": "Parameters"}
 
+if arguments.seasonality:
+    if arguments.source is None:
+        print("Source name must be specified if seasonality is")
+        sys.exit(-1)
+    if not os.path.isfile(arguments.source):
+        print(f"Unable to access source data: {arguments.source}")
+        sys.exit(-1)
+
+if arguments.compare:
+    if arguments.target is None:
+        print("Target must be specified if compare is.")
+        sys.exit(-1)
+
+if arguments.table is not None:
+    if os.path.isfile(arguments.table):
+        print(f"Output file {arguments.table} exists. Will not overwrite")
+        sys.exit(-1)
+
 # The types and subtypes to be considered. If a subset is not specified, use all of them.
 if arguments.types is not None:
-    types = [FactorTypes[e] for e in arguments.types]
+    if "all" in arguments.types:
+        types = attributeTypes
+    else:
+        types = [FactorTypes[e] for e in arguments.types]
 else:
     types = attributeTypes
 
 if arguments.subtypes is not None:
-    subtypes = arguments.subtypes
+    if "all" in arguments.subtypes:
+        subtypes = attributeSubtypes
+    else:
+        subtypes = [FactorSubtypes[e] for e in arguments.subtypes]
 else:
     subtypes = attributeSubtypes
 
@@ -193,7 +233,12 @@ else:
 allResults = []
 for file in files:
     components = Path(file).stem.split('_')
-    allResultsForTechnique = AllResults(technique=components[2])
+    if len(components) == 5:
+        allResultsForTechnique = AllResults(technique=components[2], correction=components[4])
+    else:
+        allResultsForTechnique = AllResults(technique=components[2])
+
+    print(f"Loading: {file}")
     allResultsForTechnique.load(file)
     allResults.append(allResultsForTechnique)
 
@@ -225,6 +270,17 @@ def averageScores(finalSubset: pd.DataFrame) -> pd.DataFrame:
     :param finalSubset: a dataframe with multiple rows
     :return: a new dataframe with a single row
     """
+    # This is a bit of a hack -- just treat the technique and parameter as string, and everything else is a float
+    # This is to address the problem where constant values are type Object, not float
+    stringColumns = ['Technique', 'Parameters', 'Correction']
+    typeConversions = {}
+    for column in finalSubset.columns:
+        if column not in stringColumns:
+            typeConversions[column] = float
+        else:
+            typeConversions[column] = object
+    finalSubset = finalSubset.astype(typeConversions)
+
     # Copy the frame, but drop the rows
     averaged = finalSubset.copy()
     averaged.drop(index=finalSubset.index, axis=0, inplace=True)
@@ -239,23 +295,58 @@ def averageScores(finalSubset: pd.DataFrame) -> pd.DataFrame:
     if len(finalSubset.at[0, 'Parameters']) == 0:
         finalSubset.at[0, 'Parameters'] = 'UNKNOWN'
 
-    if averages[0] > 0:
-        averaged.loc[0] = [finalSubset.at[0, 'Technique']] + list(averages) + [finalSubset.at[0, 'Parameters']]
+    if averages[0] > 0 and len(averages) == 5:
+        averaged.loc[0] = [finalSubset.at[0, 'Technique']] + list(averages) + [finalSubset.at[0,'Correction']] + [finalSubset.at[0, 'Parameters']]
+
+    # There is a bug in the code -- if the column is constant, it is of type object, not float
+    if len(averages) != 5:
+        print(f"Technique {finalSubset.at[0, 'Technique']} has {len(averages)}")
 
 
     return averaged
 
 allFactors = Factors()
 
+
+def replaceParametersWithSeasonality(results, sourceDF):
+    #adfCrop = adfuller(cropObservations, autolag='t-stat')
+    resultsDF = results.copy()
+    # Separate into weed and crop segments
+    crop = sourceDF[sourceDF['type'] == 0]
+    weeds = sourceDF[sourceDF['type'] == 1]
+
+    seasonality = []
+
+    # Calculate the ADF for one column with adfTest = adfuller(sourceDF['shape_index']
+    for idx in range(len(resultsDF)):
+        parameters = resultsDF.iloc[idx]['Parameters'].split()
+        isSeasonal = []
+        for parameter in parameters:
+            # Not quite correct -- treats everything as crop
+            adfCrop = adfuller(crop[parameter])
+            adfWeed = adfuller(weeds[parameter])
+            isSeasonal.append(adfCrop[1] < 0.05 and adfWeed[1] < 0.05)
+
+        #resultsDF.iloc[idx]['Parameters'] = isSeasonal
+        stringList = [str(b) for b in isSeasonal]
+        seasonalString = " ".join(stringList)
+        seasonality.append(seasonalString)
+
+    resultsDF.drop(axis=1, inplace=True, columns=["Parameters"])
+    resultsDF["parameters"] = seasonality
+    return resultsDF
+
+
 if arguments.summary:
     columnNames = ['Technique']
     columnNames.extend(list(scoreNames))
+    columnNames.extend(["Correction"])
     columnNames.extend(["Parameters"])
 
     resultsDF = pd.DataFrame(columns=columnNames)
 
     for technique in allResults:
-        print(f"Technique {technique.technique}")
+        print(f"Technique {technique.technique} Correction {technique.correction}")
         resultsSubset = pd.DataFrame(columns=columnNames)
         highestAUC = -1
         highestMAP = -1
@@ -268,17 +359,19 @@ if arguments.summary:
 
         # Create 5 entries for a given technique
         for scores in scoreNames:
-            resultsSubset.loc[len(resultsSubset)] = [technique.technique, -1, -1, -1, -1, -1, technique.parameters]
+            resultsSubset.loc[len(resultsSubset)] = [technique.technique, -1, -1, -1, -1, -1, technique.correction, technique.parameters]
 
         # Iterate over the results, replacing as needed
         for result in technique.results:
-            #print(f"Status: {result.status}")
+            #print(f"Result: {result}")
             # Catch the case where the computation is not complete.
             if result.status != Status.COMPLETED:
                 print(f"Entry is not complete: {result}")
                 continue
             # Determine if the parameter set is composed entirely of the subset specified
             if not allFactors.composedOfTypes(types, result.parameters):
+                continue
+            if not allFactors.composedOfSubtypes(subtypes, result.parameters):
                 continue
             elif result.status != Status.COMPLETED:
                 continue
@@ -287,8 +380,17 @@ if arguments.summary:
 
             #print(f"{result.auc},{result.accuracy}")
             allParameters = ' '.join(result.parameters)
-            row = [result.technique, result.precision, result.recall, result.f1, result.map, result.auc, allParameters]
+            row = [result.technique, result.precision, result.recall, result.f1, result.map, result.auc, result.correction, allParameters]
             replacementIndex = -1
+
+
+            # The highest scores seen for each correction technique
+            # highestAUC = {constants.NAME_NONE: -1, ImbalanceCorrection.SMOTE.name: -1, ImbalanceCorrection.ADASYN.name: -1, ImbalanceCorrection.BORDERLINE.name: -1, ImbalanceCorrection.KMEANS.name: -1, ImbalanceCorrection.SVM.name: -1, ImbalanceCorrection.SMOTETOMEK.name: -1, ImbalanceCorrection.SMOTEENN.name: -1}
+            # highestMAP = highestAUC.copy()
+            # highestF1 = highestAUC.copy()
+            # highestPrecision = highestAUC.copy()
+            # highestRecall =  highestAUC.copy()
+
             highestAUC = -1
             highestMAP = -1
             highestF1 = -1
@@ -297,31 +399,38 @@ if arguments.summary:
 
             # Iterate over the results to find the highest score for the results
             for index, techniqueItem in resultsSubset.iterrows():
-                if result.auc > techniqueItem["AUC"] and result.auc > highestAUC:
-                    #print(f"AUC for index {index} {result.auc} vs {techniqueItem['AUC']}")
-                    replacementIndex = index
-                    highestAUC = result.auc
-                    continue
-                if result.precision > techniqueItem["Precision"] and result.precision > highestPrecision:
-                    #print(f"Precision for index {index} {result.precision} vs {techniqueItem['Precision']}")
-                    replacementIndex = index
-                    highestPrecision = result.precision
-                    continue
-                if result.recall > techniqueItem["Recall"] and result.recall > highestRecall:
-                    #print(f"Recall for index {index} {result.recall} vs {techniqueItem['Recall']}")
-                    replacementIndex = index
-                    highestRecall = result.recall
-                    continue
-                if result.f1 > techniqueItem["F1"] and result.f1 > highestF1:
-                    #print(f"F1 for index {index} {result.f1} vs {techniqueItem['F1']}")
-                    replacementIndex = index
-                    highestPrecision = result.f1
-                    continue
-                if result.map > techniqueItem["MAP"] and result.map > highestMAP:
-                    #print(f"MAP for index {index} {result.map} vs {techniqueItem['MAP']}")
-                    replacementIndex = index
-                    highestMAP = result.map
-                    continue
+                print(f"{techniqueItem['Technique']} + {techniqueItem['Correction']}: AUC: {techniqueItem['AUC']} Parameters: {techniqueItem['Parameters']}")
+                #if result.auc > techniqueItem["AUC"] and result.auc > highestAUC[technique["Correction"]]:
+                if arguments.criteria == "AUC":
+                    if result.auc > techniqueItem["AUC"] and result.auc > highestAUC:
+                        print(f"AUC for index {index} {result.auc} vs {techniqueItem['AUC']}")
+                        replacementIndex = index
+                        highestAUC = result.auc
+                        continue
+                # #if result.precision > techniqueItem["Precision"] and result.precision > highestPrecision[technique["Correction"]]:
+                # if result.precision > techniqueItem["Precision"] and result.precision > highestPrecision:
+                #     #print(f"Precision for index {index} {result.precision} vs {techniqueItem['Precision']}")
+                #     replacementIndex = index
+                #     highestPrecision = result.precision
+                #     continue
+                # #if result.recall > techniqueItem["Recall"] and result.recall > highestRecall[technique["Correction"]]:
+                # if result.recall > techniqueItem["Recall"] and result.recall > highestRecall:
+                #     #print(f"Recall for index {index} {result.recall} vs {techniqueItem['Recall']}")
+                #     replacementIndex = index
+                #     highestRecall = result.recall
+                #     continue
+                # #if result.f1 > techniqueItem["F1"] and result.f1 > highestF1[technique["Correction"]]:
+                # if result.f1 > techniqueItem["F1"] and result.f1 > highestF1:
+                #     #print(f"F1 for index {index} {result.f1} vs {techniqueItem['F1']}")
+                #     replacementIndex = index
+                #     highestPrecision = result.f1
+                #     continue
+                # #if result.map > techniqueItem["MAP"] and result.map > highestMAP[technique["Correction"]]:
+                # if result.map > techniqueItem["MAP"] and result.map > highestMAP:
+                #     #print(f"MAP for index {index} {result.map} vs {techniqueItem['MAP']}")
+                #     replacementIndex = index
+                #     highestMAP = result.map
+                #     continue
                 #replaceCurrentRow = highestPrecision == result.precision and highestRecall == result.recall and highestF1 == result.f1 and highestMAP == result.map
             if replacementIndex != -1:
                 #print(f"Replacement index {replacementIndex}")
@@ -351,20 +460,34 @@ if arguments.summary:
         #resultsDF = resultsDF.convert_dtypes()
         # If we don't explicitly convert the Technique column to a string, we see problems
         resultsDF['Technique'] = resultsDF['Technique'].astype('string')
+        resultsDF['Correction'] = resultsDF['Correction'].astype('string')
         #resultsDF.drop(["Technique"], inplace=True, axis=1)
         resultsDF.drop_duplicates(inplace=True)
 
         # Drop the columns except the technique and parameters
+        #whitelist = ['Technique', 'Parameters', 'Correction']
         whitelist = ['Technique', 'Parameters']
         for column in resultsDF.columns:
             if column not in whitelist and column.upper() != arguments.criteria:
                 resultsDF.drop(column, inplace=True, axis=1)
+
+        if arguments.seasonality:
+            sourceDF = pd.read_csv(arguments.source)
+            resultsDF = replaceParametersWithSeasonality(resultsDF, sourceDF)
+
         #resultsDF['Parameters'] = resultsDF['Parameters'].astype('string')
         # Original
         #print(f"{resultsDF.to_latex(longtable=True, index_names=False, index=False, caption=(longCaption, shortCaption), float_format='%.2f', label=arguments.label)}")
         # The max_colwidth option is needed to avoid the row being truncated
+        f = None
+        if arguments.table is not None:
+            f = open(arguments.table, "w")
         with pd.option_context("max_colwidth", 1000):
-            print(f"{resultsDF.to_latex(longtable=True, index_names=False, index=False, caption=(longCaption, shortCaption),  float_format='%.2f', label=arguments.label, column_format='lcl')}")
+            if arguments.table is not None:
+                f.write(f"{resultsDF.to_latex(longtable=True, index_names=False, index=False, caption=(longCaption, shortCaption),  float_format='%.3f', label=arguments.label, column_format='lcll')}")
+            print(f"{resultsDF.to_latex(longtable=True, index_names=False, index=False, caption=(longCaption, shortCaption),  float_format='%.3f', label=arguments.label, column_format='lcll')}")
+        if f is not None:
+            f.close()
         print(f"-----------------")
         exit(0)
     else:

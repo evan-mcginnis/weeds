@@ -3,10 +3,10 @@
 #
 # Needed to prevent errors in type hints in member method parameters that use the enclosing class
 from __future__ import annotations
-from typing import List
+#from typing import List
 
 import threading
-import math
+#import math
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 from collections import Counter
@@ -18,11 +18,11 @@ from sklearn.feature_selection import RFE
 #from sklearn.linear_model import LogisticRegression
 from sklearn.decomposition import PCA
 import pickle
-from typing import List
-import itertools
+#from typing import List
+#import itertools
 import numpy as np
 import pandas as pd
-import logging
+#import logging
 import matplotlib.pyplot as plt
 import os
 
@@ -30,13 +30,17 @@ import constants
 from Factors import Factors
 from Factors import FactorTypes
 from Factors import FactorSubtypes
+from WeedExceptions import EOL
+from Classifier import ImbalanceCorrection
+
+from Tidy import Tidy
 
 from enum import Enum
 
 from numpy import set_printoptions
 
 
-import random
+#import random
 
 # Types of analysis
 SELECTION_VARIANCE    = "variance"
@@ -56,6 +60,26 @@ class Output(Enum):
 class Criteria(Enum):
     ACCURACY = 0
     AUC = 1
+    PRECISION = 2
+    RECALL = 3
+    F1 = 4
+    MAP = 5
+
+    def __str__(self):
+        return self.name
+
+def nameOfTechnique(technique: str, correction: str) -> str:
+    """
+    The name of the technique considering correction.
+    If there is no correction, just return technique name -- otherwise <technique>_<correction>
+    :param technique: Name of classification technique
+    :param correction:  Name of correction technique
+    :return: name of technique considering correction
+    """
+    if correction == constants.NAME_NONE:
+        return technique
+    else:
+        return technique + constants.DELIMETER + correction
 
 class Selection(ABC):
 
@@ -107,7 +131,7 @@ class Selection(ABC):
         Set the list of attribute types used in classification
         :param theAttributes: list of FactorTypes
         """
-        # Make certain this is a list of strings
+        # Make certain this is a list of strings/
         # assert(isinstance(theAttributes, list))
         # assert(all(isinstance(s, FactorTypes) for s in theAttributes))
 
@@ -153,41 +177,48 @@ class Selection(ABC):
     def rawData(self):
         return self._rawData
 
+    def _clean(self):
+        """
+        Clean the dataset by removing rows with zeros in them
+        """
+        columns = self._df.columns.tolist()
+        columns.remove(constants.NAME_TYPE)
 
+        lengthBefore = len(self._df)
+        # This would probably be much easier if we had NANs instead of 0
+        # to get rid of -- replace all the 0s with NANs
+        for column in columns:
+            self._df[column] = self._df[column].replace(0, np.nan)
+
+        # And then drop rows where there is a NAN for any of the columns
+        # This should work in the case where we had 0s as well as NANs, so if we switch over, it has no effect
+
+        self._df = self._df.dropna()
+        lengthAfter = len(self._df)
+
+        if lengthBefore > lengthAfter:
+            self.log.warning(f"Dropped {lengthBefore - lengthAfter} rows from dataset.")
 
     def load(self, filename: str):
 
+        # The dataset may have columns that need to be eliminated
+        df = pd.DataFrame()
+        t = Tidy(df)
+        t.load(filename)
+        t.analyze()
+        blacklistColumns = t.columnsToDrop
+
         # Get the column names used & append the type name
-        self._columns = self._allFactors.getColumns(self._types, self._subtypes)
+        self._columns = self._allFactors.getColumns(self._types, self._subtypes, blacklist=blacklistColumns)
         self._columns.append(constants.NAME_TYPE)
 
         # Confirm the file exists
         if not os.path.isfile(filename):
             raise FileNotFoundError(filename)
 
-        # Works
-        # self._df = pd.read_csv(filename,
-        #                        usecols=[constants.NAME_RATIO,
-        #                                 constants.NAME_SHAPE_INDEX,
-        #                                 constants.NAME_DISTANCE,
-        #                                 constants.NAME_DISTANCE_NORMALIZED,
-        #                                 constants.NAME_HUE,
-        #                                 constants.NAME_SATURATION,
-        #                                 constants.NAME_I_YIQ,
-        #                                 constants.NAME_COMPACTNESS,
-        #                                 constants.NAME_ELONGATION,
-        #                                 constants.NAME_ECCENTRICITY,
-        #                                 constants.NAME_ROUNDNESS,
-        #                                 constants.NAME_SOLIDITY,
-        #                                 # GLCM
-        #                                 constants.NAME_HOMOGENEITY,
-        #                                 constants.NAME_ENERGY,
-        #                                 constants.NAME_DISSIMILARITY,
-        #                                 constants.NAME_ASM,
-        #                                 constants.NAME_CONTRAST,
-        #                                 constants.NAME_TYPE])
         self._df = pd.read_csv(filename, usecols=self._columns)
         self.log.info("Loaded training file")
+        self._clean()
 
         # Keep a copy of this -- we will use this elsewhere
         self._rawData = self._df
@@ -395,9 +426,11 @@ class Univariate(Selection):
         try:
             fit = self._test.fit(x, y)
         except UserWarning as uWarning:
-            self.log.error(f"f{uWarning}")
+            self.log.error(f"User: {uWarning}")
+            sys.exit(-1)
         except RuntimeWarning as rWarning:
-            self.log.error(f"{rWarning}")
+            self.log.error(f"Runtime: {rWarning}")
+            sys.exit(-1)
 
         set_printoptions(precision=3, suppress=True, linewidth=120)
         results = {}
@@ -447,7 +480,25 @@ class All(Selection):
         #self._selectionTechniques = [self._recursive, self._pca, self._importance, self._univariate]
         # This is the debug list -- recursive is very slow & univariate encounters errors
         self._selectionTechniques = [self._recursive, self._pca, self._importance, self._univariate]
+        self._log = logging.getLogger(__name__)
+        self._outputFileName = None
+        self._tableLabel = None
 
+    @property
+    def label(self) -> str:
+        return self._tableLabel
+
+    @label.setter
+    def label(self, theLabel: str):
+        self._tableLabel = theLabel
+
+    @property
+    def output(self) -> str:
+        return self._outputFileName
+
+    @output.setter
+    def output(self, outputFileName: str):
+        self._outputFileName = outputFileName
 
     def create(self):
         """
@@ -464,9 +515,13 @@ class All(Selection):
         :param outputFormat:
         """
         if "prefix" in kwargs:
-            prefix = kwargs["prefix"]
+            prefix = "parameters_" + kwargs["prefix"]
         else:
             prefix = "parameters"
+        if "directory" in kwargs:
+            directory = kwargs["directory"]
+        else:
+            directory = "."
 
         consolidated = []
         i = 0
@@ -490,12 +545,24 @@ class All(Selection):
             shortCaption = "Parameter Rankings"
             headers = names
             # headers.insert(0, "Rank")
-            print(f"{consolidatedTable.T.to_latex(longtable=True, index_names=True, caption=(longCaption, shortCaption), header=headers)}")
-            consolidatedTable.to_latex()
+            #print(f"{consolidatedTable.T.to_latex(longtable=True, index_names=True, caption=(longCaption, shortCaption), header=headers)}")
+            latexTable = consolidatedTable.T.to_latex(longtable=True, index_names=True, caption=(longCaption, shortCaption), header=headers, label=self._tableLabel)
+            # This will produce a page-width table, as the parameter names are so long
+            latexTable = latexTable.replace('\\begin{longtable}{lllll}', '\\begin{longtable}{@{\extracolsep{\\fill}}p{.5cm}llll@{}}')
+            if self._outputFileName is not None:
+                with open(self._outputFileName, "w") as f:
+                    f.write(f"{latexTable}")
+            else:
+                print(f"{latexTable}")
+            #consolidatedTable.to_latex()
         elif outputFormat == Output.CSV:
-            consolidatedTable.to_csv('parameters.csv', header=False)
+            outputFile = os.path.join(directory, prefix + ".csv")
+            self._log.debug(f"Parameters written to {outputFile}")
+            consolidatedTable.to_csv(outputFile, header=False)
         elif outputFormat == Output.PICKLE:
-            consolidatedTable.to_pickle(prefix + ".pickle")
+            outputFile = os.path.join(directory, prefix + ".pickle")
+            self._log.debug(f"Parameters written to {outputFile}")
+            consolidatedTable.to_pickle(outputFile)
 
     def load(self, filename: str):
         """
@@ -511,9 +578,9 @@ class All(Selection):
             technique.attributeSubtypes = self.attributeSubtypes
             technique.load(filename)
 
-class Criteria(Enum):
-    ACCURACY = 0
-    AUC = 1
+# class Criteria(Enum):
+#     ACCURACY = 0
+#     AUC = 1
 
 
 
@@ -564,11 +631,17 @@ class IndividualResult:
         # The result of that check -- will be -1.0 if not yet complete
         self._accuracy = -1.0
         self._auc = -1.0
+        self._precision = -1.0
+        self._recall = -1.0
+        self._f1 = -1.0
+        self._map = -1.0
         # The list of parameters to use
         self._parameters = List[str]
         self._id = -1
         # The number of results to expect
         self._resultsExpected = len(Criteria)
+        # Correction, if any
+        self._correction = constants.NAME_NONE
 
         if "technique" in kwargs:
             self._technique = kwargs["technique"]
@@ -602,6 +675,22 @@ class IndividualResult:
         return self._auc
 
     @property
+    def precision(self) -> float:
+        return self._precision
+
+    @property
+    def recall(self) -> float:
+        return self._recall
+
+    @property
+    def f1(self) -> float:
+        return self._f1
+
+    @property
+    def map(self) -> float:
+        return self._map
+
+    @property
     def parameters(self) -> []:
         return self._parameters
 
@@ -613,14 +702,27 @@ class IndividualResult:
     def status(self) -> Status:
         return self._checked
 
+    @property
+    def correction(self) -> str:
+        return self._correction
+
+    @correction.setter
+    def correction(self, theCorrection: str):
+        self._correction = theCorrection
+
+    @status.setter
+    def status(self, theState: Criteria):
+        self._checked = theState
+
     def claim(self) -> []:
         self._checked = Status.IN_PROGRESS
         return self._parameters
 
-    def complete(self, criterion: Criteria, result: float):
+    def complete(self, criterion: Criteria, correction: str, result: float):
         """
         Mark the completion for a criteria
         :param criterion: The criteria for a result
+        :param correction: The name of the correction strategy
         :param result: The value for the criteria
         """
         self._resultsExpected -= 1
@@ -630,6 +732,16 @@ class IndividualResult:
             self._accuracy = result
         elif criterion == Criteria.AUC:
             self._auc = result
+        elif criterion == Criteria.PRECISION:
+            self._precision = result
+        elif criterion == Criteria.RECALL:
+            self._recall = result
+        elif criterion == Criteria.F1:
+            self._f1 = result
+        elif criterion == Criteria.MAP:
+            self._map = result
+
+        self._correction = correction
 
     # Adapted from https://stackoverflow.com/questions/14720324/compute-the-similarity-between-two-lists
 
@@ -652,18 +764,40 @@ class AllResults:
     def __init__(self, **kwargs):
         """
         The results of checking
-        :param theTechnique: Name of the technique (KNN, SVM, etc.)
+        :keyword str technique: Name of the technique (KNN, SVM, etc.)
+        :keyword str correction: Name of the correction (SMOTE, ADASYN, etc.)
         """
         if "technique" in kwargs:
             self._technique = kwargs["technique"]
         else:
             self._technique = "XXX"
 
+        if "correction" in kwargs:
+            self._correction = kwargs["correction"]
+        else:
+            self._correction = constants.NAME_NONE
+
         self._results = []  # List of results from Result class above
         self._parameters = []           # List of lists -- all combinations of parameters
         self._lastClaimedPosition = 0
         self._batches = 1
         self._lastClaimedPositionInBatch = [0]
+
+    @property
+    def technique(self) -> str:
+        return self._technique
+
+    @technique.setter
+    def technique(self, theTechnique: str):
+        self._technique = theTechnique
+
+    @property
+    def correction(self) -> str:
+        return self._correction
+
+    @correction.setter
+    def correction(self, theCorrection: str):
+        self._correction = theCorrection
 
     @property
     def batches(self) -> int:
@@ -716,9 +850,9 @@ class AllResults:
             raise ValueError(f"Batch size given as {batch} must be between 0 and {self._batches}")
         # The lower bound of the range to search
         lowerBound = int(batch * int((len(self._results) / self._batches)))
-        upperBound = int(lowerBound + int(len(self._results) / self._batches))
+        upperBound = int(lowerBound + int(len(self._results) - 1 / self._batches))
         position = lowerBound
-        #print(f"Processing positions between {lowerBound} and {upperBound}")
+        logger.debug(f"Processing positions between {lowerBound} and {upperBound}")
         while True:
             combination = self._results[self._lastClaimedPositionInBatch[batch]]
             if combination.status == Status.UNCLAIMED:
@@ -730,11 +864,20 @@ class AllResults:
                 self._lastClaimedPositionInBatch[batch] += 1
                 combination = None
                 if self._lastClaimedPositionInBatch[batch] == len(self._results):
-                    break
+                    raise EOL("End of combinations")
+                    #break
 
         return combination
-    def recordResult(self, combination: IndividualResult, criterion: Criteria, result: float):
-        self._results[combination.id].complete(criterion, result)
+
+    def recordResult(self, combination: IndividualResult, criterion: Criteria, correction: str, result: float):
+        """
+        Record the result of a prediction
+        :param combination:
+        :param criterion:
+        :param correction: Name of the correction strategy
+        :param result:
+        """
+        self._results[combination.id].complete(criterion, correction, result)
 
     def save(self, fileName: str):
         dbfile = open(fileName, 'wb')
@@ -743,6 +886,7 @@ class AllResults:
         dbfile.close()
 
     def load(self, fileName: str):
+        #print(f"Loading: [{fileName}]")
         dbfile = open(fileName, 'rb')
         self._results = pickle.load(dbfile)
         dbfile.close()
@@ -776,13 +920,19 @@ if __name__ == "__main__":
     RESULT = "RESULT"
     PARAMETERS = "PARAMETERS"
     MAXIMUM = "maximum"
+    CORRECTION = "correction"
     l: List[int]
 
     MAX_PARAMETERS = 10
 
     STRATEGY_ACCURACY = "accuracy"
     STRATEGY_AUC = "auc"
-    allStrategies = [STRATEGY_ACCURACY, STRATEGY_AUC]
+    STRATEGY_PRECISION = "precision"
+    STRATEGY_RECALL = "recall"
+    STRATEGY_F1 = "f1"
+    STRATEGY_MAP = "map"
+
+    allStrategies = [STRATEGY_ACCURACY, STRATEGY_AUC, STRATEGY_PRECISION, STRATEGY_RECALL, STRATEGY_F1, STRATEGY_MAP]
 
     # The attribute types for the selection technique -- with 'all' added in for a shortcut
     attributeTypes = [e for e in FactorTypes]
@@ -798,61 +948,161 @@ if __name__ == "__main__":
     # The maximum values for each technique
 
     maximumsAccuracy = {
-        KNNClassifier.name: {RESULT: 0, PARAMETERS: []},
-        LogisticRegressionClassifier.name: {RESULT: 0, PARAMETERS: []},
-        DecisionTree.name: {RESULT: 0, PARAMETERS: []},
-        RandomForest.name: {RESULT: 0, PARAMETERS: []},
-        GradientBoosting.name: {RESULT: 0, PARAMETERS: []},
-        SuppportVectorMachineClassifier.name: {RESULT: 0, PARAMETERS: []},
-        LDA.name: {RESULT: 0, PARAMETERS: []},
-        MLP.name: {RESULT: 0, PARAMETERS: []},
-        ExtraTrees.name: {RESULT: 0, PARAMETERS: []}
+        KNNClassifier.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        LogisticRegressionClassifier.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        DecisionTree.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        RandomForest.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        GradientBoosting.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        SuppportVectorMachineClassifier.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        LDA.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        MLP.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        ExtraTrees.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE}
     }
 
     maximumsAUC = {
-        KNNClassifier.name: {RESULT: 0, PARAMETERS: []},
-        LogisticRegressionClassifier.name: {RESULT: 0, PARAMETERS: []},
-        DecisionTree.name: {RESULT: 0, PARAMETERS: []},
-        RandomForest.name: {RESULT: 0, PARAMETERS: []},
-        GradientBoosting.name: {RESULT: 0, PARAMETERS: []},
-        SuppportVectorMachineClassifier.name: {RESULT: 0, PARAMETERS: []},
-        LDA.name: {RESULT: 0, PARAMETERS: []},
-        MLP.name: {RESULT: 0, PARAMETERS: []},
-        ExtraTrees.name: {RESULT: 0, PARAMETERS: []}
+        KNNClassifier.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        LogisticRegressionClassifier.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        DecisionTree.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        RandomForest.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        GradientBoosting.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        SuppportVectorMachineClassifier.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        LDA.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        MLP.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        ExtraTrees.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE}
+    }
+
+    maximumsPrecision = {
+        KNNClassifier.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        LogisticRegressionClassifier.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        DecisionTree.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        RandomForest.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        GradientBoosting.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        SuppportVectorMachineClassifier.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        LDA.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        MLP.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        ExtraTrees.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE}
+    }
+
+    maximumsRecall = {
+        KNNClassifier.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        LogisticRegressionClassifier.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        DecisionTree.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        RandomForest.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        GradientBoosting.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        SuppportVectorMachineClassifier.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        LDA.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        MLP.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        ExtraTrees.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE}
+    }
+
+    maximumsF1 = {
+        KNNClassifier.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        LogisticRegressionClassifier.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        DecisionTree.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        RandomForest.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        GradientBoosting.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        SuppportVectorMachineClassifier.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        LDA.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        MLP.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        ExtraTrees.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE}
+    }
+
+    maximumsMAP = {
+        KNNClassifier.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        LogisticRegressionClassifier.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        DecisionTree.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        RandomForest.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        GradientBoosting.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        SuppportVectorMachineClassifier.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        LDA.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        MLP.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        ExtraTrees.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE}
     }
 
     maximumsAccuracyEquivalent = {
-        KNNClassifier.name: {RESULT: 0, PARAMETERS: []},
-        LogisticRegressionClassifier.name: {RESULT: 0, PARAMETERS: []},
-        DecisionTree.name: {RESULT: 0, PARAMETERS: []},
-        RandomForest.name: {RESULT: 0, PARAMETERS: []},
-        GradientBoosting.name: {RESULT: 0, PARAMETERS: []},
-        SuppportVectorMachineClassifier.name: {RESULT: 0, PARAMETERS: []},
-        LDA.name: {RESULT: 0, PARAMETERS: []},
-        MLP.name: {RESULT: 0, PARAMETERS: []},
-        ExtraTrees.name: {RESULT: 0, PARAMETERS: []}
+        KNNClassifier.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        LogisticRegressionClassifier.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        DecisionTree.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        RandomForest.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        GradientBoosting.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        SuppportVectorMachineClassifier.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        LDA.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        MLP.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        ExtraTrees.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE}
     }
 
     maximumsAUCEquivalent = {
-        KNNClassifier.name: {RESULT: 0, PARAMETERS: []},
-        LogisticRegressionClassifier.name: {RESULT: 0, PARAMETERS: []},
-        DecisionTree.name: {RESULT: 0, PARAMETERS: []},
-        RandomForest.name: {RESULT: 0, PARAMETERS: []},
-        GradientBoosting.name: {RESULT: 0, PARAMETERS: []},
-        SuppportVectorMachineClassifier.name: {RESULT: 0, PARAMETERS: []},
-        LDA.name: {RESULT: 0, PARAMETERS: []},
-        MLP.name: {RESULT: 0, PARAMETERS: []},
-        ExtraTrees.name: {RESULT: 0, PARAMETERS: []}
+        KNNClassifier.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        LogisticRegressionClassifier.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        DecisionTree.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        RandomForest.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        GradientBoosting.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        SuppportVectorMachineClassifier.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        LDA.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        MLP.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        ExtraTrees.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE}
+    }
+
+    maximumsPrecisionEquivalent = {
+        KNNClassifier.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        LogisticRegressionClassifier.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        DecisionTree.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        RandomForest.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        GradientBoosting.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        SuppportVectorMachineClassifier.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        LDA.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        MLP.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        ExtraTrees.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE}
+    }
+    maximumsRecallEquivalent = {
+        KNNClassifier.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        LogisticRegressionClassifier.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        DecisionTree.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        RandomForest.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        GradientBoosting.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        SuppportVectorMachineClassifier.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        LDA.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        MLP.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        ExtraTrees.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE}
+    }
+    maximumsF1Equivalent = {
+        KNNClassifier.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        LogisticRegressionClassifier.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        DecisionTree.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        RandomForest.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        GradientBoosting.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        SuppportVectorMachineClassifier.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        LDA.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        MLP.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        ExtraTrees.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE}
+    }
+    maximumsMAPEquivalent = {
+        KNNClassifier.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        LogisticRegressionClassifier.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        DecisionTree.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        RandomForest.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        GradientBoosting.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        SuppportVectorMachineClassifier.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        LDA.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        MLP.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        ExtraTrees.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE}
     }
     resultsSemaphore = Semaphore()
 
-    def recordMaximum(theTechnique: str, theResult: float, theCriteria: Criteria, theParameters: []):
+    def threadExceptions(args):
+        if args.exc_type == SystemExit:
+            # Ignore SystemExit exceptions, which are often used for normal thread termination
+            return
+        print(f"ERROR: exception in thread {args.thread.name}: {args.exc_type.__name__}: {args.exc_value}")
+
+    def recordMaximum(theTechnique: str, theResult: float, theCriteria: Criteria, theParameters: [], theCorrection: str):
         """
         Record the maximum for a technique
         :param theCriteria:
         :param theTechnique: The name of the technique (KNN, SVM, etc.)
         :param theResult: The float of the result (0..1)
         :param theParameters: An array of the parameters
+        :param theCorrection: The name of the correction technique
         """
         if theCriteria == Criteria.ACCURACY:
             results = maximumsAccuracy[theTechnique]
@@ -860,12 +1110,24 @@ if __name__ == "__main__":
         elif theCriteria == Criteria.AUC:
             results = maximumsAUC[theTechnique]
             maximums = maximumsAUC
+        elif theCriteria == Criteria.PRECISION:
+            results = maximumsPrecision[theTechnique]
+            maximums = maximumsPrecision
+        elif theCriteria == Criteria.RECALL:
+            results = maximumsRecall[theTechnique]
+            maximums = maximumsRecall
+        elif theCriteria == Criteria.F1:
+            results = maximumsF1[theTechnique]
+            maximums = maximumsF1
+        elif theCriteria == Criteria.MAP:
+            results = maximumsMAP[theTechnique]
+            maximums = maximumsMAP
 
         if theResult > results[RESULT]:
-            maximums[theTechnique] = {RESULT: theResult, PARAMETERS: theParameters}
-            logging.info(f"Global maximum found for {theTechnique}: {theResult} ({theParameters}) vs {results[RESULT]} ({results[PARAMETERS]}")
+            maximums[theTechnique] = {RESULT: theResult, PARAMETERS: theParameters, CORRECTION: theCorrection}
+            logging.info(f"Global maximum found for {theTechnique}-{theCorrection}: {theResult} ({theParameters}) vs {results[RESULT]} ({results[PARAMETERS]}")
         else:
-            logging.info(f"Local maximum found for {theTechnique}: {theResult} ({theParameters}) vs {results[RESULT]} ({results[PARAMETERS]}")
+            logging.info(f"Local maximum found for {theTechnique}-{theCorrection}: {theResult} ({theParameters}) vs {results[RESULT]} ({results[PARAMETERS]}")
 
     def reportMaximums(baseDirectory: str, baseFilename: str):
         """
@@ -873,58 +1135,96 @@ if __name__ == "__main__":
         :param baseFilename:
         :param baseDirectory:
         """
-        filename = baseFilename + '.accuracy.txt'
-        resultsFilename = os.path.join(baseDirectory, filename)
-        with open(resultsFilename, "w") as results:
-            for technique, details in maximumsAccuracy.items():
-                results.write(f"{technique}:{details[RESULT]}:{details[PARAMETERS]}\n")
-
         filename = baseFilename + '.auc.txt'
         resultsFilename = os.path.join(baseDirectory, filename)
         with open(resultsFilename, "w") as results:
             for technique, details in maximumsAUC.items():
-                results.write(f"{technique}:{details[RESULT]}:{details[PARAMETERS]}\n")
+                results.write(f"{technique}:{details[RESULT]}:{details[PARAMETERS]} {details[CORRECTION]}\n")
+
+        filename = baseFilename + '.precision.txt'
+        resultsFilename = os.path.join(baseDirectory, filename)
+        with open(resultsFilename, "w") as results:
+            for technique, details in maximumsPrecision.items():
+                results.write(f"{technique}:{details[RESULT]}:{details[PARAMETERS]} {details[CORRECTION]}\n")
+
+        filename = baseFilename + '.recall.txt'
+        resultsFilename = os.path.join(baseDirectory, filename)
+        with open(resultsFilename, "w") as results:
+            for technique, details in maximumsRecall.items():
+                results.write(f"{technique}:{details[RESULT]}:{details[PARAMETERS]} {details[CORRECTION]}\n")
+
+        filename = baseFilename + '.f1.txt'
+        resultsFilename = os.path.join(baseDirectory, filename)
+        with open(resultsFilename, "w") as results:
+            for technique, details in maximumsF1.items():
+                results.write(f"{technique}:{details[RESULT]}:{details[PARAMETERS]} {details[CORRECTION]} \n")
+
+        filename = baseFilename + '.map.txt'
+        resultsFilename = os.path.join(baseDirectory, filename)
+        with open(resultsFilename, "w") as results:
+            for technique, details in maximumsMAP.items():
+                results.write(f"{technique}:{details[RESULT]}:{details[PARAMETERS]} {details[CORRECTION]}\n")
 
     # def outputMaximums(format: Output):
     #     maximumsDF = pd.DataFrame(maximumsAccuracy)
 
-    def searchForParameters(algorithm: str, dataFile: str, batch: int, basePath: str):
+    def searchForParameters(algorithm: str, dataFile: str, batch: int, basePath: str, correct: str):
         """
 
         :param algorithm:
         :param dataFile:
         :param batch:
         :param basePath:
+        :param correct: Correction technique name
         """
-        logger.info(f"Search using {algorithm} in batch {batch}")
+        logger.info(f"Search using {algorithm} Correct using {correct} in batch {batch}")
         highestClassificationRate = 0.0
         highestAUC = 0.0
+        highestPrecision = 0.0
+        highestRecall = 0.0
+        highestF1 = 0.0
+        highestMAP = 0.0
         currentCombination = 0
+        exitNow = False
         while True:
             technique = classifierFactory(algorithm)
             resultsSemaphore.acquire(blocking=True)
-            combination = allResultsForATechnique[technique.name].getNextUnclaimed(batch)
+            try:
+                name = nameOfTechnique(technique.name, correct)
+
+                # Get the combination
+                combination = allResultsForATechnique[name].getNextUnclaimed(batch)
+            except EOL as e:
+                logger.debug(f"End of combinations")
+                exitNow = True
             resultsSemaphore.release()
-            if combination is None:
-                break
+            # if combination is None:
+            #     break
             currentCombination += 1
             # Perhaps disk I/O is leading to poor performance, so issue a status statement only after 10000 sets
             if currentCombination % 100 == 0:
                 logger.info(f"{technique.name}: combination: {currentCombination} parameters: {combination.parameters}")
             technique.selections = combination.parameters
+            technique.correct = True
             technique.load(dataFile, stratify=False)
+            if correct != constants.NAME_NONE:
+                # Correct the imbalance
+                technique.correct = True
+                technique.correctionAlgorithm = ImbalanceCorrection[correct]
+
             #technique.correctImbalance()
             technique.createModel(False)
+            technique.assess()
 
             logger.debug(f"Technique: {technique.name} Combination: {currentCombination} Accuracy: {technique.accuracy()}")
             # Accuracy
-            if technique.accuracy() > 0:
+            if technique.accuracy() >= 0:
                 resultsSemaphore.acquire(blocking=True)
                 #anClassificationRate = sum(technique.scores) / len(technique.scores)
                 meanClassificationRate = technique.accuracy()
-                logger.info(f"{technique.name}: combination: {currentCombination} scores: {technique.scores} parameters: {combination.parameters} accuracy: {meanClassificationRate}")
-                allResultsForATechnique[technique.name].recordResult(combination, Criteria.ACCURACY, meanClassificationRate)
-                allResultsForATechnique[technique.name].save(arguments.prefix + constants.DELIMETER + STRATEGY_ACCURACY + constants.DELIMETER + technique.name + ".pickle")
+                logger.info(f"{name}: combination: {currentCombination} scores: {technique.scores} parameters: {combination.parameters} accuracy: {meanClassificationRate}")
+                allResultsForATechnique[name].recordResult(combination, Criteria.ACCURACY, correct, meanClassificationRate)
+                allResultsForATechnique[name].save(arguments.prefix + constants.DELIMETER + STRATEGY_ACCURACY + constants.DELIMETER + technique.name + constants.DELIMETER + correct + ".pickle")
                 resultsSemaphore.release()
             else:
                 logger.error(f"Length of scores is zero. Proceeding")
@@ -933,29 +1233,117 @@ if __name__ == "__main__":
             if meanClassificationRate > highestClassificationRate:
                 highestClassificationRate = meanClassificationRate
                 logger.info(f"Found new max for {technique.name} accuracy:{meanClassificationRate} using {combination}")
-                recordMaximum(technique.name, meanClassificationRate, Criteria.ACCURACY, combination)
+                recordMaximum(technique.name, meanClassificationRate, Criteria.ACCURACY, combination, correct)
                 reportMaximums(basePath, arguments.prefix + constants.DELIMETER + MAXIMUM)
                 resultsSemaphore.release()
             elif meanClassificationRate == highestClassificationRate:
                 logger.info(f"Found equivalent for {technique.name:} accuracy: {meanClassificationRate} using {combination}")
 
             # AUC
-            if technique.auc > 0:
+            if technique.auc >= 0:
                 logger.info(f"{technique.name}: combination: {currentCombination} scores: {technique.scores} parameters: {combination.parameters} auc: {technique.auc}")
-                allResultsForATechnique[technique.name].recordResult(combination, Criteria.AUC, technique.auc)
-                allResultsForATechnique[technique.name].save(arguments.prefix + constants.DELIMETER + STRATEGY_AUC + constants.DELIMETER + technique.name + ".pickle")
+                allResultsForATechnique[name].recordResult(combination, Criteria.AUC, correct, technique.auc)
+                fqn = os.path.join(basePath, arguments.prefix + constants.DELIMETER + STRATEGY_AUC + constants.DELIMETER + technique.name + constants.DELIMETER + correct + ".pickle")
+                allResultsForATechnique[name].save(fqn)
+            else:
+                logger.error(f"Combination {currentCombination} Technique: {technique.name} AUC: {technique.auc}")
 
             if technique.auc > highestAUC:
                 highestAUC = technique.auc
                 resultsSemaphore.acquire(blocking=True)
                 logger.info(f"Found new max for {technique.name} auc: {technique.auc} using {combination}")
-                recordMaximum(technique.name, technique.auc, Criteria.AUC, combination)
+                recordMaximum(technique.name, technique.auc, Criteria.AUC, combination, correct)
                 reportMaximums(basePath, arguments.prefix + constants.DELIMETER + MAXIMUM)
                 resultsSemaphore.release()
             elif technique.auc == highestAUC:
                 logger.info(f"Found equivalent for {technique.name} auc: {technique.auc} using {combination}")
 
+            # Precision
+            if technique.precision >= 0:
+                logger.info(f"{technique.name}: combination: {currentCombination} scores: {technique.scores} parameters: {combination.parameters} auc: {technique.auc}")
+                allResultsForATechnique[name].recordResult(combination, Criteria.PRECISION, correct, technique.precision)
+                fqn = os.path.join(basePath, arguments.prefix + constants.DELIMETER + STRATEGY_PRECISION + constants.DELIMETER + technique.name + constants.DELIMETER + correct + ".pickle")
+                allResultsForATechnique[name].save(fqn)
+            else:
+                logger.error(f"Combination {currentCombination} Technique: {technique.name} Precision: {technique.precision}")
+
+            if technique.precision > highestPrecision:
+                highestPrecision = technique.precision
+                resultsSemaphore.acquire(blocking=True)
+                logger.info(f"Found new max for {technique.name} precision: {technique.precision} using {combination}")
+                recordMaximum(technique.name, technique.precision, Criteria.PRECISION, combination, correct)
+                reportMaximums(basePath, arguments.prefix + constants.DELIMETER + MAXIMUM)
+                resultsSemaphore.release()
+            elif technique.precision == highestPrecision:
+                logger.info(f"Found equivalent for {technique.name} precision: {technique.precision} using {combination}")
+
+            # Recall
+            if technique.recall >= 0:
+                logger.info(f"{technique.name}: combination: {currentCombination} scores: {technique.scores} parameters: {combination.parameters} auc: {technique.auc}")
+                allResultsForATechnique[name].recordResult(combination, Criteria.RECALL, correct, technique.recall)
+                fqn = os.path.join(basePath, arguments.prefix + constants.DELIMETER + STRATEGY_RECALL + constants.DELIMETER + technique.name + constants.DELIMETER + correct + ".pickle")
+                allResultsForATechnique[name].save(fqn)
+            else:
+                logger.error(f"Combination {currentCombination} Technique: {technique.name} recall: {technique.recall}")
+
+            if technique.recall > highestRecall:
+                highestRecall = technique.recall
+                resultsSemaphore.acquire(blocking=True)
+                logger.info(f"Found new max for {technique.name} recall: {technique.recall} using {combination}")
+                recordMaximum(technique.name, technique.auc, Criteria.RECALL, combination, correct)
+                reportMaximums(basePath, arguments.prefix + constants.DELIMETER + MAXIMUM)
+                resultsSemaphore.release()
+            elif technique.recall == highestRecall:
+                logger.info(f"Found equivalent for {technique.name} recall: {technique.recall} using {combination}")
+
+            # F1
+            if technique.f1 >= 0:
+                logger.info(f"{technique.name}: combination: {currentCombination} scores: {technique.scores} parameters: {combination.parameters} auc: {technique.auc}")
+                allResultsForATechnique[name].recordResult(combination, Criteria.F1, correct, technique.f1)
+                fqn = os.path.join(basePath, arguments.prefix + constants.DELIMETER + STRATEGY_F1 + constants.DELIMETER + technique.name + constants.DELIMETER + correct + ".pickle")
+                allResultsForATechnique[name].save(fqn)
+            else:
+                logger.error(f"Combination {currentCombination} Technique: {technique.name} f1: {technique.f1}")
+
+            if technique.f1 > highestF1:
+                highestF1 = technique.f1
+                resultsSemaphore.acquire(blocking=True)
+                logger.info(f"Found new max for {technique.name} f1: {technique.f1} using {combination}")
+                recordMaximum(technique.name, technique.f1, Criteria.F1, combination, correct)
+                reportMaximums(basePath, arguments.prefix + constants.DELIMETER + MAXIMUM)
+                resultsSemaphore.release()
+            elif technique.f1 == highestF1:
+                logger.info(f"Found equivalent for {technique.name} f1: {technique.f1} using {combination}")
+
+            # MAP
+            if technique.map >= 0:
+                logger.info(f"{technique.name}: combination: {currentCombination} scores: {technique.scores} parameters: {combination.parameters} auc: {technique.auc}")
+                allResultsForATechnique[name].recordResult(combination, Criteria.MAP, correct, technique.map)
+                fqn = os.path.join(basePath, arguments.prefix + constants.DELIMETER + STRATEGY_MAP + constants.DELIMETER + technique.name + constants.DELIMETER + correct + ".pickle")
+                allResultsForATechnique[name].save(fqn)
+            else:
+                logger.error(f"Combination {currentCombination} Technique: {technique.name} map: {technique.map}")
+
+            if technique.map > highestMAP:
+                highestMAP = technique.map
+                resultsSemaphore.acquire(blocking=True)
+                logger.info(f"Found new max for {technique.name} map: {technique.map} using {combination}")
+                recordMaximum(technique.name, technique.map, Criteria.MAP, combination, correct)
+                reportMaximums(basePath, arguments.prefix + constants.DELIMETER + MAXIMUM)
+                resultsSemaphore.release()
+            elif technique.map == highestMAP:
+                logger.info(f"Found equivalent for {technique.name} map: {technique.map} using {combination}")
+
+            if combination.status != Status.COMPLETED:
+                logger.error(f"Combination #{currentCombination} is not marked as completed. This is not normal")
+                combination.status = Status.COMPLETED
+
+            allResultsForATechnique[name].save(arguments.prefix + constants.DELIMETER + "all" + constants.DELIMETER + technique.name  + constants.DELIMETER + correct + ".pickle")
+
             technique.reset()
+
+            if exitNow:
+                break
 
 
     def startupLogger(configFile: str, outputFile: str):
@@ -980,6 +1368,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser("Feature selection")
 
+    parser.add_argument("-c", "--correct", action="store_true", required=False, default=False, help="(Optimal) Correct the imbalance")
     parser.add_argument("-d", "--debug", action="store_true", required=False, default=False, help="(Optimal) Process a small subset of parameters")
     parser.add_argument("-df", "--data", action="store", required=True, help="Name of the data in CSV to evaluate")
     parser.add_argument("-fs", "--selection", action="store", required=True, choices=Selection.supportedSelections(), help="Feature selection")
@@ -987,6 +1376,7 @@ if __name__ == "__main__":
     parser.add_argument("-lg", "--logging", action="store", default="logging.ini", help="Logging configuration file")
     parser.add_argument("-lf", "--logfile", action="store", default="weeds.log", help="Logging output file")
     parser.add_argument("-l", "--latex", action="store_true", required=False, default=False, help="Output latex tables")
+    parser.add_argument("-label", "--label", action="store", required=False, default="table", help="Table label")
 
     actions = parser.add_mutually_exclusive_group()
     actions.add_argument("-o", "--optimal", action="store_true", required=False, default=False, help="Search for optimal parameters")
@@ -995,19 +1385,26 @@ if __name__ == "__main__":
 
 
     parser.add_argument("-m", "--maximums", action="store", required=False, help="(Optimal) Maximum result file")
+    parser.add_argument("-od", "--outputdir", action="store", required=False, default=".", help="Output Directory")
     parser.add_argument("-of", "--outputformat", action="store", required=False, default=Output.LATEX.name, choices=outputChoices, help="Output format")
+    parser.add_argument("-table", "--table", action="store", required=False, help="Output file for table")
     parser.add_argument("-p", "--prefix", action="store", required=False, default="parameters", help="(Optimal) Prefix for result files (Required for optimal)")
     parser.add_argument("-s", "--subtypes", action="store", required=False, default=constants.NAME_ALL, nargs='*', choices=attributeSubtypeChoices, help="Attribute types used")
     parser.add_argument("-ty", "--types", action="store", required=False, default=constants.NAME_ALL, nargs='*', choices=attributeChoices, help="Attribute types used")
     parser.add_argument("-b", "--batch", action="store", required=False, type=int, default=500000, help="(Optimal) Batch size for parameter search")
     #parser.add_argument("-c", "--chunks", action="store", required=False, type=int, default=1, help="(Optimal) Number of chunks")
     parser.add_argument("-P", "--performance", action="store", type=str, default="performance.csv", help="Name of performance file")
+    parser.add_argument("-r", "--reduced", action="store_true", required=False, default=False, help="Process a small subset of parameters")
 
     # selectionCriteria = parser.add_mutually_exclusive_group()
     # selectionCriteria.add_argument("-a", "--auc", action="store_true", default=False, help="Use AUC for scoring")
     # selectionCriteria.add_argument("-s", "--accuracy", action="store_true", default=False, help="Use model accuracy for scoring")
 
     arguments = parser.parse_args()
+
+
+    if arguments.outputdir is not None:
+        basedir = arguments.outputdir
 
     if arguments.optimal:
         if arguments.prefix is None:
@@ -1034,6 +1431,9 @@ if __name__ == "__main__":
         selector = FeatureImportance()
     elif arguments.selection == SELECTION_ALL:
         selector = All()
+        if arguments.table is not None:
+            selector.output = arguments.table
+        selector.label = arguments.label
 
     if constants.NAME_ALL in arguments.types:
         typesUsed = attributeTypes
@@ -1051,7 +1451,8 @@ if __name__ == "__main__":
     selector.load(arguments.data)
     selector.create()
 
-    dataDirectory = os.path.dirname(arguments.data)
+    #dataDirectory = os.path.dirname(arguments.data)
+    dataDirectory = arguments.outputdir
 
     if arguments.maximums is not None:
         theMaximums = Maximums(arguments.maximums)
@@ -1075,12 +1476,15 @@ if __name__ == "__main__":
 
     # For each technique, find the optimal set of attributes
     if arguments.optimal:
+        with open(os.path.join(arguments.outputdir, sys.argv[0] + constants.DELIMETER + constants.FILENAME_DETAILS), "w") as details:
+            details.write(f"Arguments: {sys.argv}")
+
         # TODO: This is a very slow method
-        selector.analyze(Output.NOTHING)
+        selector.analyze(Output.PICKLE, prefix=arguments.prefix, directory=arguments.outputdir)
         results = []
-        if arguments.debug:
+        if arguments.reduced:
             logger.warning("Processing reduced subset")
-            results = ["hue", "cb_mean", "hog_mean", "greyscale_homogeneity_90", "compactness"]
+            results = ["hue", "cb_mean", "hog_mean", "greyscale_homogeneity_avg", "compactness"]
             maxParameters = 3
             combinationsPerBatch = 2
         else:
@@ -1107,6 +1511,7 @@ if __name__ == "__main__":
         #allTechniques = [KNNClassifier(), RandomForest(), GradientBoosting(), LogisticRegressionClassifier(), DecisionTree(), LDA()]
         allTechniquesNames = [x.name for x in allTechniques]
 
+        allCorrectionTechniques = [i.name for i in ImbalanceCorrection]
         # Temporary: Create the result files
         allResultsForATechnique = {}
 
@@ -1117,28 +1522,59 @@ if __name__ == "__main__":
         # Decide how many batches we have
         totalBatches = int(math.ceil(len(allCombinations) / arguments.batch))
         logger.debug(f"Processing {totalBatches} batch(es)")
+
+        # Create results arrays -- technique will be something like knn-SMOTE to indicate the algorithm + imbalance correction
         for technique in allTechniquesNames:
-            logger.debug(f"Technique: {technique}")
-            allResultsForATechnique[technique] = AllResults(technique=technique)
-            allResultsForATechnique[technique].parameters = allCombinations
-            allResultsForATechnique[technique].batches = totalBatches
+            if arguments.correct:
+                for correctionTechnique in allCorrectionTechniques:
+                    logger.debug(f"Technique: {technique} Correction: {correctionTechnique}")
+                    name = nameOfTechnique(technique, correctionTechnique)
+                    allResultsForATechnique[name] = AllResults(technique=technique, correction=correctionTechnique)
+                    allResultsForATechnique[name].parameters = allCombinations
+                    allResultsForATechnique[name].batches = totalBatches
+            else:
+                logger.debug(f"Technique: {technique}")
+                allResultsForATechnique[technique] = AllResults(technique=technique)
+                allResultsForATechnique[technique].parameters = allCombinations
+                allResultsForATechnique[technique].batches = totalBatches
+
+        threading.excepthook = threadExceptions
 
         # Use all the techniques
         for classifier in allTechniques:
             for chunk in range(totalBatches):
-                logger.info(f"Technique-id: {classifier.name}-{classifierID} searching batch {chunk}")
-                # For debugging, don't actually launch the threads
-                search = Thread(name=classifier.name + constants.DELIMETER + str(chunkID),
-                                target=searchForParameters,
-                                args=(classifier.name, arguments.data, chunk, dataDirectory,))
+                if arguments.correct:
+                    for correctionTechnique in allCorrectionTechniques:
+                        logger.info(f"Technique-id: {classifier.name}-{classifierID} searching batch {chunk} correction: {correctionTechnique}")
+                        # For debugging, don't actually launch the threads
+                        if not arguments.debug:
+                            search = Thread(name=classifier.name + constants.DELIMETER + str(chunkID),
+                                            target=searchForParameters,
+                                            args=(classifier.name, arguments.data, chunk, dataDirectory, correctionTechnique,))
 
-                search.daemon = True
-                threads.append(search)
-                search.start()
-                # This is arbitrary but required to avoid errors in startup, it would seem.
-                time.sleep(2)
-                #searchForParameters(classifier, arguments.data, allCombinations, dataDirectory)
-                chunkID += 1
+                            search.daemon = True
+                            threads.append(search)
+                            search.start()
+                            # This is arbitrary but required to avoid errors in startup, it would seem.
+                            time.sleep(2)
+                        else:
+                            searchForParameters(classifier.name, arguments.data, chunk, dataDirectory, correctionTechnique)
+                else:
+                    logger.info(f"Technique-id: {classifier.name}-{classifierID} searching batch {chunk}")
+                    # For debugging, don't actually launch the threads
+                    if not arguments.debug:
+                        search = Thread(name=classifier.name + constants.DELIMETER + str(chunkID),
+                                        target=searchForParameters,
+                                        args=(classifier.name, arguments.data, chunk, dataDirectory, constants.NAME_NONE,))
+
+                        search.daemon = True
+                        threads.append(search)
+                        search.start()
+                        # This is arbitrary but required to avoid errors in startup, it would seem.
+                        time.sleep(2)
+                    else:
+                        searchForParameters(classifier.name, arguments.data, chunk, dataDirectory, None)
+                    chunkID += 1
             classifierID += 1
 
         # Wait for the threads to finish
@@ -1172,7 +1608,8 @@ if __name__ == "__main__":
                     print(f"{technique}: Shows no accuracy. Not normal.")
             dfMaximums = pd.DataFrame(arr)
             print("---------- begin latex ---------------")
-            print(f"{dfMaximums.T.to_latex(longtable=True, index_names=False, index=False, caption=(longCaption, shortCaption), label='table:optimal-accuracy', header=allTechniquesNames)}")
+            #print(f"{dfMaximums.T.to_latex(longtable=True, index_names=False, index=False, caption=(longCaption, shortCaption), label='table:optimal-accuracy', header=allTechniquesNames)}")
+            print(f"{dfMaximums.to_latex(longtable=True, index_names=False, index=False, caption=(longCaption, shortCaption), label='table:optimal-accuracy')}")
             print("---------- end latex ---------------")
 
             # AUC
@@ -1196,7 +1633,8 @@ if __name__ == "__main__":
                 i += 1
             dfMaximums = pd.DataFrame(arr)
             print("---------- begin latex ---------------")
-            print(f"{dfMaximums.T.to_latex(longtable=True, index_names=False, index=False, caption=(longCaption, shortCaption), label='table:optimal-auc', header=allTechniquesNames)}")
+            #print(f"{dfMaximums.T.to_latex(longtable=True, index_names=False, index=False, caption=(longCaption, shortCaption), label='table:optimal-auc', header=allTechniquesNames)}")
+            print(f"{dfMaximums.to_latex(longtable=True, index_names=False, index=False, caption=(longCaption, shortCaption), label='table:optimal-auc')}")
             print("---------- end latex ---------------")
 
             # Sloppy
@@ -1206,8 +1644,9 @@ if __name__ == "__main__":
         #reportMaximums(os.path.join(dataDirectory, 'maximums.txt'))
 
     if arguments.consolidated:
-        selector.analyze(Output.NOTHING)
+        selector.analyze(Output.LATEX)
         results = selector.results(unique=True)
         print(f"{results}")
     else:
-        selector.analyze(Output[arguments.outputformat], prefix=arguments.prefix)
+        print("Begin analysis")
+        selector.analyze(Output[arguments.outputformat], prefix=arguments.prefix, directory=arguments.outputdir)
