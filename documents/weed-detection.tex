@@ -25,6 +25,9 @@
 %\usepackage{biblatex} 
 \addbibresource{paperpile.bib}
 
+% P D F 
+\usepackage{pdfpages}
+
 % A B R E V A T I O N S
 %\usepackage[printonlyused,withpage]{acronym}
 %\usepackage[nopostdot,toc,acronym,nomain,nonumberlist]{glossaries}
@@ -301,7 +304,7 @@ Irrespective of the treatment details, accuracy is key. According to the USDA, A
 This study seeks to answer several questions:
 \begin{enumerate}
 	\item{Can shape, color, and texture attributes be used to predict vegetation class?}
-	\item{Is classification affected by developmental changes in vegetation across the season?}
+	\item{Is classification affected by developmental changes in vegetation across the development cycle?}
 	\item{Can imbalanced datasets be used in classification?}
 \end{enumerate}
 
@@ -2361,7 +2364,7 @@ Attempting to correct the data with either over sampling or combined over sampli
 %\input{./tables/results-texture-corrected.tex}
 %\end{tiny}
 
-Some features do not remain stable over the development cycle. As illustrated by Figure \ref{fig:season-texture}, only a subset of the textural features can be considered stable over the development cycle, but using features from this subset is advisable, as those features can be exploited at any point in the development cycle.  Each feature is tested over the season to determine if it changes over the development cycle (perhaps a texture feature \textit{trends} toward a value at the end of the season.
+Some features do not remain stable over the development cycle. As illustrated by Figure \ref{fig:season-texture}, only a subset of the textural features can be considered stable over the development cycle, but using features from this subset is advisable, as those features can be exploited at any point in the development cycle.  Each feature is tested to determine if it changes over the development cycle (perhaps a texture feature \textit{trends} toward a value at the end of the season).\footnote{A clarification is probably in order here. Only the early portions of the growth cycle are examined in this study. Only the first nine weeks of each crop are considered for each crop.}
 
 %
 % Plot generated with:
@@ -2387,7 +2390,7 @@ An illustration of a specific parameter is probably useful for illustrating the 
 	\label{fig:season-texture-correlation}
 \end{figure}
  
- Table \ref{table:seasonality-texture} shows a breakdown of the seasonality of each parameter seen in Table \ref{table:results-texture}. The results presented are a bit mixed, as no set of parameters was drawn exclusively from parameters that do not have a seasonal aspect. The highest AUC, in fact, was seen with Random Forest, where three of the four parameters exhibited change across the growth cycle.
+ Table \ref{table:seasonality-texture} shows a breakdown of the stability of each parameter seen in Table \ref{table:results-texture}. The results presented are a bit mixed, as no set of parameters was drawn exclusively from parameters that do not exhibit changes across the development cycle. The highest AUC, in fact, was seen with Random Forest, where three of the four parameters exhibited change across the growth cycle.
  
  {
 \renewcommand{\arraystretch}{1.2}
@@ -2571,6 +2574,15 @@ Considering all the parameter types (color, shape, texture), the results are sho
 \input{./tables/results-optimal.tex}
 }
 
+Table \ref{table:optimal} details the absolute highest AUC, but the difference between the highest AUC and the next highest value is sometimes quite small. Even a difference in the AUC of 0.001 would be enough to state that one parameter set yields a higher AUC score. Table \ref{table:results-counts} shows the number of parameter combinations that are close to the highest value (within 0.009 of the AUC score).
+{
+\input{./tables/results-counts.tex}
+}
+
+While it is not surprising to see that there were 6 combinations for LDA classification that yielded results close to the maximum, the 209 achieved with SVM was. Considering that there were only 330 combinations considered, over 63\% of the parameters identified produced maximum results.
+
+
+There is no clear trend in these attributes change over the development cycle. Table \ref{table:optimal-seasonality} shows an assessment of the change in the factors used (see Table \ref{table:optimal} for the factor names) in the classification. While the classification using LDA or SVM  are both composed entirely of factors that does not exhibit change, those do not achieve the highest AUC score, as Logistic Regression uses two factors that do exhibit change over the development cycle. The parameter sets used by all of the classification techniques were composed of at least 50\%  stable parameters. While this does not show conclusively that integration of factors that remain constant over a portion of the development cycle, the majority of the highest performing classifications did integrate these factors.
 {
 % Produced with:
 % make optimal-results-seasonality TYPE=all SUBTYPE=all FORMAT=latex PARAMETERS=parameters.pickle LOGGING=tucson-logging.ini ALL_RESULTS=/cygdrive/d/dissertation/debug/ CAPTION_LONG="Seasonality of all features" CAPTION_SHORT="Seasonality of all features" LABEL=table:optimal-seasonality PREFIX=uncorrected_all_auc OUTPUT=../documents/tables/seasonality-optimal.tex SOURCE_CSV=/cygdrive/d/dissertation/cantaloupe/season.csv
@@ -2761,7 +2773,7 @@ Plotting the attributes found to produce the best model for LDA yields Figure~\r
  \begin{figure}[H]
 	\centering
 	\includegraphics[width=0.9\linewidth]{./figures/plot-factors.png}
-	\caption[Factors selected for discrimination]{A plot of the four factors selected with the shape noting the true classification of the blob. In this graph the factors selected occupy space and color, with the shape of the object noting the classification. The (X, Y, Z) coordinates of each blob are the compactness (a shape descriptor), the standard deviation of the HOG (texture), and the variance of the LBP of the $intensity$ channel of the blob in HSI colorspace. The color of the object corresponds to the standard deviation of the LBP of the $Y$ channel in YCbCr colorspace.}
+	\caption[Factors selected for discrimination]{A plot of the four factors selected with the shape noting the true classification of the blob using LDA. In this graph the factors selected occupy space and color, with the shape of the object noting the classification. The (X, Y, Z) coordinates of each blob are the compactness (a shape descriptor), the standard deviation of the HOG (texture), and the variance of the LBP of the $intensity$ channel of the blob in HSI colorspace. The color of the object corresponds to the standard deviation of the LBP of the $Y$ channel in YCbCr colorspace.}
 	\label{fig:factors}
 \end{figure}
   
@@ -2811,9 +2823,15 @@ A camera with parameters to the one on the DJI Drone at 500cm captures 1 meter o
 \section{Conclusions}
 This study has shown that vegetation can be classified accurately, but what that accuracy is depends on what the goals are. If incorrectly classifying crops as weeds has a higher cost than incorrectly classifying weeds as crop, a cost-sensitive approach may be appropriate, than the classification approaches studied here. Changes to features used in classification over a development cycle may make models built on that data less effective -- models built considering data from only a single day yield much higher scores. It was not clear that 
 
-\newpage
 \section{References}
 \printbibliography[heading=none]
+
+\newpage
+\section{Journal Paper:  \textit{Approaches to Segmentation of Crop Images}}
+\includepdf[pages=-]{./mdpi/segmentation-mdpi.pdf}
+\newpage
+\section{Journal Paper: \textit{Class Imbalance in Crop/Weed Classification}}
+\includepdf[pages=-]{./mdpi-imbalance/imbalance-mdpi.pdf}
 
 
 \end{document}
