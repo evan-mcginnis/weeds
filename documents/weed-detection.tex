@@ -14,6 +14,19 @@
 %\usepackage{natbib}
 \usepackage{siunitx}
 
+
+%\usepackage[printwatermark]{xwatermark}
+%\usepackage{background}
+%\backgroundsetup{
+%  position=current page.east,
+%  angle=-90,
+%  nodeanchor=east,
+%  vshift=-5mm,
+%  opacity=1,
+%  scale=3,
+%  contents=Draft
+%}
+
 % T I T L E  F O R M A T T I N G
 \usepackage[Sonny]{fncychap}
 %\renewcommand{\chaptername}{} %% remove the word \chapter
@@ -40,6 +53,9 @@
 %\setabbreviationstyle[acronym]{long-short}
 %\loadglsentries{glossary}
 %\makeglossaries
+\usepackage[acronym, nopostdot, nonumberlist]{glossaries}
+\usepackage{glossary-mcols}
+
 
 \usepackage[hidelinks]{hyperref}
 
@@ -48,6 +64,7 @@
 %\captionsetup{justification=centering, labelfont=sc, labelsep=endash}
 
 % Tables
+\usepackage{lscape}
 \usepackage{float}
 \usepackage[utf8]{inputenc}
 \usepackage{tabularx}
@@ -211,6 +228,32 @@ In the Graduate College \\
 THE UNIVERSITY OF ARIZONA \\
 2025 \\
     }
+\makeglossaries
+
+\newacronym{KNN}{KNN}{K Nearest Neighbors}
+\newacronym{LDA}{LDA}{Linear Discriminate Analysis}
+\newacronym{AUC}{AUC}{Area Under the Curve}
+\newacronym{HOG}{HOG}{Histogram of Oriented Gradients}
+\newacronym{LBP}{LBP}{Local Binary Pattern}
+\newacronym{HSI}{HSI}{Hue, Saturation, and Intensity}
+\newacronym{HSV}{HSV}{Hue, Saturation, and Value}
+\newacronym{FPR}{FPR}{False Positive Rate}
+\newacronym{FNR}{FNR}{False Negative Rate}
+\newacronym{SMOTE}{SMOTE}{Synthetic Minority Oversampling Technique}
+\newacronym{ADASYN}{ADASYN}{Adaptive Synthetic}
+\newacronym{ENN}{ENN}{Edited Nearest Neighbor}
+\newacronym{GLCM}{GLCM}{Greylevel Co-occurrence Matrix}
+\newacronym{ANN}{ANN}{Artificial Neural Network}
+\newacronym{MLP}{MLP}{Multi-Layer Perceptron}
+\newacronym{AGL}{AGL}{Above Ground Level}
+\newacronym{ExG}{ExG}{Excess Green}
+\newacronym{NGRDI}{NGRDI}{Normalized Green-Red Difference Index}
+\newacronym{CIVE}{CIVE}{Color Index of Vegetation}
+\newacronym{CNN}{CNN}{Convolutional Neural Network}
+\newacronym{SVM}{SVM}{Support Vector Machine}
+\newacronym{MAC}{MAC}{Maricopa Agricultural Research Center}
+
+
 \begin{document}
 %\begin{titlepage}
 %\BgThispage
@@ -277,21 +320,25 @@ THE UNIVERSITY OF ARIZONA \\
 % F R O N T  M A T T E R
 %
 %\newacronym{glcm}{GLCM}{Grey-level Co-occurrence matrix}
+%\glsadd{KNN}
+
 \tableofcontents
 \listoffigures
 \listoftables
 
-%\glsaddall
-%\printglossary[title=Abbreviations,type=\acronymtype]
+\clearpage
+\setlength{\glsdescwidth}{0.95\linewidth}
+
+\printglossary[type=acronym]
 %\listofequations
 
 \newpage
 
 \section*{Abstract}
-The precision treatment of weeds within a crop depends first on the accurate classification of plants into two classes: desired plants and undesired plants. Further treatment (such as eliminating the weed) depends on this accurate classification. This paper presents findings on how accurately and efficiently to distinguish weeds from crops that weeds and crop using shape, color, and texture all factors that can be extracted from RGB images.  Nine different classification approaches were examined: Decision Tree, Extra Trees, Gradient Boosting, KNN, LDA, Logistic Regression, Multi-layer Perceptron, Random Forest, and Support Vector Machine. Two sets of crop images were used in the preparation of this work: broccoli and cantaloupe. As the shape of the cantaloupe changed over the development cycle, emphasis was given to cantaloupe images. An Area Under the Curve (AUC) of 0.925 was obtained using a combination of shape (compactness) and texture (Histogram of Oriented Gradients -- HOG and Local Binary Pattern -- LBP).  While the shape attribute is fairly self-explanatory, the texture attributes are not as simple as it first appears. The textural attributes are computed for the items in the image in non-RGB color spaces. Specifically, the texture attributes are drawn from channels in the HSI ($H$ channel of the Hue Saturation Intensity) and YCbCr ($Y$ channel) spaces. Using only texture attributes resulted in an AUC of 0.92, indicating that texture alone can be used in prediction with reasonably good performance. Using only color or shape in classification resulted in lower AUC performance ($0.88$ with Extra Trees, and $0.88$ with Random Forest). These values reflect using images of the vegetation acquired over several weeks early in the development cycle. Significantly higher AUC values are obtained using images from a specific day: an AUC of 0.99 was obtained using Boosted Gradient classification on images acquired four weeks into the broccoli development cycle. Some of this can be explained by the factors exhibiting changes across the development cycle. A Dickey-Fuller test ($\alpha = 0.05$) shows, for instance, that the \textit{hue} of vegetation is constant over the development cycle, but a shape attribute such as the \textit{radial variance} is not.
+The precision treatment of weeds within a crop depends first on the accurate classification of plants into two classes: desired plants and undesired plants. Further treatment (such as eliminating the weed) depends on this accurate classification. This paper presents findings on how accurately and efficiently to distinguish weeds from crops that weeds and crop using shape, color, and texture all factors that can be extracted from RGB images.  Nine different classification approaches were examined: Decision Tree, Extra Trees, Gradient Boosting, \gls{KNN}, \gls{LDA}, Logistic Regression, Multi-layer Perceptron, Random Forest, and Support Vector Machine. Two sets of crop images were used in the preparation of this work: broccoli and cantaloupe. As the shape of the cantaloupe changed over the development cycle, emphasis was given to cantaloupe images. An Area Under the Curve (\gls{AUC}) of 0.925 was obtained using a combination of shape (compactness) and texture (Histogram of Oriented Gradients -- \gls{HOG} and Local Binary Pattern -- \gls{LBP}).  While the shape attribute is fairly self-explanatory, the texture attributes are not as simple as it first appears. The textural attributes are computed for the items in the image in non-RGB color spaces. Specifically, the texture attributes are drawn from channels in the \gls{HSI} ($H$ channel of the Hue Saturation Intensity) and YCbCr ($Y$ channel) spaces. Using only texture attributes resulted in an AUC of 0.92, indicating that texture alone can be used in prediction with reasonably good performance. Using only color or shape in classification resulted in lower AUC performance ($0.88$ with Extra Trees, and $0.88$ with Random Forest). These values reflect using images of the vegetation acquired over several weeks early in the development cycle. Significantly higher AUC values are obtained using images from a specific day: an AUC of 0.99 was obtained using Boosted Gradient classification on images acquired four weeks into the broccoli development cycle. Some of this can be explained by the factors exhibiting changes across the development cycle. A Dickey-Fuller test ($\alpha = 0.05$) shows, for instance, that the \textit{hue} of vegetation is constant over the development cycle, but a shape attribute such as the \textit{radial variance} is not.
 
-Additionally two other challenges are evaluated and addressed: image segmentation, and class imbalance. While these are not central to the this study, they are nevertheless key to the work, as they impact performance and accuracy.  For image segmentation, a set of eight indices previously defined indices (Excessive Red, Excessive Green, Color Index of Vegetation, Mixed Excess Green, Vegetative, Normalized Green-Red Difference, Triangular Greenness, and Normalized Difference) and five new indices defined in this document (based on the HSI, HSV, YCbCr, YIQ, and CIELab color spaces) were evaluated, with an approach segmenting images using the technique based on the HSI based index showing the lowest error count. A deep-learning approach to segmentation based on the U-Net architecture was also evaluated, achieving a FPR of $0.0005$ and a FNR of $0.06$. 
-Class imbalance correction using oversampling algorithms SMOTE, borderline, Kmeans, ADASYN, SVM as well as combined oversampling/undersampling algorithms of SMOTE+ENN and SMOTE+TOMEK were also evaluated. For oversampling approaches Decision Tree benefited the most, Random Forest the least. For the combined approach, Decision Tree once again benefited the most, however this technique lead to much lower F1 scores from Logistic Regression (SMOTE+ENN) and Random Forest (SMOTE+TOMEK).
+Additionally two other challenges are evaluated and addressed: image segmentation, and class imbalance. While these are not central to the this study, they are nevertheless key to the work, as they impact performance and accuracy.  For image segmentation, a set of eight indices previously defined indices (Excessive Red, Excessive Green, Color Index of Vegetation, Mixed Excess Green, Vegetative, Normalized Green-Red Difference, Triangular Greenness, and Normalized Difference) and five new indices defined in this document (based on the HSI, HSV, YCbCr, YIQ, and CIELab color spaces) were evaluated, with an approach segmenting images using the technique based on the HSI based index showing the lowest error count. A deep-learning approach to segmentation based on the U-Net architecture was also evaluated, achieving a \gls{FPR} of $0.0005$ and a \gls{FNR} of $0.06$. 
+Class imbalance correction using oversampling algorithms \gls{SMOTE}, borderline, Kmeans, \gls{ADASYN}, \gls{SVM} as well as combined oversampling/undersampling algorithms of SMOTE+\gls{ENN} and SMOTE+TOMEK were also evaluated. For oversampling approaches Decision Tree benefited the most, Random Forest the least. For the combined approach, Decision Tree once again benefited the most, however this technique lead to much lower F1 scores from Logistic Regression (SMOTE+ENN) and Random Forest (SMOTE+TOMEK).
 
 \newpage
 %
@@ -299,12 +346,18 @@ Class imbalance correction using oversampling algorithms SMOTE, borderline, Kmea
 %
 
 % 15 Mar 2025 Revision begin
-\chapter{Introduction (15 Mar)}
+\chapter{Introduction (New as of 15 Mar)}
 Weed management is a critical challenge in specialty crop production, particularly for high-value vegetables like cantaloupe and broccoli. Weeds compete with crops for water, nutrients, and light, causing substantial yield losses if not controlled – studies estimate weeds can reduce yields by 40–60\% under severe infestations (\cite{Garibaldi-Marquez2022-yn}). Traditionally, chemical herbicides are widely used in commodity crops; however, in many specialty crops there are fewer herbicide options and growers often rely on costly manual weeding (\cite{American-Society-of-Agronomy2018-ad}). Early-season weed control is especially important because most crops have a “critical period” shortly after planting during which weed competition must be suppressed to avoid significant yield reductions. This dissertation focuses on early-season crop/weed classification in cantaloupe and broccoli fields of southern Arizona as a step toward automating weed control. In this introduction, we outline the economic burden of manual weeding, provide context on cantaloupe and broccoli production in the region, review current automation technologies for weed/crop identification, state the research hypothesis, and discuss how crop growth stage affects classification factors.
 
-\section{Labor Costs of Manual Weeding in Specialty Crops}
+\section{Feature Extraction Methods for Weed–Crop Classification}
 
-Manual weeding is labor-intensive and increasingly expensive in agriculture. Growers of crops like broccoli and melons often must hire crews to hand-remove weeds due to limited herbicide options and the need for precise weed control around crop plants \cite{American-Society-of-Agronomy2018-ad}). These labor requirements translate into substantial costs. Hand-weeding crews typically achieve over 90\% weed control in vegetable fields, but the cost can range from approximately USD\$150 to \$300 per acre in many cases (\cite{American-Society-of-Agronomy2018-ad}). In organic systems or crops with dense plantings, costs can be even higher – for example, hand-weeding in organic baby lettuce fields has been reported at $>$USD\$500 per acre (\cite{UnknownUnknown-zl Kushal2024-jt}). By comparison, conventional lettuce or brassica crops with some herbicide use still incur hand-weeding costs on the order of a few hundred dollars per acre (e.g. about USD\$143/acre in romaine lettuce vs. USD\$440/acre in organic spinach) (\cite{University-of-CaliforniaUnknown-qo}). These figures make it clear that weed control labor represents a significant expense for vegetable growers. Indeed, weed management can easily account for around 8–11\% of total cultural production costs in such crops (\cite{University-of-CaliforniaUnknown-qo}), and the field labor portion (mainly hand-weeding) comprises the majority of that weed control cost (over 75\% in conventional systems, and >95\% in organic systems) (\cite{University-of-CaliforniaUnknown-qo}).
+A key challenge in distinguishing weeds from young crop seedlings lies in selecting effective image features that capture their differences. Past studies have explored a variety of feature extraction methods spanning color, shape, and texture descriptors \parencite{Garibaldi-Marquez2022-yn}. Color features leverage differences in hue or spectral reflectance between plant types, for example by using color indices or analyzing various color space channels \parencite{Wu2021-gt}. However, at early growth stages, crops and weeds often share very similar green coloration and reflectance, making color-based discrimination difficult under natural light variability \parencite{Garibaldi-Marquez2022-yn}. Some researchers have mitigated lighting effects by converting images to alternative color spaces (e.g. HSV or HSI) or using color differences like the red-minus-blue (R–B) index to enhance contrast between vegetation and soil \parencite{Wu2021-gt}. Shape features describe the geometry of plant organs or contours – common examples include attributes such as area, perimeter, aspect ratio, circularity, and Hu moment invariants of segmented leaf regions \parencite{Garibaldi-Marquez2022-yn}. This limits the discriminative power of purely shape-based classification in early growth. Shape and texture analysis is not limited to plants, of course, \citeauthor{Bankman2009-wq}, detailing shape and texture quantification in medical images, steps through many of the techniques employed here, particularly the concept of \textit{radial distance} \parencite{Bankman2009-wq}. While there is clear overlap between the techniques of medical image analysis and the analysis of agricultural images in areas such as textural analysis, the concepts and techniques around shape analysis are of particular interest.
+
+Texture features have shown particular promise for early-stage weed–crop discrimination, as they capture the fine-scale patterns on leaves that might differ between species \parencite{Garibaldi-Marquez2022-yn}. Texture descriptors quantify the spatial arrangement and intensity variation of pixels, which can reflect characteristics like leaf vein patterns or surface roughness. Among these, the gray-level co-occurrence matrix (GLCM) is a widely used method that computes statistical measures (contrast, entropy, homogeneity, etc.) from the co-occurrence of pixel intensity values, effectively summarizing leaf texture \parencite{Wu2021-gt,Chen2020-un}. Another popular texture descriptor is the local binary pattern (LBP), which encodes local texture by thresholding pixel neighborhoods and converting them into binary codes. LBP features are valued for their robustness to changes in illumination and viewing conditions. Indeed, models built on LBP texture features have demonstrated high performance in classifying crop vs. weed seedlings, particularly because early detection coincides with the optimal timing for intervention (when weeds are small and most susceptible to control) \parencite{Chen2020-un}. Results consistently show that no single feature type works best in all scenarios; instead, fusing multiple feature types often yields higher and more stable accuracy than any individual feature alone \parencite{Wu2021-gt,Chen2020-un}. Sabzi et al. demonstrated this by combining GLCM texture descriptors with color and shape features to classify weeds in potato fields, achieving high accuracy through a multi-feature approach \parencite{Wu2021-gt}. Likewise, other researchers have reported that multi-feature decision fusion or feature ensemble methods outperform single-feature methods, especially under varying field conditions. These findings motivate our inclusion of diverse feature extraction techniques (GLCM, LBP, HOG, shape, and color features) in the classification pipeline, to determine which combinations are most effective for early crop/weed identification in RGB images.
+
+\section{Labor Costs of Manual Weeding}
+
+Manual weeding is labor-intensive and increasingly expensive in agriculture. Growers of crops like broccoli and melons often must hire crews to hand-remove weeds due to limited herbicide options and the need for precise weed control around crop plants \cite{American-Society-of-Agronomy2018-ad}). These labor requirements translate into substantial costs. Hand-weeding crews typically achieve over 90\% weed control in vegetable fields, but the cost can range from approximately USD\$150 to \$300 per acre in many cases (\cite{American-Society-of-Agronomy2018-ad}). In organic systems or crops with dense plantings, costs can be even higher – for example, hand-weeding in organic baby lettuce fields has been reported at $>$USD\$500 per acre (\cite{UnknownUnknown-zl} \cite{Kushal2024-jt}). By comparison, conventional lettuce or brassica crops with some herbicide use still incur hand-weeding costs on the order of a few hundred dollars per acre (e.g. about USD\$143/acre in romaine lettuce vs. USD\$440/acre in organic spinach) (\cite{University-of-CaliforniaUnknown-qo}). These figures make it clear that weed control labor represents a significant expense for vegetable growers. Indeed, weed management can easily account for around 8–11\% of total cultural production costs in such crops (\cite{University-of-CaliforniaUnknown-qo}), and the field labor portion (mainly hand-weeding) comprises the majority of that weed control cost (over 75\% in conventional systems, and >95\% in organic systems) (\cite{University-of-CaliforniaUnknown-qo}).
 
 Rising farm labor wages and shortages of available workers are compounding the cost problem. U.S. farm labor wages have been climbing steadily in recent years, reaching an average of about USD\$18.12 per hour for field workers in 2024 (a 3\% increase from the previous year) (\cite{USDA2024-pq}). In vegetable-producing regions like Arizona and California, labor markets are tight due to demographic and policy shifts. Increased border security and improving economic conditions in Mexico have led toflat or negative net migration of agricultural workers in the past decade (\cite{University-of-CaliforniaUnknown-qo}). Many aging farm workers are retiring and fewer younger workers are entering manual farm jobs . This labor shortage exerts upward pressure on wages, as growers must compete to attract crews for difficult tasks like hand-hoeing. Consequently, the cost of hiring hand-weeding crews is expected to continue rising. Growers face a difficult economic situation: weeds must be controlled to prevent yield loss, but manual weeding is increasingly cost-prohibitive. This has created strong motivation to seek automated or more efficient precision weeding solutions that can reduce labor needs.
 
@@ -332,6 +385,18 @@ In response to the labor cost pressures and the need for precise weed control, a
 
 In general, the precision agriculture solutions currently deployed for weed management combine advanced sensors (cameras), artificial intelligence (machine learning for plant recognition), and actuation systems to selectively target weeds. Some systems physically remove or cut weeds, while others spray herbicide or use thermal methods (laser, flame, etc.), but all rely on accurately classifying each plant as “crop” or “weed.” The capabilities of these technologies are improving rapidly. However, it is noted that many vision-based weeders still face challenges in reliably distinguishing weeds from young crop plants under all field conditions (\cite{American-Society-of-Agronomy2018-ad}). Factors like varying lighting, overlapping plants, or similarity in appearance can cause mistakes. Current commercial robotic weeders cost on the order of \$100k–\$175k each (\cite{American-Society-of-Agronomy2018-ad}), an investment some growers readily make to offset rising labor costs, while others are waiting for the technology to mature further. Overall, the state-of-the-art demonstrates that automated crop/weed classification is feasible and can significantly reduce manual weeding—yet there remains room for technical improvements, which motivates research such as this project.
 
+\section{Addressing Class Imbalance}
+
+A common issue in weed-crop classification tasks is class imbalance, where the number of weed instances is significantly greater or smaller than crop instances. This imbalance can lead to biased model performance, as classifiers may favor the majority class while failing to correctly predict the minority class. To address this challenge, synthetic oversampling techniques such as the Synthetic Minority Over-sampling Technique (SMOTE) and Adaptive Synthetic (ADASYN) sampling can be employed.
+
+SMOTE generates synthetic examples of the minority class by interpolating between existing instances, effectively increasing the representation of underrepresented samples in the dataset. This helps balance class distributions and enhances classifier performance by preventing bias toward the majority class.
+
+ADASYN extends SMOTE by focusing more on generating synthetic samples for those minority class instances that are harder to classify, thereby improving the overall learning process. Unlike SMOTE, ADASYN dynamically adjusts the number of synthetic samples based on the local distribution of the data, making it particularly effective for highly imbalanced datasets.
+
+By incorporating these techniques, our study ensures that the classifiers are trained on a more balanced dataset, reducing bias and improving the generalizability of the model to real-world field conditions.
+
+In general, achieving reliable weed vs. crop classification throughout the crop growth cycle requires understanding how feature differentiability and image conditions evolve over time. Early-stage classification benefits from texture features like LBP and GLCM to catch subtle differences when shape and color alone are insufficient. The implications for this study are that our feature selection and classifier training must be attuned to the growth stage of the imagery. Since our focus is on the early growth period in an Arizona field, we emphasize features and methods proven effective on young plants. By doing so, we aim to develop a classification approach that is not only accurate under the current early-stage conditions but also robust enough to remain reliable as the crop continues to develop.
+
 \section{Changes Over the Crop Development Cycle}
 
 It is important to recognize that the visual characteristics of crops and weeds evolve over the growing cycle, which affects how we approach classification at different stages. Early-season weed/crop classification (the focus of this study) is particularly challenging because both crops and weeds are small seedlings with relatively similar appearances. At the earliest stages (just after emergence), many plants have only a couple of leaves, and spectral reflectance (color) offers limited differentiation – young weeds and crops often exhibit similar shades of green (\cite{Garibaldi-Marquez2022-yn}).
@@ -342,64 +407,65 @@ Another factor is that as time progresses, the spacing and context cues change. 
 
 In summary, the salient features for weed/crop classification shift over time: early on we rely on subtle shape and arrangement cues, while later on size, texture, and sometimes color contrast become more pronounced. Any robust automated classification system should account for the plant growth stage. Our research, with its focus on texture in multiple color spaces, aims to enhance discrimination at the early stage when it is most needed. By understanding how features like color, texture, and morphology play roles at different development phases, we can design algorithms that maintain high accuracy throughout the crop’s growth cycle – ultimately enabling timely and precise weed control in cantaloupe and broccoli fields. 
 
-\section{Research Hypothesis}
-
-Incorporating texture-based image features in non-RGB color spaces will improve the accuracy of early-season crop versus weed classification in cantaloupe and broccoli fields. In other words, beyond using standard color and shape cues, this research posits that analyzing leaf texture patterns (e.g. via Gray-Level Co-Occurrence Matrix, GLCM) on alternative color representations (such as HSV, LAB, etc.) will better capture differences between crop seedlings and weeds, leading to more robust discrimination. This hypothesis is based on the intuition that young crop and weed plants often have subtle differences in surface texture and venation that may not be fully exploited by RGB color or simple shape features alone. By transforming images into color spaces that separate luminance, hue, and saturation, we expect to highlight contrast in leaf patterns and then quantify those patterns with texture metrics. The anticipated result is an improvement in classification performance (e.g. higher accuracy or F1-score) when these texture features are added to the feature set, compared to using only traditional RGB color and shape features.
+\section{Objectives and Hypothesis}
+This work will address these issues by collecting and analyzing crop imagery acquired from a planting at the University of Arizona Maricopa Research Center. The goal is to develop a model that can be integrated into a ground-based treatment system.  Specifically:
+\begin{enumerate}
+	\item{Incorporating texture-based image features in non-RGB color spaces will improve the accuracy of early-season crop versus weed classification in cantaloupe and broccoli fields. In other words, beyond using standard color and shape cues, this research posits that analyzing leaf texture patterns (e.g. via Gray-Level Co-Occurrence Matrix, GLCM) on alternative color representations (such as HSV, LAB, etc.) will better capture differences between crop seedlings and weeds, leading to more robust discrimination. This hypothesis is based on the intuition that young crop and weed plants often have subtle differences in surface texture and venation that may not be fully exploited by RGB color or simple shape features alone. By transforming images into color spaces that separate luminance, hue, and saturation, we expect to highlight contrast in leaf patterns and then quantify those patterns with texture metrics. The anticipated result is an improvement in classification performance (e.g. higher accuracy or F1-score) when these texture features are added to the feature set, compared to using only traditional RGB color and shape features.}
+	\item{Crop and weed do not appear in the same proportion. Does correcting this with techniques like SMOTE produce better models? The imbalance ratio will be artificially manipulated before correction to determine if this is the case.}
+	\item{Detail the effect of changes in classification factors during early-phase crop development. Are better performing models use factors that do not change over the development cycle? Changes in classification factors over early-phase crop development will be assessed with a Dickey-Fuller test.}
+\end{enumerate}
+By refining automated classification techniques, this research aims to advance sustainable and cost-effective weed management strategies in modern agriculture.
 
 % 15 Mar 2025 Revision end
 
 % REVISED INTRO BEGIN
 
 
-\chapter{Introduction}
-%\addcontentsline{toc}{chapter}{Introduction}
+%\chapter{Introduction}
+%%\addcontentsline{toc}{chapter}{Introduction}
+%
+%Weeds competing with crops in the early stages of growth can severely impact crop yield and quality if not managed promptly. Early detection and classification of weeds versus crop plants is therefore crucial for precision agriculture and site-specific weed management. Recent advances in computer vision and machine learning have enabled the development of automated systems that use field imagery to distinguish crops from weeds, allowing targeted herbicide application and reduced chemical use \parencite{Chen2020-un}. In this study, we investigate weed and crop classification in an irrigated field in Maricopa, Arizona using RGB imagery captured during the early crop development stage. We consider a range of supervised classification methods – including k-nearest neighbors (KNN), random forests (RF), linear discriminant analysis (LDA), logistic regression, extra-trees, support vector machines (SVM), and gradient boosting – to determine an effective approach for identifying crop plants versus weeds in their initial growth phases. These methods have been widely applied in prior weed/crop classification research, with studies often reporting SVM and other ensemble methods to achieve high accuracy on carefully engineered features \parencite{Garibaldi-Marquez2022-yn}. By evaluating multiple classifiers, our aim is to benchmark their performance in real field conditions and identify which algorithms are most suitable for early-stage weed detection. Once classified, vegetation can be treated using a variety of mechanical, chemical~(\cite{Saile2022-vu}), or no-touch~(\cite{Saile2022-vu,Mwitta2022-yt}) methods. Irrespective of the treatment details, accuracy is key. According to the USDA, Arizona alone produced over \$411M in head lettuce in 2023 \parencite{Arizona-Department-of-Agriculture2018-dx}. Even seemingly minor  increases in the accurate identification of vegetation have profound economic impacts. Misclassification of crop followed by a negative treatment results in a lower yield; Misclassification of a weed followed by the absence of a negative treatment may result in competition between crop that can be sold and weeds that cannot. Even a 1\% change represents millions of dollars in affected crop.
+%
+%
+%
+%\section{Impact of Crop Growth Stage on Classification}
+%
+%Another critical consideration for accurate weed/crop classification is the crop growth stage at which imaging occurs. The appearance of both crops and weeds evolves significantly over time, altering the very features that classifiers rely on \parencite{Wu2021-gt}. In the earliest emergence or seedling stage, plants are very small and often numerous. Weeds in the “bud” stage (just sprouting) can vary widely in appearance and emerge in high densities, which makes detecting and distinguishing individual weed plants challenging. At this stage, background soil is usually visible, so separating green vegetation from soil is relatively straightforward; however, separating crop seedlings from weed seedlings is difficult because they share similar size, color, and basic morphology \parencite{Garibaldi-Marquez2022-yn}.
+%
+%As the crop grows into intermediate vegetative stages, certain differences become more pronounced. The crop plants increase in size and develop distinct leaf shapes and canopy architecture, potentially making them easier to tell apart from weeds that remain smaller or have different growth habits \parencite{Wu2021-gt}. For instance, a row crop will start to form continuous rows, whereas weeds may be scattered irregularly; exploiting row structure or plant spacing can aid classification (plants outside the expected row position are likely weeds) \parencite{Wu2021-gt}, although these approaches can be unreliable if the field setup is irregular or if the imaging system is subject to vibration and misalignment. Mid-season crop foliage often exhibits richer texture and more complex shapes (e.g., multiple leaves, branching), which could improve the discriminative power of shape and texture features. However, new challenges also arise: the scene becomes predominantly green-on-green as crop canopy covers the soil, and weeds may grow intermingled with crop plants. Overlapping leaves and occlusion become major issues – weed leaves might lie beneath or between crop leaves, making segmentation of individual plants difficult \parencite{Wu2021-gt}. Varying illumination (sun angle, shadows from taller crop canopy) can further complicate consistent feature extraction \parencite{Wu2021-gt}. Thus, in later growth stages, even though individual plant features diverge more (a mature weed might have a different leaf texture or even flowers compared to the crop), the heavy occlusion and uniform background of vegetation can reduce classification accuracy. Researchers have observed that leaf morphology, texture, and even spectral characteristics of plants change as they progress through growth stages or seasons \parencite{Wu2021-gt}. Therefore, a classifier trained on seedlings may struggle on mature plants and vice versa, unless it incorporates features or models robust to these developmental changes \parencite{Wu2021-gt}. For example, a deep learning model trained on images of mature weeds was reported to falter when tested on early-stage weed images, whereas an SVM classifier using carefully chosen early-stage features maintained high performance \parencite{Garibaldi-Marquez2022-yn}. This underscores the need for either stage-specific classification models or features that generalize across stages.
+%
+%In summary, achieving reliable weed vs. crop classification throughout the crop growth cycle requires understanding how feature differentiability and image conditions evolve over time. Early-stage classification benefits from texture features like LBP and GLCM to catch subtle differences when shape and color alone are insufficient \parencite{Garibaldi-Marquez2022-yn}. In contrast, later-stage classification might leverage size, shape complexity, or even spectral differences (if available) as the plants mature, while contending with more complex backgrounds \parencite{Wu2021-gt}. The implications for this study are that our feature selection and classifier training must be attuned to the growth stage of the imagery. Since our focus is on the early growth period in an Arizona field (when intervention is most critical), we emphasize features and methods proven effective on young plants, and we design our experiments to account for the unique difficulties of this stage (high weed densities, uniform color, simple shapes). By doing so, we aim to develop a classification approach that is not only accurate under the current early-stage conditions, but also robust enough to remain reliable (or adaptable) as the crop continues to develop. This introduction sets the stage for the subsequent chapters, where we detail the methodology for feature extraction (color, shape, GLCM, LBP, HOG, etc.), the implementation of various classifiers (KNN, RF, LDA, logistic regression, Extra Trees, SVM, and gradient boosting), and an analysis of their performance on early-season weed/crop image data. Ultimately, the goal is to contribute an effective weed detection solution that can improve precision weed management during the critical early growth window, informed by insights from prior research and an understanding of plant development dynamics. 
+%
+%\citeauthor{Ong2023-lm}, in a study of classification of Chinese Cabbage, classifies vegetation acquired at an average of 2m AGL using a single set of attributes, Local Binary Pattern (LBP, a texture descriptor), and a single approach (Random Forest) leveraging those attributes, validating the use of texture in classification \parencite{Ong2023-lm}. \citeauthor{Etienne2021-ik}, in a study of Corn and Soybean plots, used imagery gathered from both 10m and 30m AGL. but found that the best training set for selected algorithm (YOLOv3) was taken from the set of images acquired from 10m \parencite{Etienne2021-ik}. The parameters selected as significant to classification fall into three basic categories: shape, color, and texture. Variants of each of these categories will be used in this study. 
+%In a study of weed mapping in sunflower crop, \citeauthor{Perez-Ortiz2015-yk} present findings from images taken from three distances AGL, 30m, 60m, and 100m, classifying each pixel as crop, weed, or soil using SVM, KNN, and k-means (and variants of those) approaches \parencite{Perez-Ortiz2015-yk}. While this approach does indeed yield weed maps that lend themselves to later study, the approach is a bit different in terms of what is being classified. In that study, individual pixels are being classified, in contrast to this study that seeks to classify individual plants.
+%In a study of weeds in corn, \citeauthor{Lin2017-xq} used shape metrics as part of the classification workflow, stressing the importance of expressing shape metrics that are not rotationally variant. More importantly, the study details a shape metric possessing the desired qualities for use in classification. Using shape and texture (GLCM), the study demonstrated an overall accuracy exceeding 95\%. \citeauthor{Lin2017-xq}'s study did not report some items that are of interest: the distances of the imagery to the camera, and the false positive rate of weed identification. While the high overall rate sounds is certainly impressive, that metric will not be used in this study. Additionally, the images of vegetation were acquired under controlled conditions, something that is not reproducible under field conditions using ambient light. \citeauthor{Sabzi2020-af}, in a study of a potato field, used various channels of color spaces (YIQ, YCbCr, HSI) as well as texture (Grey-Level Co-occurrence Matrix, GLCM) to achieve a high correct classification rate, but the use of GLCM is not applied  to channels of the color conversion, only to RGB images that have been converted to greyscale \parencite{Sabzi2020-af}. While this is a conventional use of the texture identification technique, it does not leverage the information content available in other color spaces.
+%
+%\section{Addressing Class Imbalance with Synthetic Oversampling Techniques}
+%
+%A common issue in weed-crop classification tasks is class imbalance, where the number of weed instances is significantly greater or smaller than crop instances. This imbalance can lead to biased model performance, as classifiers may favor the majority class while failing to correctly predict the minority class. To address this challenge, synthetic oversampling techniques such as the Synthetic Minority Over-sampling Technique (SMOTE) and Adaptive Synthetic (ADASYN) sampling can be employed.
+%
+%SMOTE generates synthetic examples of the minority class by interpolating between existing instances, effectively increasing the representation of underrepresented samples in the dataset. This helps balance class distributions and enhances classifier performance by preventing bias toward the majority class.
+%
+%ADASYN extends SMOTE by focusing more on generating synthetic samples for those minority class instances that are harder to classify, thereby improving the overall learning process. Unlike SMOTE, ADASYN dynamically adjusts the number of synthetic samples based on the local distribution of the data, making it particularly effective for highly imbalanced datasets.
+%
+%By incorporating these techniques, our study ensures that the classifiers are trained on a more balanced dataset, reducing bias and improving the generalizability of the model to real-world field conditions.
+%
+%In summary, achieving reliable weed vs. crop classification throughout the crop growth cycle requires understanding how feature differentiability and image conditions evolve over time. Early-stage classification benefits from texture features like LBP and GLCM to catch subtle differences when shape and color alone are insufficient. The implications for this study are that our feature selection and classifier training must be attuned to the growth stage of the imagery. Since our focus is on the early growth period in an Arizona field, we emphasize features and methods proven effective on young plants. By doing so, we aim to develop a classification approach that is not only accurate under the current early-stage conditions but also robust enough to remain reliable as the crop continues to develop.
+%
 
-Weeds competing with crops in the early stages of growth can severely impact crop yield and quality if not managed promptly. Early detection and classification of weeds versus crop plants is therefore crucial for precision agriculture and site-specific weed management. Recent advances in computer vision and machine learning have enabled the development of automated systems that use field imagery to distinguish crops from weeds, allowing targeted herbicide application and reduced chemical use \parencite{Chen2020-un}. In this study, we investigate weed and crop classification in an irrigated field in Maricopa, Arizona using RGB imagery captured during the early crop development stage. We consider a range of supervised classification methods – including k-nearest neighbors (KNN), random forests (RF), linear discriminant analysis (LDA), logistic regression, extra-trees, support vector machines (SVM), and gradient boosting – to determine an effective approach for identifying crop plants versus weeds in their initial growth phases. These methods have been widely applied in prior weed/crop classification research, with studies often reporting SVM and other ensemble methods to achieve high accuracy on carefully engineered features \parencite{Garibaldi-Marquez2022-yn}. By evaluating multiple classifiers, our aim is to benchmark their performance in real field conditions and identify which algorithms are most suitable for early-stage weed detection. Once classified, vegetation can be treated using a variety of mechanical, chemical~(\cite{Saile2022-vu}), or no-touch~(\cite{Saile2022-vu,Mwitta2022-yt}) methods. Irrespective of the treatment details, accuracy is key. According to the USDA, Arizona alone produced over \$411M in head lettuce in 2023 \parencite{Arizona-Department-of-Agriculture2018-dx}. Even seemingly minor  increases in the accurate identification of vegetation have profound economic impacts. Misclassification of crop followed by a negative treatment results in a lower yield; Misclassification of a weed followed by the absence of a negative treatment may result in competition between crop that can be sold and weeds that cannot. Even a 1\% change represents millions of dollars in affected crop.
-
-\section{Feature Extraction Methods for Weed–Crop Classification}
-
-A key challenge in distinguishing weeds from young crop seedlings lies in selecting effective image features that capture their differences. Past studies have explored a variety of feature extraction methods spanning color, shape, and texture descriptors \parencite{Garibaldi-Marquez2022-yn}. Color features leverage differences in hue or spectral reflectance between plant types, for example by using color indices or analyzing various color space channels \parencite{Wu2021-gt}. However, at early growth stages, crops and weeds often share very similar green coloration and reflectance, making color-based discrimination difficult under natural light variability \parencite{Garibaldi-Marquez2022-yn}. Some researchers have mitigated lighting effects by converting images to alternative color spaces (e.g. HSV or HSI) or using color differences like the red-minus-blue (R–B) index to enhance contrast between vegetation and soil \parencite{Wu2021-gt}. Shape features describe the geometry of plant organs or contours – common examples include attributes such as area, perimeter, aspect ratio, circularity, and Hu moment invariants of segmented leaf regions \parencite{Garibaldi-Marquez2022-yn}. This limits the discriminative power of purely shape-based classification in early growth. Shape and texture analysis is not limited to plants, of course, \citeauthor{Bankman2009-wq}, detailing shape and texture quantification in medical images, steps through many of the techniques employed here, particularly the concept of \textit{radial distance} \parencite{Bankman2009-wq}. While there is clear overlap between the techniques of medical image analysis and the analysis of agricultural images in areas such as textural analysis, the concepts and techniques around shape analysis are of particular interest.
-
-Texture features have shown particular promise for early-stage weed–crop discrimination, as they capture the fine-scale patterns on leaves that might differ between species \parencite{Garibaldi-Marquez2022-yn}. Texture descriptors quantify the spatial arrangement and intensity variation of pixels, which can reflect characteristics like leaf vein patterns or surface roughness. Among these, the gray-level co-occurrence matrix (GLCM) is a widely used method that computes statistical measures (contrast, entropy, homogeneity, etc.) from the co-occurrence of pixel intensity values, effectively summarizing leaf texture \parencite{Wu2021-gt,Chen2020-un}. Another popular texture descriptor is the local binary pattern (LBP), which encodes local texture by thresholding pixel neighborhoods and converting them into binary codes. LBP features are valued for their robustness to changes in illumination and viewing conditions. Indeed, models built on LBP texture features have demonstrated high performance in classifying crop vs. weed seedlings, particularly because early detection coincides with the optimal timing for intervention (when weeds are small and most susceptible to control) \parencite{Chen2020-un}. Results consistently show that no single feature type works best in all scenarios; instead, fusing multiple feature types often yields higher and more stable accuracy than any individual feature alone \parencite{Wu2021-gt,Chen2020-un}. Sabzi et al. demonstrated this by combining GLCM texture descriptors with color and shape features to classify weeds in potato fields, achieving high accuracy through a multi-feature approach \parencite{Wu2021-gt}. Likewise, other researchers have reported that multi-feature decision fusion or feature ensemble methods outperform single-feature methods, especially under varying field conditions. These findings motivate our inclusion of diverse feature extraction techniques (GLCM, LBP, HOG, shape, and color features) in the classification pipeline, to determine which combinations are most effective for early crop/weed identification in RGB images.
-
-\section{Impact of Crop Growth Stage on Classification}
-
-Another critical consideration for accurate weed/crop classification is the crop growth stage at which imaging occurs. The appearance of both crops and weeds evolves significantly over time, altering the very features that classifiers rely on \parencite{Wu2021-gt}. In the earliest emergence or seedling stage, plants are very small and often numerous. Weeds in the “bud” stage (just sprouting) can vary widely in appearance and emerge in high densities, which makes detecting and distinguishing individual weed plants challenging. At this stage, background soil is usually visible, so separating green vegetation from soil is relatively straightforward; however, separating crop seedlings from weed seedlings is difficult because they share similar size, color, and basic morphology \parencite{Garibaldi-Marquez2022-yn}.
-
-As the crop grows into intermediate vegetative stages, certain differences become more pronounced. The crop plants increase in size and develop distinct leaf shapes and canopy architecture, potentially making them easier to tell apart from weeds that remain smaller or have different growth habits \parencite{Wu2021-gt}. For instance, a row crop will start to form continuous rows, whereas weeds may be scattered irregularly; exploiting row structure or plant spacing can aid classification (plants outside the expected row position are likely weeds) \parencite{Wu2021-gt}, although these approaches can be unreliable if the field setup is irregular or if the imaging system is subject to vibration and misalignment. Mid-season crop foliage often exhibits richer texture and more complex shapes (e.g., multiple leaves, branching), which could improve the discriminative power of shape and texture features. However, new challenges also arise: the scene becomes predominantly green-on-green as crop canopy covers the soil, and weeds may grow intermingled with crop plants. Overlapping leaves and occlusion become major issues – weed leaves might lie beneath or between crop leaves, making segmentation of individual plants difficult \parencite{Wu2021-gt}. Varying illumination (sun angle, shadows from taller crop canopy) can further complicate consistent feature extraction \parencite{Wu2021-gt}. Thus, in later growth stages, even though individual plant features diverge more (a mature weed might have a different leaf texture or even flowers compared to the crop), the heavy occlusion and uniform background of vegetation can reduce classification accuracy. Researchers have observed that leaf morphology, texture, and even spectral characteristics of plants change as they progress through growth stages or seasons \parencite{Wu2021-gt}. Therefore, a classifier trained on seedlings may struggle on mature plants and vice versa, unless it incorporates features or models robust to these developmental changes \parencite{Wu2021-gt}. For example, a deep learning model trained on images of mature weeds was reported to falter when tested on early-stage weed images, whereas an SVM classifier using carefully chosen early-stage features maintained high performance \parencite{Garibaldi-Marquez2022-yn}. This underscores the need for either stage-specific classification models or features that generalize across stages.
-
-In summary, achieving reliable weed vs. crop classification throughout the crop growth cycle requires understanding how feature differentiability and image conditions evolve over time. Early-stage classification benefits from texture features like LBP and GLCM to catch subtle differences when shape and color alone are insufficient \parencite{Garibaldi-Marquez2022-yn}. In contrast, later-stage classification might leverage size, shape complexity, or even spectral differences (if available) as the plants mature, while contending with more complex backgrounds \parencite{Wu2021-gt}. The implications for this study are that our feature selection and classifier training must be attuned to the growth stage of the imagery. Since our focus is on the early growth period in an Arizona field (when intervention is most critical), we emphasize features and methods proven effective on young plants, and we design our experiments to account for the unique difficulties of this stage (high weed densities, uniform color, simple shapes). By doing so, we aim to develop a classification approach that is not only accurate under the current early-stage conditions, but also robust enough to remain reliable (or adaptable) as the crop continues to develop. This introduction sets the stage for the subsequent chapters, where we detail the methodology for feature extraction (color, shape, GLCM, LBP, HOG, etc.), the implementation of various classifiers (KNN, RF, LDA, logistic regression, Extra Trees, SVM, and gradient boosting), and an analysis of their performance on early-season weed/crop image data. Ultimately, the goal is to contribute an effective weed detection solution that can improve precision weed management during the critical early growth window, informed by insights from prior research and an understanding of plant development dynamics. 
-
-\citeauthor{Ong2023-lm}, in a study of classification of Chinese Cabbage, classifies vegetation acquired at an average of 2m AGL using a single set of attributes, Local Binary Pattern (LBP, a texture descriptor), and a single approach (Random Forest) leveraging those attributes, validating the use of texture in classification \parencite{Ong2023-lm}. \citeauthor{Etienne2021-ik}, in a study of Corn and Soybean plots, used imagery gathered from both 10m and 30m AGL. but found that the best training set for selected algorithm (YOLOv3) was taken from the set of images acquired from 10m \parencite{Etienne2021-ik}. The parameters selected as significant to classification fall into three basic categories: shape, color, and texture. Variants of each of these categories will be used in this study. 
-In a study of weed mapping in sunflower crop, \citeauthor{Perez-Ortiz2015-yk} present findings from images taken from three distances AGL, 30m, 60m, and 100m, classifying each pixel as crop, weed, or soil using SVM, KNN, and k-means (and variants of those) approaches \parencite{Perez-Ortiz2015-yk}. While this approach does indeed yield weed maps that lend themselves to later study, the approach is a bit different in terms of what is being classified. In that study, individual pixels are being classified, in contrast to this study that seeks to classify individual plants.
-In a study of weeds in corn, \citeauthor{Lin2017-xq} used shape metrics as part of the classification workflow, stressing the importance of expressing shape metrics that are not rotationally variant. More importantly, the study details a shape metric possessing the desired qualities for use in classification. Using shape and texture (GLCM), the study demonstrated an overall accuracy exceeding 95\%. \citeauthor{Lin2017-xq}'s study did not report some items that are of interest: the distances of the imagery to the camera, and the false positive rate of weed identification. While the high overall rate sounds is certainly impressive, that metric will not be used in this study. Additionally, the images of vegetation were acquired under controlled conditions, something that is not reproducible under field conditions using ambient light. \citeauthor{Sabzi2020-af}, in a study of a potato field, used various channels of color spaces (YIQ, YCbCr, HSI) as well as texture (Grey-Level Co-occurrence Matrix, GLCM) to achieve a high correct classification rate, but the use of GLCM is not applied  to channels of the color conversion, only to RGB images that have been converted to greyscale \parencite{Sabzi2020-af}. While this is a conventional use of the texture identification technique, it does not leverage the information content available in other color spaces.
-
-\section{Addressing Class Imbalance with Synthetic Oversampling Techniques}
-
-A common issue in weed-crop classification tasks is class imbalance, where the number of weed instances is significantly greater or smaller than crop instances. This imbalance can lead to biased model performance, as classifiers may favor the majority class while failing to correctly predict the minority class. To address this challenge, synthetic oversampling techniques such as the Synthetic Minority Over-sampling Technique (SMOTE) and Adaptive Synthetic (ADASYN) sampling can be employed.
-
-SMOTE generates synthetic examples of the minority class by interpolating between existing instances, effectively increasing the representation of underrepresented samples in the dataset. This helps balance class distributions and enhances classifier performance by preventing bias toward the majority class.
-
-ADASYN extends SMOTE by focusing more on generating synthetic samples for those minority class instances that are harder to classify, thereby improving the overall learning process. Unlike SMOTE, ADASYN dynamically adjusts the number of synthetic samples based on the local distribution of the data, making it particularly effective for highly imbalanced datasets.
-
-By incorporating these techniques, our study ensures that the classifiers are trained on a more balanced dataset, reducing bias and improving the generalizability of the model to real-world field conditions.
-
-In summary, achieving reliable weed vs. crop classification throughout the crop growth cycle requires understanding how feature differentiability and image conditions evolve over time. Early-stage classification benefits from texture features like LBP and GLCM to catch subtle differences when shape and color alone are insufficient. The implications for this study are that our feature selection and classifier training must be attuned to the growth stage of the imagery. Since our focus is on the early growth period in an Arizona field, we emphasize features and methods proven effective on young plants. By doing so, we aim to develop a classification approach that is not only accurate under the current early-stage conditions but also robust enough to remain reliable as the crop continues to develop.
-
-By refining automated classification techniques, this research aims to advance sustainable and cost-effective weed management strategies in modern agriculture.
 % REVISED INTO END
 
 \chapter{Literature Review}
 %\addcontentsline{toc}{chapter}{Literature Review}
 \label{section:literature}
  
-Distinguishing weeds from crops is a critical computer vision task in precision agriculture. Over the past seven years, research has explored various hand-crafted image features (e.g. texture, shape, color) and advanced methods to improve classification accuracy between crop and weed species. However, challenges such as class imbalance in datasets and the need for robust image segmentation under variable field conditions persist. This review summarizes recent literature on feature extraction techniques, strategies to address class imbalance, and segmentation methods in multiple color spaces for weed/crop classification. Key findings are organized into distinct sections with supporting tables and figures for clarity.
+Distinguishing weeds from crops is a critical computer vision task in precision agriculture. Over the past seven years, research has explored various image features (e.g. texture, shape, color) and advanced methods to improve classification accuracy between crop and weed species. However, challenges such as class imbalance in datasets and the need for robust image segmentation under variable field conditions persist. This review summarizes recent work on feature extraction techniques, strategies to address class imbalance, and segmentation methods in multiple color spaces for weed/crop classification.
 
 \section{Feature Extraction for Weed/Crop Classification}  
-Early weed detection studies relied on carefully selected to capture distinguishing characteristics of weeds versus crops \parencite{Wu2021-gt}. Common features include:  
+Early weed detection studies relied on carefully selected  characteristics of weeds versus crops \parencite{Wu2021-gt}. Typically considered features include:  
 
 \begin{itemize}
-	\item{Texture features: These describe the surface patterns of plant imagery. Techniques like Gray-Level Co-occurrence Matrix (GLCM) and Local Binary Patterns (LBP) are widely used \parencite{Mekhalfa2021-np}. For example, \citeauthor{Mekhalfa2021-np} combined color histograms with LBP texture features to classify soybean crops vs. weeds, achieving over 96\% accuracy. Other studies have used wavelet transforms, Gabor filters, and gradient-based descriptors to capture weed texture \parencite{Wu2021-gt}. Texture features can differentiate leaf roughness or venation patterns between species, though they may falter under severe illumination changes.}  
+	\item{Texture features: These describe the surface patterns of plant imagery. Techniques like Gray-Level Co-occurrence Matrix (\gls{GLCM}) and Local Binary Patterns (\gls{LBP}) are widely used \parencite{Mekhalfa2021-np}. For example, \citeauthor{Mekhalfa2021-np} combined color histograms with LBP texture features to classify soybean crops vs. weeds, achieving over 96\% accuracy. Other studies have used wavelet transforms, Gabor filters, and gradient-based descriptors to capture weed texture \parencite{Wu2021-gt}. Texture features can differentiate leaf roughness or venation patterns between species, though they may falter under severe illumination changes.}  
 
 	\item{Shape features: Shape descriptors capture the geometry of plant leaves and outlines. Weed leaves often have distinct shapes (e.g. narrow grass vs. broadleaf weeds). Hu’s invariant moments, aspect ratio, compactness, and leaf contour features have been applied for weed/crop discrimination \parencite{Ahsen2024-tr} (\cite{Bazrafkan2024-bl}). For instance, \citeauthor{Bazrafkan2024-bl} extracted shape metrics (area, perimeter, aspect ratio, etc.) from segmented NDVI imagery to classify weeds in cornfields. In another case, \citeauthor{Sabzi2020-af} computed moment invariants and an “area-to-length” ratio of plant blobs, which were among the most discriminative features for separating potato plants from several weed species \parencite{Sabzi2020-af}. Shape features are intuitive (e.g. broad vs. narrow leaves) but can be sensitive to leaf overlap or partial occlusion in field images \parencite{Sabzi2020-af}. }
 
@@ -408,7 +474,7 @@ Early weed detection studies relied on carefully selected to capture distinguish
 	\item{Spectral features: Beyond visible color, some studies incorporate spectral information (e.g. near-infrared reflectance or vegetation indices) for added discrimination. For example, Li et al. used spectral angle mapping on multi-spectral data combined with shape analysis to identify weeds in crop rows \parencite{Wu2021-gt}). Multispectral features can highlight differences in plant health or water content that are not visible in RGB imagery, though such sensors may not always be available in practical field setups. }
 \end{itemize} 
 
-Modern approaches often fuse multiple feature types to leverage their complementary strengths. Single-feature methods can struggle in complex field conditions \parencite{Wu2021-gt}. Table \ref{table:previous-studies} summarizes representative studies using texture, shape, and color features. Notably, combining features consistently improved accuracy. For instance, a multi-feature fusion by He et al. integrated leaf shape, fractal dimension, and texture, outperforming any single feature alone \cite{Wu2021-gt}). Similarly, Ghazali et al. combined statistical texture (GLCM), frequency domain features (FFT), and local descriptors (SIFT), achieving >80\% accuracy in oil palm weed detection (\cite{Wu2021-gt}). As shown in Table \ref{table:previous-studies}, traditional machine learning classifiers like Support Vector Machines (SVM) and Random Forests (RF) often pair with these features, given their effectiveness on smaller feature sets (\cite{Wu2021-gt}). With the rise of deep learning, many recent works use convolutional neural networks that learn features automatically, but these often still rely on color or shape cues internally and require large balanced datasets (addressed in Section 2) (\cite{Wu2021-gt}). Overall, the literature demonstrates that carefully engineered texture, shape, and color features remain highly relevant, especially when combined, for distinguishing crops and weeds in varied scenarios.
+Modern approaches often fuse multiple feature types to leverage their complementary strengths. Single-feature methods tend to struggle in complex field conditions \parencite{Wu2021-gt}. Table \ref{table:previous-studies} summarizes representative studies using texture, shape, and color features. Notably, combining features consistently improved accuracy. For instance, a multi-feature fusion by He et al. (2019) integrated leaf shape, fractal dimension, and texture, outperforming any single feature alone (\cite{Wu2021-gt}). Similarly, Ghazali et al. combined statistical texture (GLCM), frequency domain features (FFT), and local descriptors (SIFT), achieving >80\% accuracy in oil palm weed detection (\cite{Wu2021-gt}). As shown in Table \ref{table:previous-studies}, traditional machine learning classifiers like Support Vector Machines (SVM) and Random Forests (RF) often pair with these features, given their effectiveness on smaller feature sets (\cite{Wu2021-gt}). With the rise of deep learning, many recent studies use convolutional neural networks that learn features automatically, but these often still rely on color or shape cues internally and require large balanced datasets (addressed in Section 2) (\cite{Wu2021-gt}). Overall, the literature demonstrates that carefully engineered texture, shape, and color features remain highly relevant, especially when combined, for distinguishing crops and weeds in varied scenarios.
 
 {
 % This avoids the document line spacing affecting the contents of the table
@@ -447,25 +513,25 @@ Color histograms (RGB \& HSV); LBP texture&
 SVM & 
 Color + LBP yielded >96\% accuracy (better than texture or color alone). 
 \tabularnewline\addlinespace
-Sabzi et al. (2020) () & 
+Sabzi et al. (2020) & 
 Potato vs. 5 weed species (video) & 
 GLCM texture; shape moments; HSI Hue; HSV Sat.; YCbCr Cb; YIQ I (selected 6 features)&
 Hybrid ANN + metaheuristic (feature selection + ANN classifier)&
 ~98\% correct classification rate distinguishing crop vs multiple weeds.
 \tabularnewline\addlinespace
-Bazrafkan et al. (2024) () &
+\citeauthor{Bazrafkan2024-bl}&
 Cornfield UAV multispectral &
 NDVI-based shape metrics (area, compactness, etc.); geo-coordinates &
 Random Forest (with PCA feature reduction) &
 76\% overall accuracy with balanced precision/recall after feature selection; shape features distinguished crop vs weed patterns.
 \tabularnewline\addlinespace
-Hernández-Hernández *et al.* (2020) ()) &
+Hernández-Hernández et al. (2020)  &
 Stereo images in rice field &
 302 features (color indices, shape, texture); feature selection via PSO/BA &
 ANN (optimized with metaheuristics) &
-Achieved high discrimination of rice vs two weed species after selecting most informative features; SVM baseline ~95\% ()
+Achieved high discrimination of rice vs two weed species after selecting most informative features; SVM baseline ~95\%
 \tabularnewline\addlinespace
-He *et al.* (2019) () &
+He et al. (2019) &
 Canola vs. weeds (lab images)  & 
 Leaf shape descriptors; fractal dimension; texture &
 SVM & 
@@ -477,7 +543,7 @@ Multi-feature fusion improved accuracy significantly over single-feature, enhanc
 \end{longtable}
 }
 
-Figure \ref{fig:workflow-sabzi} illustrates a typical weed/crop classification pipeline integrating these steps. In the depicted system (Sabzi *et al.*, 2020), video frames undergo segmentation and feature extraction, then a feature selection module (hybrid ANN with genetic, ant colony, or simulated annealing algorithms) picks the most discriminative features for final classification (\cite{Sabzi2020-af}). This multi-stage approach reflects common practice in recent studies: segment the plants, extract diverse features, reduce the feature dimensionality if needed, and classify weeds vs. crops with a machine learning model.
+Figure \ref{fig:workflow-sabzi} illustrates a typical weed/crop classification pipeline integrating these steps. In the depicted system (Sabzi et al., 2020), segmented video frames  and extracted features, then a feature selection module (hybrid ANN with genetic, ant colony, or simulated annealing algorithms) picks the most discriminative features for final classification (\cite{Sabzi2020-af}). This multi-stage approach reflects common practice in recent studies: segment the plants, extract diverse features, reduce the feature dimensionality if needed, and classify weeds vs. crops with a machine learning model.
 
 \begin{figure}[h!]
 	\centering
@@ -489,19 +555,19 @@ Figure \ref{fig:workflow-sabzi} illustrates a typical weed/crop classification p
 % ([An automatic visible-range video weed detection, segmentation and classification prototype in potato field - PubMed](https://pubmed.ncbi.nlm.nih.gov/32490222/)) *Figure 1: Example weed/crop classification workflow, adapted from Sabzi et al. (2020). Raw images are segmented to isolate plants, from which various features are extracted. A feature selection step (using hybrid ANN with metaheuristic optimizers) selects important features, which are then fed into a classifier (here an ANN-Cultural Algorithm hybrid) to output weed vs. crop identification ([An automatic visible-range video weed detection, segmentation and classification prototype in potato field - PubMed](https://pubmed.ncbi.nlm.nih.gov/32490222/#:~:text=six%20hectares%20are%20used,Classification%20results)) ([An automatic visible-range video weed detection, segmentation and classification prototype in potato field - PubMed](https://pubmed.ncbi.nlm.nih.gov/32490222/#:~:text=being%20able%20to%20properly%20identify,15%20m%2Fs)).*  
 %
 \section{Addressing Class Imbalance}  
-Class imbalance is a pervasive challenge in weed/crop datasets: often one class (usually the crop or a dominant weed) greatly outnumbers others. This imbalance can bias classifiers to favor the majority class, leading to poor detection of the minority class (e.g. a rare weed). Recent research \parencite{Wang2021-dh} has placed emphasis on \textit{balancing techniques} to ensure models learn both classes effectively:  
+Class imbalance is a pervasive challenge to most classification problem and in weed/crop datasets. Often one class (usually the crop or a dominant weed) greatly outnumbers others. This imbalance can bias classifiers to favor the majority class, leading to poor detection of the minority class (e.g. a rare weed). Recent research \parencite{Wang2021-dh} has placed emphasis on \textit{balancing techniques} to ensure models learn both classes effectively:  
 
 \begin{itemize}
 	\item{Data Augmentation \& Synthesis: A straightforward approach is to generate more samples of the minority class. Hasan et al. (2021) constructed a large combined weed/crop image dataset from several smaller sets, then applied extensive image augmentations (rotations, flips, etc.) to mitigate class imbalance \parencite{Mahmudul-Hasan2023-ap}. This improved deep CNN recognition of under-represented weed species. Synthetic data generation techniques like GANs have also been explored to create new weed images, though with mixed success due to realism issues. } 
 
-	\item{Oversampling Minority Class: Oversampling duplicates or creates new minority samples until the class distribution is more balanced. TheSynthetic Minority Oversampling Technique (SMOTE) is widely used for this in agricultural datasets. SMOTE generates new synthetic examples along the line segments joining nearest-neighbor minority samples, effectively filling in gaps in feature space. For instance, Ahsen et al. (2024) applied SMOTE to balance weed and crop classes before training SVM and ANN classifiers, which led to improved accuracy on minority weed classes \parencite{Ahsen2024-dm}. An illustration of SMOTE’s effect is shown in Figure 2a – new minority points (green) are introduced between existing ones, alleviating the initial imbalance. However, SMOTE can also introduce overlap between classes if not careful (Figure 2b), as synthetic weeds may encroach on crop feature space. To combat this, variants likeSMOTE-ENN (which adds synthetic samples then applies Edited Nearest Neighbors to remove ambiguous points) have been employed. Bazrafkan et al. (2024) used a stratified sampling with SMOTE-ENN to balance a corn vs. weed polygon dataset, yielding a model with balanced precision and recall (\parencite{Bazrafkan2024-bl}). This reduced bias toward the majority (corn) and improved detection of minority weed instances.  }
+	\item{Oversampling Minority Class: Oversampling duplicates or creates new minority samples until the class distribution is more balanced. TheSynthetic Minority Oversampling Technique (SMOTE) is widely used  in agricultural datasets. SMOTE generates new synthetic examples along the line segments joining nearest-neighbor minority samples, effectively filling in gaps in feature space. For instance, Ahsen et al. (2024) applied SMOTE to balance weed and crop classes before training SVM and ANN classifiers, which led to improved accuracy on minority weed classes \parencite{Ahsen2024-dm}. An illustration of SMOTE’s effect is shown in Figure 2a – new minority points (green) are introduced between existing ones, alleviating the initial imbalance. However, SMOTE can also introduce overlap between classes if not careful (Figure 2b), as synthetic weeds may encroach on crop feature space. To combat this, variants likeSMOTE-ENN (which adds synthetic samples then applies Edited Nearest Neighbors to remove ambiguous points) have been employed. Bazrafkan et al. (2024) used a stratified sampling with SMOTE-ENN to balance a corn vs. weed polygon dataset, yielding a model with balanced precision and recall (\parencite{Bazrafkan2024-bl}). This reduced bias toward the majority (corn) and improved detection of minority weed instances.  }
 
-	\item{Undersampling Majority Class: The opposite strategy is to downsample the majority class, training on a subset to match the minority count. While simple, this can discard useful data. In weed/crop studies, undersampling is less common than oversampling, since weed datasets are often limited to begin with \parencite{Mahmudul-Hasan2022-cj}. However, in cases where background or non-plant images vastly outnumber weed examples, controlled undersampling of background patches can help rebalance the training set.}  
+	\item{Undersampling Majority Class: The opposite strategy is to downsample the majority class, training on a subset to match the minority count. While simple, this can discard useful data. In weed/crop studies, undersampling is less common than oversampling, since weed datasets are often limited \parencite{Mahmudul-Hasan2022-cj}. However, in cases where background or non-plant images vastly outnumber weed examples, controlled undersampling of background patches can help rebalance the training set.}  
 
-	\item{Cost-Sensitive Learning: Instead of altering the data, algorithms can be made cost-sensitive, penalizing misclassification of minority class more heavily. In weed detection, a higher misclassification cost can be assigned to weeds (the class of interest) so that the classifier prioritizes weed identification. Some recent deep learning models implicitly address imbalance by using focal loss or class-weighted loss functions to focus learning on hard-to-detect weeds \parencite{Wu2021-gt}. } 
+	\item{Cost-Sensitive Learning: Instead of altering the data, algorithms can be made cost-sensitive, penalizing misclassification of minority classes more heavily. In weed detection, a higher misclassification cost can be assigned to weeds (the class of interest) so that the classifier prioritizes weed identification. Some recent deep learning models implicitly address imbalance by using focal loss or class-weighted loss functions to focus learning on hard-to-detect weeds \parencite{Wu2021-gt}. } 
 \end{itemize}
 
-Effect on Performance: Addressing class imbalance has proven crucial for reliable weed detection. Ramirez et al. (2021) showed that balancing the training data significantly improved weed segmentation accuracy in aerial images \parencite{Wu2021-gt}. In general, balanced datasets or effective oversampling yield models that detect both weed and crop classes more symmetrically (higher recall on weeds, and still high precision) \parencite{Bazrafkan2024-bl}. Table 2 highlights techniques used to handle class imbalance in recent studies. As seen, SMOTE and its variants are popular in machine learning pipelines, while data augmentation is prevalent in deep learning approaches. Both strategies ultimately aim to provide the classifier with sufficient examples of weeds, which are often the minority class, thereby improving the generalization to those classes in test scenarios.  
+Effect on Performance: Addressing class imbalance has proven crucial for reliable weed detection. Ramirez et al. (2021) showed that balancing the training data significantly improved weed segmentation accuracy in aerial images \parencite{Wu2021-gt}. In general, balanced datasets or effective oversampling yield models that detect both weed and crop classes more symmetrically (higher recall on weeds, and still high precision) \parencite{Bazrafkan2024-bl}. Table 2 highlights techniques used to handle class imbalance in recent studies. As seen, SMOTE and its variants are popular in machine learning approaches, while data augmentation is prevalent in deep learning approaches. Both strategies ultimately aim to provide the classifier with sufficient examples of weeds, which are often the minority class, thereby improving the generalization to those classes in test scenarios.  
 
 {
 % This avoids the document line spacing affecting the contents of the table
@@ -540,7 +606,7 @@ Mitigated imbalance and improved deep CNN recognition of rare weed species.
 \tabularnewline\addlinespace
 Ahsen et al. (2024) &
 Early Crop-Weed (fewer weed images than crop) &
-SMOTE oversampling for minority class before SVM/ANN training &
+SMOTE oversampling for minority class before SVM/\gls{ANN} training &
 Balanced class distribution led SVM to 99.5\% accuracy on minority-rich set (early crop-weed) and ANN to 89\% on CottonWeedID15, outperforming unbalanced training.
 \tabularnewline\addlinespace
 Bazrafkan et al. (2024) &
@@ -573,12 +639,13 @@ Enhanced detection of small weed clusters in dense crop fields (seen in segmenta
 %
 % ([image]()) *Figure 2: Illustration of oversampling to address class imbalance (conceptual). (a) Initial imbalanced feature distribution: crop samples (orange) far outnumber weed samples (blue). (b) After applying SMOTE, synthetic weed samples (green points) are added, reducing imbalance. However, if placed unwisely, some synthetic points overlap with crop regions (overlap circled), which can degrade classifier performance ([Illustration of data synthesis by SMOTE: The initial imbalance... | Download Scientific Diagram](https://www.researchgate.net/figure/llustration-of-data-synthesis-by-SMOTE-The-initial-imbalance-condition-a-and-the_fig1_375505887#:~:text=,Therefore%2C%20SMOTE%20can%20potentially)). Techniques like SMOTE-ENN remove overlapping samples to mitigate this issue.*  
 %
-By applying these techniques, recent weed/crop classification models have become more resilient to skewed data, ensuring that even less common weeds can be reliably identified. Properly handling class imbalance is thus a key step toward practical field deployment of weed detection systems, where the prevalence of weeds can vary widely from plot to plot.
+By applying these techniques, recent weed/crop classification models have become more resilient to skewed data, ensuring that even less common weeds can be reliably identified. Properly handling class imbalance is thus a key step toward practical field deployment of weed detection systems, where the prevalence of weeds can vary widely from plot to plot. In this work we will explore and test
+techniques to dealing with class imbalance in order to improve the accuracy of the classifier algorithms.
 
 \section{Image Segmentation Techniques}  
-Accurate image segmentation is a foundation for successful weed/crop classification. It isolates plant pixels from soil background (and sometimes separates crop vs. weed regions) so that features can be extracted reliably. Researchers have investigated various segmentation methods, particularly focusing on the choice of color space to improve plant segmentation under real-world conditions.
+Segmentation isolates plant pixels from soil background (and sometimes separates crop vs. weed regions) so that features can be extracted reliably. Researchers have explored various segmentation methods, particularly focusing on the choice of color space to improve plant segmentation under real-world conditions.
 %
-\subsection{Segmentation in RGB and Using Color Indices}  
+\subsection{Segmentation with RGB based Color Indices}  
 Many early methods operate directly in the RGB color space by exploiting the green color of vegetation. A common technique is \textit{color thresholding or color index segmentation}. For example, the excess green index ($ExG = 2G - R - B$) highlights green vegetation and can be thresholded to create a binary mask of plants vs. background \parencite{Wu2021-gt}. \citeauthor{Tang2000-an} proposed a modified color component approach using $ExG$ to segment weeds from soil, which proved effective in homogeneous lighting \parencite{Tang2000-an}. Similarly, simple thresholding on the green channel or ratios like $G/R$ can segment green plants in RGB images. These methods are fast and worked well in controlled conditions; Figure \ref{fig:segmentation-example} shows an example segmented mask where broadleaf and grass weeds were isolated from soil using such color difference techniques. However, RGB-based segmentation has limitations. The R, G, B channels are highly correlated and all vary with lighting intensity \parencite{Wu2021-gt}. Additionally, young crops and weeds can share similar RGB values, causing mis-segmentation when relying purely on greenness.
 
 \begin{figure}[h!]
@@ -597,7 +664,7 @@ Converting images from RGB to a different color space can greatly improve segmen
 %
 Other color spaces have also been tested: YCrCb/YIQ and related luminance-chrominance models isolate intensity (Y) from color components. Tang et al. (2017) used the YCbCr space to better capture green features of crops/weeds under different illumination, since the chrominance components Cb and Cr carry color detail unaffected by brightness \parencite{Wu2021-gt}. \citeauthor{Sabzi2020-af} identified the standard deviation of the \textit{in-phase} component (I) in the YIQ color space as one of six key features for weed discrimination \parencite{Sabzi2020-af} – implying that analyzing weeds in YIQ space highlighted differences not obvious in RGB. Likewise, CIELab (L*a*b*) space (with separate lightness channel L*) and Normalized Excess Green (nExG) are reported to improve segmentation by reducing sensitivity to shadows (\parencite{Wu2021-gt}). \citeauthor{Guo2013-eq} comprehensively evaluated 18 color features across six color spaces (RGB, YCbCr, HSL, HSV, CIELab, CIELuv), finding that combinations of channels (like a*, b* in Lab or Hue in HSV) can boost segmentation reliability (\cite{Guo2013-eq}).  
 %
-In summary, transforming to alternative color spaces allows threshold-based segmentation to leverage more stable color properties: hue for true color, chroma for color content, etc. These methods tend to outperform pure RGB segmentation especially under real field conditions with shadows, dry/wet soil patches, or sun glare. Table \ref{tab:color-space} compares segmentation approaches using different color representations. As shown, HSV/HSI is frequently favored for its robustness, while YIQ/YCrCb and Lab are useful in specific scenarios. It’s worth noting that while color space conversion aids greatly, extremely complex scenes (e.g. overlapping crop and weed canopies) may still require advanced methods like deep learning segmentation (e.g. U-Net or Mask R-CNN) \parencite{Wu2021-gt}. Indeed, recent papers integrate both approaches – using color-index segmentation as a preprocessing step, then refining with machine learning or CNNs for pixel-level classification. Still, for many precision agriculture applications with relatively distinct crop and weed color, the combination of proper color space and simple thresholding provides an efficient solution on resource-limited farm equipment.
+In summary, transforming to alternative color spaces allows threshold-based segmentation to leverage more stable color properties: hue for true color, chroma for color content, etc. These methods tend to outperform pure RGB segmentation especially under field conditions especially in the presence of shadows, dry/wet soil patches, or sun glare. Table \ref{tab:color-space} compares segmentation approaches using different color representations. As shown, HSV/HSI is frequently favored for its robustness, while YIQ/YCrCb and Lab are useful in specific scenarios. It’s worth noting that while color space conversion aids greatly, extremely complex scenes (e.g. overlapping crop and weed canopies) may still require advanced methods like deep learning segmentation (e.g. U-Net or Mask R-CNN) \parencite{Wu2021-gt}. Indeed, recent papers integrate both approaches – using color-index segmentation as a preprocessing step, then refining with machine learning or CNNs for pixel-level classification. Still, for many precision agriculture applications with relatively distinct crop and weed color, the combination of proper color space and simple thresholding provides an efficient solution on resource-limited farm equipment.
 %
 {
 % This avoids the document line spacing affecting the contents of the table
@@ -675,39 +742,35 @@ Patidar et al. (2021) Yu et al. (2021)
 %| Lab color space segmentation        | CIELab         | Variable soil backgrounds, multi-color plants | Lab’s a* (green–red) and b* (blue–yellow) channels can be thresholded to pick out green vegetation. More robust to illumination than RGB, but not as intuitive as HSV. Used in some weed studies with success ([Review of Weed Detection Methods Based on Computer Vision](https://www.mdpi.com/1424-8220/21/11/3647#:~:text=spaces%2C%20such%20as%20HIS%2C%20HSV%2C,Knoll%20et%20al)) ([Review of Weed Detection Methods Based on Computer Vision](https://www.mdpi.com/1424-8220/21/11/3647#:~:text=illumination%20conditions,also%20utilized%20different%20color%20spaces)). | Guo et al. (2018) ([Review of Weed Detection Methods Based on Computer Vision](https://www.mdpi.com/1424-8220/21/11/3647#:~:text=illumination%20conditions,also%20utilized%20different%20color%20spaces)) |
 %| Deep learning segmentation (CNNs)   | *Any (learned)*| Complex scenes (dense foliage, overlap) | Learns color and texture cues automatically. Requires lots of data; can surpass static color threshold methods in difficult cases. E.g., Mask R-CNN on weeds improved segmentation of overlapping leaves ([Review of Weed Detection Methods Based on Computer Vision](https://www.mdpi.com/1424-8220/21/11/3647#:~:text=semantic%20information%20made%20the%20experimental,methods%20do%20not%20rely%20on)). Often preceded by converting images to an effective color space for input. | Patidar et al. (2021) ([Review of Weed Detection Methods Based on Computer Vision](https://www.mdpi.com/1424-8220/21/11/3647#:~:text=semantic%20information%20made%20the%20experimental,methods%20do%20not%20rely%20on)); Yu et al. (2021) ([Review of Weed Detection Methods Based on Computer Vision](https://www.mdpi.com/1424-8220/21/11/3647#:~:text=CNNs%20are%20increasingly%20used%20in,The%20experimental%20results%20showed)) |
 %
-In practice, a combination of methods may be used: for example, apply an HSV threshold to quickly segment vegetation, then use morphological filters or a classifier to refine the mask. The overall trend in recent literature is to move away from pure RGB segmentation towards approaches that exploit more perceptually uniform color spaces (HSV, Lab) and even incorporate learning for segmentation. This has substantially improved the quality of weed segmentation masks, which in turn boosts the accuracy of subsequent classification of those segments as weed or crop  \parencite{Wu2021-gt}.
+In practice, a combination of methods may be more robust. For example, apply an HSV threshold to quickly segment vegetation, then use morphological filters or a classifier to refine the mask. The overall trend  is to move away from pure RGB segmentation towards approaches that exploit more perceptually uniform color spaces (HSV, Lab) and even incorporate learning for segmentation. This has substantially improved the quality of weed segmentation masks, which in turn boosts the accuracy of subsequent classification of those segments as weed or crop  \parencite{Wu2021-gt}.
 %
-\section{Discussion} 
+\section{Final Thoughts} 
 Over the last few years, weed/crop classification research has evolved from purely hand-crafted feature approaches to more integrated methods addressing data and environmental challenges. Texture, shape, and color features remain highly relevant – studies consistently show that combining these features yields superior results than any single feature alone, as each captures different aspects of plant variance  The advent of deep learning has not obviated the need for such features; rather, it has shifted some focus to automatically learning them, but many practical systems still rely on engineered features due to limited data or the need for interpretable models in agriculture.  
 %
-A critical realization in recent work is the importance of class balance in model training. Techniques like SMOTE and targeted data augmentation have become common when preparing weed datasets, ensuring that rare weed classes (often the ones of greatest interest for herbicide targeting) are learned adequately \parencite{Ahsen2024-tr, Bazrafkan2024-bl}. Without these, even the best feature sets can lead to biased classifiers that miss the minority class. The literature illustrates various success stories in balancing strategies – from simple oversampling to sophisticated GAN-based oversamplers – all reinforcing the idea that a classifier is only as good as the data it sees. Figure 2b’s depiction of SMOTE pitfalls also reminds us that oversampling must be done carefully; domain-specific oversampling (e.g. only within weed clusters in feature space, or using weed images from slightly different fields) can avoid generating implausible samples.  
+A critical realization in recent work is the importance of class balance in model training. Techniques like SMOTE and targeted data augmentation have become common when preparing weed datasets, ensuring that rare weed classes (often the ones of greatest interest for herbicide targeting) are learned adequately \parencite{Ahsen2024-tr, Bazrafkan2024-bl}. Without these, even the best feature sets can lead to biased classifiers that miss the minority class. The literature illustrates various success stories in balancing strategies – from simple oversampling to sophisticated GAN-based oversamplers – all reinforcing the idea that a classifier is only as good as the data it sees. Figure  \ref{fig:segmentation-example}’s depiction of SMOTE pitfalls showed that oversampling must be done carefully; domain-specific oversampling (e.g. only within weed clusters in feature space, or using weed images from slightly different fields) can avoid generating implausible samples.  
 %
-In the realm of image segmentation, the use of alternate color spaces (HSV, HSI, YCrCb, YIQ, Lab) has clearly improved the extraction of plant regions from images  \parencite{Wu2021-gt}. Segmenting weeds from crops is the first step of many pipelines, and mistakes at this stage (e.g. losing part of a weed leaf to the background) directly reduce classification accuracy. By choosing color representations that are invariant to common field lighting issues, researchers have achieved more stable segmentation. This is evident in comparative studies where HSV-based methods outperformed RGB by a significant margin \parencite{Priya2019-zw}. At the same time, the field is gradually embracing machine learning for segmentation (e.g. semantic segmentation CNNs that label each pixel as crop/weed/soil), which can handle extremely challenging scenes. A few recent works combine traditional color thresholding with deep segmentation to get the best of both worlds – quick initial segmentation and detailed refinement.  
+In the scope of image segmentation, the use of alternate color spaces (HSV, HSI, YCrCb, YIQ, Lab) has clearly improved the extraction of plant regions from images  \parencite{Wu2021-gt}. Segmenting weeds from crops is the first step of many pipelines, and mistakes at this stage (e.g. losing part of a weed leaf to the background) directly reduce classification accuracy. By choosing color representations that are invariant to common field lighting issues, researchers have achieved more stable segmentation. This is evident in comparative studies where HSV-based methods outperformed RGB by a significant margin \parencite{Priya2019-zw}. At the same time, the field is gradually embracing machine learning for segmentation (e.g. semantic segmentation CNNs that label each pixel as crop/weed/soil), which can handle extremely challenging scenes. A few recent works combined traditional color thresholding with deep segmentation to get the best of both approaches – quick initial segmentation and detailed refinement.  
 %
-To conclude, weed/crop classification research since 2018 demonstrates a robust toolbox of techniques: from GLCM textures to Hu moments to excess-green thresholds and HSV conversions. Table \ref{table:previous-studies} and Table \ref{tab:color-space} provided in this review encapsulate key findings and methods. Looking ahead, we anticipate more hybrid approaches: for example, using deep networks that explicitly incorporate texture or shape priors, or adaptive sampling techniques that address class imbalance on the fly. The challenge of real-world deployment (on robots or tractors) also means computational efficiency is crucial – something hand-crafted features and clever color space tricks are well-suited for, compared to heavyweight deep models. By building on the advances in feature extraction, data balancing, and segmentation, future systems are poised to achieve reliable, real-time weed detection to enable site-specific weed management and reduce herbicide usage. The literature of the past seven years lays a strong foundation for these intelligent, sustainable farming solutions.  
+Weed/crop classification research since 2018 demonstrates a robust toolbox of techniques: from GLCM textures to Hu moments to excess-green thresholds and HSV conversions. Table \ref{table:previous-studies} and Table \ref{tab:color-space} provided in this review encapsulate key findings and methods. Development of more hybrid approaches are anticipated: for example, using deep networks that explicitly incorporate texture or shape priors, or adaptive sampling techniques that address class imbalance on the fly. The challenge of real-world deployment (on robots or tractors) also means computational efficiency is crucial – something hand-crafted features and clever color space tricks are well-suited for, compared to heavyweight deep models. By building on the advances in feature extraction, data balancing, and segmentation, future systems are poised to achieve reliable, real-time weed detection to enable site-specific weed management and reduce herbicide usage. Prior work points to  a strong foundation for these machine vision assisted intelligent, sustainable, and cost effective farming solutions to the weeds challenge.
 %
 %
 
-\chapter{Methodology}
-\label{section:methodology}
+Problems commonly encountered in weed/crop classification systems include items that are addressed by this study, including:
 
-\chapter{Results}
-%\addcontentsline{toc}{chapter}{Results}
-\label{section:results}
+\begin{itemize}
 
+\item{Young weeds and crop seedlings often look very similar in terms of color, shape, and texture, especially during early growth stages, complicating accurate identification. This work will show that the two classes can be distinguished more accurately when considering features that have not been more thoroughly explored (such as texture in non-RGB color spaces}
 
-\chapter{Discussion}
-%\addcontentsline{toc}{chapter}{Discussion}
-\label{section:discussion}
+\item{Both weeds and crops undergo significant changes in appearance as they grow, meaning classification models need to adapt dynamically across different growth stages. This work will explore the impact of these changes over the early stages, and test these factors for seasonal changes.}
 
+\item{Datasets often have many more crop samples than weed samples, leading to biased training and poor generalization on rare weed species. This work will investigate the impacts of correction on classification.}
 
-\chapter{Conclusion}
-%\addcontentsline{toc}{chapter}{Conclusion}
-\label{section:conclusion}
+\item{Complex algorithms, particularly deep learning models, require substantial computational resources, limiting real-time deployment on farm equipment. While this work will not discuss the topic of optimizing software for resource constrained deployment environments, it does consider the computational cost to achieve a result.}
 
-\chapter{Acknowledgments}
-%\addcontentsline{toc}{chapter}{Acknowledgments}
-\label{section:acknowledgments}
+\item{High-quality, annotated field data is often scarce or expensive to obtain, hindering the training and validation of robust models. While not a development or deployment issue, this is the primary motivation for the image collection associated with this work.}
+
+\end{itemize}
+
 
 % Original Introduction begin
 %\section{Introduction and Prior Work}
@@ -741,6 +804,8 @@ To conclude, weed/crop classification research since 2018 demonstrates a robust 
 \newpage
 \chapter{Methodology}
 \label{section:methodology}
+This methodology section outlines the comprehensive approach adopted for weed and crop classification. The workflow comprises four key stages: image acquisition, segmentation, feature extraction, and classification. Initially, high-quality images are collected using various sensors under diverse environmental conditions to ensure a robust dataset. Following image acquisition, segmentation techniques are employed to delineate and isolate regions of interest, effectively separating crops from weeds and background noise. Next, a suite of discriminative features—ranging from color and texture to shape descriptors—is extracted to characterize the segmented regions. Finally, advanced classification algorithms are applied to these features to accurately differentiate between crop and weed classes. Each stage is discussed in detail in the subsequent sections, highlighting the challenges encountered and the strategies implemented to overcome them, ultimately contributing to the development of a reliable and efficient weed/crop classification system.
+
 This study will seek to answer several questions:
 \begin{itemize}
 	\item{Can texture expressions in color spaces other than greyscale be used to categorize vegetation? That is, a traditional expression of texture is an expression of a portion of a greyscale image. Is the expression of texture in a channel of another color space (such as YIQ) usable?}
@@ -753,8 +818,8 @@ This study will seek to answer several questions:
 To answer these questions, a set of crop images will be collected, processed, and analyzed. The collection will be appropriate for the needs of a ground-based system: towed or self-propelled. These systems will acquire images at the distances considered (within 1m above ground level, AGL).
 
 
-\section{Data Preparation}
-Images discussed in this study comes in two forms: static images obtained with visible light cameras and prepared images of manually manipulated scenarios.  Manipulated images are used throughout this document to illustrate concepts and for testing purposes, but are not used in classification. Manipulations include tasks such as inserting weeds, manipulating color-balance, changing exposure, etc. Feature analysis and machine learning use unmanipulated images exclusively, while tests will be conducted on a mixture of the two. 
+%\section{Data Preparation}
+%Images discussed in this study comes in two forms: static images obtained with visible light cameras and prepared images of manually manipulated scenarios.  Manipulated images are used throughout this document to illustrate concepts and for testing purposes, but are not used in classification. Manipulations include tasks such as inserting weeds, manipulating color-balance, changing exposure, etc. Feature analysis and machine learning use unmanipulated images exclusively, while tests will be conducted on a mixture of the two. 
 
 % Omit descriptions of prepared images 
 
@@ -809,23 +874,24 @@ Images discussed in this study comes in two forms: static images obtained with v
 %Here, vegetation is placed within separate layers to create a composite image that shows the desired result.  Figure~\ref{fig:prepared-weed} illustrates the basic technique that is used to form a single image of both crop and a weed. This figure shows several differences that are immediately obvious: scale differences, as the weed image was obtained at a different distance, and lighting difference, as the weed image was obtained at a different location. Inserting a weed into an image solely for the purposes of classification has little value, of course, as classification of separate images is equivalent. The intent of this is to test the effect of the weed's proximity to the crop. Images are also manipulated to test certain scenarios, as Figure \ref{fig:prepared-lid} shows. A bucket lid with dots used to identify a specific plant is inserted into the image to test two things: the exclusion of the bucket lid itself, and the identification of the lid and plant it is closest to.
 
 
-\section{Classification Approach and Assumptions}
-The goal of this processing flow is to determine and classify the image contents as desired or undesired. Besides weeds, crop plants can also be classified as \textit{undesired} in they should be  thinned, as such this work will use the term \textit{undesired} and \textit{weed} interchangeably. Vegetation in an image falls into one of these classifications:
-\begin{itemize}
-	\item{Desired, the crop}
-	\item{Undesired, weeds that can be treated without crop damage}
-	\item{Unknown, vegetation that cannot be confidently identified}
-	\item{Ignored, vegetation that is too close to desired vegetation to be treated without crop damage}
-\end{itemize}
+\section{Classification Approach}
+%The goal of this processing flow is to determine and classify the image contents as desired or undesired. Besides weeds, crop plants can also be classified as \textit{undesired} in they should be  thinned, as such this work will use the term \textit{undesired} and \textit{weed} interchangeably. Vegetation in an image falls into one of these classifications:
+%\begin{itemize}
+%	\item{Desired, the crop}
+%	\item{Undesired, weeds that can be treated without crop damage}
+%	\item{Unknown, vegetation that cannot be confidently identified}
+%	\item{Ignored, vegetation that is too close to desired vegetation to be treated without crop damage}
+%\end{itemize}
+%
+%Additionally, this work makes a few simplifying assumptions about the images:
+%\begin{itemize}
+%	\item{The crop typically follows straight and consistent lines, deviating by only a few degrees on average.}
+%	\item{Weeds grow in a random pattern and can appear anywhere, so weed centers are typically not in horizontal alignment.}
+%	\item{Crop is typically much larger than weeds.}
+%\end{itemize}
+To thoroughly evaluate the performance of various approaches for crop and weed classification, nine distinct classification methods were examined. The study includes ensemble-based algorithms such as Random Forest, Gradient Boosting, and Extra Trees, which are renowned for their ability to handle high-dimensional and noisy datasets. In addition, traditional classifiers like K-Nearest Neighbors (KNN), Logistic Regression, and Decision Tree offer insights into more interpretable and straightforward modeling techniques. Furthermore, Support Vector Machines (SVM) and Linear Discriminant Analysis (LDA) were employed to assess the efficacy of margin-based and linear projection methods, respectively, while a Multi-Layer Perceptron (\gls{MLP}) was integrated to explore the potential benefits of neural network architectures. This diverse methodological framework enables a comprehensive comparison, highlighting the strengths and limitations of each technique in distinguishing between crops and weeds.
 
-Additionally, this work makes a few simplifying assumptions about the images:
-\begin{itemize}
-	\item{The crop typically follows straight and consistent lines, deviating by only a few degrees on average.}
-	\item{Weeds grow in a random pattern and can appear anywhere, so weed centers are typically not in horizontal alignment.}
-	\item{Crop is typically much larger than weeds.}
-\end{itemize}
-
-While the desired crop is usually homogenous in size, follows a precise line, and tend to be larger than weeds, there are exceptions. For instance, a weed may be in perfect alignment within a crop line and two other plants. Each of these observations, however, are used in classification. Take, for instance, the observation that crop tends to be much larger than weeds. If the size of an item is three times that of another, the smaller item is -- more likely than not -- a weed. Another exception comes from orientation. Commonly encountered in images acquired with an automated platform, but less so with manually acquired ground images is that vegetation does not appear in horizontal or vertical orientation, complicating simplistic attempts to classify off-horizontal or off-vertical vegetation as weeds.
+%While the desired crop is usually homogenous in size, follows a precise line, and tend to be larger than weeds, there are exceptions. For instance, a weed may be in perfect alignment within a crop line and two other plants. Each of these observations, however, are used in classification. Take, for instance, the observation that crop tends to be much larger than weeds. If the size of an item is three times that of another, the smaller item is -- more likely than not -- a weed. Another exception comes from orientation. Commonly encountered in images acquired with an automated platform, but less so with manually acquired ground images is that vegetation does not appear in horizontal or vertical orientation, complicating simplistic attempts to classify off-horizontal or off-vertical vegetation as weeds.
 
 %\begin{figure}[H]
 %	\centering
@@ -835,7 +901,7 @@ While the desired crop is usually homogenous in size, follows a precise line, an
 %\end{figure}
 
 %\section {Study Area}
-%This study will be carried out at the University of Arizona Maricopa Agricultural Center (MAC) on a cantaloupe crop (Spring 2024) and broccoli crop (Fall 2024) overseen by Drs. Attalah and Elshikha (University of Arizona), as part of another study.\footnote{The field in question is located at N 33.061805$^{\circ}$ W 111.966162$^{\circ}$} That study will involve three separate water treatments: center-pivot, flood irrigation, and drip. As the drip treatment study area is unlikely to produce a heavy weed load, it will not be included in this study, as differentiating between crop and weeds is an initial goal of this study. The study site is relatively free of obstacles that would impact low level flight with one notable exception: the center pivot irrigation system. Allowances will be made to avoid that system, but doing so is not expected to affect flight plans, as images in only subset of the field is planned to be captured.
+%This study will be carried out at the University of Arizona Maricopa Agricultural Center (\gls{MAC}) on a cantaloupe crop (Spring 2024) and broccoli crop (Fall 2024) overseen by Drs. Attalah and Elshikha (University of Arizona), as part of another study.\footnote{The field in question is located at N 33.061805$^{\circ}$ W 111.966162$^{\circ}$} That study will involve three separate water treatments: center-pivot, flood irrigation, and drip. As the drip treatment study area is unlikely to produce a heavy weed load, it will not be included in this study, as differentiating between crop and weeds is an initial goal of this study. The study site is relatively free of obstacles that would impact low level flight with one notable exception: the center pivot irrigation system. Allowances will be made to avoid that system, but doing so is not expected to affect flight plans, as images in only subset of the field is planned to be captured.
  
 
 \section{Software Tools Considerations}
@@ -952,10 +1018,10 @@ Images are processed following the pipeline shown in Figure~\ref{fig:workflow}. 
 
 
 \section{Acquire Image}
-Image acquisitions were carried out at the University of Arizona Maricopa Agricultural Center (MAC) on a cantaloupe planting (N $33.061857^\circ$, E $111.967145^\circ$) consisting of 3 water treatments: flood, drip, and center-pivot, each watered at 80\% and 100\%. The field location coordinates were acquired using an Apple iPhone 14 Pro using the \textit{GPSCoordinates} application from the Apple Store. The field was used for an unrelated study of irrigation impacts, but was otherwise typical of what could be expected of a field used for commercial production.
+Image acquisitions were carried out at the University of Arizona Maricopa Agricultural Center (\gls{MAC}) on a cantaloupe planting (N $33.061857^\circ$, E $111.967145^\circ$) consisting of 3 water treatments: flood, drip, and center-pivot, each watered at 80\% and 100\%. The field location coordinates were acquired using an Apple iPhone 14 Pro using the \textit{GPSCoordinates} application from the Apple Store. The field was used for an unrelated study of irrigation impacts, but was otherwise typical of what could be expected of a field used for commercial production.
 Only the flood and pivot treatments will be imaged and considered for this study. This is mostly motivated by practical considerations: it is not anticipated that the drip treatment plots will have a significant number of weeds.  Image acquisition occurred at regular intervals beginning in April 2024 and continuing through May 2024 (Cantaloupe), and October 2024 continuing through November 2024 (Broccoli).  Ambient lighting conditions during acquisitions were quite similar, as they were carried out around the same time (mid-morning) and under (almost) cloudless skies.
 
-Images were captured at two elevations (AGL): 20cm \& 1m, approximating the camera position of a ground-based system (towed or self-propelled). While it is unrealistic to acquire images at such low altitudes for an entire field, the development of a machine learning model requires only a small subset of the field, and these images allow ground truth to be established just by image inspection. 
+Images were captured at two elevations (\gls{AGL}): 20cm \& 1m, approximating the camera position of a ground-based system (towed or self-propelled). While it is unrealistic to acquire images at such low altitudes for an entire field, the development of a machine learning model requires only a small subset of the field, and these images allow ground truth to be established just by image inspection. 
 
 With the exception of images taken from 20cm, all images were acquired using a DJI Mavic Air 2S with a stock RGB 20 MP camera with the following specifications:
 
@@ -1476,7 +1542,7 @@ SVM &CIELAB & 0.91 &      0.86 &   0.96 & 0.90 \\
 }
 
 \subsection{Semantic Segmentation}
-Semantic segmentation is a convolutional neural network (CNN) using a trained model to classify each pixel in an image with a class label.  For the most part, crop images contain only two classes: plants and the ground. While there are exceptions to this,  as images may include debris on the ground, irrigation equipment, etc.  The focus here remains to produce a mask that can be applied to the image to isolate vegetated pixels and speed up and make more accurate the actual weeds identification. This approach differs from the prior two approaches in that while index-based approaches consider no information about other images, and learning base approaches consider samples of a set of images to predict class membership, the deep-learning techniques considered in this section are trained on both images and the corresponding masks.
+Semantic segmentation is a convolutional neural network (\gls{CNN}) using a trained model to classify each pixel in an image with a class label.  For the most part, crop images contain only two classes: plants and the ground. While there are exceptions to this,  as images may include debris on the ground, irrigation equipment, etc.  The focus here remains to produce a mask that can be applied to the image to isolate vegetated pixels and speed up and make more accurate the actual weeds identification. This approach differs from the prior two approaches in that while index-based approaches consider no information about other images, and learning base approaches consider samples of a set of images to predict class membership, the deep-learning techniques considered in this section are trained on both images and the corresponding masks.
 
 \subsubsection{U-Net}
 The name of the U-Net architecture derives from the U-shaped arrangement of the downward decoder section and the upward encoder section. Developed initially for the segmentation of bio-medical images \parencite{Ronneberger2015-ye}, this technique has been more widely adopted into various use cases. The U-Net architecture is characterized by its U-shaped structure, which gives it its name. It consists of an encoding path and a decoding path.
@@ -2475,61 +2541,6 @@ Typically, both under-sampling and oversampling techniques are used to address t
 \subsection{Assessing Techniques}
 To assess the efficacy of over-sampling the minority and a combined over- and under-sampling approach, random instances in a dataset were first dropped to achieve five imbalance ratios and then restored to a 1:1 ratio between the two classes using the over-sampling techniques discussed. Models using imbalanced data and the artificially balanced data were then compared in terms of the improvement (or degradation) of the Area Under the Curve (AUC) using nine different techniques commonly used in classification: Random Forest, Extra Trees, Gradient Boosting, KNN, Linear Discriminant Analysis, Logistic Regression, Multi-Layer Perceptron, Random Forest, and Support Vector Machine. The Receiver Operating Characteristic (ROC) curve represents the probability that the model, if given a randomly chosen positive and negative example, will rank the positive higher than the negative. The AUC is the area underneath this curve -- the closer this area is to 1.0, the better a model is said to be.
 
-As Figure \ref{fig:imbalance} shows, substituting synthetic data improves the AUC of various classification techniques in most cases, but some of the impact is quite trivial and -- in cases -- detrimental (note the case of using a \textit{Random Forest} approach to classification was almost always made worse by these approaches). 
-%
-% The imbalanced data and analysis requires 4 steps
-%
-%# 1) Copy the files to be analyzed
-%# 2) Classify the vegetation automatically
-%# 3) Correct the classifications manually
-%# 4) Analyze for imbalance
-%
-% In post directory:
-% make data-for-imbalance
-% make classify-for-imbalance
-% make review-for-imbalance
-% This step should be run twice, 
-% make analyze-imbalance INPUT=/cygdrive/d/maricopa-test/imbalance/processed/final/corrected.csv OUTPUT=imbalance.csv RATIO=30:5-10 STEPS=6 IMBALANCE=ALL-COMBINED
-% make analyze-imbalance INPUT=/cygdrive/d/maricopa-test/imbalance/processed/final/corrected.csv OUTPUT=imbalance.csv RATIO=30:5-10 STEPS=6 IMBALANCE=ALL-OVER
-%
-% The actual analysis is performed by this command
-% python ./imbalance.py -df ../jetson/training-from-dataframe.csv -ini ../jetson/standalone.ini -lg ../jetson/standalone-logging.ini -a ALL --classifier ALL
-%
-% The graph for the figure is created with the imbalanced.R script
-% imbalance.R
-%
-\begin{figure}[H]
-	\centering
-	\includegraphics[width=0.9\linewidth]{./figures/imbalance.png}
-	\caption[Class imbalance correction techniques]{The impact on AUC of class over-sampling imbalance correction techniques for various ratios and classification strategies can be seen in this visualization. Each facet of this display shows the effect of a different over-sampling technique. While many classification techniques are improved, the effect on Decision Tree classification is most pronounced. This dataset was first manipulated to achieve the desired ratio before the algorithms were applied. That is, to achieve a 30:1 imbalance, rows in the minority class were randomly dropped. The change in the AUC scores is shown in this plot for various ML techniques and for each of the correction approaches discussed.}
-	\label{fig:imbalance}
-\end{figure}
-
-While the difference in the AUC achieved with classification using MLP and SVM (some clarification may be in order: SVM refers to a classification, and SVM-SMOTE refers to the correction technique.) stands out, almost all classification techniques were improved by the correction with a few exceptions. Correcting low-imbalance sets (30:5) yielded worse results in several instances. The positive impacts can be characterized as minimal, however. Consider the ROC curves shown in Figure \ref{fig:auc}, showing the ROC curve achieved before and after correction using ADASYN.
-
-\begin{figure*}[h]
-	\centering
-	\includegraphics[height=0.35\textheight]{figures/roc-corrected.png}
-	\caption[Before and after correction]{Before and after correction by oversampling the minority class with the ADASYN approach. Note that in many instances the effect of the correction on the ROC curve is quite modest. The dashed green line appearing in each of the graphs is representative of a random classifier, and appears only as a reference. A positive impact on classification using a gradient boosted technique is present, and that technique can certainly benefit from correction. }
-	\label{fig:auc}
-\end{figure*}
-
-Combining over- and under-sampling techniques yielded worse results in many instances, but produced better results in most. As Figure \ref{fig:combined} shows, the impact tended to be more positive than negative, but Decision Tree seems to have been the biggest beneficiary of both techniques. Random Forest, and Logistic Regression, likewise, were both strongly negatively affected.
-\begin{figure}[H]
-	\centering
-	\includegraphics[width=0.9\linewidth]{./figures/combined.png}
-	\caption[Combined Over and Under-sampling]{The impact on AUC of using a combined over- and under-sampling approach to class imbalance correction techniques for various ratios and classification strategies can be seen in this visualization. The strategy of using SMOTE+ENN has a particularly negative effect for many of the classification techniques, but the improvement in Decision Tree classification is a clear standout for both techniques.}
-	\label{fig:combined}
-\end{figure}
-
-As with over-sampling the minority class, the effect was still modest, however. As seen in Figure \ref{fig:auc-tomek}, the ROC curves of uncorrected and corrected are, in general, quite close.  A notable exception was the difference in the curves shown by \textit{Gradient Boosting}. That classification technique visibly benefited from the combined approach of over- and under-sampling.
-
-\begin{figure*}[h]
-	\centering
-	\includegraphics[height=0.25\textheight]{figures/roc-corrected-tomek.png}
-	\caption[Before and after correction]{Before and after correction by a combined approach of over-sampling the minority class and under-sampling the majority class using Tomek links. Note that in many instances the effect of the correction is quite modest. A positive impact on classification using a gradient boosted technique is present, and that technique can certainly benefit from correction. }
-	\label{fig:auc-tomek}
-\end{figure*}
 
 %
 % S Y S T E M  D E S I G N
@@ -2607,7 +2618,7 @@ Texture & HOG & 3 \\
 Shape & Various (convexity, elongation, etc.) & 9 \\
 Color & Various & 4 \\
 \midrule
-Total& & 142\\
+Total& & 151\\
 \bottomrule
 \end{longtable}
 
@@ -2754,22 +2765,73 @@ RANDOMFOREST & 0.85 &      0.50 & 0.00 &       1.00 &       0.50 \\
 }
 \end{small}
 
-The lack of a clear set of selected parameters for the model yielded a somewhat easy, but brute force choice: use the unique set of parameters as a starting point, and evaluate models for every combination. The set of unique parameters across the top 10 selection techniques was relatively small, yielding a search space of 348,330,136 combinations. This parameter space was exhaustively searched to find the set of parameters best suited for each of the  nine classification techniques:
-\begin{itemize}
-	\item{Random Forest}
-	\item{K Nearest Neighbors (KNN)}
-	\item{Gradient Boosting (GRADIENT)}
-	\item{Logistic Regression (LR)}
-	\item{Decision Tree (DT)}
-	\item{Support Vector Machine (SVM)}
-	\item{Linear Discriminate Analysis (LDA)}
-	\item{Multi-layer Perceptron (MLP)}
-	\item{Extra Trees (Extra)}
-\end{itemize}
+The lack of a clear set of selected parameters for the model yielded a somewhat easy, but brute force choice: use the unique set of parameters as a starting point, and evaluate models for every combination. The set of unique parameters across the top 10 selection techniques was relatively small, yielding a search space of 348,330,136 combinations. This parameter space was exhaustively searched to find the set of parameters best suited for each of the  nine classification techniques.
 
 The optimal set of parameters will be explored in a subsequent section, but it is worth considering each of the classes separately. For example, if only color attributes are considered, what sort of classification results can be achieved?
 
-\subsection{Texture}
+
+\chapter{Results}
+\label{section:results}
+This section presents the findings from the weed and crop classification study, focusing on both feature effectiveness and stability. First, we evaluate the effectiveness of various imbalance correction techniques.  We then evaluate the classification performance when using individual feature sets—shape, color, and texture—and then assess the combined model performance when all these attributes are integrated. By comparing these approaches, we identify the contribution of each feature type to the overall classification accuracy and robustness. Additionally, this section investigates the temporal stability of the extracted features using the Dickey-Fuller test, which assesses the presence of unit roots in the feature data to ensure that the attributes maintain consistency over time. Together, these analyses offer a comprehensive understanding of both the discriminative power and reliability of the features used in the classification system.
+
+\section{Imbalance Correction}
+As Figure \ref{fig:imbalance} shows, substituting synthetic data improves the AUC of various classification techniques in most cases, but some of the impact is quite trivial and -- in cases -- detrimental (note the case of using a \textit{Random Forest} approach to classification was almost always made worse by these approaches). 
+%
+% The imbalanced data and analysis requires 4 steps
+%
+%# 1) Copy the files to be analyzed
+%# 2) Classify the vegetation automatically
+%# 3) Correct the classifications manually
+%# 4) Analyze for imbalance
+%
+% In post directory:
+% make data-for-imbalance
+% make classify-for-imbalance
+% make review-for-imbalance
+% This step should be run twice, 
+% make analyze-imbalance INPUT=/cygdrive/d/maricopa-test/imbalance/processed/final/corrected.csv OUTPUT=imbalance.csv RATIO=30:5-10 STEPS=6 IMBALANCE=ALL-COMBINED
+% make analyze-imbalance INPUT=/cygdrive/d/maricopa-test/imbalance/processed/final/corrected.csv OUTPUT=imbalance.csv RATIO=30:5-10 STEPS=6 IMBALANCE=ALL-OVER
+%
+% The actual analysis is performed by this command
+% python ./imbalance.py -df ../jetson/training-from-dataframe.csv -ini ../jetson/standalone.ini -lg ../jetson/standalone-logging.ini -a ALL --classifier ALL
+%
+% The graph for the figure is created with the imbalanced.R script
+% imbalance.R
+%
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.9\linewidth]{./figures/imbalance.png}
+	\caption[Class imbalance correction techniques]{The impact on AUC of class over-sampling imbalance correction techniques for various ratios and classification strategies can be seen in this visualization. Each facet of this display shows the effect of a different over-sampling technique. While many classification techniques are improved, the effect on Decision Tree classification is most pronounced. This dataset was first manipulated to achieve the desired ratio before the algorithms were applied. That is, to achieve a 30:1 imbalance, rows in the minority class were randomly dropped. The change in the AUC scores is shown in this plot for various ML techniques and for each of the correction approaches discussed.}
+	\label{fig:imbalance}
+\end{figure}
+
+While the difference in the AUC achieved with classification using MLP and SVM (some clarification may be in order: SVM refers to a classification, and SVM-SMOTE refers to the correction technique.) stands out, almost all classification techniques were improved by the correction with a few exceptions. Correcting low-imbalance sets (30:5) yielded worse results in several instances. The positive impacts can be characterized as minimal, however. Consider the ROC curves shown in Figure \ref{fig:auc}, showing the ROC curve achieved before and after correction using ADASYN.
+
+\begin{figure*}[h]
+	\centering
+	\includegraphics[height=0.35\textheight]{figures/roc-corrected.png}
+	\caption[Before and after correction]{Before and after correction by oversampling the minority class with the ADASYN approach. Note that in many instances the effect of the correction on the ROC curve is quite modest. The dashed green line appearing in each of the graphs is representative of a random classifier, and appears only as a reference. A positive impact on classification using a gradient boosted technique is present, and that technique can certainly benefit from correction. }
+	\label{fig:auc}
+\end{figure*}
+
+Combining over- and under-sampling techniques yielded worse results in many instances, but produced better results in most. As Figure \ref{fig:combined} shows, the impact tended to be more positive than negative, but Decision Tree seems to have been the biggest beneficiary of both techniques. Random Forest, and Logistic Regression, likewise, were both strongly negatively affected.
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.9\linewidth]{./figures/combined.png}
+	\caption[Combined Over and Under-sampling]{The impact on AUC of using a combined over- and under-sampling approach to class imbalance correction techniques for various ratios and classification strategies can be seen in this visualization. The strategy of using SMOTE+ENN has a particularly negative effect for many of the classification techniques, but the improvement in Decision Tree classification is a clear standout for both techniques.}
+	\label{fig:combined}
+\end{figure}
+
+As with over-sampling the minority class, the effect was still modest, however. As seen in Figure \ref{fig:auc-tomek}, the ROC curves of uncorrected and corrected are, in general, quite close.  A notable exception was the difference in the curves shown by \textit{Gradient Boosting}. That classification technique visibly benefited from the combined approach of over- and under-sampling.
+
+\begin{figure*}[h]
+	\centering
+	\includegraphics[height=0.25\textheight]{figures/roc-corrected-tomek.png}
+	\caption[Before and after correction]{Before and after correction by a combined approach of over-sampling the minority class and under-sampling the majority class using Tomek links. Note that in many instances the effect of the correction is quite modest. A positive impact on classification using a gradient boosted technique is present, and that technique can certainly benefit from correction. }
+	\label{fig:auc-tomek}
+\end{figure*}
+
+\section{Classification Using Texture}
 Table \ref{table:results-texture} shows the optimal parameters for each classification technique if only texture is considered. Specifically, these parameters produced the highest AUC in the classification:
 \begin{itemize}
 	\item{\textit{greyscale\_lbp\_stddev} -- The standard deviation of the LBP of the blob after greyscale conversion.}
@@ -2871,6 +2933,7 @@ Attempting to correct the data with either over sampling or combined over sampli
 %\input{./tables/results-texture-corrected.tex}
 %\end{tiny}
 
+\subsection{Feature Changes During Crop Development}
 Some features do not remain stable over the development cycle. As illustrated by Figure \ref{fig:season-texture}, only a subset of the textural features can be considered stable over the development cycle. Seasonality in crop features refers to the predictable, cyclical changes in crop appearance and physiology that occur throughout the growing season. These seasonal variations are driven by environmental factors such as temperature, day length, and precipitation, which influence plant growth stages from germination to maturity. For example, during early growth stages, crops might display vibrant green hues and sparse canopies, whereas at maturity, changes in leaf color, increased biomass, and altered structural characteristics become more apparent. Recognizing these patterns is crucial for remote sensing and precision agriculture, as it helps in accurately assessing crop health, predicting yields, and optimizing management practices over time. Using features from this subset is advisable, as those features can be exploited at any point in the development cycle.  Each feature is tested to determine if it changes over the development cycle (perhaps a texture feature \textit{trends} toward a value at the end of the season).
 
 %
@@ -2926,7 +2989,7 @@ An illustration of a specific parameter is probably useful for illustrating the 
 
 
 
-\subsection{Color}
+\section{Classification Using Color}
 Table \ref{table:results-color} shows the optimal parameters for each classification technique if only color is considered. For the most part, the classification AUC is lower than seen with texture alone, with a few performing acceptably: \textit{Extra Trees}, \textit{Gradient Boosted}, and \textit{Multi-Layer Perceptron}.  The parameter sets for classification have one obvious characteristic: they are identical across classification techniques. Though a wide variety of color attributes were tested -- YCbCr had three means computed, for instance, as one was derived for each channel -- the final set for all techniques was the same.
 
 
@@ -2981,6 +3044,7 @@ Each classification technique performed best when fitting these parameters:
 	\item{\textit{saturation\_mean} -- the mean value of the saturation channel of the blob in HSI color space}
 \end{itemize}
 
+\subsection{Feature Changes During Crop Development}
 As seen with texture, some features do not exhibit stability over the development cycle. As Table \ref{stability-color} illustrates, the \textit{hue} and \textit{saturation\_mean} of the blobs changes over the development cycle (ADF, $\alpha = 0.05$). While this feature instability does not account for the lower classification AUC, it does point to an inconvenient
 
 % Table generated with
@@ -2991,7 +3055,7 @@ As seen with texture, some features do not exhibit stability over the developmen
 }
 
 
-\subsection{Shape}
+\section{Classification Using Shape}
 Classification using the shape of the object suffers from a topic touched on previously: the entire plant must be visible for the shape metric to be calculated accurately. For images acquired 1m above the ground this is typically not a concern, as unclassified vegetation is fully in view or a full view can be constructed by stitching together images. The same is not the case with images acquired closer to the ground, as would be the case with a towed system where the camera captures a limited view of a planting bed. While adjacent images can be stitched together to compensate for vegetation that is cut off in the images along the planting bed (as a towed system passes overhead, for instance), it is not feasible to correct for images cut off along the sides of the images. How much of the planting bed is captured depends, of course on camera and 
 optics characteristics, described by Equation \ref{eqn:gsd}.
 
@@ -3023,6 +3087,7 @@ Classifying by using only shape yields good -- but not spectacular -- results. A
 \input{./tables/results-shape.tex}
 }
 
+\subsection{Feature Changes During Crop Development}
 Shape, however, may dependent on the phase of the development cycle, as Figure \ref{fig:cantaloupe} shows. The shape of early and late stage plants is quite different, so classification at a single point may be higher.  To examine this, each feature was assessed for seasonality. Table \ref{table:shape-season} shows the ADF ($\alpha = 0.05$) of the features used.  Most features -- somewhat surprisingly -- do not exhibit seasonality, the exception being \textit{radial\_var}. Of course, lack of seasonality does not mean that the features aren't different, but they do not exhibit a trend over the development cycle.
 
 {
@@ -3070,10 +3135,10 @@ Shape, however, may dependent on the phase of the development cycle, as Figure \
 %
 %}
 
-\subsection{Optimal}
+\section{Classification Using Color, Shape, and Texture}
 Considering all the parameter types (color, shape, texture), the results are shown in Table \ref{table:optimal}. Here, we see shape and texture, but not color -- at least not directly. While color attributes are not present in any of the parameter sets, texture in various color spaces is. As evidenced by factors such as \textit{cie\_b\_lbp\_variance} and \textit{ycbcr\_y\_lbp\_stddev}, texture calculations in non-RGB color spaces featured prominently. Just as importantly, texture features outside of greyscale are present in all approaches except \textit{Logistic Regression}.
 
-{
+{\
 \renewcommand{\arraystretch}{0.9}
 % Produced with:
 % make optimal TRAINING=/cygdrive/d/dissertation/shape/season.csv FACTORS=7 PREFIX=shape TYPE=SHAPE SUBTYPE=all OUTPUT=/cygdrive/d/dissertation/shape 
@@ -3092,6 +3157,7 @@ Table \ref{table:optimal} details the absolute highest AUC, but the difference b
 
 While it is not surprising to see that there were 1.818\% (6 of 330) combinations for LDA classification that yielded results close to the maximum, the 63.333\% (209 of 330) achieved with SVM was. 
 
+\subsection{Feature Changes During Crop Development}
 There is no clear trend in these attributes change over the development cycle. Table \ref{table:optimal-seasonality} shows an assessment of the change in the factors used (see Table \ref{table:optimal} for the factor names) in the classification. While the classification using LDA or SVM  are both composed entirely of factors that does not exhibit change, those do not achieve the highest AUC score, as Logistic Regression uses two factors that do exhibit change over the development cycle. The parameter sets used by all of the classification techniques were composed of at least 50\%  stable parameters. While this does not show conclusively that integration of factors that remain constant over a portion of the development cycle, the majority of the highest performing classifications did integrate these factors.
 {
 % Produced with:
@@ -3286,32 +3352,39 @@ Plotting the attributes found to produce the best model for LDA yields Figure~\r
 	\caption[Factors selected for discrimination]{A plot of the four factors selected with the shape noting the true classification of the blob using LDA. In this graph the factors selected occupy space and color, with the shape of the object noting the classification. The (X, Y, Z) coordinates of each blob are the compactness (a shape descriptor), the standard deviation of the HOG (texture), and the variance of the LBP of the $intensity$ channel of the blob in HSI color space. The color of the object corresponds to the standard deviation of the LBP of the $Y$ channel in YCbCr color space.}
 	\label{fig:factors}
 \end{figure}
-  
-\section{Classification Mistakes}
-As good as the results are. it bears mention that, while all predictions contain errors, some errors are more costly than others. Specifically, the cost of the mistake made depends on the intent. Consider a negative treatment: incorrectly classifying a weed as a crop and not treating it is lower cost than incorrectly classifying a crop as a weed and then treating it with a herbicide.  In the former case, the weed will cause indirect damage to the crop by competing with marketable crop for water and nutrients, but in the latter case otherwise marketable crop has been damaged or destroyed. This is, in part, why there is an emphasis in this document for considering mistakes by using F1 and AUC scores to evaluate models, but even that approach does not capture this concern. The opposite holds, of course, for a positive treatment, although the stakes are much lower: incorrectly classifying a crop as a weed, and then failing to treat it may lead to damage in that the crop is not treated for pests or the crop is not supplied with required nutrients, and incorrectly classifying a weed as a crop and then providing a treatment may improve the weed's fate, but will ultimately not directly have a negative impact on crop.
- 
-%Misclassification rates where crop is identified as a weed is the most pressing concern here, so it is worthwhile evaluating the performance of these approaches with the goal of minimizing that class of misclassification while maximizing the correct classification of weeds as weeds. Figure~\ref{fig:classification-rates} addresses this goal by showing percentages of correct and incorrect classifications. While there several approaches showed quite similar acceptable  results (SVM, Random Forest, and Logistic Regression) and three approaches with unacceptable results (KNN, Boosted Gradient, and Decision Tree). While it is likely the case that the unacceptable approaches can be optimized to the point that their results would migrate them to the acceptable category, this paper will concentrate only on the approaches will acceptable results.
 
-%\begin{figure}[h]
+{
+\begin{landscape}
+Predicting using seven parameters increases the results. Some of the increases are quite impactful: the AUC of Random Forest, for instance, increased from $0.917$ to $0.975$. while other techniques were only modestly improved, as noted by LDA's AUC increase from $0.924$ to $0.947$.
+\input{./tables/results-optimal-7.tex}
+\end{landscape}
+}
+
+%\section{Classification Mistakes}
+%As good as the results are. it bears mention that, while all predictions contain errors, some errors are more costly than others. Specifically, the cost of the mistake made depends on the intent. Consider a negative treatment: incorrectly classifying a weed as a crop and not treating it is lower cost than incorrectly classifying a crop as a weed and then treating it with a herbicide.  In the former case, the weed will cause indirect damage to the crop by competing with marketable crop for water and nutrients, but in the latter case otherwise marketable crop has been damaged or destroyed. This is, in part, why there is an emphasis in this document for considering mistakes by using F1 and AUC scores to evaluate models, but even that approach does not capture this concern. The opposite holds, of course, for a positive treatment, although the stakes are much lower: incorrectly classifying a crop as a weed, and then failing to treat it may lead to damage in that the crop is not treated for pests or the crop is not supplied with required nutrients, and incorrectly classifying a weed as a crop and then providing a treatment may improve the weed's fate, but will ultimately not directly have a negative impact on crop.
+% 
+%%Misclassification rates where crop is identified as a weed is the most pressing concern here, so it is worthwhile evaluating the performance of these approaches with the goal of minimizing that class of misclassification while maximizing the correct classification of weeds as weeds. Figure~\ref{fig:classification-rates} addresses this goal by showing percentages of correct and incorrect classifications. While there several approaches showed quite similar acceptable  results (SVM, Random Forest, and Logistic Regression) and three approaches with unacceptable results (KNN, Boosted Gradient, and Decision Tree). While it is likely the case that the unacceptable approaches can be optimized to the point that their results would migrate them to the acceptable category, this paper will concentrate only on the approaches will acceptable results.
+%
+%%\begin{figure}[h]
+%%	\centering
+%%	\includegraphics[width=0.7\linewidth]{./figures/classification-rates.png}
+%%	\caption[Misclassification rates of various algorithms]{The correct and misclassification rates of various algorithms are shown here. While an overall accuracy of 95.7\% may sound impressive for the Boosted Gradient algorithm (See Table~\ref{fig:learning}), considering the salient misclassification and correct classification rates, 24.1\% and 98.6\%, respectively, that algorithm does not support the accuracy needed in this use case.}
+%%	\label{fig:classification-rates}
+%%\end{figure}
+%
+%Figure~\ref{fig:classified} shows an annotated classification result. In this figure, we see desirable (crop) bounded by a green box, and undesirable (not crop) bounded in red. The blue box bounds vegetation for which we can't reliably determine its class. Computations that depend on an unimpeded view of the vegetation ({\it length/width ratio}, for instance) can't be reliably performed, so classification of elements that are not fully captured are not classified. Some color computations could be, but may not be as representative as required. The {\it hue} value, for example, is the mean value across the entire plant, and the hue may not be consistent across the entire plant. The portion that is visible may not be representative of the plant as a whole.
+%
+%\begin{figure}[H]
 %	\centering
-%	\includegraphics[width=0.7\linewidth]{./figures/classification-rates.png}
-%	\caption[Misclassification rates of various algorithms]{The correct and misclassification rates of various algorithms are shown here. While an overall accuracy of 95.7\% may sound impressive for the Boosted Gradient algorithm (See Table~\ref{fig:learning}), considering the salient misclassification and correct classification rates, 24.1\% and 98.6\%, respectively, that algorithm does not support the accuracy needed in this use case.}
-%	\label{fig:classification-rates}
+%	\includegraphics[width=0.7\linewidth]{./figures/classified-result.jpg}
+%	\caption[A classified and annotated image]{A classified result. Desirable vegetation is bounded in green and undesirable in red. Note that this image also demonstrates a commonly encountered problem, that of overlapping vegetation. In the lower left of the green bounding box there is a weed that is overlapped by crop vegetation. In this case, however, the weed's proximity to the crop makes treatment problematic in that doing so represents a risk of producing crop damage.}
+%	\label{fig:classified}
 %\end{figure}
 
-Figure~\ref{fig:classified} shows an annotated classification result. In this figure, we see desirable (crop) bounded by a green box, and undesirable (not crop) bounded in red. The blue box bounds vegetation for which we can't reliably determine its class. Computations that depend on an unimpeded view of the vegetation ({\it length/width ratio}, for instance) can't be reliably performed, so classification of elements that are not fully captured are not classified. Some color computations could be, but may not be as representative as required. The {\it hue} value, for example, is the mean value across the entire plant, and the hue may not be consistent across the entire plant. The portion that is visible may not be representative of the plant as a whole.
 
-\begin{figure}[H]
-	\centering
-	\includegraphics[width=0.7\linewidth]{./figures/classified-result.jpg}
-	\caption[A classified and annotated image]{A classified result. Desirable vegetation is bounded in green and undesirable in red. Note that this image also demonstrates a commonly encountered problem, that of overlapping vegetation. In the lower left of the green bounding box there is a weed that is overlapped by crop vegetation. In this case, however, the weed's proximity to the crop makes treatment problematic in that doing so represents a risk of producing crop damage.}
-	\label{fig:classified}
-\end{figure}
-
-
-\section{Performance}
+\section{Compute Performance}
 \label{section:performance}
-Additionally, there is a criterion that is both not addressed and beyond the scope of this document: the computational cost of achieving each result. In-field solutions supporting immediate treatment systems are sensitive to this; data-center solutions, not so much.\footnote{The timings discussed here are for a CPU, not GPU. While portions of the code will support a GPU if present, other sections do not, so it was disabled everywhere. Comparing the performance in an interpreted language (Python) and a compiled language using a GPU is not quite entirely appropriate, but is instructive. The computation of an index for segmentation of an image took less than 1ms on a GPU, but 75 ms on a CPU -- a rather large difference} While a result of an approach yielding results above 98\% may sound impressive, if that prediction using logistic regression takes a few hundred milliseconds and a decision tree takes well under 100 milliseconds, it may be the case that using that logistic regression in practice is not viable.\footnote{Some context is probably needed here. An in-field solution might be hosted on  tractor moving along, and the time spent on prediction is part of an overall time budget that will ultimately limit the forward speed of the tractor. 2 MPH is commercially viable. 1 MPH is not.}
+Additionally, there is a criterion that is both not addressed and beyond the scope of this document: the computational cost of achieving each result. In-field solutions supporting immediate treatment systems are sensitive to this; data-center solutions, not so much. The timings discussed here are for a CPU, not GPU. While portions of the code will support a GPU if present, other sections do not, so it was disabled everywhere. Comparing the performance in an interpreted language (Python) and a compiled language using a GPU is not quite entirely appropriate, but is instructive. The computation of an index for segmentation of an image took less than 1ms on a GPU, but 75 ms on a CPU -- a rather large difference. While a result of an approach yielding results above 98\% may sound impressive, if that prediction using logistic regression takes a few hundred milliseconds and a decision tree takes well under 100 milliseconds, it may be the case that using that logistic regression in practice is not viable.Some context is probably needed here. An in-field solution might be hosted on  tractor moving along, and the time spent on prediction is part of an overall time budget that will ultimately limit the forward speed of the tractor. 2 MPH is commercially viable. 1 MPH is not.
 
 {
 \renewcommand{\arraystretch}{0.9}
@@ -3329,11 +3402,38 @@ Table \ref{table:performance} needs some context, as the values presented are no
 
 A camera with parameters to the one on the DJI Drone at 500cm captures 1 meter of the ground, so the processing rate of the system is 1.6s per meter, or 2.25 kph. Many would consider this a commercially unviable speed, so the image processing and classification needs a bit of optimization. The easiest is to state, but hardest to deliver is, perhaps the language used. Transitioning the implementation to a compiled language (C, C++, or Rust) need not be for the entire code, just for sections that require optimization. Consider the time taken for an index computation. Tests conducted for this study show that the same index can be computed an order of magnitude faster with a C++ implementation that can be achieved using an interpreted one. Now the forward progress of the system is much faster, as image processing supports a much more viable 4.13 kph. On the lower end of what many would consider commercially viable, but a step in the right direction.
 
+\chapter{Discussion (New as of 18 Mar)}
+\label{section:discussion}
+Referencing the classification results from Table \ref{table:optimal-7}, the AUC values for the techniques range from approximately 0.8985 (Decsion Tree) to 0.9751 (Random Forest). This range shows that all methods perform well overall, but ensemble methods (Random Forest and Boosted Gradient) achieve the highest scores.
+Techniques such as KNN, Logistic Regression, and Boosted Gradient have AUCs in the high 0.91–0.97 range, suggesting that even simpler models can be effective when paired with well-selected features, though ensemble methods clearly lead in performance.
+Technique Comparison:
 
-\section{Conclusions}
-This study has shown that vegetation can be classified accurately, but what that accuracy is depends on what the goals are. If incorrectly classifying crops as weeds has a higher cost than incorrectly classifying weeds as crop, a cost-sensitive approach may be appropriate, than the classification approaches studied here. Changes to features used in classification over a development cycle may make models built on that data less effective -- models built considering data from only a single day yield much higher scores. It was not clear that 
+Random Forest: With an AUC of 0.975128, this technique outperforms the others, likely due to its ensemble nature and its ability to combine multiple decision trees for robust predictions.
+Boosted Gradient: Nearly as effective as Random Forest with an AUC of 0.972057, indicating the strength of boosting techniques in refining model performance.
+Decision Tree: This method has the lowest AUC (0.898545), which may reflect the limitations of a single-tree approach when handling complex data patterns compared to ensemble methods.
+Feature Configuration Analysis
+Commonly Used Features:
 
-\section{References}
+Color-based: Many techniques list cb\_mean, which likely represents a key color attribute derived from the images.
+Shape-based: Features such as compactness, convexity, elongation, and eccentricity are prevalent, indicating the importance of shape descriptors in distinguishing between crops and weeds.
+Texture/Contrast-based: Features like cie\_l\_lbp\_stddev and greyscale\_contrast\_avg appear in multiple techniques, suggesting that texture and contrast measurements are significant for accurate classification.
+
+The combination of features across different methods varies slightly, but there is a clear trend of integrating color, shape, and texture descriptors. For instance, both Logistic Regression and Boosted Gradient include cb\_mean, cie\_l\_lbp\_stddev, and compactness, emphasizing the consistent value of these features.
+Decision Tree, which has the lowest AUC, includes features such as elongation and greyscale\_contrast\_avg alongside cb\_mean, which might indicate that while these features are useful, the model’s simpler structure may not fully capitalize on their potential.
+Conclusions
+Model Performance:
+Ensemble methods like Random  and boosting techniques like Boosted Gradient demonstrate superior performance (AUC > 0.97), reinforcing their effectiveness in handling complex feature spaces in weed/crop classification.
+
+Feature Importance:
+The frequent appearance of features such as cb\_mean, compactness, and cie\_l\_lbp\_stddev across multiple high-performing models highlights their importance. This suggests that these features capture critical aspects of the image data necessary for distinguishing between crops and weeds.
+
+It was not clear that features that were not changing over the early development phase has a profound affect. As Table \ref{table:optimal-seasonality} shows, that the majority of the classification techniques (6 of 9) showed that at least 75\% of the features did not exhibit changes over the development phase studied, but the highest performer, Logistic Regression, used only 50\%.
+
+This study has shown that vegetation can be classified accurately, but what that accuracy is depends on what the goals are. If incorrectly classifying crops as weeds has a higher cost than incorrectly classifying weeds as crop, a cost-sensitive approach may be appropriate, than the classification approaches studied here. 
+
+The results of this study provide support for the assertion that texture descriptors extracted from non-RGB color space channels yield superior classification performance—as measured by AUC—compared to texture descriptors derived solely from greyscale images. Specifically, models utilizing texture features from color spaces such as HSI, YCbCr, and CIE consistently achieved higher AUC scores than those limited to greyscale descriptors. This improvement is likely due to the richer and more nuanced information available in non-RGB channels, where variations in hue, saturation, and chromaticity offer additional discriminatory power for distinguishing between crops and weeds. The enhanced performance of these models underscores the importance of capturing subtle textural differences that are often lost when reducing images to greyscale. Furthermore, while greyscale-based texture descriptors offer the benefit of reduced computational complexity, they sacrifice critical color information that can be essential for accurately characterizing vegetation patterns in agricultural imagery. These findings advocate for a more comprehensive approach in texture analysis, leveraging non-RGB color spaces to improve the robustness and accuracy of classification systems in precision agriculture. Future research should explore methods to optimize feature selection and manage the increased dimensionality inherent to non-RGB texture descriptors, ensuring that the computational costs are balanced with the performance benefits.
+
+\chapter{References}
 \printbibliography[heading=none]
 
 %\newpage
