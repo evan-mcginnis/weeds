@@ -262,6 +262,8 @@ THE UNIVERSITY OF ARIZONA \\
 \newacronym{NDVI}{NDVI}{Normalized Difference Vegetation Index}
 \newacronym{SIFT}{SIFT}{Scale-Invariant Feature Transform}
 \newacronym{FFT}{FFT}{Fast Fourier Transform}
+\newacronym{ASM}{ASM}{Angular Second Moment}
+\newacronym{ROC}{ROC}{Receiver Operating Characteristic}
 
 
 \begin{document}
@@ -343,7 +345,8 @@ THE UNIVERSITY OF ARIZONA \\
   \vhEntry{1.4}{20 Mar 2025}{EM}{Update discussion chapter}
   \vhEntry{1.5}{23 Mar 2025}{EM}{Update literature review and acronyms. Update results}
   \vhEntry{1.6}{24 Mar 2025}{EM}{Incorporate review comments on Chapter 3}
-  \vhEntry{1.6}{25 Mar 2025}{EM}{Restructure and eliminate items to achieve balance}
+  \vhEntry{1.7}{25 Mar 2025}{EM}{Restructure and eliminate items to achieve balance}
+  \vhEntry{1.8}{26 Mar 2025}{EM}{Incorporate review comments on Chapters 4 \& 5 }
 \end{versionhistory}
 \newpage
 }
@@ -950,11 +953,15 @@ Images are processed following the pipeline shown in Figure~\ref{fig:workflow}. 
 	\label{fig:workflow}	
 \end{figure}
 
-
-\section{Acquire Image}
-Image acquisitions were carried out at the University of Arizona \gls{MAC} on a cantaloupe planting (N $33.061857^\circ$, E $111.967145^\circ$) consisting of 3 water treatments: flood, drip, and center-pivot. The field location coordinates were acquired using an Apple iPhone 14 Pro using the \textit{GPSCoordinates} application from the Apple Store. The field was used for an unrelated study of deficit irrigation research, but was otherwise typical of what could be expected of a field used for commercial production.
+\section{Site details}
+Image acquisitions were carried out at the University of Arizona \gls{MAC} on a cantaloupe and broccoli planting (N $33.061857^\circ$, E $111.967145^\circ$) consisting of 3 water treatments: flood, drip, and center-pivot. The field location coordinates were acquired using an Apple iPhone 14 Pro using the \textit{GPSCoordinates} application from the Apple Store. The field was used for an unrelated study of deficit irrigation research, but was otherwise typical of what could be expected of a field used for commercial production.
 Only the flood and pivot treatments will be imaged and considered for this study. The drip irrigated field was not considered since it was not expected to have a significant number of weeds.  Image acquisition occurred at regular intervals beginning in April 2024 and continuing through May 2024 (Cantaloupe), and October 2024 continuing through November 2024 (Broccoli).  Ambient lighting conditions during acquisitions were quite similar, as they were carried out around the same time (mid-morning) and under (almost) cloudless skies.
 
+In April, common weed species observed in agricultural fields in southern Arizona typically include species such as Palmer amaranth (Amaranthus palmeri), redroot pigweed (Amaranthus retroflexus), common purslane (Portulaca oleracea), dandelion (Taraxacum officinale), and various foxtail species (e.g., Setaria spp.). These species tend to emerge with the warming temperatures and increased irrigation, often competing aggressively with early-season crops. In November, the weed community may shift toward species that are better adapted to cooler temperatures and the end-of-season environment, such as field bindweed (Convolvulus arvensis), common cocklebur (Xanthium strumarium), spotted spurge (Euphorbia maculata), henbit (Lamium amplexicaule), and puncturevine (Tribulus terrestris). This seasonal variation reflects differences in life cycles, with many spring-emerging weeds completing their growth before winter, while winter annuals or perennials become more prominent later in the year.
+
+The Maricopa Agricultural Research Center is a state-of-the-art facility dedicated to advancing agricultural practices in arid and semi-arid environments, particularly within southern Arizona. Positioned in the heart of a region where water scarcity and challenging soil conditions dictate crop performance, the center conducts interdisciplinary research across crop improvement, soil management, water conservation, and pest control. It serves as a collaborative hub, working in partnership with academic institutions, government agencies, and industry stakeholders to develop innovative, sustainable solutions that address the unique agricultural challenges of the area. The center’s integration of advanced field experimentation, precision agriculture technologies, and extension services not only drives scientific discovery but also ensures that practical, evidence-based strategies reach local growers, contributing to the economic vitality and environmental resilience of the region.
+
+\section{Acquire Image}
 Images were captured at two elevations \gls{AGL}: 20cm \& 1m, approximating the camera position of a ground-based system (towed or self-propelled). While it is unrealistic to acquire images at such low altitudes with a AUV for an entire field, the actual development of a machine learning model requires only a small subset of the field, and these images allow the class of a plant to be determined through manual inspection. 
 
 With the exception of images taken from 20cm, all images were acquired using a DJI Mavic Air 2S with a stock RGB 20 MP camera with the following specifications:
@@ -1009,7 +1016,7 @@ As illustrated by Figure \ref{fig:field-layout} the largest flood irrigated area
 %\end{table*}
 % Metadata altitude analysis is with this command
 % python altitude.py -i d:\maricopa\corrected\2024-05-08\flood-1m d:\maricopa\corrected\2024-05-08\pivot-2m d:\maricopa\corrected\2024-05-08\pivot-5m d:\maricopa\corrected\2024-05-08\flood-10m
-The capture area spans the width of three plots at 10 meters AGL. While the missions are planned for these heights, environmental factors (wind) and positional accuracy may result in variance of the actual distance AGL achieved and consequently the effective image resolution. While both factors will vary from one mission to another, the image metadata examined from a mission executed on 8 May 2024 shows fairly low standard deviation values for the elevation  at various heights: 0.06m (1m AGL), 0.08m (2m AGL), 0.08m (5m AGL), and 0.05m (10m AGL). Positional accuracy, as it relates to ground location was not assessed in this study. While an RTK solution could certainly improve positional accuracy along all axes in reporting the exact location of an image, such precision is not particularly relevant to this study, as absolute location will not be used as a factor in classification.
+The capture area spans the width of three plots at 10 meters. While the missions are planned for these heights, environmental factors (wind) and positional accuracy may result in variance of the actual distance AGL achieved and consequently the effective image resolution. While both factors will vary from one mission to another, the image metadata examined from a mission executed on 8 May 2024 shows fairly low standard deviation values for the elevation  at various heights: 0.06m (1m AGL), 0.08m (2m AGL), 0.08m (5m AGL), and 0.05m (10m AGL). Positional accuracy, as it relates to ground location was not assessed in this study. While an RTK solution could certainly improve positional accuracy along all axes in reporting the exact location of an image, such precision is not particularly relevant to this study, as absolute location will not be used as a factor in classification.
 
 \begin{figure}[h!]
 	\centering
@@ -1061,7 +1068,7 @@ As illustrated in Figure \ref{fig:field-layout}, the train and test image sets a
 %
 \section{Segment Image}
 \label{section:segmentation}
-To pre-process the image before further analysis is done, image segmentation must be done.  Image segmentation is a fundamental step in image processing, particularly in applications where separating objects from their background is essential for analysis. In agricultural and environmental studies, segmenting vegetation from soil or distinguishing between plant species is a critical task. The least compute-intensive portion of this workflow is to discard the portion of an image that does not contribute meaningfully to classification. For this problem notably, non vegetated pixels representing the ground. There are three segmentation approaches considered for this task: index-based, threshold based, and deep-learning based. The result of each of these approaches is the same: the portions of the images that did not contain pixels with vegetation present were discarded by creating a mask using one of the techniques and applying that mask to the original image to both isolate the vegetation and reduce the information content. This discards both the ground and debris while retaining any active desired and undesired vegetation. 
+To pre-process the image before further analysis is done, image segmentation must be done.  Image segmentation is a fundamental step in image processing, particularly in applications where separating objects from their background is essential for analysis. In agricultural and environmental studies, segmenting vegetation from soil or distinguishing between plant species is a critical task. The least compute-intensive portion of this workflow is to discard the portion of an image that does not contribute meaningfully to classification. For this problem notably, non vegetated pixels representing the ground. There are two segmentation approaches considered for this task: index-based and deep-learning based. The result of each of these approaches is the same: the portions of the images that did not contain pixels with vegetation present were discarded by creating a mask using one of the techniques and applying that mask to the original image to both isolate the vegetation and reduce the information content. This discards both the ground and debris while retaining any active desired and undesired vegetation. 
 
 \subsection{RGB Index Based}
 Index-based segmentation relies on mathematical transformations of pixel values to enhance the distinction between different classes in an image. These transformations, commonly referred to as vegetation indices, are designed to highlight features of interest, such as chlorophyll content in plants, by leveraging differences in spectral reflectance across color channels. By applying a threshold to these indices, an effective binary segmentation mask can be created, distinguishing target objects (e.g., plants) from their background (e.g., soil or non-vegetation areas). Index-based segmentation methods are widely used due to their simplicity, speed, and ability to process large datasets efficiently. Unlike machine learning-based segmentation, which requires labeled training data and computationally expensive model training, index-based approaches operate on predefined mathematical formulas. These methods are particularly beneficial in real-time applications, such as automated weed detection in precision agriculture, where rapid processing is essential.
@@ -1162,7 +1169,7 @@ For this study, images were segmented using various visible light indices (\cite
 \end{longtable}
 }
 
-These indices are used to create a mask that is then applied to the original source image to mask details that are not relevant (ground pixels, stones, and other items that may appear in field conditions such as irrigation equipment) The intent here is to remove all pixels that are not relevant to the task of distinguishing between crop and weed while leaving the vegetated pixels unmanipulated.
+These indices are used to create a mask that is then applied to the original source image to mask details that are not relevant (ground pixels, stones, and other items that may appear in field conditions such as irrigation equipment) The intent here is to remove all pixels that are not relevant to the task of distinguishing between crop and weed while leaving the vegetated pixels unmanipulated.  Figure \ref{fig:segmentation} illustrates the principle of applying a mask to discard portions of the image that are not important to subsequent tasks, but also shows a problem that can complicate subsequent classification: some stems are eliminated by the mask. The lack of stems will lead to a single plant being identified as multiple plants, an error that will not affect factors that describe the interior of a leaf (such as texture), but will affect factors describing the plant as a whole (the shape). This will be discussed further in the section detailing problems (Section \ref{section:problems-color}).
 
 \begin{figure}[H]
 	\centering
@@ -1184,7 +1191,7 @@ These indices are used to create a mask that is then applied to the original sou
 	  \caption{After applying mask}
 	  \label{fig:original-masked}
 	\end{subfigure}
-	\caption[Before and after segmentation]{Before and after segmentation. Note the absence of the stems seen in the weed in the lower portion of~\ref{fig:original-masked} -- this is made a bit more obvious with a close examination of the mask shown in~\ref{fig:mask}. The lack of stems will lead to a single plant being identified as multiple plants, an error that will not affect factors that describe the interior of a leaf (such as texture), but will affect factors describing the plant as a whole (the shape). This will be discussed further in the section detailing problems (Section \ref{section:problems-color}).}
+	\caption[Before and after segmentation]{Before and after segmentation. Note the absence of the stems seen in the weed in the lower portion of~\ref{fig:original-masked} -- this is made a bit more obvious with a close examination of the mask shown in~\ref{fig:mask}.}
 	\label{fig:segmentation}
 \end{figure}
 The segmented image has discarded ground pixels while retaining most of the pixels that will be used, but a close examination reveals that pixels in the stems of the weed are also eliminated, as they are less green than the rest of the plant. This effect is even more pronounced when segmenting images of weed that do not contain green stems as would be seen in the red stems seen in \textit{Portulaca oleracea} (Purslane). While they are not eliminated, pixels in the area of the deep shadows of the vegetation may affect attempts to classify objects based on color attributes. Unfortunately, the band of color featured in the stems (red) is frequently found in the background (soil), so attempts to make the stems appear in the masked image are problematic, as this solution tends to bring allow unwanted ground pixels in the final image that contain hues found within the stems. Likewise, immature vegetation where stems are not sufficiently green will not appear in the final image.  While this may not present a problem if the portions of the plant that do appear are correctly classified, there is a complication in that a single plant may appear to be multiple plants. This, in turn, leads to situations where a treatment system applies more herbicide than is required, treating what has be identified as multiple plants.
@@ -1193,9 +1200,9 @@ While many of the weeds typically encountered in agricultural fields in southern
 \begin{enumerate}
 	\item{Palmer Amaranth (Amaranthus palmeri): A highly competitive broadleaf weed notorious for its rapid growth and resistance to several herbicides.}
 
-	\item{Redroot Pigweed (Amaranthus retroflexus): Another pigweed species that thrives in disturbed soils and competes aggressively with crops.}
+	\item{Redroot Pigweed (Amaranthus retroflexus): Another pigweed species that thrives in disturbed soils and competes aggressively with crops. }
 
-	\item{Common Purslane (Portulaca oleracea): A low-growing annual with succulent leaves that can form dense mats, particularly in irrigated fields.}
+	\item{Common Purslane (Portulaca oleracea): A low-growing annual with succulent leaves that can form dense mats, particularly in irrigated fields. This weed exhibits a red color in the stems}
 
 	\item{Field Bindweed (Convolvulus arvensis): A perennial vine that can be difficult to control due to its deep and extensive root system.}
 
@@ -1205,7 +1212,7 @@ While many of the weeds typically encountered in agricultural fields in southern
 
 	\item{Dandelion (Taraxacum officinale): Though more common in cooler climates, dandelions can also be found in southern Arizona, particularly in areas with adequate moisture.}
 
-	\item{Spotted Spurge (Euphorbia maculata): A low-growing annual that spreads quickly and is often found in disturbed soils.}
+	\item{Spotted Spurge (Euphorbia maculata): A low-growing annual that spreads quickly and is often found in disturbed soils. As the name implies, this weed features red leaf spots \parencite{Davis2009-sk}}
 \end{enumerate}
 
 These species are adapted to the arid to semi-arid conditions of southern Arizona and can significantly impact crop yield by competing for water, nutrients, and light. The exact composition of weed communities can vary depending on factors like crop type, irrigation practices, and soil conditions.
@@ -1244,7 +1251,7 @@ T_{triangle} = argmax \left[ h(T) \times \left( 1 - \left| \frac{T - P}{R - P} \
 \end{equation}
 Where $h(T)$ is the value at $T$, $R$ is the maximum of the intensity, and $P$ is the peak value. The triangle method often performs better than does Otsu's method when the pixel intensities exhibit a unimodal peak.
 
-The details of the implementation of these two approaches are beyond the scope of this work, and while there are certainly others, these are the most frequently proposed approaches. Both of these approaches, however, are based on some assumptions about the intensity histogram, and may not work well in all situations, particularly if these assumptions are not valid. Otsu's algorithm, for example, tends to yield satisfactory results when operating on images possessing a bimodal distribution, but may not yield good results on images with a single peak or multiple peaks.
+The details of the implementation of these two approaches are beyond the scope of this work, and while there are certainly others, these are the most frequently proposed approaches. Both of these approaches, however, are based on some assumptions about the intensity histogram, and may not work well in all situations, particularly if these assumptions are not valid. Otsu's algorithm, for example, tends to yield satisfactory results when operating on images possessing a bimodal distribution, but may not yield good results on images with a single peak or multiple peaks. Figure \ref{fig:ndi-segmentation} illustrates the concept behind the \textit{triangle} method for threshold selection for an image. While manual selection may be sufficient to perform the segmentation of an image set acquired under the same ambient conditions, it may lead to the exclusion of portions of the plant in images taken under different conditions. Using the \textit{Triangle} algorithm \parencite{Brink1996-xy,Zack1977-yl} allows this selection to be made automatically. The point at which the line between the lowest and highest points in the histogram is selected as the threshold, selecting a threshold applicable to each image in a set rather than a global value used for all images in a set.
 
 \begin{figure}[h!]
 	\centering
@@ -1261,7 +1268,7 @@ The details of the implementation of these two approaches are beyond the scope o
 	  \caption{Triangle method for threshold selection.}
 	  \label{fig:ndi-2}
 	\end{subfigure}
-	\caption[NDI segmentation and threshold selection]{An example of NDI segmentation and threshold selection. A threshold for the production of a mask can be done manually,  by selecting all values below 140 to form the mask that will be applied to the image, illustrated by the semi-opaque plane. While manual selection may be sufficient to perform the segmentation of an image set acquired under the same ambient conditions, it may lead to the exclusion of portions of the plant in images taken under different conditions. Using the \textit{Triangle} algorithm \parencite{Brink1996-xy,Zack1977-yl} allows this selection to be made automatically. The point at which the line between the lowest and highest points in the histogram is selected as the threshold, selecting a threshold applicable to each image in a set rather than a global value used for all images in a set.}
+	\caption[NDI segmentation and threshold selection]{An example of NDI segmentation and threshold selection. A threshold for the production of a mask can be done manually,  by selecting all values below 140 to form the mask that will be applied to the image, illustrated by the semi-opaque plane. However the threshold can be automatically selected using the \textit{triangle} method.}
 	\label{fig:ndi-segmentation}
 \end{figure}
 
@@ -1307,7 +1314,7 @@ It may be the case that segmentation errors that fail to reveal the entire plant
 \label{section:problems-color}
 Many of the indexes suffer from the same problem: they are focused on vegetation being green. Green stems and leaves are easily detected, but stems and leaves of other colors are not. Consider commonly encountered red-leaf lettuce. Depending on the stage of development and the angle of view, the leaves can be partially or entirely red (or a deep purple color). This is not limited to crops, of course, as weeds such as redroot pigweed (\textit{Amaranthus retroflexus}) have red at the base of the leaves. Likewise, some weeds exhibit red stems. Purslane (\textit{Portulaca oleracea}) has red stems, and as an added complication, red edges on the leaves. Attempts to reveal the stems are complicated by the ground often containing a strong red coloration. Unfortunately, the band of color featured in the stems (red) is frequently found in the background (soil), so attempts to make the stems appear in the masked image are problematic, as this solution tends to bring unwanted ground pixels in the final image that contain hues found within the stems. The result of this is that the non-green portions of the vegetation does not appear in the resulting segmentation.  Even predominately green vegetation has non-green portions. Flowers are often missed by a green-centric index. While the omission of flowers may be desirable in further processing, if the flower obscures green vegetation that would otherwise be identified as such, that complicates further processing, especially when the green portion is significantly obscured. Uncorrected colors also complicate segmentation, as the same plant's leaves may be captured differently with two different cameras or under different lighting conditions. Under controlled lighting conditions (such as would be encountered in an enclosed system) color calibration is not essential every time, but systems that use ambient lighting require calibration each time to achieve optimal results. While the loss of red portions of the plant may not be a significant factor in subsequent processing, this should be taken into account. It may be the case that a single plant appears to be many more, as seen in \ref{fig:ndi}.
 There are two other color problems mentioned previously that are worth repeating there. Even green portions of the vegetation may not be green ``enough''. The segmented images in Figure \ref{figure:results} have discarded ground pixels while retaining most of the vegetated pixels that will be used is subsequent processing, but a close examination reveals that pixels in the stems of the weed in the center are also eliminated, as they are less green than the rest of the plant. Likewise, immature vegetation where stems are not sufficiently green will not appear in the final image. The color of a pixel may also be ``contaminated'' with color, as shadows or the edges of shadows may contain the color of the vegetation casting the shadow.
-Color problems have profoundly negative effects on index accuracy. Figure \ref{fig:segmentation-color-problem} illustrates this on a single image of Purslane. While this may not ultimately result in errors in forming negative treatment plans, as the identification of a single weed as multiple plants, it may have some effects that are not desirable. More herbicide, for instance, may be applied than is required, given that multiple plants are identified where a single plant exists. Even the calculation of weed population is distorted, reporting the incorrect weed count.
+Color problems have profoundly negative effects on classification accuracy that depend on using features that are then distorted. Using color to classify the vegetation that is revealed may not be negatively affected, but determination of shape might be, as the shape of the object is altered by the absence of some portion of the plant. Figure \ref{fig:segmentation-color-problem} illustrates this on a single image of Purslane. While this may not ultimately result in errors in forming negative treatment plans, as the identification of a single weed as multiple plants, it may have some effects that are not desirable. More herbicide, for instance, may be applied than is required, given that multiple plants are identified where a single plant exists. Even the calculation of weed population is distorted, reporting the incorrect weed count.
 
 
 \begin{figure}[H]
@@ -1362,6 +1369,7 @@ The CIELAB color space, often referred to with L*A*B* in the name, expresses col
 \end{equation}
 
 \subsubsection{YCbCr}
+\label{section:ycbcri}
 This color space (sometimes termed YCC) is frequently encountered in video transmission, as it is designed to address the redundancies seen in the RGB color space. It uses the $Y$ channel to carry luminance information (black and white) and two color channels expressing the blue difference (Cb) and red difference (Cr). Separating the brightness from the color components allows the color representations to match human perception -- as our eyes are more sensitive to changes in brightness than they are to color. As with other indices, the objective is to exaggerate the band vegetation occupies and ignoring components that are not. Using equation \ref{equation:ycbcr} achieves that goal.
 \begin{equation}
 	\label{equation:ycbcr}
@@ -1393,14 +1401,14 @@ This index will be referred to as YI throughout this document.
 \end{figure}
 
 \subsection{Index Evaluation}
-Figure \ref{fig:segmentation-errors} shows the error rates encountered with various segmentation techniques, both RGB-centric and those based on other color spaces when compared to a manually produced mask. Indexing based on the \textit{hue} of the HSI color space produced the best results, the \textit{Excessive Red} (based on RGB) index the worst. Curiously, the index based on the other hue-centric color space, HSV, performed significantly worse. There is no one `correct' index approach, of course. It is more a matter of which sort of error can be tolerated within a system. While the HI approached exhibited the best overall error rate, NGRDI might be a better choice if the false positive error rate is a concern. This work will use the NDI and YCbCr index approaches, as those two indices showed the lowest overall rate.
+Figure \ref{fig:segmentation-errors} shows the error rates encountered with various segmentation techniques, both RGB-centric and those based on other color spaces when compared to a manually produced mask.There are two sorts of errors seen in the indices: identifying vegetation as the ground (a false positive), and identifying the ground as vegetation (false negative). Of special note here are the errors encountered with NRGDI and HI approaches, as they represent clear differences in errors. The majority of the errors shown by the HI index mistakenly shows the ground as vegetation, with NDGRI  doing the opposite, hiding vegetation. Indexing based on the \textit{hue} of the HSI color space produced the best results, the \textit{Excessive Red} (based on RGB) index the worst. Curiously, the index based on the other hue-centric color space, HSV, performed significantly worse. There is no one `correct' index approach, of course. It is more a matter of which sort of error can be tolerated within a system. While the HI approached exhibited the best overall error rate, NGRDI might be a better choice if the false positive error rate is a concern. This work will use the NDI and YCbCr index approaches, as those two indices showed the lowest overall rate.
  
 % Bar chart produced with this command
 %  python evaluate-masks.py -i ../lib/mask.jpg -t ../lib/testing/20201117_112624
 \begin{figure}[h]
 	\centering
 	\includegraphics[width=.75\linewidth]{figures/segmentation-error-rates.png}
-	\caption[Error rates of segmentation algorithms]{Average error rates for the images. False positive (Vegetation identified as ground) and false negative (Ground identified as vegetation) error are summarized by this figure. Of special note here are the errors encountered with NRGDI and HI approaches, as they represent clear differences in errors. The majority of the errors shown by the HI index mistakenly shows the ground as vegetation, with NDGRI  doing the opposite, hiding vegetation.}
+	\caption[Error rates of segmentation algorithms]{Average error rates for the images. False positive (Vegetation identified as ground) and false negative (Ground identified as vegetation) error are summarized by this figure. }
 	\label{fig:segmentation-errors}
 \end{figure}
 
@@ -1425,81 +1433,85 @@ Figure \ref{fig:segmentation-errors} shows the error rates encountered with vari
 %\end{figure}
 %
 
-
-\subsection{Classification Based}
-\label{section:classification}
-Unlike index-based methods, which rely on straightforward mathematical transformations and thresholding, classification-based approaches utilize machine learning algorithms trained on labeled datasets to determine pixel membership, enabling precise and adaptive segmentation of complex field crop scenes (this is often referred to as \textit{semantic segmentation}). Table \ref{table:ml-segmentation} shows the results of building models using the following approaches:  Support Vector Machine, Linear Discriminant Analysis, and Multi-layer Perceptron (MLP) (provided in this \textit{scikit-learn} Python package). Each technique was applied to these color spaces: RGB, YIQ, YUV, HSI, HSV, YCbCr, and CIELab. A set of images taken from 2m AGL was selected and 40 samples taken from each of the 58 images, 20 ground points and 20 vegetation points. Figure \ref{fig:color-application} shows a screenshot of the application that was built to collect these samples. The term \textit{samples} in this context means that for each of the points sampled, the values for each of the color spaces identified in Section \ref{section:classification} were recorded. Based on these sample points, models were created and trained on 60\% of the data using the Scikit-learn Python library. While the RGB color space is widely used, using it did not produce the best results for all of the techniques examined. The YIQ space performed better when classifying using MLP. There are some important exceptions to keep in mind, particularly the performance of LDA, where identical scores for both RGB and YIQ spaces are seen. Using these classification approaches is not particularly pragmatic from a real-time perspective, as classifying every pixel in a modest 12MP image can take several hours on a modestly powerful CPU. Given the poor performance in terms of compute time of this technique, it will not be considered for this project.
-
-\begin{figure}[H]
-	\centering
-	\includegraphics[scale=0.30]{./figures/color-screenshot.png}
-	\caption[Color sampling UI]{This application allows a specified number of ground and vegetation points to be sample for each image in a set. The color values along the left-hand side of the interface are simply for debug purposes, not for user interaction. Users simply click on the specified number of ground and vegetation points, and the image automatically advances through the set.}
-	\label{fig:color-application}
-\end{figure}
-
 %
-% Begin Copied Table from this command
-% python segment.py -i images -o segmented -t ../util/segmentation-training.csv  -b -s -l logging.ini -a all
-% Minor manual edit: Remove leading space from header lines
-
-Table \ref{table:ml-segmentation} shows a summary of the three classification approaches in various color spaces, giving the Area Under the Curve (AUC), Precision, Recall, and F1 scores. And while the  scores reported are encouraging, the time taken to produce the resulting segmented images is not. Some of the techniques required hours to process a high-resolution image. Even with optimization and reduced-resolution images, it is unlikely that any of these classification techniques would be appropriate for use in a real-time system.
-
-% Spacing between the rows
-{
-\renewcommand*{\arraystretch}{0.89}
-
+% C L A S S F I C A T I O N  B A S E D
 %
-% Begin Copied Table from this command
-% python segment.py -i images -o segmented -t ../util/segmentation-training.csv  -b -s -l logging.ini -a all
-% Minor manual edit: Remove leading space from header lines & data
-
-
-\begin{longtable}{llrrrr}
-\caption[Machine Learning Segmentation]{Machine Learning Segmentation}
-\label{table:ml-segmentation}\\
-\toprule
-Technique &  Color &  AUC & Precision & Recall &   F1\\
-\midrule
-\endfirsthead
-\caption[]{Machine Learning Segmentation} \\
-\toprule
-Technique &  Color &  AUC & Precision & Recall &   F1\\
-\midrule
-\endhead
-\midrule
-\multicolumn{6}{r}{{Continued on next page}} \\
-\midrule
-\endfoot
-
-\bottomrule
-\endlastfoot
-MLP &RGB & 0.93 &      0.88 &   0.95 & 0.91 \\
-MLP &YIQ & 0.94 &      0.88 &   0.96 & 0.92 \\
-MLP &YUV & 0.94 &      0.88 &   0.96 & 0.92 \\
-MLP &HSI & 0.91 &      0.86 &   0.94 & 0.90 \\
-MLP &HSV & 0.90 &      0.87 &   0.94 & 0.91 \\
-MLP &YCBCR & 0.94 &      0.88 &   0.96 & 0.92 \\
-MLP &CIELAB & 0.94 &      0.88 &   0.96 & 0.92 \\
-LDA &RGB & 0.94 &      0.88 &   0.96 & 0.92 \\
-LDA &YIQ & 0.94 &      0.88 &   0.96 & 0.92 \\
-LDA &YUV & 0.94 &      0.88 &   0.96 & 0.92 \\
-LDA &HSI & 0.91 &      0.86 &   0.95 & 0.90 \\
-LDA &HSV & 0.90 &      0.86 &   0.95 & 0.90 \\
-LDA &YCBCR & 0.94 &      0.88 &   0.96 & 0.92 \\
-LDA &CIELAB & 0.94 &      0.88 &   0.96 & 0.92 \\
-SVM &RGB & 0.94 &      0.89 &   0.96 & 0.92 \\
-SVM &YIQ & 0.92 &      0.88 &   0.82 & 0.85 \\
-SVM &YUV & 0.93 &      0.86 &   0.93 & 0.89 \\
-SVM &HSI & 0.91 &      0.87 &   0.94 & 0.90 \\
-SVM &HSV & 0.90 &      0.87 &   0.94 & 0.90 \\
-SVM &YCBCR & 0.92 &      0.85 &   0.91 & 0.88 \\
-SVM &CIELAB & 0.91 &      0.86 &   0.96 & 0.90 \\
-\end{longtable}
-
-% 
-% End copied table
+% Interesting, perhaps, but not revelant.  Eliminating this will not alter findings.
 %
-}
+%\subsection{Classification Based}
+%\label{section:classification}
+%Unlike index-based methods, which rely on straightforward mathematical transformations and thresholding, classification-based approaches utilize machine learning algorithms trained on labeled datasets to determine pixel membership, enabling precise and adaptive segmentation of complex field crop scenes (this is often referred to as \textit{semantic segmentation}). Table \ref{table:ml-segmentation} shows the results of building models using the following approaches:  Support Vector Machine, Linear Discriminant Analysis, and Multi-layer Perceptron (MLP) (provided in this \textit{scikit-learn} Python package). Each technique was applied to these color spaces: RGB, YIQ, YUV, HSI, HSV, YCbCr, and CIELab. A set of images taken from 2m AGL was selected and 40 samples taken from each of the 58 images, 20 ground points and 20 vegetation points. Figure \ref{fig:color-application} shows a screenshot of the application that was built to collect these samples. The term \textit{samples} in this context means that for each of the points sampled, the values for each of the color spaces identified in Section \ref{section:classification} were recorded. Based on these sample points, models were created and trained on 60\% of the data using the Scikit-learn Python library. While the RGB color space is widely used, using it did not produce the best results for all of the techniques examined. The YIQ space performed better when classifying using MLP. There are some important exceptions to keep in mind, particularly the performance of LDA, where identical scores for both RGB and YIQ spaces are seen. Using these classification approaches is not particularly pragmatic from a real-time perspective, as classifying every pixel in a modest 12MP image can take several hours on a modestly powerful CPU. Given the poor performance in terms of compute time of this technique, it will not be considered for this project.
+%
+%\begin{figure}[H]
+%	\centering
+%	\includegraphics[scale=0.30]{./figures/color-screenshot.png}
+%	\caption[Color sampling UI]{This application allows a specified number of ground and vegetation points to be sample for each image in a set. The color values along the left-hand side of the interface are simply for debug purposes, not for user interaction. Users simply click on the specified number of ground and vegetation points, and the image automatically advances through the set.}
+%	\label{fig:color-application}
+%\end{figure}
+%
+%%
+%% Begin Copied Table from this command
+%% python segment.py -i images -o segmented -t ../util/segmentation-training.csv  -b -s -l logging.ini -a all
+%% Minor manual edit: Remove leading space from header lines
+%
+%Table \ref{table:ml-segmentation} shows a summary of the three classification approaches in various color spaces, giving the Area Under the Curve (AUC), Precision, Recall, and F1 scores. And while the  scores reported are encouraging, the time taken to produce the resulting segmented images is not. Some of the techniques required hours to process a high-resolution image. Even with optimization and reduced-resolution images, it is unlikely that any of these classification techniques would be appropriate for use in a real-time system.
+%
+%% Spacing between the rows
+%{
+%\renewcommand*{\arraystretch}{0.89}
+%
+%%
+%% Begin Copied Table from this command
+%% python segment.py -i images -o segmented -t ../util/segmentation-training.csv  -b -s -l logging.ini -a all
+%% Minor manual edit: Remove leading space from header lines & data
+%
+%
+%\begin{longtable}{llrrrr}
+%\caption[Machine Learning Segmentation]{Machine Learning Segmentation}
+%\label{table:ml-segmentation}\\
+%\toprule
+%Technique &  Color &  AUC & Precision & Recall &   F1\\
+%\midrule
+%\endfirsthead
+%\caption[]{Machine Learning Segmentation} \\
+%\toprule
+%Technique &  Color &  AUC & Precision & Recall &   F1\\
+%\midrule
+%\endhead
+%\midrule
+%\multicolumn{6}{r}{{Continued on next page}} \\
+%\midrule
+%\endfoot
+%
+%\bottomrule
+%\endlastfoot
+%MLP &RGB & 0.93 &      0.88 &   0.95 & 0.91 \\
+%MLP &YIQ & 0.94 &      0.88 &   0.96 & 0.92 \\
+%MLP &YUV & 0.94 &      0.88 &   0.96 & 0.92 \\
+%MLP &HSI & 0.91 &      0.86 &   0.94 & 0.90 \\
+%MLP &HSV & 0.90 &      0.87 &   0.94 & 0.91 \\
+%MLP &YCBCR & 0.94 &      0.88 &   0.96 & 0.92 \\
+%MLP &CIELAB & 0.94 &      0.88 &   0.96 & 0.92 \\
+%LDA &RGB & 0.94 &      0.88 &   0.96 & 0.92 \\
+%LDA &YIQ & 0.94 &      0.88 &   0.96 & 0.92 \\
+%LDA &YUV & 0.94 &      0.88 &   0.96 & 0.92 \\
+%LDA &HSI & 0.91 &      0.86 &   0.95 & 0.90 \\
+%LDA &HSV & 0.90 &      0.86 &   0.95 & 0.90 \\
+%LDA &YCBCR & 0.94 &      0.88 &   0.96 & 0.92 \\
+%LDA &CIELAB & 0.94 &      0.88 &   0.96 & 0.92 \\
+%SVM &RGB & 0.94 &      0.89 &   0.96 & 0.92 \\
+%SVM &YIQ & 0.92 &      0.88 &   0.82 & 0.85 \\
+%SVM &YUV & 0.93 &      0.86 &   0.93 & 0.89 \\
+%SVM &HSI & 0.91 &      0.87 &   0.94 & 0.90 \\
+%SVM &HSV & 0.90 &      0.87 &   0.94 & 0.90 \\
+%SVM &YCBCR & 0.92 &      0.85 &   0.91 & 0.88 \\
+%SVM &CIELAB & 0.91 &      0.86 &   0.96 & 0.90 \\
+%\end{longtable}
+%
+%% 
+%% End copied table
+%%
+%}
 
 \subsection{Semantic Segmentation}
 Semantic segmentation is a convolutional neural network (\gls{CNN}) using a trained model to classify each pixel in an image with a class label.  For the most part, crop images contain only two classes: plants and the ground. While there are exceptions to this,  as images may include debris on the ground, irrigation equipment, etc.  The focus here remains to produce a mask that can be applied to the image to isolate vegetated pixels and speed up and make more accurate the actual weeds identification. This approach differs from the prior two approaches in that while index-based approaches consider no information about other images, and learning base approaches consider samples of a set of images to predict class membership, the deep-learning techniques considered in this section are trained on both images and the corresponding masks.
@@ -1517,23 +1529,24 @@ The name of the U-Net architecture derives from the U-shaped arrangement of the 
 	\label{fig:u-net}
 	\caption[U-Net architecture]{The name of U-Net architecture refers to the arrangement of decoders (often referred to as a contracting path) and encoders (the expanding path)}
 \end{figure}
-This architecture has a bit of a limitation that must be taken into account in image sets: the length of each image's axis must be a multiple of 16. That is, a 32x32 image will work, but a 32x90 image will not. The images and masked used for training and testing should be resized to fit this limitation. Additionally, the images must be down-sampled to achieve realistically short mask production times. (That is, the images were 1008x752 instead of the original 4032x3024) Using a model trained on images and associated masks from the MAC to a set of test images yields fairly low error rate masks when  those masks are evaluated against the ground truth: \gls{FPR} of 0.0005 and \gls{FNR} of 0.06, comparable to the lower rates achieved with some index-based approaches.
+This architecture has a bit of a limitation that must be taken into account in image sets: the length of each image's axis must be a multiple of 16. That is, a 32x32 image will work, but a 32x90 image will not. The images and masked used for training and testing should be resized to fit this limitation. Additionally, the images must be down-sampled to achieve realistically short mask production times. (That is, the images were 1008x752 instead of the original 4032x3024) Using a model trained on images and associated masks produced manually to a set of test images yields fairly low error rates: \gls{FPR} of 0.0005 and \gls{FNR} of 0.06, comparable to the lower rates achieved with some index-based approaches. While the performance of this approach is impressive, the same question should be considered as when index-based approaches are evaluated: does segmentation accuracy even matter if the features used classification are not affected?
 
 \begin{figure}[H]
 	\centering
-	\subfloat[Ground truth mask]{\includegraphics[width=.3\linewidth]{figures/IMG_1115-mask.jpg}}
+	\subfloat[Ground truth mask]{\includegraphics[width=.3\linewidth]{./figures/IMG_1115-mask.jpg}}
 	\label{fig:unet-original}
 	\hfill
-	\subfloat[U-Net mask]{\includegraphics[width=.3\linewidth]{figures/IMG_1115-mask-unet.png}}
+	\subfloat[U-Net mask]{\includegraphics[width=.3\linewidth]{./figures/IMG_1115-mask-unet.png}}
 	\label{fig:unet-mask}
 	\hfill
-	\subfloat[Apply U-Net mask]{\includegraphics[width=.3\linewidth]{figures/IMG_1115-original-masked.png}}
+	\subfloat[Apply U-Net mask]{\includegraphics[width=.3\linewidth]{./figures/IMG_1115-original-masked.png}}
 	\label{fig:unet-original-masked}
 	\caption[U-Net segmentation vs ground truth]{The mask produced with U-Net shows some errors within the leaf, but is quite close to a match for the ground truth.}
 	\label{fig:u-net-segmentation}
 \end{figure}
 
 \section{Mask Refinement}
+\label{section:mask-refinement}
 Segmentation may yield images with vegetated pixels that are at times not cleanly separated. A single leaf, for example, may appear as multiple uncorrected objects. The mask needs some further refinement before it can be used with three operations: \textit{dilation}, \textit{erosion}. and \textit{closing}. In digital image processing, morphological operations such as pixel dilation, erosion, and closing are essential for refining image structures and enhancing object features prior to further analysis. Pixel dilation operates by expanding the boundaries of foreground objects; it does so by replacing each pixel with the maximum value found within a defined neighborhood, thereby bridging gaps and accentuating the overall size of objects. It works by sliding a structuring element (a predefined shape, such as a square or circle) over the image and replacing the pixel under the center of the structuring element with the maximum value covered by the structuring element (in grayscale images) or by setting the pixel to 1 (in binary images) if any pixel under the element is 1. In contrast, erosion contracts object boundaries by substituting each pixel with the minimum value in its neighborhood, effectively removing small noise elements and isolating prominent structures. The closing operation, a composite technique, first applies dilation to fill in small holes and gaps, followed by erosion to restore the objects' original boundaries while maintaining the enhancements achieved during dilation.  This combination smooths the contours of objects, closing small holes and gaps without significantly altering the overall shape. Together, these techniques provide a robust framework for preprocessing images, improving segmentation accuracy, and ensuring that essential structural features are preserved and accentuated in subsequent shape analysis.
 Figure~\ref{fig:original-masked} shows an image with  eight blobs that can be classified: three lettuce plants and a single weed plant that appears as five plants in the final image.
 
@@ -1637,12 +1650,13 @@ Where $eig_{1}(S)$ and $eig_{2}(S)$ are the maximum eigenvalues of the matrix $S
 % Figure produced with this command
 %  make weeds-no-db INPUT=/cygdrive/d/dissertation/ OUTPUT=/cygdrive/d/dissertation/output/ TRAINING=/cygdrive/d/maricopa-test/imbalance/processed/final/corrected.csv THRESHOLD=TRIANGLE INDEX=com2 DECORATIONS=lw_ratio SESSION=shape
 
-\begin{figure}[h!]
-	\centering
-	\includegraphics[height=4cm]{./figures/shape-lw-ratio.jpg}
-	\caption[Shape attribute: Length-Width ratio]{The length-width ratio of plants. Note that the length-width ratio of the plant on the left of the image cannot be determined, as it is cut off, a common occurrence in images.}
-	\label{fig:shape-area}
-\end{figure}
+% L E N G T H / W I D T H  R A T I O
+%\begin{figure}[h!]
+%	\centering
+%	\includegraphics[height=4cm]{./figures/shape-lw-ratio.jpg}
+%	\caption[Shape attribute: Length-Width ratio]{The length-width ratio of plants. Note that the length-width ratio of the plant on the left of the image cannot be determined, as it is cut off, a common occurrence in images.}
+%	\label{fig:shape-area}
+%\end{figure}
 
 \subsubsection{Boundary Descriptors}
 There are two global descriptors of an object's edge that are used here: the bending energy and the radial distance.  Bending energy is a quantitative measure of how much a curve, surface, or structural element deviates from being straight (or flat) by accounting for its curvature. Radial distance refers to the measure of the distance from a defined central point—often the centroid or another point of symmetry—to the boundary of the shape.
@@ -2421,7 +2435,7 @@ The \textit{Synthetic Minority Oversampling TEchnique} is the basic technique us
 
 \subsubsection{ADASYN}
 \label{section:adasyn}
-The Adaptive Synthetic Sampling approach considers the distribution of the minority points, giving more emphasis to points that a harder to learn \parencite{He2008-xr}. Points that are harder to learn are those that are close to a class border, and in that sense, this approach is close to the \text{borderline} proposal. Contrast this with SMOTE. While sharing the same basic approach (considering the $k$ nearest neighbors), SMOTE samples the points uniformly, leading to an oversampling of dense areas, whereas ADASYN has no fixed ratio, but is based on learning difficulty. ADASYN will generate more points for these samples with high learning when processing the same dataset. The term \textit{harder to learn} is a bit imprecise, and warrants some further discussion. ADASYN creates as difficulty ratio for each point, representing the imbalance level in the local neighborhood of the point. This is done by comparing the number of majority class instances (non-minority) to the number of minority class instances within a specified radius around a point. Minority points with a large set of majority class neighbors are said to be harder to learn than those. A disadvantage of using ADASYN is that outlier points tend to have greater representation in the resulting dataset.
+The Adaptive Synthetic Sampling approach considers the distribution of the minority points, giving more emphasis to points that a harder to learn \parencite{He2008-xr}. a point being described as "harder to learn" typically refers to data instances that reside near the decision boundary between classes. These points often exhibit features that are ambiguous or overlapping, making it challenging for the classifier to determine a clear label during training. As a result, such instances contribute disproportionately to classification errors and uncertainty, since small perturbations in their feature values can lead to different class assignments. This phenomenon can be attributed to the inherent variability in the data and the limitations of the learning algorithm in capturing subtle distinctions at the margins. In that sense, this approach is close to the \text{borderline} proposal. Contrast this with SMOTE. While sharing the same basic approach (considering the $k$ nearest neighbors), SMOTE samples the points uniformly, leading to an oversampling of dense areas, whereas ADASYN has no fixed ratio, but is based on learning difficulty. ADASYN will generate more points for these samples with high learning when processing the same dataset. The term \textit{harder to learn} is a bit imprecise, and warrants some further discussion. ADASYN creates as difficulty ratio for each point, representing the imbalance level in the local neighborhood of the point. This is done by comparing the number of majority class instances (non-minority) to the number of minority class instances within a specified radius around a point. Minority points with a large set of majority class neighbors are said to be harder to learn than those. A disadvantage of using ADASYN is that outlier points tend to have greater representation in the resulting dataset.
 
 \subsubsection{Borderline}
 In the standard SMOTE approach all members of the minority class are considered in synthetic data generation. In this variant first proposed by \citeauthor{Han2005-ui}, only those points far from the class border are considered. The rationale behind this approach is that points close to the border contribute little to distinguishing one class from the other, and should not form the basis for new data \cite{Han2005-ui}. In this scheme, points are considered noise if all of their neighbors are of the majority class. To be eligible for resampling, however, a point must have both majority and minority class neighbors. The rationale here is that samples close to a class border tend to be misclassified, and that by limiting the resampling to those points with the smallest risk of misclassification, the overall correct classification rate would be improved.
@@ -2475,7 +2489,7 @@ A second common processing technique is using \textit{edited nearest neighbors} 
 Typically, both under-sampling and oversampling techniques are used to address the imbalance, as \citeauthor{Batista2004-qz} \citeyear{Batista2004-qz} describes. 
 
 \subsection{Assessing Techniques}
-To assess the efficacy of over-sampling the minority and a combined over- and under-sampling approach, random instances in a dataset were first dropped to achieve five imbalance ratios and then restored to a 1:1 ratio between the two classes using the over-sampling techniques discussed. Models using imbalanced data and the artificially balanced data were then compared in terms of the improvement (or degradation) of the Area Under the Curve (AUC) using nine different techniques commonly used in classification: Random Forest, Extra Trees, Gradient Boosting, KNN, Linear Discriminant Analysis, Logistic Regression, Multi-Layer Perceptron, Random Forest, and Support Vector Machine. The Receiver Operating Characteristic (ROC) curve represents the probability that the model, if given a randomly chosen positive and negative example, will rank the positive higher than the negative. The AUC is the area underneath this curve -- the closer this area is to 1.0, the better a model is said to be.
+To assess the efficacy of over-sampling the minority and a combined over- and under-sampling approach, random instances in a dataset were first dropped to achieve five imbalance ratios and then restored to a 1:1 ratio between the two classes using the over-sampling techniques discussed. Models using imbalanced data and the artificially balanced data were then compared in terms of the improvement (or degradation) of the Area Under the Curve (AUC) using nine different techniques commonly used in classification: Random Forest, Extra Trees, Gradient Boosting, KNN, Linear Discriminant Analysis, Logistic Regression, Multi-Layer Perceptron, Random Forest, and Support Vector Machine. That is, to achieve a 30:1 imbalance, rows in the minority class were randomly dropped. The \gls{ROC} curve represents the probability that the model, if given a randomly chosen positive and negative example, will rank the positive higher than the negative. The AUC is the area underneath this curve -- the closer this area is to 1.0, the better a model is said to be.
 
 
 %
@@ -2516,7 +2530,7 @@ To assess the efficacy of over-sampling the minority and a combined over- and un
 %
 
 \section{Feature Selection \& Classification}
-The features described in the previous sections were generated for a set of segmented images, resulting in each plant being described by 151 attributes. A breakdown is supplied by Table \ref{table:parameters}. Recall that a single feature such as ASM would have as many variants as color space channels examined in addition to grayscale, so numbers quickly add up. 
+The features described in the previous sections were generated for the set of images collected at the \gls{MAC}, resulting in each plant being described by 151 attributes. A breakdown is supplied by Table \ref{table:parameters}. Recall that a single feature such as \gls{ASM} would have as many variants as color space channels examined in addition to grayscale, so numbers quickly add up. 
 \begin{longtable}{lll}
 \caption[Parameters Considered for Classification]{Parameters Considered for Classification}
 \label{table:parameters}\\
@@ -2705,12 +2719,43 @@ The lack of a clear set of selected parameters for the model yielded a somewhat 
 
 The optimal set of parameters will be explored in a subsequent section, but it is worth considering each of the classes separately. For example, if only color attributes are considered, what sort of classification results can be achieved?
 
+\section{Production of model data}
+Figure \ref{fig:workflow-for-model-data} shows how the processing pipeline introduced at the beginning of this chapter is applied to this problem, resulting in data that can then be used to build a model. 
+\begin{enumerate}
+	\item{An image is acquired from the set collected in the field and manually corrected.}
+	\item{A mask is produced from the image using an index. This mask was produced using the YCbCr index detailed in \ref{section:ycbcri}.}
+	\item{The mask is refined as detailed in \ref{section:mask-refinement}.}
+	\item{Blobs within the segmented image are identified.}
+	\item{Features for the blobs are extracted (color, texture, and shape). Steps 1 - 5 are repeated for all images in the set.}
+	\item{The class of each blob in each image is manually determined.}
+	\item{Data for forming a model is produced with the manual class assignments. The extracted features are not manipulated.}
+\end{enumerate}
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.9\linewidth]{./figures/workflow-for-image.png}
+	\caption[Production of extracted features]{Production of extracted features and production of data for model.}
+	\label{fig:workflow-for-model-data}
+\end{figure}
+
+The result of this pipeline is not the actual model itself, as it has all extracted attributes, but is the data that can them be form a model.
+
+\section{Summary}
+Images collected at the Maricopa Agricultural Research Center (MAC) were first segmented to distinguish vegetation from non-vegetation regions, ensuring that only meaningful plant data were retained for further analysis. From these segmented regions, three categories of features (shape, color, and texture) were extracted to capture a comprehensive representation of each plant’s morphology and appearance. A subset of the most discriminative features was then selected to build classification models aimed at distinguishing crop plants from weeds. The subsequent section of this work assesses the performance contributions of each of these feature sets both independently and in combination. Furthermore, the impact of re-balancing the training dataset is examined to determine its effect on classifier performance and robustness.
+
+%
+% R E S U L T S
+%
 
 \chapter{Results}
 \label{section:results}
-This section presents the findings from the weed and crop classification study, focusing on both feature effectiveness and stability. First, we evaluate the effectiveness of various imbalance correction techniques.  We then evaluate the classification performance when using individual feature sets—shape, color, and texture—and then assess the combined model performance when all these attributes are integrated. By comparing these approaches, we identify the contribution of each feature type to the overall classification accuracy and robustness. Additionally, this section investigates the temporal stability of the extracted features using the Dickey-Fuller test, which assesses the presence of unit roots in the feature data to ensure that the attributes maintain consistency over time. Together, these analyses offer a comprehensive understanding of both the discriminative power and reliability of the features used in the classification system.
+This section presents the findings from the weed and crop classification study, focusing on feature effectiveness, algorithms performance, accuracy, and stability. First, we evaluate the effectiveness of various imbalance correction techniques.  We then evaluate the classification performance when using individual feature sets (shape, color, and texture) and then assess the combined model performance when all these attributes are integrated. By comparing these approaches, we identify the contribution of each feature type to the overall classification accuracy and robustness. Additionally, this section investigates the temporal stability of the extracted features using the Dickey-Fuller test, which assesses the presence of unit roots in the feature data to ensure that the attributes maintain consistency over time. Together, these analyses offer a comprehensive understanding of both the discriminative power and reliability of the features used in the classification system.
+
+A total of $12,218$ images were collected from cantaloupe and broccoli plantings at the Maricopa Agricultural Research Center, establishing a robust dataset for evaluating crop and weed classification methodologies. The image set was minimally manipulated using the color correction described in the methods section, and images without vegetation were discarded. This dataset enabled a detailed assessment of classification performance, explicitly considering the influence of class imbalance and examining changes in distinguishing factors (shape, color, and texture) across early developmental growth stages. Machine learning algorithms were systematically evaluated to determine their effectiveness in accurately classifying vegetation under these varying conditions. The results highlight critical insights regarding the impact of imbalanced data distributions, the dynamic nature of plant characteristics over developmental phases, and the relative performance strengths of the tested classifiers, informing best practices for practical agricultural applications.
 
 \section{Imbalance Correction}
+To address class imbalance within the crop/weed classification dataset, several synthetic resampling and hybrid methods were applied, including SMOTE, ADASYN, Borderline-SMOTE, KMeans-SMOTE, SVM-SMOTE, and combined strategies such as SMOTE+ENN and SMOTE+TOMEK. The rationale behind using these techniques was to mitigate the potential classifier bias toward the dominant class (crop), thereby enhancing the model's ability to accurately detect and classify the minority weed class. SMOTE and its variants (Borderline-SMOTE, KMeans-SMOTE, and SVM-SMOTE) synthesize minority class examples based on different assumptions about data distribution and complexity, thereby improving the minority class representation. ADASYN further refines this approach by adaptively generating samples in challenging or borderline regions. Hybrid methods such as SMOTE+ENN and SMOTE+TOMEK combine synthetic oversampling with undersampling techniques to remove ambiguous samples near class boundaries, resulting in clearer decision boundaries and improved classifier performance. Collectively, these strategies were employed to comprehensively evaluate their impact on classification accuracy, robustness, and generalizability under controlled dataset population.
+
 As Figure \ref{fig:imbalance} shows, substituting synthetic data improves the AUC of various classification techniques in most cases, but some of the impact is quite trivial and -- in cases -- detrimental (note the case of using a \textit{Random Forest} approach to classification was almost always made worse by these approaches). 
 %
 % The imbalanced data and analysis requires 4 steps
@@ -2737,16 +2782,16 @@ As Figure \ref{fig:imbalance} shows, substituting synthetic data improves the AU
 \begin{figure}[H]
 	\centering
 	\includegraphics[width=0.9\linewidth]{./figures/imbalance.png}
-	\caption[Class imbalance correction techniques]{The impact on AUC of class over-sampling imbalance correction techniques for various ratios and classification strategies can be seen in this visualization. Each facet of this display shows the effect of a different over-sampling technique. While many classification techniques are improved, the effect on Decision Tree classification is most pronounced. This dataset was first manipulated to achieve the desired ratio before the algorithms were applied. That is, to achieve a 30:1 imbalance, rows in the minority class were randomly dropped. The change in the AUC scores is shown in this plot for various ML techniques and for each of the correction approaches discussed.}
+	\caption[Class imbalance correction techniques]{The impact on AUC of class over-sampling imbalance correction techniques for various ratios and classification strategies can be seen in this visualization. Each facet of this display shows the effect of a different over-sampling technique. While many classification techniques are improved, the effect on Decision Tree classification is most pronounced. The change in the AUC scores is shown in this plot for various ML techniques and for each of the correction approaches discussed.}
 	\label{fig:imbalance}
 \end{figure}
 
-While the difference in the AUC achieved with classification using MLP and SVM (some clarification may be in order: SVM refers to a classification, and SVM-SMOTE refers to the correction technique.) stands out, almost all classification techniques were improved by the correction with a few exceptions. Correcting low-imbalance sets (30:5) yielded worse results in several instances. The positive impacts can be characterized as minimal, however. Consider the ROC curves shown in Figure \ref{fig:auc}, showing the ROC curve achieved before and after correction using ADASYN.
+While the difference in the AUC achieved with classification using MLP and SVM (some clarification may be in order: SVM refers to a classification, and SVM-SMOTE refers to the correction technique.) stands out, almost all classification techniques were improved by the correction with a few exceptions. Correcting low-imbalance sets (30:5) yielded worse results in several instances. The positive impacts can be characterized as minimal, however. Consider the ROC curves shown in Figure \ref{fig:auc}, showing the ROC curve achieved before and after correction using ADASYN. Note that in many instances the effect of the correction on the ROC curve is quite modest.
 
 \begin{figure*}[h]
 	\centering
 	\includegraphics[height=0.35\textheight]{figures/roc-corrected.png}
-	\caption[Before and after correction]{Before and after correction by oversampling the minority class with the ADASYN approach. Note that in many instances the effect of the correction on the ROC curve is quite modest. The dashed green line appearing in each of the graphs is representative of a random classifier, and appears only as a reference. A positive impact on classification using a gradient boosted technique is present, and that technique can certainly benefit from correction. }
+	\caption[Before and after correction]{Before and after correction by oversampling the minority class with the ADASYN approach. The dashed green line appearing in each of the graphs is representative of a random classifier (one where assignments are made without considering the data), and appears only as a reference. A positive impact on classification using a gradient boosted technique is present, and that technique can certainly benefit from correction. }
 	\label{fig:auc}
 \end{figure*}
 
@@ -2882,7 +2927,7 @@ Classifying using LBP yields much better results for \textit{Logistic Regression
 %\input{./tables/results-texture-corrected.tex}
 %\end{tiny}
 
-We can now return to one of the assertions originally made: \textit{textural descriptions formed from channels on various color spaces will yield higher-performing models}. Table \ref{table:texture-color-greyscale-comparison} presents a comparative analysis of classification accuracy achieved when using grayscale texture attributes versus texture attributes derived from color space channels. This comparison underscores the potential benefits of incorporating color channel data into texture analysis, particularly in scenarios where color variations contribute significantly to distinguishing features. 
+We can now return to one of the assertions originally made: \textit{textural descriptions formed from channels on various color spaces will yield higher-performing models}. Table \ref{table:texture-color-greyscale-comparison} presents a comparative analysis of classification accuracy achieved when using grayscale texture attributes versus texture attributes derived from color space channels. This comparison underscores the potential benefits of incorporating color channel data into texture analysis, particularly in scenarios where color variations contribute significantly to distinguishing features. The results demonstrate that employing GLCM texture features computed from individual color channels of various color spaces (HSI, HSV, CIELab, YCbCr, and RGB) substantially improved classification accuracy compared to using grayscale-derived GLCM features alone. This finding suggests that the additional color information enhances the classifier’s ability to discriminate subtle textural differences between crop and weed species, which may not be captured by grayscale intensity variations alone. Thus, integrating color-channel-based GLCM descriptors is recommended as a more effective approach for robust vegetation classification in agricultural imaging applications.
 {
 \renewcommand{\arraystretch}{0.9}
 % Produced with:
@@ -2915,7 +2960,7 @@ Some features do not remain stable over the development cycle. As illustrated by
 	\end{subfigure}%
 	\caption[Early and later stages of vining plant development]{Early and later stages of plant development show difference not just in immediately noticeable features such as shape or size, but features such as texture may also change. The vegetation in \ref{subfig:cantaloupe-early} is of different shape  than \ref{subfig:cantaloupe-late}, as the plants have not yet developed a characteristic vining appearance in the early stages.}
 	\label{fig:cantaloupe}
-\end{figure}!
+\end{figure}
 %
 % Plot generated with:
 %  make plot-adf  TYPE=TEXTURE SUBTYPE=all TITLE="Texture Features Over Season" LABEL="stability-texture" OUTPUT=../documents/figures/season-texture.png INPUT=/cygdrive/d/dissertation/broccoli/season.csv
@@ -2928,7 +2973,7 @@ Some features do not remain stable over the development cycle. As illustrated by
 	\label{fig:season-texture}
 \end{figure}
 
-An illustration of a specific parameter is probably useful for illustrating the concept of seasonality change. Figure \ref{fig:season-texture-correlation} shows the \textit{greyscale\_correlation\_avg} parameter across a large portion of the development cycle. Note the relative stability in the crop vegetation and relative instability in the weed vegetation. This is an example of an \textit{unstable} feature, changing over a development cycle for one of the classes (p-value of $0.05$)
+Figure \ref{fig:season-texture-correlation} shows the \textit{greyscale\_correlation\_avg} parameter across a large portion of the development cycle. Note the relative stability in the crop vegetation and relative instability in the weed vegetation. This is an example of an \textit{unstable} feature, changing over a development cycle for one of the classes (p-value of $0.05$)
 
 % Plot generated with
 % make plot-season FACTOR=greyscale_homogenity_avg TITLE="Greyscale homogenity average over season" OUTPUT=./plot-over-season.png INPUT=/cygdrive/d/dissertation/broccoli/season.csv
@@ -2970,7 +3015,9 @@ An illustration of a specific parameter is probably useful for illustrating the 
 
 
 \section{Classification Using Color}
-As Figure \ref{fig:hue_vs_inphase} shows, the tight grouping of the mean hue of an object class ($0$ or $1$), while interesting, is not something that can be used to predict if a plant is a weed or crop.  The somewhat greater variation of the other class is, likewise, interesting, but not an aspect of the data that can be exploited in classification. The in-phase component of the YIQ space, however, demonstrates a fairly clean separation that can, as there is little overlap between the two classes.
+This section presents the results of crop/weed classification experiments based exclusively on color attributes extracted from the images set. By focusing solely on color-related features and disregarding texture and shape descriptors, the analysis aims to isolate and quantify the specific contribution of color information to classification accuracy. Understanding the predictive power of color alone provides valuable insights into scenarios where rapid, low-complexity classification is desired, or when texture and shape features may be unreliable due to varying imaging conditions. The performance of different classifiers utilizing only color attributes is systematically compared, highlighting the strengths and limitations of color-based classification.
+
+Consider a simple example of the use of color illustrating that color may be interesting, but not particularly useful in classification. Figure \ref{fig:hue_vs_inphase} shows the tight grouping of the mean hue of an object class ($0$ or $1$). While interesting, is not something that can be used to predict if a plant is a weed or crop.  The somewhat greater variation of the other class is, likewise, interesting, but not an aspect of the data that can be exploited in classification. The in-phase component of the YIQ space, however, demonstrates a fairly clean separation that can, as there is little overlap between the two classes.
 
 
 \begin{figure}[H]
@@ -2985,7 +3032,7 @@ As Figure \ref{fig:hue_vs_inphase} shows, the tight grouping of the mean hue of 
 		\caption{In-phase in YIQ}
 		\label{subfig:in_phase}		
 	\end{subfigure}%
-	\caption[Prediction using hue in HSI and In-phase in YIQ]{While the grouping of hue values is certainly tighter in one group (Figure~\ref{subfig:hue}), the complete overlap between means that group assignments cannot be made with confidence. In contrast, the values of the in-phase component in the YIQ space (Figure~\ref{subfig:in_phase}) shows relatively clean separation between the two groups.}
+	\caption[Prediction using hue in \gls{HSI} and In-phase in YIQ]{Prediction using hue in \gls{HSI} and In-phase in YIQ}
 	\label{fig:hue_vs_inphase}
 \end{figure}
 
@@ -3055,7 +3102,7 @@ As seen with texture, some features do not exhibit stability over the developmen
 
 
 \section{Classification Using Shape}
-Classification using the shape of the object suffers from a topic touched on previously: the entire plant must be visible for the shape metric to be calculated accurately. For images acquired 1m above the ground this is typically not a concern, as unclassified vegetation is fully in view or a full view can be constructed by stitching together images. The same is not the case with images acquired closer to the ground, as would be the case with a towed system where the camera captures a limited view of a planting bed. While adjacent images can be stitched together to compensate for vegetation that is cut off in the images along the planting bed (as a towed system passes overhead, for instance), it is not feasible to correct for images cut off along the sides of the images. How much of the planting bed is captured depends, of course on camera and 
+Classification using the shape of the object suffers from a topic touched on previously: the entire plant must be visible for the shape metric to be calculated accurately. For images acquired 1m above the ground this is typically not a concern, as unclassified vegetation is fully in view or a full view can be constructed by stitching together images. The same is not the case with images acquired closer to the ground, as would be the case with a towed system where the camera captures a limited view of a planting bed. While adjacent images can be stitched together to compensate for vegetation that is cut off in the images along the planting bed (as a towed system passes overhead, for instance), it is not feasible to correct for images cut off along the sides of the images when adjacent images are not available. While the vegetation fully in view in the center of the image can be determined, the shape of the plants along the right hand side of the image cannot unless the image can be stitched to another image taken from the same perspective, but with sufficient overlap to the right of the image. Images in ground based systems often have sufficient front and rear overlap to stitch images together to allow the shape of an object to be derived, but may lack images with sufficient side overlap to allow the shape to be determined. For this study, only those objects within the image are in full view can be used for training data and subsequent classification. Objects not in full view are discarded in both the training and testing subsets. How much of the planting bed is captured depends, of course on camera and 
 optics characteristics, described by Equation \ref{eqn:gsd}.
 
 \begin{equation}
@@ -3066,13 +3113,13 @@ GSD = (Sensor\ Altitude \times Sensor\ Height) / (Focal\ Length \times Image\ He
  \begin{figure}[H]
 	\centering
 	\includegraphics[width=0.9\linewidth]{./figures/shape-problem.jpg}
-	\caption[Shape of some objects cannot be determined]{The shape of some objects cannot be determined in this image. While the vegetation fully in view in the center of the image can be determined, the shape of the plants along the right hand side of the image cannot unless the image can be stitched to another image taken from the same perspective, but with sufficient overlap to the right of the image. Images in ground based systems often have sufficient front and rear overlap to stitch images together to allow the shape of an object to be derived, but may lack images with sufficient side overlap to allow the shape to be determined. For this study, only those objects within the image are in full view can be used for training data and subsequent classification. Objects not in full view are discarded in both the training and testing subsets.}
+	\caption[Shape of some objects cannot be determined]{In this image of the planting bed from the perspective approximating a ground system, the shape of some objects at the edge of the image cannot be accurately determined.}
 	\label{fig:shape-problem}
 \end{figure}
 
 In early crop development it is more likely that plants could be completely captured by ground images (even those at the edges of images), but some objects were discarded in this classification.
 
-The parameters used in classification using shape attributes was a bit more diverse than as was seen with color, but not completely so. As Table \ref{table:results-shape} shows, these attributes appeared in the classifications:
+ Table \ref{table:results-shape} shows, these attributes as significant in the classification:
 \begin{itemize}
 	\item{\textit{shape\_index} -- the shape index appeared in every approach}
 	\item{\textit{roundness} -- the roundness of the blob appeared in every approach}
@@ -3083,7 +3130,7 @@ The parameters used in classification using shape attributes was a bit more dive
 	\item{\textit{convexity} -- the convexity of the blob}
 \end{itemize}
 
-Classifying by using only shape yields good -- but not spectacular -- results. As Table \ref{table:results-shape} shows, using \textit{random forest} shows the highest result, with an AUC of 0.88. 
+Classifying by using only shape yields reaonable results. As Table \ref{table:results-shape} shows, using \textit{random forest} shows the highest result, with an AUC of 0.88. 
 
 {
 \renewcommand{\arraystretch}{0.9}
@@ -3392,7 +3439,7 @@ Predicting using seven parameters increases the results. Some of the increases a
 
 \section{Compute Performance}
 \label{section:performance}
-Additionally, there is a criterion that is both not addressed and beyond the scope of this document: the computational cost of achieving each result. In-field solutions supporting immediate treatment systems are sensitive to this; data-center solutions, not so much. The timings discussed here are for a CPU, not GPU. While portions of the code will support a GPU if present, other sections do not, so it was disabled everywhere. Comparing the performance in an interpreted language (Python) and a compiled language using a GPU is not quite entirely appropriate, but is instructive. The computation of an index for segmentation of an image took less than 1ms on a GPU, but 75 ms on a CPU -- a rather large difference. While a result of an approach yielding results above 98\% may sound impressive, if that prediction using logistic regression takes a few hundred milliseconds and a decision tree takes well under 100 milliseconds, it may be the case that using that logistic regression in practice is not viable.Some context is probably needed here. An in-field solution might be hosted on  tractor moving along, and the time spent on prediction is part of an overall time budget that will ultimately limit the forward speed of the tractor. 2 MPH is commercially viable. 1 MPH is not.
+This section evaluates the computational efficiency associated with each classification approach. Computational cost is especially relevant for in-field applications, where classification tasks must occur quickly and reliably under constrained resources, as immediate treatment systems either have limited computational power available or share resources with other tasks. All timing comparisons presented here reflect CPU-based processing exclusively; GPU acceleration, although supported in certain portions of the implemented methods, was deliberately disabled to maintain consistency across comparisons. Although direct comparisons between interpreted (Python) CPU execution and GPU-accelerated compiled code are inherently approximate, the difference in performance can still be highly informative. For instance, the calculation of a segmentation index required less than 1 ms using GPU acceleration, compared to approximately 75 ms on a CPU—a significant difference. Furthermore, despite impressive classification accuracy exceeding 98\% for certain approaches such as logistic regression, the practical viability is diminished if predictions take several hundred milliseconds, as opposed to less than 100 milliseconds for decision-tree methods. For real-world agricultural applications, particularly those involving tractor-mounted systems operating within strict time constraints, computational speed directly influences operational feasibility. For example, achieving a tractor speed of 2 MPH is considered commercially acceptable, whereas a slower speed of 1 MPH, necessitated by computational delays, is generally not practical.
 
 {
 \renewcommand{\arraystretch}{0.9}
@@ -3402,18 +3449,20 @@ Additionally, there is a criterion that is both not addressed and beyond the sco
 \input{./tables/performance.tex}
 }
 
-Table \ref{table:performance} needs some context, as the values presented are not for the optimal set of parameters used in classification, but all possible parameters. Further complicating an analysis of performance is that some items are always required, but vary. The computation of an \textit{index}, for instance, is shown as having a mean time of $883401.65 \mu$s, but that figure is for determining only the NDI index, not other schemes covered. Using the optimal set of parameters would require $1666065.32 \mu$s. 
+Table \ref{table:performance} shows a breakdown of the times required for various image processing tasks. The \textit{Base} category shows the time taken for basic image processing, something that all images require, regardless of the features used in the classification: an index must be computed, the blobs must be found, and those blobs classified. Timings for shape, color, and texture computations are independent of each other (that is, computing the mean hue of a blob does not mean that the GLCM computation in the $A$ channel of CIELab will be faster). The time taken for color space conversions, however is. That is, if the classification will use the the texture calculation of GLCM parameters in the $I$ channel of YIQ and the color parameter of the standard deviation of that same channel, the conversion can be performed only once. Further complicating an analysis of performance is that some items are always required, but vary. The computation of an \textit{index}, for instance, is shown as having a mean time of $883401.65 \mu$s, but that figure is for determining only the NDI index, not other schemes covered. Using the optimal set of parameters would require $1666065.32 \mu$s. 
 
 \begin{multline}
 883401.65 \mu s\ (index) + 581119.37 \mu s\  (contours) + 78389 \mu s\ (shape metrics) + 116794.15 \mu s\ (HOG) \\ + 178.14 \mu s\ (shape\ index) + 6183.15 \mu s (classification\ using\ LR) = 1666065.32 \mu s
 \end{multline}
 
-A camera with parameters to the one on the DJI Drone at 500cm captures 1 meter of the ground, so the processing rate of the system is 1.6s per meter, or 2.25 kph. Many would consider this a commercially unviable speed, so the image processing and classification needs a bit of optimization. The easiest is to state, but hardest to deliver is, perhaps the language used. Transitioning the implementation to a compiled language (C, C++, or Rust) need not be for the entire code, just for sections that require optimization. Consider the time taken for an index computation. Tests conducted for this study show that the same index can be computed an order of magnitude faster with a C++ implementation that can be achieved using an interpreted one. Now the forward progress of the system is much faster, as image processing supports a much more viable 4.13 kph. On the lower end of what many would consider commercially viable, but a step in the right direction.
+A camera with parameters similar to the one on the DJI Drone at 500cm captures 1 meter of the ground, so the processing rate of the system is 1.6s per meter, or 2.25 kph. Many would consider this a commercially unviable speed, so the image processing and classification needs optimization. Transitioning the implementation to a compiled language (C, C++, or Rust) need not be for the entire code, just for sections that require optimization. Consider the time taken for an index computation. Tests conducted for this study show that the same index can be computed an order of magnitude faster with a C++ implementation that can be achieved using an interpreted one. Now the forward progress of the system is much faster, as image processing supports a much more viable 4.13 kph. On the lower end of what many would consider commercially viable, but a step in the right direction.
 
 \chapter{Discussion}
 \label{section:discussion}
+The primary motivation for this study was to enhance the accuracy and efficiency of crop/weed classification across various machine learning approaches, with a specific focus on practical agricultural applications. Although the experiments and data collection were conducted at the Maricopa Agricultural Research Center (MAC), the methodologies and findings presented here are expected to have broader applicability beyond this specific site. Given that many agricultural regions encounter similar challenges related to weed identification and management, insights derived from this research (such as the comparative effectiveness of shape, texture, and color attributes, as well as the implications of class imbalance) likely extend to other locales facing comparable classification tasks. The discussion that follows synthesizes these results, evaluates their implications for both localized and generalized agricultural practices, and highlights potential areas for further improvement and investigation.
+
 % IMBALANCE
-The results figures \ref{fig:imbalance} and \ref{fig:combined} illustrate the varying impacts of oversampling techniques on different classification algorithms, revealing notable trends in their effectiveness. The Decision Tree classifier benefited significantly from oversampling methods, likely due to its sensitivity to class distributions; by balancing the dataset, the tree had a more even representation of decision paths, reducing bias toward the majority class. However, KNN, Logistic Regression, LDA, and SVM experienced minimal to negative effects from oversampling. This outcome can be attributed to how these models operate: KNN relies on local neighborhood density, and synthetic minority samples created by oversampling can sometimes distort the actual decision boundary. Logistic Regression and LDA, being linear classifiers, struggle with synthetic points that do not conform well to the natural distribution of the dataset, leading to misclassifications. SVM, which aims to optimize a hyperplane for maximal class separation, may suffer from oversampling when synthetic samples reduce the natural margin between classes, making the model more prone to overfitting.
+The results figures \ref{fig:imbalance} and \ref{fig:combined} illustrate the varying impacts of oversampling techniques on different classification algorithms, revealing notable trends in their effectiveness. The Decision Tree classifier benefited significantly from oversampling methods, likely due to its sensitivity to class distributions; by balancing the dataset, the decision tree had a more even representation of decision paths, reducing bias toward the majority class. However, KNN, Logistic Regression, LDA, and SVM experienced minimal to negative effects from oversampling. This outcome can be attributed to how these models operate: KNN relies on local neighborhood density, and synthetic minority samples created by oversampling can sometimes distort the actual decision boundary. Logistic Regression and LDA, being linear classifiers, struggle with synthetic points that do not conform well to the natural distribution of the dataset, leading to misclassifications. SVM, which aims to optimize a hyperplane for maximal class separation, may suffer from oversampling when synthetic samples reduce the natural margin between classes, making the model more prone to overfitting.
 
 Interestingly, when combined oversampling and cleaning techniques (SMOTE+ENN, SMOTE+TOMEK) were applied, classification performance generally improved for most models, with Random Forest benefiting the most. This can be explained by the ensemble nature of Random Forest, where the inclusion of synthetic minority samples enhances the diversity of decision trees, leading to a more balanced learning process. However, Random Forest was negatively affected by SMOTE+TOMEK, likely because TOMEK links remove borderline samples, potentially discarding informative samples that Random Forest could have leveraged for stronger decision boundary formation. In contrast, SMOTE+ENN had only a slight negative impact on Random Forest, as ENN removes ambiguous or noisy synthetic samples, maintaining a relatively stable class distribution. For Logistic Regression, SMOTE+TOMEK resulted in a slight improvement, as the removal of borderline samples helped preserve a more well-separated class structure. However, SMOTE+ENN led to the strongest decline in Logistic Regression performance, likely because ENN aggressively removes synthetic samples close to decision boundaries, reducing the model’s ability to generalize effectively. These findings highlight that while oversampling can improve classification performance, its effectiveness is model-dependent, requiring careful selection based on classifier characteristics.
 
@@ -3443,7 +3492,7 @@ The frequent appearance of features such as cb\_mean, compactness, and cie\_l\_l
 It was not clear that features that were not changing over the early development phase has a profound affect. As Table \ref{table:optimal-seasonality} shows, that the majority of the classification techniques (6 of 9) showed that at least 75\% of the features did not exhibit changes over the development phase studied, but the highest performer, Logistic Regression, used only 50\%.
 
 As Table \ref{table:results-counts} shows, the effect of parameter selection to produce the highest performing model is critical when using LDA, and much less important with SVM. 
-Only 1.818\% combinations for LDA classification that yielded results close to the maximum, but 63.333\% achieved with SVM were. 
+Only 1.818\% combinations for LDA classification that yielded results close to the maximum, but 63.333\% achieved with SVM did. 
 Feature selection plays a crucial role in improving classification accuracy across various machine learning algorithms by reducing redundancy, enhancing interpretability, and preventing overfitting. Techniques such as k-Nearest Neighbors (KNN) and Support Vector Machines (SVM) are particularly sensitive to irrelevant or excessive features, as these methods rely on distance-based calculations and hyperplane separability, respectively. By selecting only the most informative features, KNN benefits from reduced computational complexity and improved classification efficiency, while SVM models achieve better margin separation with fewer misclassified samples. Logistic Regression (LR) and Linear Discriminant Analysis (LDA), both of which rely on linear separability, can also see significant accuracy gains from feature selection, as removing irrelevant variables prevents overfitting and enhances the ability to generalize across datasets. Similarly, Decision Trees and Random Forests—which construct decision rules based on feature splits—perform better when trained on high-quality, non-redundant features, reducing the likelihood of unnecessary depth in tree structures.
 
 Ensemble methods such as Gradient Boosting, Extra Trees, and Random Forest further highlight the impact of feature selection in improving classification accuracy and computational efficiency. Since these techniques rely on aggregating multiple weak learners, eliminating unimportant features ensures that individual trees focus on meaningful distinctions, reducing noise and improving convergence speed. Extra Trees, in particular, benefits from feature selection by preventing unnecessary tree branching, thereby improving stability. In deep learning models such as Multi-Layer Perceptron (MLP), feature selection is vital for reducing dimensionality and optimizing training time, as neural networks perform best when trained on a well-curated set of relevant inputs rather than an abundance of unstructured or irrelevant data. Across all these classifiers, feature selection methods such as Recursive Feature Elimination (RFE), Mutual Information, or Principal Component Analysis (PCA) help maximize classification accuracy while ensuring models remain computationally efficient and robust to overfitting.
@@ -3452,12 +3501,19 @@ This study has shown that vegetation can be classified accurately, but what that
 
 An assertion of this study is that the use of texture descriptors using various color space channels (i.e., the $I$ channel of YIQ) will yield better model performance than using texture attributes from greyscale.  As Table \ref{table:texture-color-greyscale-comparison} shows, The enhanced performance of decision tree-based methods (e.g., decision trees, extra trees, random forests), k-nearest neighbors, LDA, and MLP when using texture attributes derived from various color space channels likely stems from these models’ ability to capture complex, non-linear interactions and subtle feature relationships. These classifiers can leverage the richer, multi-dimensional information provided by different color channels to better discriminate between classes, especially when color variations are significant. In contrast, gradient boosting and logistic regression, which are more sensitive to feature collinearity and may rely on more linear decision boundaries, can be adversely affected by the increased noise or redundancy introduced by additional color features. This additional noise might obscure the underlying discriminative patterns, leading to a drop in performance for these methods. Additionally, the nature of gradient boosting, with its sequential focus on correcting errors, may be more susceptible to overfitting when handling high-dimensional feature spaces without robust regularization. The effect is modest in some cases (LDA shows an increase in AUC of only $0.005$) substantial in some (Decision Tree shows an increase in AUC of $0.031$) and slightly negative in some (Logistic Regression shows a decrease of $0.002$).
 
-The results of this study provide support for the assertion that texture descriptors extracted from non-RGB color space channels yield superior classification performance—as measured by AUC—compared to texture descriptors derived solely from greyscale images. Specifically, models utilizing texture features from color spaces such as HSI, YCbCr, and CIE consistently achieved higher AUC scores than those limited to greyscale descriptors. This improvement is likely due to the richer and more nuanced information available in non-RGB channels, where variations in hue, saturation, and chromaticity offer additional discriminatory power for distinguishing between crops and weeds. The enhanced performance of these models underscores the importance of capturing subtle textural differences that are often lost when reducing images to greyscale. Furthermore, while greyscale-based texture descriptors offer the benefit of reduced computational complexity, they sacrifice critical color information that can be essential for accurately characterizing vegetation patterns in agricultural imagery. These findings advocate for a more comprehensive approach in texture analysis, leveraging non-RGB color spaces to improve the robustness and accuracy of classification systems in precision agriculture. Future research should explore methods to optimize feature selection and manage the increased dimensionality inherent to non-RGB texture descriptors, ensuring that the computational costs are balanced with the performance benefits.
+The results of this study provide support for the assertion that texture descriptors extracted from non-RGB color space channels yield superior classification performance—as measured by AUC—compared to texture descriptors derived solely from greyscale images. Specifically, models utilizing texture features from color spaces such as HSI, YCbCr, and CIELab consistently achieved higher AUC scores than those limited to greyscale descriptors. This improvement is likely due to the richer and more nuanced information available in non-RGB channels, where variations in hue, saturation, and chromaticity offer additional discriminatory power for distinguishing between crops and weeds. The enhanced performance of these models underscores the importance of capturing subtle textural differences that are often lost when reducing images to greyscale. Furthermore, while greyscale-based texture descriptors offer the benefit of reduced computational complexity, they sacrifice critical color information that can be essential for accurately characterizing vegetation patterns in agricultural imagery. These findings advocate for a more comprehensive approach in texture analysis, leveraging non-RGB color spaces to improve the robustness and accuracy of classification systems in precision agriculture. Future research should explore methods to optimize feature selection and manage the increased dimensionality inherent to non-RGB texture descriptors, ensuring that the computational costs are balanced with the performance benefits.
 
-\chapter{References}
+The initial motivation behind this study was to enhance crop/weed classification accuracy through careful examination and comparison of various color, texture, and shape attributes. The findings demonstrate that leveraging specific subsets of these features, particularly when color channel information is integrated, significantly improves classification outcomes. However, the scope of features explored herein, while comprehensive in the context of this research, represents only a fraction of the rich array of attributes potentially available in digital imaging. As a result, substantial opportunities remain to explore additional and possibly more discriminative features, including advanced texture descriptors, spectral indices from hyperspectral imagery, and morphological patterns derived through deep learning approaches.
+
+While the current study highlights promising directions for improved classification accuracy, the broader context underscores the necessity for further research. Future investigations might consider exploring the effectiveness of combining traditional feature-based approaches with modern deep learning methodologies, which have shown potential in capturing complex, nonlinear feature interactions. Furthermore, additional work could investigate how temporal features, multispectral or hyperspectral imaging, and spatial-contextual information might further enhance classification accuracy and robustness, especially under varying environmental conditions and developmental stages not fully addressed by this research.
+
+Ultimately, although this work has advanced the understanding of how specific image-derived features contribute to effective crop/weed classification, and proposed several new vegetation indices, continued exploration and experimentation remain essential. Given the complexity of agricultural ecosystems, the effectiveness of classifiers is inherently dependent on feature selection and the suitability of those features to the conditions encountered. Therefore, future studies should focus not only on identifying new and powerful attributes but also on developing more adaptive, computationally efficient algorithms suitable for practical, real-time implementation in agricultural environments.
+
+\chapter*{References}
+\addcontentsline{toc}{chapter}{References}
 \printbibliography[heading=none]
-\newpage
-\section{Appendix A: Development Details}
+\appendix
+\chapter{Development Details}
 Both commercial and open-source software were used in the development of this study. While the majority of the software (the operational portions responsible for image processing and classification) was written in Python, commercial packages were used for pre-processing. Additionally, R was used in visualization and analysis of classification results. The complete source code for this project is available in this GitHub repository: \href{https://github.com/evan-mcginnis/weeds}{\textit {weeds}}. Images, both raw and processed, are far too large to be hosted with GitHub, and are available on request from the author.
 
 All development was done on Windows 10 PC (11th Gen Intel(R) Core(TM) i7-11700F \@ 2.50GHz with 32GB RAM), and  with analysis on the University of Arizona's \textit{High Performance Compute Cluster} using Ubuntu 18.04.06.
