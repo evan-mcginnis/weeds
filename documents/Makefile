@@ -16,3 +16,6 @@ clean:
 	rm -f *.log
 	rm -f *.run.xml
 	rm -f *.gz
+
+diffs:
+	latexdiff -c latexdiff.cfg weed-detection-old.tex weed-detection.tex > weed-detection-diffs.tex

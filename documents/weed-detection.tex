@@ -63,6 +63,9 @@
 
 \usepackage[hidelinks]{hyperref}
 
+% E Q U A T I O N S
+\usepackage{tocloft}
+
 % C A P T I O N S
 %\usepackage{caption, copyrightbox}
 %\captionsetup{justification=centering, labelfont=sc, labelsep=endash}
@@ -267,6 +270,13 @@ THE UNIVERSITY OF ARIZONA \\
 
 
 \begin{document}
+
+% Equations
+\newcommand{\listequationsname}{List of Equations}
+\newlistof{myequations}{equ}{\listequationsname}
+\newcommand{\myequations}[1]{%
+\addcontentsline{equ}{myequations}{\protect\numberline{\theequation}#1}\par}
+
 %\begin{titlepage}
 %\BgThispage
 %\newgeometry{left=1cm,right=4cm}
@@ -324,7 +334,7 @@ THE UNIVERSITY OF ARIZONA \\
 %
 \begin{center}
 \huge
-\textit{Adobe Sign Approvals will be copied here.} \\\
+\textit{Adobe Sign Approvals will be copied here.}
 \end{center}
 \textit{Committee Chair:} Kamel Didan
 \newpage
@@ -338,7 +348,7 @@ THE UNIVERSITY OF ARIZONA \\
 {
 \setstretch{1.0}
 \begin{versionhistory}
-  \vhEntry{1.0}{4 Mar 2025}{EM}{Initial revision for review}
+  \vhEntry{1.0}{04 Mar 2025}{EM}{Initial revision for review}
   \vhEntry{1.1}{14 Mar 2025}{EM}{Incorporate comments for Literature Review}
   \vhEntry{1.2}{18 Mar 2025}{EM}{Restructure document and remove sections}
   \vhEntry{1.3}{20 Mar 2025}{EM}{Incorporate comments for 2nd Literature Review.}
@@ -346,7 +356,8 @@ THE UNIVERSITY OF ARIZONA \\
   \vhEntry{1.5}{23 Mar 2025}{EM}{Update literature review and acronyms. Update results}
   \vhEntry{1.6}{24 Mar 2025}{EM}{Incorporate review comments on Chapter 3}
   \vhEntry{1.7}{25 Mar 2025}{EM}{Restructure and eliminate items to achieve balance}
-  \vhEntry{1.8}{26 Mar 2025}{EM}{Incorporate review comments on Chapters 4 \& 5 }
+  \vhEntry{1.8}{26 Mar 2025}{EM}{Incorporate review comments on Chapters 4 \& 5.}
+  \vhEntry{1.9}{02 Apr 2025}{EM}{Add text to discussion for limitations.}
 \end{versionhistory}
 \newpage
 }
@@ -354,6 +365,7 @@ THE UNIVERSITY OF ARIZONA \\
 \tableofcontents
 \listoffigures
 \listoftables
+\listofmyequations
 
 \clearpage
 \setlength{\glsdescwidth}{0.95\linewidth}
@@ -402,7 +414,7 @@ Weeds present significant challenges to field crop production in southern Arizon
 
 \section{Current Automation Technologies}
 
-In response to the labor cost pressures and the need for precise weed control, a number of automation technologies have been developed and are being deployed to identify and remove weeds in specialty crops like broccoli (and, potentially, cantaloupe). Many of these innovations fall under the umbrella of precision agriculture and use computer vision and artificial intelligence to distinguish crops from weeds. Below is a summary of some notable current technologies and vendors specializing in weed/crop classification:
+In response to the labor cost pressures and the need for precise weed control, a number of automation technologies have been developed and are being deployed to identify and remove weeds in specialty crops like broccoli (and, potentially, cantaloupe). Many of these innovations fall under the umbrella of precision agriculture and use computer vision and artificial intelligence to distinguish crops from weeds. Some notable current technologies and vendors specializing in weed/crop classification include deployments in vision-guided mechanical cultivators, autonomous weeding robots, smart sprayer Vision systems, and laser-based weed control.
 
 \begin{itemize}
 
@@ -443,10 +455,12 @@ Another factor is that as time passes, the spacing and context cues change. In a
 In summary, the salient features for weed/crop classification shift over time: early on we rely on subtle shape and arrangement cues, while later on size, texture, and sometimes color contrast become more pronounced. Any robust automated classification system should account for the plant growth stage. Our research, with its focus on texture in multiple color spaces, aims to enhance discrimination at the early stage when it is most needed. By understanding how features like color, texture, and morphology play roles at different development phases, we can design algorithms that maintain high accuracy throughout the crop’s growth cycle – ultimately enabling timely and precise weed control in cantaloupe and broccoli fields. 
 
 \section{Objectives and Hypothesis}
-This work will address multiple challenges in the process of identifying and dealing with weeds in field crops. By collecting and analyzing crop imagery acquired from a planting at the University of Arizona Maricopa Research Center, the main goal of this work is to develop a model for classifying vegetation that can then be integrated into a ground-based treatment system, and the specific goals are:
+This work will address multiple challenges in the process of identifying and dealing with weeds in field crops. Images for this experiment were collected under near-identical conditions at the Maricopa Agricultural Research Center (MAC), focusing specifically on two distinct crop plantings: broccoli and cantaloupe. Field images were systematically captured at defined intervals throughout the early growth phases of each planting, ensuring consistency in camera positioning, lighting conditions, resolution, and environmental parameters. This standardized image-collection protocol enabled accurate comparison and analysis across species and facilitated precise segmentation and feature extraction processes.
+
+The resulting image dataset was rigorously evaluated to answer critical research questions central to improving crop/weed classification performance. These included assessing the impact of class imbalance on classifier accuracy, identifying how classification accuracy varied with the developmental stage of each crop, and determining the relative effectiveness of shape, color, and texture attributes individually and in combination. Additionally, the study investigated computational trade-offs relevant to in-field implementation, informing practical decision-making for efficient real-time classification. The analysis will address these questions and improvements:
 \begin{enumerate}
-	\item{Incorporating texture-based image features in non-RGB color spaces. We hypothesize this will improve the accuracy of early-season crop versus weed classification in cantaloupe and broccoli fields. Beyond using standard color and shape cues, this research posits that analyzing leaf texture patterns (e.g. via Gray-Level Co-Occurrence Matrix, GLCM) on alternative color representations (such as HSV, CIELAB, etc.) will better capture differences between crop seedlings and weeds, leading to more robust discrimination. This hypothesis is based on the intuition that young crop and weed plants often have subtle differences in surface texture and venation that may not be fully exploited by RGB color or simple shape features alone. By transforming images into color spaces that separate luminance, hue, and saturation, we expect to highlight contrast in leaf patterns and then quantify those patterns with texture metrics. The anticipated result is an improvement in classification performance (e.g. higher accuracy or F1-score) when these texture features are added to the feature set, compared to using only traditional RGB color and shape features.}
-	\item{Since crops and weeds do not appear in the same proportion we will explore techniques like SMOTE to produce better models.The imbalance ratio will be artificially manipulated before correction to determine if this is the case.}
+	\item{Incorporating texture-based image features in non-RGB color spaces. We hypothesize this will improve the accuracy of early-season crop versus weed classification in cantaloupe and broccoli fields. Beyond using standard color and shape cues, this research posits that analyzing leaf texture patterns (e.g. via Gray-Level Co-Occurrence Matrix, GLCM) on alternative color representations (such as HSV, CIELAB, etc.) will better capture differences between crop seedlings and weeds, leading to more robust discrimination. This hypothesis is based on the intuition that young crop and weed plants often have subtle differences in surface texture and venation that may not be fully exploited by RGB color or simple shape features alone. By transforming images into color spaces that separate luminance, hue, and saturation, we expect to highlight contrast in leaf patterns and then quantify those patterns with texture metrics. The anticipated result is an improvement in classification performance (e.g. higher AUC score) when these texture features are added to the feature set, compared to using only traditional RGB color and shape features.}
+	\item{Since crops and weeds do not appear in the same proportion we will explore the techniques like SMOTE to produce better models.The imbalance ratio will be artificially manipulated before correction to determine if this is the case.}
 	\item{Detail the effect of changes in classification factors during early-phase crop development. Do better performing models use factors that do not change over the development cycle? Changes in classification factors over early-phase crop development will be assessed with a Dickey-Fuller test.}
 \end{enumerate}
 Ultimately, this research seeks to enhance automated classification methods to improve the accuracy of weed identification and contribute to more sustainable and cost-effective weed management strategies in modern precision agriculture.
@@ -688,7 +702,7 @@ Many early methods operate directly in the RGB color space by exploiting the gre
 \begin{figure}[h!]
 	\centering
 	\includegraphics[width=0.5\linewidth]{./figures/segmentation-review.png}
-	\caption[Examples of plant segmentation outcomes under different conditions]{Examples of plant segmentation outcomes under different conditions \parencite{Wu2021-gt}. Subfigure (a) Soybean crop (top-left) and weeds (broadleaf, grass) segmented from a complex background using color-index methods – black backgrounds here indicate extracted plant regions. Subfigure (b) Isolated leaf samples on uniform background (Flavia dataset) where simple thresholding suffices. Subfigure (c) Young maize seedlings in soil – segmentation challenges include varying soil color and lighting. Subfigure (d) Weeds amid crops in natural soil background – requiring advanced segmentation (e.g., machine learning or spectral methods) to separate weed plants from crop seedlings. (Reproduced from \citeauthor{Wu2021-gt} (\citeyear{Wu2021-gt}))}
+	\caption[Examples of plant segmentation outcomes under different conditions]{Examples of plant segmentation outcomes under different conditions \parencite{Wu2021-gt}. Subfigure (a) Soybean crop (top-left) and weeds (broadleaf, grass) segmented from a complex background using color-index methods – black backgrounds here indicate extracted plant regions. Subfigure (b) Isolated leaf samples on uniform background (Flavia dataset) where simple thresholding suffices. Subfigure (c) Young maize seedlings in soil – segmentation challenges include varying soil color and lighting. Subfigure (d) Weeds amid crops in natural soil background – requiring advanced segmentation (e.g., machine learning or spectral methods) to separate weed plants from crop seedlings. Reproduced from \citeauthor{Wu2021-gt} (\citeyear{Wu2021-gt}).}
 	\label{fig:segmentation-example}
 \end{figure}
 %
@@ -1169,29 +1183,29 @@ For this study, images were segmented using various visible light indices (\cite
 \end{longtable}
 }
 
-These indices are used to create a mask that is then applied to the original source image to mask details that are not relevant (ground pixels, stones, and other items that may appear in field conditions such as irrigation equipment) The intent here is to remove all pixels that are not relevant to the task of distinguishing between crop and weed while leaving the vegetated pixels unmanipulated.  Figure \ref{fig:segmentation} illustrates the principle of applying a mask to discard portions of the image that are not important to subsequent tasks, but also shows a problem that can complicate subsequent classification: some stems are eliminated by the mask. The lack of stems will lead to a single plant being identified as multiple plants, an error that will not affect factors that describe the interior of a leaf (such as texture), but will affect factors describing the plant as a whole (the shape). This will be discussed further in the section detailing problems (Section \ref{section:problems-color}).
+These indices are used to create a mask that is then applied to the original source image to mask details that are not relevant (ground pixels, stones, and other items that may appear in field conditions such as irrigation equipment) The intent here is to remove all pixels that are not relevant to the task of distinguishing between crop and weed while leaving the vegetated pixels unmanipulated.  Figure \ref{fig:segmentation} illustrates the principle of applying a mask to discard portions of the image that are not important to subsequent tasks, but also shows a problem that can complicate subsequent classification: some stems and leaf portions are eliminated by the mask. The lack of stems will lead to a single plant being identified as multiple plants, an error that will not affect factors that describe the interior of a leaf (such as texture), but will affect factors describing the plant as a whole (the shape). This will be discussed further in the section detailing problems (Section \ref{section:problems-color}).
 
 \begin{figure}[H]
 	\centering
 	\begin{subfigure}[h]{.30\textwidth}
 	  \centering
-	  \includegraphics[width=1\linewidth]{figures/original.jpg}
-	  \caption{Field view of lettuce and weed}
+	  \includegraphics[width=1\linewidth]{figures/cantaloupe-original.jpg}
+	  \caption{Field view cantaloupe}
 	  \label{fig:original}
 	\end{subfigure}
 	\begin{subfigure}[h]{.30\textwidth}
 	  \centering
-	  \includegraphics[width=1\linewidth]{figures/original-mask.jpg}
+	  \includegraphics[width=1\linewidth]{figures/cantaloupe-mask.jpg}
 	  \caption{Mask produced with NDI}
 	  \label{fig:mask}
 	\end{subfigure}
 	\begin{subfigure}[h]{.30\textwidth}
 	  \centering
-	  \includegraphics[width=1\linewidth]{figures/original-masked.jpg}
+	  \includegraphics[width=1\linewidth]{figures/cantaloupe-masked.jpg}
 	  \caption{After applying mask}
 	  \label{fig:original-masked}
 	\end{subfigure}
-	\caption[Before and after segmentation]{Before and after segmentation. Note the absence of the stems seen in the weed in the lower portion of~\ref{fig:original-masked} -- this is made a bit more obvious with a close examination of the mask shown in~\ref{fig:mask}.}
+	\caption[Before and after segmentation]{Before and after segmentation.}
 	\label{fig:segmentation}
 \end{figure}
 The segmented image has discarded ground pixels while retaining most of the pixels that will be used, but a close examination reveals that pixels in the stems of the weed are also eliminated, as they are less green than the rest of the plant. This effect is even more pronounced when segmenting images of weed that do not contain green stems as would be seen in the red stems seen in \textit{Portulaca oleracea} (Purslane). While they are not eliminated, pixels in the area of the deep shadows of the vegetation may affect attempts to classify objects based on color attributes. Unfortunately, the band of color featured in the stems (red) is frequently found in the background (soil), so attempts to make the stems appear in the masked image are problematic, as this solution tends to bring allow unwanted ground pixels in the final image that contain hues found within the stems. Likewise, immature vegetation where stems are not sufficiently green will not appear in the final image.  While this may not present a problem if the portions of the plant that do appear are correctly classified, there is a complication in that a single plant may appear to be multiple plants. This, in turn, leads to situations where a treatment system applies more herbicide than is required, treating what has be identified as multiple plants.
@@ -1200,9 +1214,9 @@ While many of the weeds typically encountered in agricultural fields in southern
 \begin{enumerate}
 	\item{Palmer Amaranth (Amaranthus palmeri): A highly competitive broadleaf weed notorious for its rapid growth and resistance to several herbicides.}
 
-	\item{Redroot Pigweed (Amaranthus retroflexus): Another pigweed species that thrives in disturbed soils and competes aggressively with crops. }
+	\item{Redroot Pigweed (Amaranthus retroflexus): Another pigweed species that thrives in disturbed soils and competes aggressively with crops. Especially in early stages, leave may exhibit a red coloration in portions that complicates accurate image segmentation \parencite{Sosnoskie2018-ye}.}
 
-	\item{Common Purslane (Portulaca oleracea): A low-growing annual with succulent leaves that can form dense mats, particularly in irrigated fields. This weed exhibits a red color in the stems}
+	\item{Common Purslane (Portulaca oleracea): A low-growing annual with succulent leaves that can form dense mats, particularly in irrigated fields. This weed exhibits a red color in the stems that will complicate image segmentation.}
 
 	\item{Field Bindweed (Convolvulus arvensis): A perennial vine that can be difficult to control due to its deep and extensive root system.}
 
@@ -1212,7 +1226,7 @@ While many of the weeds typically encountered in agricultural fields in southern
 
 	\item{Dandelion (Taraxacum officinale): Though more common in cooler climates, dandelions can also be found in southern Arizona, particularly in areas with adequate moisture.}
 
-	\item{Spotted Spurge (Euphorbia maculata): A low-growing annual that spreads quickly and is often found in disturbed soils. As the name implies, this weed features red leaf spots \parencite{Davis2009-sk}}
+	\item{Spotted Spurge (Euphorbia maculata): A low-growing annual that spreads quickly and is often found in disturbed soils. As the name implies, this weed features red leaf spots that will complicate image segmentation \parencite{UC-Davis2009-qy}.}
 \end{enumerate}
 
 These species are adapted to the arid to semi-arid conditions of southern Arizona and can significantly impact crop yield by competing for water, nutrients, and light. The exact composition of weed communities can vary depending on factors like crop type, irrigation practices, and soil conditions.
@@ -1240,15 +1254,17 @@ It is also worth considering the distribution of pixel values: bi-modal (two dis
 Otsu's method operates on the assumption that there are two classes of pixels in the object (interesting and uninteresting things). The algorithm minimizes intra-class variance. This method performs well when presented with images that have two distinct peaks.
 
 % Equation from https://infoaryan.com/blog/opencv-python-otsu-and-triangle-thresholding-full-mathematics-code-explained-important/
-\begin{equation}
+\begin{equation}\label{eqn:otsu}
 \sigma^2_B (t) \times p(t) \times p(\overline{t}) \\
 \end{equation}
+\myequations{Otsu thresholding}
 where $\sigma^2_B (t)$ is the variance between the two classes, $p(t)$ is the probability of class $t$, and $p(\overline{t})$ is the probability of the complement.
 
 The Triangle Method is another automatic thresholding approach that is particularly effective when dealing with unimodal histograms. Instead of assuming a bimodal distribution, this method determines a threshold by drawing a straight line from the peak of the histogram (the most frequent intensity) to the minimum intensity value on the histogram’s tail. The threshold is set at the point where the perpendicular distance between the line and the histogram is maximized.
-\begin{equation}
+\begin{equation}\label{eqn:triangle}
 T_{triangle} = argmax \left[ h(T) \times \left( 1 - \left| \frac{T - P}{R - P} \right| \right) \right]
 \end{equation}
+\myequations{Triangle thresholding}
 Where $h(T)$ is the value at $T$, $R$ is the maximum of the intensity, and $P$ is the peak value. The triangle method often performs better than does Otsu's method when the pixel intensities exhibit a unimodal peak.
 
 The details of the implementation of these two approaches are beyond the scope of this work, and while there are certainly others, these are the most frequently proposed approaches. Both of these approaches, however, are based on some assumptions about the intensity histogram, and may not work well in all situations, particularly if these assumptions are not valid. Otsu's algorithm, for example, tends to yield satisfactory results when operating on images possessing a bimodal distribution, but may not yield good results on images with a single peak or multiple peaks. Figure \ref{fig:ndi-segmentation} illustrates the concept behind the \textit{triangle} method for threshold selection for an image. While manual selection may be sufficient to perform the segmentation of an image set acquired under the same ambient conditions, it may lead to the exclusion of portions of the plant in images taken under different conditions. Using the \textit{Triangle} algorithm \parencite{Brink1996-xy,Zack1977-yl} allows this selection to be made automatically. The point at which the line between the lowest and highest points in the histogram is selected as the threshold, selecting a threshold applicable to each image in a set rather than a global value used for all images in a set.
@@ -1339,11 +1355,52 @@ Additionally, RGB indices may not reliably discriminate between vegetation and s
 
 Nevertheless, segmentation using alternative color spaces presents certain challenges. Determining optimal thresholds in non-RGB spaces can be more complex than in RGB, as each channel represents different information. Additionally, computational complexity slightly increases as RGB images must first be transformed into alternative spaces before segmentation can occur. However, these added complexities are typically outweighed by the increased segmentation accuracy and reliability.
 
+% From below begin
+The RGB color space is both the most frequently encountered and easily explained color space. The levels or red, green, and blue are expressed as the amount of these colors for each pixel. The normal human eye contains three types of color-sensitive cone cells. Each cell is responsive to light of either longer or shorter wavelengths, which we often refer to as red, green, and blue. A triple (r,g,b) is used to describe the color values of a pixel ranging from completely black, (0, 0, 0), to completely white (255, 255, 255).
+
+%
+% Figure from here:
+% https://en.wikipedia.org/wiki/RGB_color_spaces
+%
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=5cm]{./figures/RGB_Cube_Show_lowgamma_cutout_b.png}
+	\caption[RGB Cube]{RGB Cube. (Creative Commons)}
+	\label{fig:rgb-cube}
+\end{figure}
+% From below end
+
 \subsubsection{HSI and HSV}
+% From below begin
+The terms {\it color} and {\it hue} are often used interchangeably, and while this is mostly true, hue refers to the dominant color family. Black and white are colors, for instance, but they are almost never referred to as a hue. In this case, the image is converted to the Hue, Saturation, and Value ({\it HSV}) color space and the mean value for the hue of a blob's pixels is taken. The saturation of a color expressed by a component of the Hue, Saturation, and Intensity ({\it HSI}) color space and the mean value for the saturation of a blob's pixels is taken. (\cite{Forsyth2012-hy})
+
+The \gls{HSI} and the \gls{HSV} color spaces are cylindrical-coordinate representations of the RGB color model.  These models, first developed in the 1970s, rearrange the RGB cube representation to be more perceptually relevant. Both models are closely related in that they share an common expression of hue and saturation. The values for \textit{hue} and \textit{saturation} are identical for these two color spaces, leaving focus on the \textit{intensity} and \textit{value} components as the unique values that will be analyzed. \parencite[p.~84]{Forsyth2012-hy} Somewhat confusingly, HSV is sometimes referred to as HSB (or Hue, Saturation, and Brightness); likewise, HSI is sometimes referred to as HSL (Hue, Saturation, and Lightness), but the two are identical for the most part. In this cylindrical representation, hue is expressed as the angular dimension, red (at 0\si{\degree}), passing through green (at 120\si{\degree}) and blue (at 240\si{\degree}) In each representation, the vertical axis comprises the neutral, achromatic, or gray colors ranging, from top to bottom, white at lightness 1 (value 1) to black at lightness 0 (value 0).
+
+\begin{figure}[H]
+	\centering
+	\begin{subfigure}[h]{.45\textwidth}
+		\centering
+		\includegraphics[width=6cm]{./figures/HSV_color_solid_cylinder_saturation_gray.png}
+		\caption{HSV/HSB Cylinder}
+		\label{fig:hsv}
+	\end{subfigure}
+	\hfill
+	\begin{subfigure}[h]{.45\textwidth}
+		\centering
+		\includegraphics[width=6cm]{./figures/HSL_color_solid_cylinder_saturation_gray.png}
+		\caption{HSL/HSI Cylinder}
+		\label{fig:hsl}
+	\end{subfigure}
+	\caption[HSL and HSV color representations]{HSL and HSV color representations. (Creative Commons)}
+	\label{fig:overlap}
+\end{figure}
+
+
+% From below end
+
 The Hue, Saturation and Intensity (HSI) and Hue Saturation and Value (HSV) color spaces present an opportunity to consider how saturated the colors are instead of just emphasizing the green found it an image. While that is  an over-simplification of basing a technique on the values found within the RGB bands, it is essentially what is happening. Hue based approaches take much the same approach in one respect -- the hue frequently present in vegetation (green) is represented as peaking around $120^o$ in both models. This is convenient, certainly, as simply considering points as vegetation of they contain hue values around the peak. How wide this range is, of course, will determine what is captured. And while the topic of color is revisited in Section ~\ref{section:problems-color}, consider that leaves contain much that is not green, just as the ground contains much that is not brown. A leaf may contain hue values in the range of 40-70, an indication that the hue is toward the red end of the representation. Likewise, a patch of dirt may contain hue values in the range of 15-20, an indication that the hue is much more red than anything else. HSV is  more complicated, in that the V band should be normalized between $(0..1)$ and multiplied by the H value. These indices will be referred to as HI and HV. 
 
-\begin{equation}
-	\label{equation:hsi}
+\begin{equation}\label{eqn:index-hsi}
 	HSI
     \begin{split}
 		discard~pixels~with~H~channel &\geq 190~or \leq 55\\
@@ -1351,39 +1408,111 @@ The Hue, Saturation and Intensity (HSI) and Hue Saturation and Value (HSV) color
 		discard~pixels~with~I~band &\geq 50
     \end{split}
 \end{equation}
+\myequations{HSI Index}
 
-\begin{equation}
-	\label{equation:hsv}
+\begin{equation}\label{eqn:index-hsv}
 	HSV
 	\begin{split}
 		H * norm(V) \\
 	\end{split}
 \end{equation}
+\myequations{HSV Index}
 
-\subsubsection{CIELAB}
-The CIELAB color space, often referred to with L*A*B* in the name, expresses color along three lines: Lightness (L), Green-Red (A), and Blue-Yellow (B). These values seen in these bands have different ranges, L ranging from 0 (black) to 100 (white), A ranging from negative (green) to positive (red), and B ranging from negative (blue) to positive (yellow). The A and B bands are not technically limited to a specific range, as this space was designed to exceed human perception. Human perception of these colors can be covered with a $\pm 150$ range, and implementations tend to limit the values reported in these bands for practical reasons.  For the purposes of indexing vegetation the bands of  most interest are the A and B bands. Taking the difference between B and A and discarding pixels with a difference is below 30 yields acceptable results. This index will be referred to as CI throughout this document.
+\subsubsection{CIELab}
+% Combined with text from below
+The CIELab color space, often referred to with L*a*b* in the name, expresses color along three lines: Lightness (L), Green-Red (A), and Blue-Yellow (B). The L*a*b* color space approximates human vision, as the $L$ component expresses  the lightness of an object, an attribute seen a more applicable to perception of an object's color than the RGB model of mixtures of the three underlying colors.  These values seen in these bands have different ranges, L ranging from 0 (black) to 100 (white), A ranging from negative (green) to positive (red), and B ranging from negative (blue) to positive (yellow). The A and B bands are not technically limited to a specific range, as this space was designed to exceed human perception. Human perception of these colors can be covered with a $\pm 150$ range, and implementations tend to limit the values reported in these bands for practical reasons.  The $A$ and $B$ components contain data about green to red, and blue to yellow, respectively, the four unique colors humans can perceive. While the space is not completely uniform, it is often employed in describing small changes in color. That is, numeric changes correspond to perceptual changes. The CIElab color space was standardized in the mid-1970s but remains in widespread use today \cite{Leilich2023-lf}.  The $A$ and $B$ axes are theoretically unbound, but are typically limited to some practical range, for example +127 to -127. 
 
-\begin{equation}
-		\label{equation:cielab}
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=.65\linewidth]{./figures/cielab-colorspace.png}
+	\caption[CIElab color space]{In the CIElab color space, positive values for $B$ indicate more yellow; likewise negative values for $B$ indicate more blue. The values for $A$ similarly indicate more red (positive) or more green (negative). This is often referred to as an \textit{opponent representation} (yellow-blue and red-green) (Illustration reproduced from Datacolor)}
+	\label{fig:cielab}	
+\end{figure}
+% End combine with text from below
+
+ For the purposes of indexing vegetation the bands of  most interest are the A and B bands. Taking the difference between B and A and discarding pixels with a difference is below 30 yields acceptable results. This index will be referred to as CI throughout this document.
+
+\begin{equation}\label{eqn:index-cielab}
 		B - A, discard~results~\leq~30
 \end{equation}
+\myequations{CIELab Index}
 
 \subsubsection{YCbCr}
 \label{section:ycbcri}
-This color space (sometimes termed YCC) is frequently encountered in video transmission, as it is designed to address the redundancies seen in the RGB color space. It uses the $Y$ channel to carry luminance information (black and white) and two color channels expressing the blue difference (Cb) and red difference (Cr). Separating the brightness from the color components allows the color representations to match human perception -- as our eyes are more sensitive to changes in brightness than they are to color. As with other indices, the objective is to exaggerate the band vegetation occupies and ignoring components that are not. Using equation \ref{equation:ycbcr} achieves that goal.
+% From below begin
+The YCbCr color space encodes both luminance information ($Y$, black and white) and chrominance information ($Cb$, $Cr$). In that respect, it is similar to other spaces separating luma from color encoding (YIQ, for instance). By separating the component the human eye is most sensitive to, brightness ($Y$) from color ($Cb$ and $Cr$), the color components can be altered to achieve efficiencies in storage or transmissions that would not be possible where each and every pixel must be represented by the levels of Red, Green, and Blue.  The $Cb$ and $Cr$ components represent the difference between a reference value and the blue or red component, respectively. The JPEG image format exploits these efficiencies in creating compressed images. While the efficiencies of the representation are not of interest in classification, the color representation is. This color space is similar to another encoding commonly encountered in digital video, YUV. The two spaces are nearly identical; YCbCr is a scaled version of YUV (used in analog broadcasts). This color space is also referred to by the somewhat shortened abbreviation YCC, although this document will continue to use YCbCr.
+
+The ECMA report on the JPG file format gives this transformation for RGB to YCbCr:
+\nocite{Ecma2019-yo}
 \begin{equation}
-	\label{equation:ycbcr}
+	\begin{bmatrix}
+	Y \\[0.3em]
+	C_b \\[0.3em]
+	C_r \\[0.3em]
+	\end{bmatrix}
+	\approx
+	\begin{bmatrix}
+	0.2126 & 0.7152 & 0.0722 \\[0.3em]
+	-0.1146 & -0.3854 & 0.5 \\[0.3em]
+	0.5 & -04542. & -0.458 \\[0.3em]
+	\end{bmatrix}
+	\begin{bmatrix}
+	R \\[0.3em]
+	G \\[0.3em]
+	B \\[0.3em]
+	\end{bmatrix}	
+\end{equation}
+% From below end
+
+This color space (sometimes termed YCC) is frequently encountered in video transmission, as it is designed to address the redundancies seen in the RGB color space. It uses the $Y$ channel to carry luminance information (black and white) and two color channels expressing the blue difference (Cb) and red difference (Cr). Separating the brightness from the color components allows the color representations to match human perception -- as our eyes are more sensitive to changes in brightness than they are to color. As with other indices, the objective is to exaggerate the band vegetation occupies and ignoring components that are not. Using equation \ref{equation:ycbcr} achieves that goal.
+\begin{equation}\label{eqn:ycbcr-index}
 	\ln(Cr) * Cb, discard\ results\geq 890
 \end{equation}
+\myequations{YCbCr Index}
 This index will be referred to as YCbCRI throughout this work.
 
 \subsubsection{YIQ}
-The YIQ model of color was used by the  National Television System Committee (NTSC) analog color TV system. Later, digital transmission schemes used different color spaces, notably the YCbCr that will be addressed in more detail in a separate section. These schemes have a common approach: \textit{chrominance} (a color component) is added to a black and white image. In the YIQ model, $Y$ represents the luminance information (black and white), with $I$ (in-phase, representing red-cyan contrast) and $Q$ (quadrature, representing magenta-green contrast) the chrominance information. 
-The processing employed here is to convert the image to the YIQ color space and take the mean value for the $I$, or in-phase component for the blob's pixels. (\cite{MathWorks_undated-jg}) For segmentation purposes, the information in the Q band is helpful, primarily in discarding things that are not vegetation.
+% From below begin
+The YIQ model (initials of its constituent channels) of color was used by the (analog) NTSC color TV system. Later, digital transmission schemes used different color spaces, notably the YCbCr that will be addressed in more detail in a separate section. These schemes have a common approach: \textit{chrominance} (a color component) is added to a black and white image. In the YIQ model, $Y$ represents the luminance information (black and white), with $I$ (in-phase) representing red-cyan contrast, and $Q$ (quadature) representing magenta-green contrast) the chrominance information.  The YIQ and YUV color spaces are variants of each other, as they follow the same basic representation, a luma representation with chrominance in two additional channels.  The U \& V values can be considered the X \& Y axes within the color space, while $I$ \& $Q$ are a second set of axes rotated by $33^o$. Different (and now obsolete) technologies used these encodings: YUV was used by PAL, and YIQ was used by NTSC.
+
+
+The processing employed here is to convert the image to the YIQ color space and take the mean value for the $I$, or in-phase component for the blob's pixels. (\cite{MathWorks_undated-jg})
+\begin{figure}[h!]
+	\centering
+	\includegraphics[scale=0.4]{./figures/yiq.png}
+	\caption[YIQ color space at $Y = 0.5$]{A view of the YIQ color space for $Y=0.5$. Of special note here is that the $I$ and $Q$ axes are normalized from -1 to +1. In the YIQ space, the $Y$ component is used by black and white receivers, as it represents the luminance information. (Creative Commons)}
+	\label{fig:yiq-space}
+\end{figure}
+
+The $I$ component is the feature of interest here, and conversion of RGB to YIQ is achieved with this transformation:
 \begin{equation}
-	\label{equation:yiq}
+	\begin{bmatrix}
+	Y \\[0.3em]
+	I \\[0.3em]
+	Q \\[0.3em]
+	\end{bmatrix}
+	\approx
+	\begin{bmatrix}
+	0.299 & 0.587 & 0.114 \\[0.3em]
+	0.5959 & -0.2746 & -0.3213\\[0.3em]
+	0.2115 & -0.5227 & 0.3112 \\[0.3em]
+	\end{bmatrix}
+	\begin{bmatrix}
+	R \\[0.3em]
+	G \\[0.3em]
+	B \\[0.3em]
+	\end{bmatrix}	
+\end{equation}
+Here we also see convenience and ubiquity of the RGB color space. More often than not, color spaces are expressed as transformation from the RGB values, a technique that will be used in this section.
+
+% From below end
+
+
+The processing employed here is to convert the image to the YIQ color space and take the mean value for the $I$, or in-phase component for the blob's pixels. (\cite{MathWorks_undated-jg}) For segmentation purposes, the information in the Q band is helpful, primarily in discarding things that are not vegetation.
+\begin{equation}\label{eqn:yiq-index}
 	discard\ any\ pixel\ with\ Q\ band\leq 0.04
 \end{equation}
+\myequations{YIQ Index}
 This index will be referred to as YI throughout this document.
 
 \begin{figure}[H]
@@ -1724,15 +1853,16 @@ This leads to a global descriptor used in classification: \textit{bending energy
 \end{equation}
 This global metric can be used to express the overall shape of the perimeter, exploiting the fact that weeds in a crop and the crop itself exhibit different shapes.
 
+% Does not add value, so omit
 % Figure produced with this command
 %  make weeds-no-db INPUT=/cygdrive/d/dissertation/ OUTPUT=/cygdrive/d/dissertation/output/ TRAINING=/cygdrive/d/maricopa-test/imbalance/processed/final/corrected.csv THRESHOLD=TRIANGLE INDEX=com2 DECORATIONS=bending SESSION=shape
 
-\begin{figure}[h!]
-	\centering
-	\includegraphics[height=4cm]{./figures/shape-bending.jpg}
-	\caption[Shape attribute: Bending Energy]{The bending energy}
-	\label{fig:shape-bending}
-\end{figure}
+%\begin{figure}[h!]
+%	\centering
+%	\includegraphics[height=4cm]{./figures/shape-bending.jpg}
+%	\caption[Shape attribute: Bending Energy]{The bending energy}
+%	\label{fig:shape-bending}
+%\end{figure}
 
 The \textit{radial distance} can also be used to describe the shape. \citeauthor{Kilday1993-aq}, in a study of classification of lesions in mammogram images, describe techniques to exploit the radial distance of a shape \parencite{Kilday1993-aq}. To understand the principles of radial distance, let’s look at the object in Figure \ref{fig:radial-distance}
 \begin{figure}[H]
@@ -1761,7 +1891,7 @@ By themselves these metrics may not be particularly useful in predicting class m
 \midrule
     \endfirsthead
 %%%%
-    \caption{Shape Features (cont.)}\label{tab:shape-formulae}  \\
+    \caption[]{Shape Features (cont.)}\label{tab:shape-formulae}  \\
 \toprule
 {\textbf{Feature}} & {\textbf{Formula}} & {\textbf{Comment}}
 \tabularnewline
@@ -1858,19 +1988,6 @@ By themselves these metrics may not be particularly useful in predicting class m
 Color presentations of an image are ubiquitous, and while the Red-Blue-Green (RGB) color space is widely familiar, an image can be represented in other color spaces. RGB representation is nothing more than three channels, each of which note (respectively) the levels of Red, Green, and Blue brightness in the image.  Examining each of these channels in isolation usually results in an odd -- but fairly realistic -- view of an object. Other color spaces do not alter the image itself, just the representation of the colors found in the image.  Choosing to represent the amounts of red, green, and blue in an image is just as arbitrary as other mechanisms, however closely aligned it is with human color perception. Other schemes provide somewhat equivalent -- but typically superior -- encodings of the colors found in the image. The representations are, most often, superior in some way, perhaps either in the range of colors represented or the efficiency of that representation. Each of the representations may have an advantage over the RGB model, but those advantages are are irrelevant  here. Classification will use both components of those representations (i.e., the mean of an object's \textit{hue} in the HSI space) as well as the data contained within those components being used in other techniques (GLCM, for instance). All of the color representation schemes that follow all follow the RGB model in one key respect: each represents an image using three channels. RGB represents the amount of green in the image in the G channel, while the HSV space represents the saturation of the hue in the S channel. This characteristic is not something that will be exploited in classification, however. The representation itself may be superior in some aspect to other representations, but aspects of that representation that can be used for classification is the concern in this problem space. While viewing the vegetation in one of the components can be fairly seen as not accurately representing the same experience one would have in viewing the object in daylight or other presentations, these components often have information relevant to the task at hand. This section presents an overview of the color spaces used in classification.
 
 \subsubsection{RGB}
-The RGB color space is both the most frequently encountered and easily explained color space. The levels or red, green, and blue are expressed as the amount of these colors for each pixel. The normal human eye contains three types of color-sensitive cone cells. Each cell is responsive to light of either longer or shorter wavelengths, which we often refer to as red, green, and blue. A triple (r,g,b) is used to describe the color values of a pixel ranging from completely black, (0, 0, 0), to completely white (255, 255, 255).
-
-%
-% Figure from here:
-% https://en.wikipedia.org/wiki/RGB_color_spaces
-%
-\begin{figure}[H]
-	\centering
-	\includegraphics[width=5cm]{./figures/RGB_Cube_Show_lowgamma_cutout_b.png}
-	\caption[RGB Cube]{RGB Cube. (Creative Commons)}
-	\label{fig:rgb-cube}
-\end{figure}
-
 Consider the color values encountered for both a weed and a crop. Figure \ref{fig:transects-rgb} illustrates the values encountered for both the ground and vegetation, but the ground beside the weed exhibits significant overlap with the value encountered with values shown for the crop.  The RGB values might be of interest to examine, but are probably not something that can be exploited directly for classification. This is, however, a fine illustration of a concept that will be exploited: weeds and crop have different color content, even if that difference is not apparent.  The crop, for instance, has a noticeably lower red content that the weed exhibits.
 % Figure generated with
 % make plot-for-document X=1236 Y=1160 X2=1567 Y2=1141 SUBJECT=Weed BAND=rgb INPUT=/cygdrive/d/dissertation/20190118_124250.jpg  COLOR=rgb
@@ -1890,30 +2007,20 @@ Consider the color values encountered for both a weed and a crop. Figure \ref{fi
 \end{figure*}
 	
 \subsubsection{Hue-Centric color spaces: HSI \& HSV}
-The terms {\it color} and {\it hue} are often used interchangeably, and while this is mostly true, hue refers to the dominant color family. Black and white are colors, for instance, but they are almost never referred to as a hue. In this case, the image is converted to the Hue, Saturation, and Value ({\it HSV}) color space and the mean value for the hue of a blob's pixels is taken. The saturation of a color expressed by a component of the Hue, Saturation, and Intensity ({\it HSI}) color space and the mean value for the saturation of a blob's pixels is taken. (\cite{Forsyth2012-hy})
+Figures \ref{fig:transects-hsv} and \ref{fig:transects-hsi} show the differences in those color space that can be expected for weeds and crop.
 
-The Hue, Saturation, and Intensity (HSI) and the Hue, Saturation, and Value (HSV) color spaces are cylindrical-coordinate representations of the RGB color model.  These models, first developed in the 1970s, rearrange the RGB cube representation to be more perceptually relevant. Both models are closely related in that they share an common expression of hue and saturation. The values for \textit{hue} and \textit{saturation} are identical for these two color spaces, leaving focus on the \textit{intensity} and \textit{value} components as the unique values that will be analyzed. \parencite[p.~84]{Forsyth2012-hy} Somewhat confusingly, HSV is sometimes referred to as HSB (or Hue, Saturation, and Brightness); likewise, HSI is sometimes referred to as HSL (Hue, Saturation, and Lightness), but the two are identical for the most part. In this cylindrical representation, hue is expressed as the angular dimension, red (at 0\si{\degree}), passing through green (at 120\si{\degree}) and blue (at 240\si{\degree}) In each representation, the vertical axis comprises the neutral, achromatic, or gray colors ranging, from top to bottom, white at lightness 1 (value 1) to black at lightness 0 (value 0).
-
-\begin{figure}[H]
+\begin{figure*}[!htb]
 	\centering
-	\begin{subfigure}[h]{.45\textwidth}
-		\centering
-		\includegraphics[width=6cm]{./figures/HSV_color_solid_cylinder_saturation_gray.png}
-		\caption{HSV/HSB Cylinder}
-		\label{fig:hsv}
-	\end{subfigure}
+	\subfloat[Original\centering]{\includegraphics[width=4cm]{./figures/transect-image.jpg}\label{fig:transect-original-rgb}}
 	\hfill
-	\begin{subfigure}[h]{.45\textwidth}
-		\centering
-		\includegraphics[width=6cm]{./figures/HSL_color_solid_cylinder_saturation_gray.png}
-		\caption{HSL/HSI Cylinder}
-		\label{fig:hsl}
-	\end{subfigure}
-	\caption[HSL and HSV color representations]{HSL and HSV color representations. (Creative Commons)}
-	\label{fig:overlap}
-\end{figure}
+	\subfloat[Weed\centering]{\includegraphics[width=6cm]{./figures/transect-plot-hsi-weed.png}\label{fig:transect-weed-hsi}}
+	\hfill
+	\subfloat[Crop\centering]{\includegraphics[width=6cm]{./figures/transect-plot-hsi-crop.png}\label{fig:transect-crop-hsi}}
+	\caption[HSI Transects]{Transects of vegetation in the HSI color space. Figure \ref{fig:transect-original-rgb} shows the transect locations for the weed (\ref{fig:transect-weed-hsi}) and crop (\ref{fig:transect-crop-hsi}) Note the distinct change of the transect as it passes through the weed, where ground pixels are captured. Both of the transects capture a portion of the ground to the left of each plant.}
+	\label{fig:transects-hsi}
+\end{figure*}
 
-\begin{figure*}[h]
+\begin{figure*}[!htb]
 	\centering
 	\subfloat[Original\centering]{\includegraphics[width=4cm]{./figures/transect-image.jpg}\label{fig:transect-original-rgb}}
 	\hfill
@@ -1924,53 +2031,11 @@ The Hue, Saturation, and Intensity (HSI) and the Hue, Saturation, and Value (HSV
 	\label{fig:transects-hsv}
 \end{figure*}
 
-\begin{figure*}[h]
-	\centering
-	\subfloat[Original\centering]{\includegraphics[width=4cm]{./figures/transect-image.jpg}\label{fig:transect-original-rgb}}
-	\hfill
-	\subfloat[Weed\centering]{\includegraphics[width=6cm]{./figures/transect-plot-hsi-weed.png}\label{fig:transect-weed-hsi}}
-	\hfill
-	\subfloat[Crop\centering]{\includegraphics[width=6cm]{./figures/transect-plot-hsi-crop.png}\label{fig:transect-crop-hsi}}
-	\caption[HSI Transects]{Transects of vegetation in the HSI color space. Figure \ref{fig:transect-original-rgb} shows the transect locations for the weed (\ref{fig:transect-weed-hsi}) and crop (\ref{fig:transect-crop-hsi}) Note the distinct change of the transect as it passes through the weed, where ground pixels are captured. Both of the transects capture a portion of the ground to the left of each plant.}
-	\label{fig:transects-hsv}
-\end{figure*}
-
 
 \subsubsection{YIQ}
-The YIQ model (initials of its constituent channels) of color was used by the (analog) NTSC color TV system. Later, digital transmission schemes used different color spaces, notably the YCbCr that will be addressed in more detail in a separate section. These schemes have a common approach: \textit{chrominance} (a color component) is added to a black and white image. In the YIQ model, $Y$ represents the luminance information (black and white), with $I$ (in-phase) representing red-cyan contrast, and $Q$ (quadature) representing magenta-green contrast) the chrominance information.  The YIQ and YUV color spaces are variants of each other, as they follow the same basic representation, a luma representation with chrominance in two additional channels.  The U \& V values can be considered the X \& Y axes within the color space, while $I$ \& $Q$ are a second set of axes rotated by $33^o$. Different (and now obsolete) technologies used these encodings: YUV was used by PAL, and YIQ was used by NTSC.
+Figure \ref{fig:transects-yiq} shows the differences in the YIQ color space that can be expected for weed and crop.
 
-
-The processing employed here is to convert the image to the YIQ color space and take the mean value for the $I$, or in-phase component for the blob's pixels. (\cite{MathWorks_undated-jg})
-\begin{figure}[h!]
-	\centering
-	\includegraphics[scale=0.4]{./figures/yiq.png}
-	\caption[YIQ color space at $Y = 0.5$]{A view of the YIQ color space for $Y=0.5$. Of special note here is that the $I$ and $Q$ axes are normalized from -1 to +1. In the YIQ space, the $Y$ component is used by black and white receivers, as it represents the luminance information. (Creative Commons)}
-	\label{fig:yiq-space}
-\end{figure}
-
-The $I$ component is the feature of interest here, and conversion of RGB to YIQ is achieved with this transformation:
-\begin{equation}
-	\begin{bmatrix}
-	Y \\[0.3em]
-	I \\[0.3em]
-	Q \\[0.3em]
-	\end{bmatrix}
-	\approx
-	\begin{bmatrix}
-	0.299 & 0.587 & 0.114 \\[0.3em]
-	0.5959 & -0.2746 & -0.3213\\[0.3em]
-	0.2115 & -0.5227 & 0.3112 \\[0.3em]
-	\end{bmatrix}
-	\begin{bmatrix}
-	R \\[0.3em]
-	G \\[0.3em]
-	B \\[0.3em]
-	\end{bmatrix}	
-\end{equation}
-Here we also see convenience and ubiquity of the RGB color space. More often than not, color spaces are expressed as transformation from the RGB values, a technique that will be used in this section.
-
-
-\begin{figure*}[h]
+\begin{figure*}[!htb]
 	\centering
 	\subfloat[Original\centering]{\includegraphics[width=4cm]{./figures/transect-image.jpg}\label{fig:transect-original-rgb}}
 	\hfill
@@ -1983,15 +2048,6 @@ Here we also see convenience and ubiquity of the RGB color space. More often tha
 
 
 \subsubsection{CIElab}
-The L*a*b* color space approximates human vision, as the $L$ component expresses  the lightness of an object, an attribute seen a more applicable to perception of an object's color than the RGB model of mixtures of the three underlying colors.  The $A$ and $B$ components contain data about green to red, and blue to yellow, respectively, the four unique colors humans can perceive. While the space is not completely uniform, it is often employed in describing small changes in color. That is, numeric changes correspond to perceptual changes. The CIElab color space was standardized in the mid-1970s but remains in widespread use today \cite{Leilich2023-lf}.  The $A$ and $B$ axes are theoretically unbound, but are typically limited to some practical range, for example +127 to -127. 
-
-\begin{figure}[H]
-	\centering
-	\includegraphics[width=.65\linewidth]{./figures/cielab-colorspace.png}
-	\caption[CIElab color space]{In the CIElab color space, positive values for $B$ indicate more yellow; likewise negative values for $B$ indicate more blue. The values for $A$ similarly indicate more red (positive) or more green (negative). This is often referred to as an \textit{opponent representation} (yellow-blue and red-green) (Illustration reproduced from Datacolor)}
-	\label{fig:cielab}	
-\end{figure}
-
 Perceptual uniformity and pragmatic implementation details aside, the use of this color space is motivated by some of its salient features, most notably the ability to capture small color changes. These small color changes are expected to be significant in distinguishing crop from weed.
 
 \begin{figure*}[h]
@@ -2006,28 +2062,7 @@ Perceptual uniformity and pragmatic implementation details aside, the use of thi
 \end{figure*}
 
 \subsubsection{YCbCr}
-The YCbCr color space encodes both luminance information ($Y$, black and white) and chrominance information ($Cb$, $Cr$). In that respect, it is similar to other spaces separating luma from color encoding (YIQ, for instance). By separating the component the human eye is most sensitive to, brightness ($Y$) from color ($Cb$ and $Cr$), the color components can be altered to achieve efficiencies in storage or transmissions that would not be possible where each and every pixel must be represented by the levels of Red, Green, and Blue.  The $Cb$ and $Cr$ components represent the difference between a reference value and the blue or red component, respectively. The JPEG image format exploits these efficiencies in creating compressed images. While the efficiencies of the representation are not of interest in classification, the color representation is. This color space is similar to another encoding commonly encountered in digital video, YUV. The two spaces are nearly identical; YCbCr is a scaled version of YUV (used in analog broadcasts). This color space is also referred to by the somewhat shortened abbreviation YCC, although this document will continue to use YCbCr.
-
-The ECMA report on the JPG file format gives this transformation for RGB to YCbCr:
-\nocite{Ecma2019-yo}
-\begin{equation}
-	\begin{bmatrix}
-	Y \\[0.3em]
-	C_b \\[0.3em]
-	C_r \\[0.3em]
-	\end{bmatrix}
-	\approx
-	\begin{bmatrix}
-	0.2126 & 0.7152 & 0.0722 \\[0.3em]
-	-0.1146 & -0.3854 & 0.5 \\[0.3em]
-	0.5 & -04542. & -0.458 \\[0.3em]
-	\end{bmatrix}
-	\begin{bmatrix}
-	R \\[0.3em]
-	G \\[0.3em]
-	B \\[0.3em]
-	\end{bmatrix}	
-\end{equation}
+Figure \ref{fig:transects-ycbcr} shows the differences in the YCbCr color space that can be expected for weed and crop.
 
 \begin{figure*}[h]
 	\centering
@@ -2717,18 +2752,18 @@ RANDOMFOREST & 0.85 &      0.50 & 0.00 &       1.00 &       0.50 \\
 
 The lack of a clear set of selected parameters for the model yielded a somewhat easy, but brute force choice: use the unique set of parameters as a starting point, and evaluate models for every combination. The set of unique parameters across the top 10 selection techniques was relatively small, yielding a search space of 348,330,136 combinations. This parameter space was exhaustively searched to find the set of parameters best suited for each of the  nine classification techniques.
 
-The optimal set of parameters will be explored in a subsequent section, but it is worth considering each of the classes separately. For example, if only color attributes are considered, what sort of classification results can be achieved?
+The optimal set of parameters for color, texture, and shape considered together will be explored in a subsequent section, but it is worth considering each of the classes separately. For example, if only color attributes are considered, what sort of classification results can be achieved?
 
-\section{Production of model data}
+\section{Production of Model Data}
 Figure \ref{fig:workflow-for-model-data} shows how the processing pipeline introduced at the beginning of this chapter is applied to this problem, resulting in data that can then be used to build a model. 
 \begin{enumerate}
-	\item{An image is acquired from the set collected in the field and manually corrected.}
 	\item{A mask is produced from the image using an index. This mask was produced using the YCbCr index detailed in \ref{section:ycbcri}.}
 	\item{The mask is refined as detailed in \ref{section:mask-refinement}.}
+	\item{The mask is applied to the original image.}
 	\item{Blobs within the segmented image are identified.}
 	\item{Features for the blobs are extracted (color, texture, and shape). Steps 1 - 5 are repeated for all images in the set.}
 	\item{The class of each blob in each image is manually determined.}
-	\item{Data for forming a model is produced with the manual class assignments. The extracted features are not manipulated.}
+	\item{Data for forming a model is produced with the manual class assignments. The extracted features are not manipulated in this step.}
 \end{enumerate}
 
 \begin{figure}[H]
@@ -2738,7 +2773,7 @@ Figure \ref{fig:workflow-for-model-data} shows how the processing pipeline intro
 	\label{fig:workflow-for-model-data}
 \end{figure}
 
-The result of this pipeline is not the actual model itself, as it has all extracted attributes, but is the data that can them be form a model.
+The result of this pipeline is not the actual model itself, as it has all extracted attributes, but is the data that can be used to form a model. 
 
 \section{Summary}
 Images collected at the Maricopa Agricultural Research Center (MAC) were first segmented to distinguish vegetation from non-vegetation regions, ensuring that only meaningful plant data were retained for further analysis. From these segmented regions, three categories of features (shape, color, and texture) were extracted to capture a comprehensive representation of each plant’s morphology and appearance. A subset of the most discriminative features was then selected to build classification models aimed at distinguishing crop plants from weeds. The subsequent section of this work assesses the performance contributions of each of these feature sets both independently and in combination. Furthermore, the impact of re-balancing the training dataset is examined to determine its effect on classifier performance and robustness.
@@ -2752,6 +2787,28 @@ Images collected at the Maricopa Agricultural Research Center (MAC) were first s
 This section presents the findings from the weed and crop classification study, focusing on feature effectiveness, algorithms performance, accuracy, and stability. First, we evaluate the effectiveness of various imbalance correction techniques.  We then evaluate the classification performance when using individual feature sets (shape, color, and texture) and then assess the combined model performance when all these attributes are integrated. By comparing these approaches, we identify the contribution of each feature type to the overall classification accuracy and robustness. Additionally, this section investigates the temporal stability of the extracted features using the Dickey-Fuller test, which assesses the presence of unit roots in the feature data to ensure that the attributes maintain consistency over time. Together, these analyses offer a comprehensive understanding of both the discriminative power and reliability of the features used in the classification system.
 
 A total of $12,218$ images were collected from cantaloupe and broccoli plantings at the Maricopa Agricultural Research Center, establishing a robust dataset for evaluating crop and weed classification methodologies. The image set was minimally manipulated using the color correction described in the methods section, and images without vegetation were discarded. This dataset enabled a detailed assessment of classification performance, explicitly considering the influence of class imbalance and examining changes in distinguishing factors (shape, color, and texture) across early developmental growth stages. Machine learning algorithms were systematically evaluated to determine their effectiveness in accurately classifying vegetation under these varying conditions. The results highlight critical insights regarding the impact of imbalanced data distributions, the dynamic nature of plant characteristics over developmental phases, and the relative performance strengths of the tested classifiers, informing best practices for practical agricultural applications.
+
+\section{Processed Images}
+Figure \ref{figure:images-of-results} presents  some classification results for vegetation in images collected from cantaloupe and broccoli plantings. Each row shows the classification for individual images, crop bounded by a green box, and weeds bounded by a red box. Two primary types of mistakes emerged from the analysis: genuine misclassifications, where vegetation was assigned an incorrect class label, and segmentation faults, where a single plant was incorrectly identified as multiple distinct entities. It is important to note that the latter type of error originates not from shortcomings in classification algorithms but from inaccuracies during the segmentation step, underscoring the importance of effective segmentation methods for accurate vegetation classification.
+
+\begin{figure}[H]
+\centering
+\captionsetup[subfloat]{labelfont=scriptsize,textfont=scriptsize}
+\begin{tabular}{cc}
+\subfloat[Cantaloupe \& Weed]{\includegraphics[height=0.20\textheight, angle=90]{figures/result-1-raw-00003.jpg} \label{fig:ndi}} &
+\subfloat[Classification]{\includegraphics[height=0.20\textheight, angle=90]{figures/result-1-processed-com2-lr-00003.jpg} \label{fig:exg}} \\
+\subfloat[Broccoli \& Weed]{\includegraphics[height=0.20\textheight, angle=90]{figures/result-2-raw-00097.jpg} \label{fig:result-2-raw}} &
+\subfloat[Classification]{\includegraphics[height=0.20\textheight, angle=90]{figures/result-2-processed-ycbcri-lr-00097.jpg} \label{fig:result-2-classified}} \\
+\subfloat[Cantaloupe 20cm]{\includegraphics[height=0.15\textheight]{figures/result-3-raw-00000.jpg} \label{fig:result-3-raw}} &
+\subfloat[Classification]{\includegraphics[height=0.15\textheight]{figures/result-3-processed-com2-lr-00000.jpg} \label{fig:result-3-classified}} \\
+\subfloat[Weed in cantaloupe]{\includegraphics[height=0.15\textheight]{figures/result-4-raw-00023.jpg} \label{fig:result-4-raw}} &
+\subfloat[Classification]{\includegraphics[height=0.15\textheight]{figures/result-4-processed-com2-lr-00023.jpg} \label{fig:result-4-classified}} \\
+\end{tabular}
+\caption[Results of blob classification]{Results of blob classification.}
+\label{figure:images-of-results}
+\end{figure}
+
+ 
 
 \section{Imbalance Correction}
 To address class imbalance within the crop/weed classification dataset, several synthetic resampling and hybrid methods were applied, including SMOTE, ADASYN, Borderline-SMOTE, KMeans-SMOTE, SVM-SMOTE, and combined strategies such as SMOTE+ENN and SMOTE+TOMEK. The rationale behind using these techniques was to mitigate the potential classifier bias toward the dominant class (crop), thereby enhancing the model's ability to accurately detect and classify the minority weed class. SMOTE and its variants (Borderline-SMOTE, KMeans-SMOTE, and SVM-SMOTE) synthesize minority class examples based on different assumptions about data distribution and complexity, thereby improving the minority class representation. ADASYN further refines this approach by adaptively generating samples in challenging or borderline regions. Hybrid methods such as SMOTE+ENN and SMOTE+TOMEK combine synthetic oversampling with undersampling techniques to remove ambiguous samples near class boundaries, resulting in clearer decision boundaries and improved classifier performance. Collectively, these strategies were employed to comprehensively evaluate their impact on classification accuracy, robustness, and generalizability under controlled dataset population.
@@ -2927,7 +2984,7 @@ Classifying using LBP yields much better results for \textit{Logistic Regression
 %\input{./tables/results-texture-corrected.tex}
 %\end{tiny}
 
-We can now return to one of the assertions originally made: \textit{textural descriptions formed from channels on various color spaces will yield higher-performing models}. Table \ref{table:texture-color-greyscale-comparison} presents a comparative analysis of classification accuracy achieved when using grayscale texture attributes versus texture attributes derived from color space channels. This comparison underscores the potential benefits of incorporating color channel data into texture analysis, particularly in scenarios where color variations contribute significantly to distinguishing features. The results demonstrate that employing GLCM texture features computed from individual color channels of various color spaces (HSI, HSV, CIELab, YCbCr, and RGB) substantially improved classification accuracy compared to using grayscale-derived GLCM features alone. This finding suggests that the additional color information enhances the classifier’s ability to discriminate subtle textural differences between crop and weed species, which may not be captured by grayscale intensity variations alone. Thus, integrating color-channel-based GLCM descriptors is recommended as a more effective approach for robust vegetation classification in agricultural imaging applications.
+We can now return to one of the assertions originally made: \textit{textural descriptions formed from channels on various color spaces will yield higher-performing models}. Table \ref{table:texture-color-greyscale-comparison} presents a comparative analysis of classification accuracy achieved when using grayscale texture attributes versus texture attributes derived from color space channels. This comparison underscores the potential benefits of incorporating color channel data into texture analysis, particularly in scenarios where color variations contribute significantly to distinguishing features. The results demonstrate that employing GLCM texture features computed from individual color channels of various color spaces (HSI, HSV, CIELab, YCbCr, and RGB) substantially improved classification accuracy compared to using grayscale-derived GLCM features alone. 
 {
 \renewcommand{\arraystretch}{0.9}
 % Produced with:
@@ -3112,8 +3169,8 @@ GSD = (Sensor\ Altitude \times Sensor\ Height) / (Focal\ Length \times Image\ He
 
  \begin{figure}[H]
 	\centering
-	\includegraphics[width=0.9\linewidth]{./figures/shape-problem.jpg}
-	\caption[Shape of some objects cannot be determined]{In this image of the planting bed from the perspective approximating a ground system, the shape of some objects at the edge of the image cannot be accurately determined.}
+	\includegraphics[width=0.9\linewidth]{./figures/shape-problem.png}
+	\caption[Shape of some objects cannot be determined]{In this image of the planting bed from the perspective approximating a ground system, the shape of some objects at the edge of the image (noted by the red overlay) cannot be accurately determined. The shape of images in the center (noted by the green overlay, often referred to as the Region of Interest) can be, as the vegetation is fully in view or images can be stitched together to form a complete image of the plant.}
 	\label{fig:shape-problem}
 \end{figure}
 
@@ -3207,6 +3264,8 @@ Table \ref{table:optimal} details the absolute highest AUC, but the difference b
 
 \input{./tables/results-counts.tex}
 }
+
+
 
 
 
@@ -3406,12 +3465,13 @@ Plotting the attributes found to produce the best model for LDA yields Figure~\r
 	\label{fig:factors}
 \end{figure}
 
-Predicting using seven parameters increases the results. Some of the increases are quite impactful.  Table \ref{table:optimal-7} shows the results of building models based on seven parameters (space constraints do not allow presentation of the individual  parameter names) The AUC of Random Forest, for instance, increased from $0.917$ to $0.975$. while other techniques were only modestly improved, as noted by LDA's AUC increase from $0.924$ to $0.947$. 
+Predicting using seven parameters increases the results. The preceeding results used something that was easier to visualize: four parameters, but some of the increases are quite impactful when additional parameters are considered.  Table \ref{table:optimal-7-4-comparison} shows the results of building classification models based on four and seven parameters (space constraints do not allow presentation of the individual  parameter names for the seven parameters used) The AUC of Random Forest, for instance, increased from $0.917$ to $0.975$. while other techniques were only modestly improved, as noted by LDA's AUC increase from $0.924$ to $0.947$. 
 {
 % Produced with:
 %  make optimal-results TYPE=all SUBTYPE=all FORMAT=latex PARAMETERS=parameters.pickle LOGGING=tucson-logging.ini ALL_RESULTS=/cygdrive/d/dissertation/debug/ CAPTION_LONG="Classification using 7 factors" CAPTION_SHORT="Classification using 7 factors" LABEL=table:optimal-7 PREFIX=all_7_auc OUTPUT=../documents/tables/results-optimal-7.tex OMIT=TRUE
 
-\input{./tables/results-optimal-7.tex}
+%\input{./tables/results-optimal-7.tex}
+\input{./tables/results-compare-7-to-4.tex}
 }
 
 %\section{Classification Mistakes}
@@ -3461,11 +3521,17 @@ A camera with parameters similar to the one on the DJI Drone at 500cm captures 1
 \label{section:discussion}
 The primary motivation for this study was to enhance the accuracy and efficiency of crop/weed classification across various machine learning approaches, with a specific focus on practical agricultural applications. Although the experiments and data collection were conducted at the Maricopa Agricultural Research Center (MAC), the methodologies and findings presented here are expected to have broader applicability beyond this specific site. Given that many agricultural regions encounter similar challenges related to weed identification and management, insights derived from this research (such as the comparative effectiveness of shape, texture, and color attributes, as well as the implications of class imbalance) likely extend to other locales facing comparable classification tasks. The discussion that follows synthesizes these results, evaluates their implications for both localized and generalized agricultural practices, and highlights potential areas for further improvement and investigation.
 
+% IMAGES
+\section{Images}
+Before discussing the overall results of classification, it is important to consider both simple and problematic errors within the classified results. While simple classification mistakes appear in the results (where crop is mistakenly classified as a weed, for instance), Figure \ref{fig:result-2-classified} shows an example of a problematic error. The segmentation error caused by the red coloration in the causes multiple plants to be detected. While this mistake does not directly result in misclassifications, as all parts of the plant are correctly identified as weeds (as \ref{fig:result-4-classified} also shows), this mistake can lead to additional treatment that may not be required. Figure \ref{fig:result-2-classified} shows a combination of these two mistakes, as a weed plant is segmented into several portions, and then some of the portions are incorrectly classified as crop. This classification, for many treatment systems, means that no treatment is applied to the vegetation within the original is treated, as systems frequently define a treatment buffer around crop vegetation. A treatment buffer in automated weeding systems refers to the intentional spatial margin maintained around detected weeds when applying control methods, such as targeted spraying or mechanical removal. This buffer accounts for potential inaccuracies or uncertainties in weed detection, segmentation, and classification, ensuring complete treatment coverage of the weed while minimizing unintended damage to adjacent crops. By defining an optimal treatment buffer, automated systems effectively balance weed control efficacy with crop safety, reducing both the risk of weed survival due to insufficient coverage and the economic losses associated with crop injury from overly aggressive treatments \parencite{Scott-Stoddard2023-he, Sapkota2023-kx}.
+
 % IMBALANCE
+\section{Imbalance}
 The results figures \ref{fig:imbalance} and \ref{fig:combined} illustrate the varying impacts of oversampling techniques on different classification algorithms, revealing notable trends in their effectiveness. The Decision Tree classifier benefited significantly from oversampling methods, likely due to its sensitivity to class distributions; by balancing the dataset, the decision tree had a more even representation of decision paths, reducing bias toward the majority class. However, KNN, Logistic Regression, LDA, and SVM experienced minimal to negative effects from oversampling. This outcome can be attributed to how these models operate: KNN relies on local neighborhood density, and synthetic minority samples created by oversampling can sometimes distort the actual decision boundary. Logistic Regression and LDA, being linear classifiers, struggle with synthetic points that do not conform well to the natural distribution of the dataset, leading to misclassifications. SVM, which aims to optimize a hyperplane for maximal class separation, may suffer from oversampling when synthetic samples reduce the natural margin between classes, making the model more prone to overfitting.
 
 Interestingly, when combined oversampling and cleaning techniques (SMOTE+ENN, SMOTE+TOMEK) were applied, classification performance generally improved for most models, with Random Forest benefiting the most. This can be explained by the ensemble nature of Random Forest, where the inclusion of synthetic minority samples enhances the diversity of decision trees, leading to a more balanced learning process. However, Random Forest was negatively affected by SMOTE+TOMEK, likely because TOMEK links remove borderline samples, potentially discarding informative samples that Random Forest could have leveraged for stronger decision boundary formation. In contrast, SMOTE+ENN had only a slight negative impact on Random Forest, as ENN removes ambiguous or noisy synthetic samples, maintaining a relatively stable class distribution. For Logistic Regression, SMOTE+TOMEK resulted in a slight improvement, as the removal of borderline samples helped preserve a more well-separated class structure. However, SMOTE+ENN led to the strongest decline in Logistic Regression performance, likely because ENN aggressively removes synthetic samples close to decision boundaries, reducing the model’s ability to generalize effectively. These findings highlight that while oversampling can improve classification performance, its effectiveness is model-dependent, requiring careful selection based on classifier characteristics.
 
+\section{Optimal Results}
 Referencing the classification results from Table \ref{table:optimal-7}, the AUC values for the techniques range from approximately 0.8985 (Decsion Tree) to 0.9751 (Random Forest). This range shows that all methods perform well overall, but ensemble methods (Random Forest and Boosted Gradient) achieve the highest scores.
 Techniques such as KNN, Logistic Regression, and Boosted Gradient have AUCs in the high 0.91–0.97 range, suggesting that even simpler models can be effective when paired with well-selected features, though ensemble methods clearly lead in performance.
 Technique Comparison:
@@ -3480,14 +3546,14 @@ Color-based: Many techniques list cb\_mean, which likely represents a key color 
 Shape-based: Features such as compactness, convexity, elongation, and eccentricity are prevalent, indicating the importance of shape descriptors in distinguishing between crops and weeds.
 Texture/Contrast-based: Features like cie\_l\_lbp\_stddev and greyscale\_contrast\_avg appear in multiple techniques, suggesting that texture and contrast measurements are significant for accurate classification.
 
-The combination of features across different methods varies slightly, but there is a clear trend of integrating color, shape, and texture descriptors. For instance, both Logistic Regression and Boosted Gradient include cb\_mean, cie\_l\_lbp\_stddev, and compactness, emphasizing the consistent value of these features.
-Decision Tree, which has the lowest AUC, includes features such as elongation and greyscale\_contrast\_avg alongside cb\_mean, which might indicate that while these features are useful, the model’s simpler structure may not fully capitalize on their potential.
+The combination of features across different methods varies slightly, but there is a clear trend of integrating color, shape, and texture descriptors. For instance, both Logistic Regression and Boosted Gradient include \textit{cb\_mean}, \textit{cie\_l\_lbp\_stddev}, and \textit{compactness}, emphasizing the consistent value of these features.
+Decision Tree, which has the lowest AUC, includes features such as \textit{elongation} and \textit{greyscale\_contrast\_avg} alongside \textit{cb\_mean}, which might indicate that while these features are useful, the model’s simpler structure may not fully capitalize on their potential.
 Conclusions
 Model Performance:
-Ensemble methods like Random  and boosting techniques like Boosted Gradient demonstrate superior performance (AUC > 0.97), reinforcing their effectiveness in handling complex feature spaces in weed/crop classification.
+Ensemble methods like Random  and boosting techniques like Boosted Gradient demonstrate superior performance (AUC $> 0.97$), reinforcing their effectiveness in handling complex feature spaces in weed/crop classification.
 
 Feature Importance:
-The frequent appearance of features such as cb\_mean, compactness, and cie\_l\_lbp\_stddev across multiple high-performing models highlights their importance. This suggests that these features capture critical aspects of the image data necessary for distinguishing between crops and weeds.
+The frequent appearance of features such as \textit{cb\_mean}, \textit{compactness}, and \textit{cie\_l\_lbp\_stddev} across multiple high-performing models highlights their importance. This suggests that these features capture critical aspects of the image data necessary for distinguishing between crops and weeds.
 
 It was not clear that features that were not changing over the early development phase has a profound affect. As Table \ref{table:optimal-seasonality} shows, that the majority of the classification techniques (6 of 9) showed that at least 75\% of the features did not exhibit changes over the development phase studied, but the highest performer, Logistic Regression, used only 50\%.
 
@@ -3497,13 +3563,67 @@ Feature selection plays a crucial role in improving classification accuracy acro
 
 Ensemble methods such as Gradient Boosting, Extra Trees, and Random Forest further highlight the impact of feature selection in improving classification accuracy and computational efficiency. Since these techniques rely on aggregating multiple weak learners, eliminating unimportant features ensures that individual trees focus on meaningful distinctions, reducing noise and improving convergence speed. Extra Trees, in particular, benefits from feature selection by preventing unnecessary tree branching, thereby improving stability. In deep learning models such as Multi-Layer Perceptron (MLP), feature selection is vital for reducing dimensionality and optimizing training time, as neural networks perform best when trained on a well-curated set of relevant inputs rather than an abundance of unstructured or irrelevant data. Across all these classifiers, feature selection methods such as Recursive Feature Elimination (RFE), Mutual Information, or Principal Component Analysis (PCA) help maximize classification accuracy while ensuring models remain computationally efficient and robust to overfitting.
 
+\section{Parameter Selection}
+As can be seen in Table \ref{table:results-counts}, for some techniques, well over half the parameters selected yielded performance close to the maximum AUC that can be achieved (KNN and SVM), but for other classification approaches, under $10\%$ (often well under) of the parameters selected yielded maximum performance. One way to interpret these findings is to look at how each algorithm’s performance changes with different hyperparameters and how sensitive the algorithms are to parameter tuning:
+
+KNN \& SVM:
+
+KNN has relatively few key parameters (e.g., number of neighbors k, distance metric), and its performance can plateau across a range of nearby values once a decent k is found. As a result, a large portion of parameter settings can yield AUC values close to the maximum. Essentially, if KNN’s parameters are set to avoid extreme under- or overfitting, many configurations work similarly well.
+
+SVM typically hinges on a few critical hyperparameters (e.g., cost, kernel parameters like gamma), and once a roughly appropriate range is identified, small variations within that range might produce comparable performance. For instance, a range of cost/gamma values that aligns well with the data can all yield near-maximum AUC, increasing the proportion of successful configurations.
+
+LDA, Decision Tree, Boosted Gradient, Logistic Regression, Random Forest:
+
+LDA and Logistic Regression can be more sensitive to factors such as regularization strength, assumptions about linearity, and how they handle correlated or noisy features. A smaller set of precisely tuned parameters (e.g., regularization) may achieve the best performance, while many others do not.
+
+Decision Trees and Random Forests have numerous parameters (e.g., depth limits, minimum samples splits, number of trees), and “sweet spots” in tuning can be narrower. When these settings are not well-calibrated, the model can easily overfit or underfit, thus sitting far from the maximum AUC.
+
+Boosted Gradient methods, while powerful, also rely on fine-tuning a range of hyperparameters (learning rate, number of estimators, max depth, etc.). Small misalignments can produce non-optimal trees or overfitting, meaning only a small fraction of parameter combinations end up near the maximum performance.
+
+Overall, KNN and SVM’s simpler or more robust parameter spaces can lead to many near-optimal solutions, whereas tree-based or linear models may require more precise calibration to reach their peak AUC. While this finding does not support the statement that careful parameter selection does not play a significant role in achieving high performance with these techniques, it is much less important than with other classification techniques evaluated, where there tend to be a relatively small set of parameters selected to achieve the highest performance.
+
+% 4 vs 7 begin
+\section{Additional Parameters}
+Table \ref{table:optimal-7-4-comparison} shows that, for the majority of techniques, using additional parameters in classification led to an increase in performance for this sample set, ranging from modest (Random Forest with a 1.82\% increase in AUC) to substantial (Random Forest, with a 6.33\% increase in AUC). One somewhat surprising result is that Logistic Regression showed a modest drop in performance using additional parameters. One possible explanation for these observations lies in how each algorithm leverages additional parameters and features. Tree-based methods—such as Decision Trees, Extra Trees, Random Forests, and Gradient Boosting—tend to benefit from having more features because they can learn increasingly nuanced splits. As additional parameters provide potentially discriminative information, these ensemble methods can refine their partitioning of the input space, thereby improving their ability to distinguish between classes and raising the AUC. Likewise, KNN, which bases its predictions on proximity in feature space, can gain finer granularity in measuring distances if the added features are relevant. LDA (Linear Discriminant Analysis), while linear in nature, can also benefit from additional features if they genuinely help to separate the classes along new axes of variance.
+
+In contrast, Logistic Regression might experience a decrease in AUC because it is fundamentally a linear model (unless extended with polynomial or other transformations), and adding more parameters can lead to overfitting or confusion if those parameters are not strongly relevant or are highly correlated. If not properly regularized, the model may start to “memorize” noise in the data rather than learning generalizable patterns, ultimately harming performance. Lastly, for SVM, the lack of change in AUC might suggest that its margin-based optimization and choice of kernel already capture the relevant decision boundary; consequently, adding more parameters does not substantially shift the margin or provide an appreciable gain in discriminative power for that particular dataset and kernel configuration.
+
+% 4 vs 7 end
+
+\section{Color Texture vs Greyscale Texture}
+Table \ref{table:texture-color-greyscale-comparison} shows that there is an appreciable benefit to using texture calculations from color channels  instead of only considering only greyscale, but doing so was not always positive impact. This finding suggests that the additional color information enhances the classifier’s ability to discriminate subtle textural differences between crop and weed species, which may not be captured by grayscale intensity variations alone. Thus, integrating color-channel-based GLCM descriptors is recommended as a more effective approach for robust vegetation classification in agricultural imaging applications. Decision Tree classification saw a clear positive benefit with a $3.9\%$ increase in AUC, but KNN saw a substantial decrease of $1.6\%$. One likely reason is that Decision Trees can selectively split on the most discriminative features and ignore those that introduce noise or redundancy, thus benefiting from texture information if it truly helps separate weeds from crops. By contrast, KNN’s distance-based approach can be more sensitive to added dimensions. If the texture-in-color-channel features are noisy, highly correlated, or only partially relevant, they can distort the distance calculations for KNN, making it harder for the algorithm to find the correct neighbors. Furthermore, KNN’s performance can degrade with higher dimensionality (sometimes referred to as the “curse of dimensionality”), especially if it cannot effectively distinguish useful features from irrelevant ones. The result is that Decision Trees can leverage texture as an additional avenue for better splits and higher AUC, while KNN’s distance metric may be overwhelmed by extra, possibly noisy features, causing a drop in its performance.
+
+\section{Limitations}
+\label{section:limitations}
+While this study provides a comprehensive evaluation of classifying weeds and crops, it is important to recognize its limitations.
+
+\subsection{Dataset Specificity}
+Our experiments were based on a single dataset of cantaloupe and broccoli crops and a particular weed community, captured in one geographic location and time frame.  For example, if a different weed species with distinct features appears in a new field, a model trained on oversampled data from our field might not recognize it. This limits generalizability. The dataset also had a relatively homogeneous background (brown soil) and consistent image conditions due to our preprocessing; in more heterogeneous conditions (different soil colors, shadows, etc.), the feature distribution might be broader, possibly affecting oversampling outcomes.
+A limited sample size can severely hamper weed/crop classification performance by restricting the model’s ability to learn from a diverse range of plant appearances and environmental conditions. With fewer training examples, there is a higher risk of overfitting, as the model may simply memorize specific features within the small dataset rather than learning robust decision boundaries. This narrow representation of real-world scenarios also reduces the likelihood that the model will encounter and learn from rare or nuanced variations in plant appearance, growth stages, or environmental factors. Moreover, attempts to compensate for limited data, such as through augmentation or transfer learning, may introduce synthetic artifacts or fail to capture the breadth of conditions observed in the field. Consequently, the model can struggle to generalize to new or changing agricultural environments, ultimately leading to decreased accuracy and reliability in distinguishing weeds from crops.
+
+\subsection{Evaluation Scope}
+We primarily used AUC and confusion-matrix-derived metrics to evaluate performance. While comprehensive, these do not cover all aspects of model utility. In a field application, other factors matter: for example, the spatial context (if the model occasionally mislabels an isolated crop as a weed, a human operator might easily spot it, but if it misses a weed in a dense crop area, that weed might go untreated). Our evaluation was instance-based and did not consider such spatial patterns. Also, we did not perform a formal statistical significance test across multiple random splits; our results are taken as representative but could benefit from cross-validation. A rigorous statistical analysis might require more data or repeated sampling runs to ensure the observed differences are not due to chance. Given resource constraints, we assumed that the consistent patterns we saw (like RF consistently dropping with oversampling) would hold generally.
+
+\subsection{Feature Space Limitations}
+Our feature engineering, while extensive, is not exhaustive of what could be used to distinguish crops and weeds. We chose a few intuitive features and reduced dimensionality. It’s possible that there exist other feature representations (e.g., deep neural network embeddings of the images, or frequency domain features, etc.) where the class separation is different. If, for instance, in a different feature space the weeds are already well separated from crops, imbalance correction might have a different impact. So, our findings are tied to the feature space we operated in. We did ensure we captured color, texture, shape – key factors that agronomists also consider – so we believe our feature space is reasonable. But a limitation is that we did not test pixel-level or deep features, which are common in modern approaches.
+
+\subsection{No Cost-Sensitive Learning Comparison}
+We focused on sampling methods and did not compare against algorithmic solutions like cost-sensitive learning (assigning a higher misclassification cost to weeds) or adjusting decision thresholds. In practice, one might achieve a similar effect to oversampling by simply telling the classifier to pay 10x more attention to weed classification errors. Some algorithms (like SVM, logistic regression, boosting) allow class weight parameters. We did not tune those; instead, we generated data to balance the classes. A limitation is that we cannot say from our study whether data augmentation was better or worse than just weighting the loss function. It could be that for Random Forest, for example, using a class weight for weed could have improved it where oversampling failed. The absence of that comparison in our experiment leaves an open door.
+
+\subsection{Real-time and Detection Context}
+Our study treats the problem as a classification of segmented plant instances. In the field, a real system might need to detect weeds in full images (meaning localize them) and then classify. Our analysis did not evaluate the impact of segmentation approaches that had higher error rates. One limitation is that we did not incorporate detection errors or segmentation failures – e.g., if the segmentation misses part of a plant or merges two plants.  It also won’t directly address some of the problems described, particularly those involving partial overlap in vegetation.  Therefore, our results are applicable to the classification component given well-segmented, cleanly separated plants. In a full pipeline, the weakest link could be elsewhere (segmentation might fail more often on weeds if they’re small or sparse). If segmentation is poor, even a perfectly balanced classifier will underperform because it’s not given those weed instances to classify. 
+
+In summary, while our study provides valuable insights under controlled conditions, these limitations suggest caution. The findings are most directly applicable to similar scenarios (binary classification of distinct plant types in a controlled environment with a clear feature set). Applying these techniques in different contexts, where the crop or weed population differs, where lighting conditions are more varied, or across seasons should involve additional validation. We have pointed out that while  imbalance correction techniques, are helpful in certain cases, and for some classification approaches  did not perform magic, the cannot replace genuine data diversity and volume or substitute for a well-curated dataset.
+
+\section{Summary}
 This study has shown that vegetation can be classified accurately, but what that accuracy is depends on what the goals are. If incorrectly classifying crops as weeds has a higher cost than incorrectly classifying weeds as crop, a cost-sensitive approach may be appropriate, than the classification approaches studied here. 
 
 An assertion of this study is that the use of texture descriptors using various color space channels (i.e., the $I$ channel of YIQ) will yield better model performance than using texture attributes from greyscale.  As Table \ref{table:texture-color-greyscale-comparison} shows, The enhanced performance of decision tree-based methods (e.g., decision trees, extra trees, random forests), k-nearest neighbors, LDA, and MLP when using texture attributes derived from various color space channels likely stems from these models’ ability to capture complex, non-linear interactions and subtle feature relationships. These classifiers can leverage the richer, multi-dimensional information provided by different color channels to better discriminate between classes, especially when color variations are significant. In contrast, gradient boosting and logistic regression, which are more sensitive to feature collinearity and may rely on more linear decision boundaries, can be adversely affected by the increased noise or redundancy introduced by additional color features. This additional noise might obscure the underlying discriminative patterns, leading to a drop in performance for these methods. Additionally, the nature of gradient boosting, with its sequential focus on correcting errors, may be more susceptible to overfitting when handling high-dimensional feature spaces without robust regularization. The effect is modest in some cases (LDA shows an increase in AUC of only $0.005$) substantial in some (Decision Tree shows an increase in AUC of $0.031$) and slightly negative in some (Logistic Regression shows a decrease of $0.002$).
 
 The results of this study provide support for the assertion that texture descriptors extracted from non-RGB color space channels yield superior classification performance—as measured by AUC—compared to texture descriptors derived solely from greyscale images. Specifically, models utilizing texture features from color spaces such as HSI, YCbCr, and CIELab consistently achieved higher AUC scores than those limited to greyscale descriptors. This improvement is likely due to the richer and more nuanced information available in non-RGB channels, where variations in hue, saturation, and chromaticity offer additional discriminatory power for distinguishing between crops and weeds. The enhanced performance of these models underscores the importance of capturing subtle textural differences that are often lost when reducing images to greyscale. Furthermore, while greyscale-based texture descriptors offer the benefit of reduced computational complexity, they sacrifice critical color information that can be essential for accurately characterizing vegetation patterns in agricultural imagery. These findings advocate for a more comprehensive approach in texture analysis, leveraging non-RGB color spaces to improve the robustness and accuracy of classification systems in precision agriculture. Future research should explore methods to optimize feature selection and manage the increased dimensionality inherent to non-RGB texture descriptors, ensuring that the computational costs are balanced with the performance benefits.
 
-The initial motivation behind this study was to enhance crop/weed classification accuracy through careful examination and comparison of various color, texture, and shape attributes. The findings demonstrate that leveraging specific subsets of these features, particularly when color channel information is integrated, significantly improves classification outcomes. However, the scope of features explored herein, while comprehensive in the context of this research, represents only a fraction of the rich array of attributes potentially available in digital imaging. As a result, substantial opportunities remain to explore additional and possibly more discriminative features, including advanced texture descriptors, spectral indices from hyperspectral imagery, and morphological patterns derived through deep learning approaches.
+\section{Conclusions}
+The initial motivation behind this study was to enhance crop/weed classification accuracy through careful examination and comparison of various color, texture, and shape attributes, and to enhance the performance of texture attributes. The findings demonstrate that leveraging specific subsets of these features, particularly when color channel information is integrated, significantly improves classification outcomes. However, the scope of features explored herein, while comprehensive in the context of this research, represents only a fraction of the rich array of attributes potentially available in digital imaging. As a result, substantial opportunities remain to explore additional and possibly more discriminative features, including advanced texture descriptors, spectral indices from hyperspectral imagery, and morphological patterns derived through deep learning approaches.
 
 While the current study highlights promising directions for improved classification accuracy, the broader context underscores the necessity for further research. Future investigations might consider exploring the effectiveness of combining traditional feature-based approaches with modern deep learning methodologies, which have shown potential in capturing complex, nonlinear feature interactions. Furthermore, additional work could investigate how temporal features, multispectral or hyperspectral imaging, and spatial-contextual information might further enhance classification accuracy and robustness, especially under varying environmental conditions and developmental stages not fully addressed by this research.
 
@@ -3514,7 +3634,7 @@ Ultimately, although this work has advanced the understanding of how specific im
 \printbibliography[heading=none]
 \appendix
 \chapter{Development Details}
-Both commercial and open-source software were used in the development of this study. While the majority of the software (the operational portions responsible for image processing and classification) was written in Python, commercial packages were used for pre-processing. Additionally, R was used in visualization and analysis of classification results. The complete source code for this project is available in this GitHub repository: \href{https://github.com/evan-mcginnis/weeds}{\textit {weeds}}. Images, both raw and processed, are far too large to be hosted with GitHub, and are available on request from the author.
+Both commercial and open-source software were used in the development of this study. While the majority of the software (the operational portions responsible for image processing and classification) was written in Python (39,000 lines), commercial packages were used for pre-processing. Additionally, R was used in visualization and analysis of classification results, but made up a significantly smaller portion, at (700 lines). The complete source code for this project is available in this GitHub repository: \href{https://github.com/evan-mcginnis/weeds}{\textit {weeds}}. Images, both raw and processed, are far too large to be hosted with GitHub, and are available on request from the author.
 
 All development was done on Windows 10 PC (11th Gen Intel(R) Core(TM) i7-11700F \@ 2.50GHz with 32GB RAM), and  with analysis on the University of Arizona's \textit{High Performance Compute Cluster} using Ubuntu 18.04.06.
 
