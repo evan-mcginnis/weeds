@@ -358,6 +358,7 @@ THE UNIVERSITY OF ARIZONA \\
   \vhEntry{1.7}{25 Mar 2025}{EM}{Restructure and eliminate items to achieve balance}
   \vhEntry{1.8}{26 Mar 2025}{EM}{Incorporate review comments on Chapters 4 \& 5.}
   \vhEntry{1.9}{02 Apr 2025}{EM}{Add text to discussion for limitations.}
+  \vhEntry{2.0}{03 Apr 2025}{EM}{Changes discussion during interactive review}
 \end{versionhistory}
 \newpage
 }
@@ -561,7 +562,7 @@ Mekhalfa \& Yacef (2021) &
 UAV images: Soybean vs. weeds & 
 Color histograms (RGB \& HSV); LBP texture& 
 SVM & 
-Color + LBP yielded >96\% accuracy (better than texture or color alone). 
+Color + LBP yielded $>96\%$ accuracy (better than texture or color alone). 
 \tabularnewline\addlinespace
 Sabzi et al. (2020) & 
 Potato vs. 5 weed species (video) & 
@@ -598,8 +599,8 @@ Figure \ref{fig:workflow-sabzi} illustrates a typical weed/crop classification p
 
 \begin{figure}[h!]
 	\centering
-	\includegraphics[width=0.5\linewidth]{./figures/workflow-sabzi.png}
-	\caption[Color correction target and image set identification]{Example weed/crop classification workflow, adapted from \cite{Sabzi2020-af}. Raw images are segmented to isolate plants, from which various features are extracted. A feature selection step (using hybrid ANN with metaheuristic optimizers) selects important features, which are then fed into a classifier (here an ANN-Cultural Algorithm hybrid) to output weed vs. crop identification.}
+	\includegraphics[width=0.5\linewidth]{./figures/sabzi-workflow.png}
+	\caption[Color correction target and image set identification]{Example weed/crop classification workflow, adapted from \citeauthor{Sabzi2020-af} (\citeyear{Sabzi2020-af}). Raw images are segmented to isolate plants, from which various features are extracted. A feature selection step (using hybrid ANN with metaheuristic optimizers) selects important features, which are then fed into a classifier (here an ANN-Cultural Algorithm hybrid) to output weed vs. crop identification.}
 	\label{fig:workflow-sabzi}
 \end{figure}
 
@@ -611,7 +612,7 @@ Class imbalance is a common challenge in many classification problems, including
 \begin{itemize}
 	\item{Data Augmentation \& Synthesis: A straightforward approach is to generate more samples of the minority class. Hasan et al. (2021) constructed a large combined weed/crop image dataset from several smaller sets, then applied extensive image augmentations (rotations, flips, etc.) to mitigate class imbalance \parencite{Mahmudul-Hasan2023-ap}. This improved deep CNN recognition of under-represented weed species. Synthetic data generation techniques like GANs have also been explored to create new weed images, though with mixed success due to realism issues. } 
 
-	\item{Oversampling Minority Class: Oversampling duplicates or creates new minority samples until the class distribution is more balanced. TheSynthetic Minority Oversampling Technique (SMOTE) is widely used  in agricultural datasets. SMOTE generates new synthetic examples along the line segments joining nearest-neighbor minority samples, effectively filling in gaps in feature space. For instance, Ahsen et al. (2024) applied SMOTE to balance weed and crop classes before training SVM and ANN classifiers, which led to improved accuracy on minority weed classes \parencite{Ahsen2024-dm}. An illustration of SMOTE’s effect is shown in Figure 2a – new minority points (green) are introduced between existing ones, alleviating the initial imbalance. However, SMOTE can also introduce overlap between classes if not careful (Figure 2b), as synthetic weeds may encroach on crop feature space. To combat this, variants likeSMOTE-ENN (which adds synthetic samples then applies Edited Nearest Neighbors to remove ambiguous points) have been employed. Bazrafkan et al. (2024) used a stratified sampling with SMOTE-ENN to balance a corn vs. weed polygon dataset, yielding a model with balanced precision and recall (\parencite{Bazrafkan2024-bl}). This reduced bias toward the majority (corn) and improved detection of minority weed instances.  }
+	\item{Oversampling Minority Class: Oversampling duplicates or creates new minority samples until the class distribution is more balanced. TheSynthetic Minority Oversampling Technique (SMOTE) is widely used  in agricultural datasets. SMOTE generates new synthetic examples along the line segments joining nearest-neighbor minority samples, effectively filling in gaps in feature space. For instance, Ahsen et al. (2024) applied SMOTE to balance weed and crop classes before training SVM and ANN classifiers, which led to improved accuracy on minority weed classes \parencite{Ahsen2024-dm}. An illustration of SMOTE’s effect is shown in Figure 2a – new minority points (green) are introduced between existing ones, alleviating the initial imbalance. However, SMOTE can also introduce overlap between classes if not careful (Figure 2b), as synthetic weeds may encroach on crop feature space. To combat this, variants likeSMOTE-ENN (which adds synthetic samples then applies Edited Nearest Neighbors to remove ambiguous points) have been employed. Bazrafkan et al. (2024) used a stratified sampling with SMOTE-ENN to balance a corn vs. weed polygon dataset, yielding a model with balanced precision and recall. This reduced bias toward the majority (corn) and improved detection of minority weed instances.  }
 
 	\item{Undersampling Majority Class: The opposite strategy is to downsample the majority class, training on a subset to match the minority count. While simple, this can discard useful data. In weed/crop studies, undersampling is less common than oversampling, since weed datasets are often limited \parencite{Mahmudul-Hasan2022-cj}. However, in cases where background or non-plant images vastly outnumber weed examples, controlled undersampling of background patches can help rebalance the training set.}  
 
@@ -697,11 +698,17 @@ techniques to dealing with class imbalance in order to improve the accuracy of t
 Segmentation aims to isolate plant pixels from soil background (and sometimes separates crop vs. weed regions) so that features can be extracted reliably. Doing so also reduces the datasets size making the computing resources more efficient since they will focus on actual weeds and crops and ignore the irrelevant parts of the images. Researchers have explored various segmentation methods, particularly focusing on the choice of color space to improve plant segmentation under real-world conditions.
 %
 \subsection{Segmentation with RGB based Color Indices}  
-Many early methods operate directly in the RGB color space by exploiting the green color of vegetation. A common technique is \textit{color thresholding or color index segmentation}. For example, the excess green index ($ExG = 2G - R - B$) highlights green vegetation and can be thresholded to create a binary mask of plants vs. background \parencite{Wu2021-gt}. \citeauthor{Tang2000-an} (\citeyear{Tang2000-an}) proposed a modified color component approach using $ExG$ to segment weeds from soil, which proved effective in homogeneous lighting \parencite{Tang2000-an}. Similarly, simple thresholding on the green channel or ratios like $G/R$ can segment green plants in RGB images. These methods are fast and worked well in controlled conditions; Figure \ref{fig:segmentation-example} shows an example segmented mask where broadleaf and grass weeds were isolated from soil using such color difference techniques. However, RGB-based segmentation has limitations. The R, G, B channels are highly correlated and all vary with lighting intensity \parencite{Wu2021-gt}. Additionally, young crops and weeds can share similar RGB values, causing mis-segmentation when relying purely on greenness.
+Many early methods operate directly in the RGB color space by exploiting the green color of vegetation. A common technique is \textit{color thresholding or color index segmentation}. For example, the excess green index given by:
+
+\begin{equation}\label{eqn:exg}
+ExG = 2G - R - B \\
+\end{equation}
+\myequations{Excessive Green}
+ where $G$, $R$, \& $B$ are the red, green, and blue values, respectively, highlights green vegetation and can be thresholded to create a binary mask of plants vs. background \parencite{Wu2021-gt}. \citeauthor{Tang2000-an} (\citeyear{Tang2000-an}) proposed a modified color component approach using $ExG$ to segment weeds from soil, which proved effective in homogeneous lighting \parencite{Tang2000-an}. Similarly, simple thresholding on the green channel or ratios like $G/R$ can segment green plants in RGB images. These methods are fast and worked well in controlled conditions; Figure \ref{fig:segmentation-example} shows an example segmented mask where broadleaf and grass weeds were isolated from soil using such color difference techniques. However, RGB-based segmentation has limitations. The R, G, B channels are highly correlated and all vary with lighting intensity \parencite{Wu2021-gt}. Additionally, young crops and weeds can share similar RGB values, causing mis-segmentation when relying purely on greenness.
 
 \begin{figure}[h!]
 	\centering
-	\includegraphics[width=0.5\linewidth]{./figures/segmentation-review.png}
+	\includegraphics[width=0.9\linewidth]{./figures/segmentation-review.png}
 	\caption[Examples of plant segmentation outcomes under different conditions]{Examples of plant segmentation outcomes under different conditions \parencite{Wu2021-gt}. Subfigure (a) Soybean crop (top-left) and weeds (broadleaf, grass) segmented from a complex background using color-index methods – black backgrounds here indicate extracted plant regions. Subfigure (b) Isolated leaf samples on uniform background (Flavia dataset) where simple thresholding suffices. Subfigure (c) Young maize seedlings in soil – segmentation challenges include varying soil color and lighting. Subfigure (d) Weeds amid crops in natural soil background – requiring advanced segmentation (e.g., machine learning or spectral methods) to separate weed plants from crop seedlings. Reproduced from \citeauthor{Wu2021-gt} (\citeyear{Wu2021-gt}).}
 	\label{fig:segmentation-example}
 \end{figure}
