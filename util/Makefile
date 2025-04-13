@@ -84,3 +84,9 @@ lbp-figure:
 	$(eval _OUTPUT = `cygpath -w $(OUTPUT)`)
 	python lbp-graph.py -l $(_LEFT) -r $(_RIGHT) -o $(_OUTPUT)
 
+calibration-plot:
+	$(eval _CORRECTED = `cygpath -w $(CORRECTED)`)
+	$(eval _UNCORRECTED = `cygpath -w $(UNCORRECTED)`)
+	$(eval _SCRATCH = `cygpath -w $(SCRATCH)`)
+	$(eval _OUTPUT = `cygpath -w $(OUTPUT)`)
+	python plot-calibration.py -c $(_CORRECTED) -u $(_UNCORRECTED) --scratch $(_SCRATCH) --output $(_OUTPUT)
