@@ -30,6 +30,7 @@ import constants
 from Factors import Factors
 from Factors import FactorTypes
 from Factors import FactorSubtypes
+from Factors import ColorSpace
 from WeedExceptions import EOL
 from Classifier import ImbalanceCorrection
 
@@ -209,7 +210,7 @@ class Selection(ABC):
         blacklistColumns = t.columnsToDrop
 
         # Get the column names used & append the type name
-        self._columns = self._allFactors.getColumns(self._types, self._subtypes, blacklist=blacklistColumns)
+        self._columns = self._allFactors.getColumns(self._types, self._subtypes, blacklist=blacklistColumns, restricted=restrictions)
         self._columns.append(constants.NAME_TYPE)
 
         # Confirm the file exists
@@ -1205,7 +1206,7 @@ if __name__ == "__main__":
             if currentCombination % 100 == 0:
                 logger.info(f"{technique.name}: combination: {currentCombination} parameters: {combination.parameters}")
             technique.selections = combination.parameters
-            technique.correct = True
+            technique.correct = False
             technique.load(dataFile, stratify=False)
             if correct != constants.NAME_NONE:
                 # Correct the imbalance
@@ -1373,6 +1374,7 @@ if __name__ == "__main__":
     parser.add_argument("-df", "--data", action="store", required=True, help="Name of the data in CSV to evaluate")
     parser.add_argument("-fs", "--selection", action="store", required=True, choices=Selection.supportedSelections(), help="Feature selection")
     parser.add_argument("-f", "--factors", type=int, required=False, default=10)
+    parser.add_argument("-g", "--greyscale", action="store_true", required=False, default=False, help="Restrict texture attributes to greyscale")
     parser.add_argument("-lg", "--logging", action="store", default="logging.ini", help="Logging configuration file")
     parser.add_argument("-lf", "--logfile", action="store", default="weeds.log", help="Logging output file")
     parser.add_argument("-l", "--latex", action="store_true", required=False, default=False, help="Output latex tables")
@@ -1410,6 +1412,12 @@ if __name__ == "__main__":
         if arguments.prefix is None:
             print(f"Searching for optimal parameters requires prefix specified")
             exit(1)
+
+    # A bit of a hack -- if the user specifies the greyscale restriction for texture attributes, build up a list to use
+    if arguments.greyscale:
+        restrictions = [(FactorTypes.TEXTURE, ColorSpace.GREYSCALE)]
+    else:
+        restrictions = None
 
     logger = startupLogger(arguments.logging, arguments.logfile)
 
