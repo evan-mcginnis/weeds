@@ -227,7 +227,8 @@ weeds-no-db:
 	#$(eval _CLASSIFICATION = `cygpath -w $(CLASSIFICATION)`)
 	test -n "$(_TRAINING)"
 	#$(PYTHON) weeds.py -i $(_INPUT) -o $(_OUTPUT) -a $(INDEX) -df $(_TRAINING) $(ALGFLAG) -sc -op $(OPERATION) -lg $(LOG) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE)  -alt $(ALTITUDE) -cr $(CROP) $(CORRECTIONFLAGS) -t $(THRESHOLD) -c -ma $(AREA) --session-name $(SESSION)
-	$(PYTHON) weeds.py -i $(_INPUT) -o $(_OUTPUT) -a $(INDEX) -df $(_TRAINING) $(ALGFLAG) -sc -op $(OPERATION) -lg $(LOG) -d $(DECORATIONS)  $(_CONTOURS) -ini $(INI) $(STANDALONE)  -alt $(ALTITUDE) -cr $(CROP) $(CORRECTIONFLAGS) -t $(THRESHOLD) -c -ma $(AREA) --session-name $(SESSION) --date $(_DATE) --fontscale $(SCALE)
+	$(PYTHON) weeds.py -i $(_INPUT) -o $(_OUTPUT) -a $(INDEX) -df $(_TRAINING) $(ALGFLAG) -sc -op $(OPERATION) -lg $(LOG) -d $(DECORATIONS)  $(_CONTOURS) -ini $(INI) $(STANDALONE)  -alt $(ALTITUDE) -cr $(CROP) $(CORRECTIONFLAGS) -t $(THRESHOLD) -c -ma $(AREA) --session-name $(SESSION) --date $(_DATE) --fontscale $(SCALE) --hull
+
 
 # Debug memory leak
 weeds-memory:
@@ -253,6 +254,31 @@ comprehensive-test:
 # This will produce the table that can be copied into a document
 FORMAT?=latex
 LOGGING?=standalone-logging.ini
+# Imbalance correction
+ifeq ($(IMBALANCE), TRUE)
+_IMBALANCE=--imbalance
+else
+_IMBALANCE=
+endif
+# Show parameters in table
+ifeq ($(OMIT), TRUE)
+_OMIT=--omit
+else
+_OMIT=
+endif
+
+ifeq ($(FACTOR-PREFIX), "")
+_FACTORPREFIX=
+else
+_FACTORPREFIX=--begins $(FACTOR-PREFIX)
+endif
+
+ifeq ($(GREYSCALE), TRUE)
+_GREYSCALE=--greyscale
+else
+_GREYSCALE=
+endif
+
 optimal-results:
 	$(eval _PARAMETERS = `cygpath -w $(PARAMETERS)`)
 	$(eval _RESULTS = `cygpath -w $(RESULTS)`)
@@ -268,7 +294,25 @@ optimal-results:
 	test -n "$(OUTPUT)"
 	$(eval _OUTPUT = `cygpath -w $(OUTPUT)`)
 	#$(PYTHON) results.py -r $(_RESULTS) -c $(_PARAMETERS) -o $(FORMAT) --type $(TYPE) --subtype $(SUBTYPE) -lg $(LOGGING) --directory $(_ALL_RESULTS) -n 2 --long "$(CAPTION_LONG)"  --short "$(CAPTION_SHORT)" --label $(LABEL)
-	$(PYTHON) results.py --prefix $(PREFIX) -c $(_PARAMETERS) -o $(FORMAT) --type $(TYPE) --subtype $(SUBTYPE) -lg $(LOGGING) --directory $(_ALL_RESULTS) --long "$(CAPTION_LONG)"  --short "$(CAPTION_SHORT)" --label $(LABEL) --summary --table $(_OUTPUT)
+	$(PYTHON) results.py --prefix  $(PREFIX) -c $(_PARAMETERS) -o $(FORMAT) --type $(TYPE) --subtype $(SUBTYPE) -lg $(LOGGING) --directory $(_ALL_RESULTS) --long "$(CAPTION_LONG)"  --short "$(CAPTION_SHORT)" --label $(LABEL) --summary $(_IMBALANCE) --table $(_OUTPUT) $(_OMIT)
+
+optimal-counts:
+	$(eval _PARAMETERS = `cygpath -w $(PARAMETERS)`)
+	$(eval _RESULTS = `cygpath -w $(RESULTS)`)
+	$(eval _ALL_RESULTS = `cygpath -w $(ALL_RESULTS)`)
+	test -n "$(TYPE)"
+	test -n "$(SUBTYPE)"
+	test -n "$(FORMAT)"
+	test -n "$(LOGGING)"
+	test -n "$(CAPTION_LONG)"
+	test -n "$(CAPTION_SHORT)"
+	test -n "$(LABEL)"
+	test -n "$(PREFIX)"
+	test -n "$(OUTPUT)"
+	$(eval _OUTPUT = `cygpath -w $(OUTPUT)`)
+	#$(PYTHON) results.py -r $(_RESULTS) -c $(_PARAMETERS) -o $(FORMAT) --type $(TYPE) --subtype $(SUBTYPE) -lg $(LOGGING) --directory $(_ALL_RESULTS) -n 2 --long "$(CAPTION_LONG)"  --short "$(CAPTION_SHORT)" --label $(LABEL)
+	$(PYTHON) results.py --close --prefix  $(PREFIX) -c $(_PARAMETERS) -o $(FORMAT) --type $(TYPE) --subtype $(SUBTYPE) -lg $(LOGGING) --directory $(_ALL_RESULTS) --long "$(CAPTION_LONG)"  --short "$(CAPTION_SHORT)" --label $(LABEL) --summary $(_IMBALANCE) --table $(_OUTPUT)
+
 
 optimal-results-seasonality:
 	$(eval _PARAMETERS = `cygpath -w $(PARAMETERS)`)
@@ -332,6 +376,12 @@ else
 _CORRECT=
 endif
 
+ifeq ($(GREYSCALE), TRUE)
+_GREYSCALE=--greyscale
+else
+_GREYSCALE=
+endif
+
 optimal:
 	test -n "$(FACTORS)"
 	test -n "$(TYPE)"
@@ -339,7 +389,7 @@ optimal:
 	test -n "$(PREFIX)"
 	$(eval _TRAINING = `cygpath -w $(TRAINING)`)
 	$(eval _OUTPUT = `cygpath -w $(OUTPUT)`)
-	$(PYTHON) Selection.py -df $(_TRAINING) -fs ALL -f $(FACTORS) -l -lg standalone-logging.ini -p $(PREFIX) -o -ty $(TYPE) -s $(SUBTYPE) -od $(_OUTPUT) $(_CORRECT)
+	$(PYTHON) Selection.py -df $(_TRAINING) -fs ALL -f $(FACTORS) -l -lg standalone-logging.ini -p $(PREFIX) -o -ty $(TYPE) -s $(SUBTYPE) -od $(_OUTPUT) $(_CORRECT) $(_GREYSCALE)
 
 # Test the various types and subtypes -- find the optimal set and then write that out
 optimal-detailed:
