@@ -8,6 +8,7 @@ from collections import Counter
 import math
 import glob
 import sys
+from typing import List
 
 from statsmodels.tsa.stattools import adfuller
 
@@ -84,6 +85,98 @@ def insertInTopN(candidate: IndividualResult, criterion: Criteria, topN: [], equ
             break
     return topN, equivalentN
 
+def findHighestScores(allResults: List[AllResults], threshold: float) -> pd.DataFrame:
+    """
+    Find the highest scores among all the results.
+    :param threshold: If this is a non-zero value, record the counts close to the maximum, otherwise record the actual value
+    :param allResults: All results
+    :return: pandas dataframe with a row for each technique
+    """
+    highestScores = []
+    # Each technique (DECISIONTREE, MLP, etc)
+    for technique in allResults:
+        highestAUC = -1
+        highestMAP = -1
+        highestRecall = -1
+        highestPrecision = -1
+        highestF1 = -1
+        highestAccuracy = -1
+
+        # For every result in that technique (every combination of parameters)
+        for individualResult in technique.results:
+            if individualResult.auc > highestAUC:
+                highestAUC = individualResult.auc
+                print(f"Found highest AUC with: {individualResult.parameters}")
+            if individualResult.f1 > highestF1:
+                highestF1 = individualResult.f1
+                print(f"Found highest F1 with: {individualResult.parameters}")
+            if individualResult.precision > highestPrecision:
+                highestPrecision = individualResult.precision
+                print(f"Found highest precision with: {individualResult.parameters}")
+            if individualResult.recall > highestRecall:
+                highestRecall = individualResult.recall
+                print(f"Found highest recall with: {individualResult.parameters}")
+            if individualResult.accuracy > highestAccuracy:
+                highestAccuracy = individualResult.accuracy
+                print(f"Found highest accuracy with: {individualResult.parameters}")
+            if individualResult.map > highestMAP:
+                highestMAP = individualResult.map
+                print(f"Found highest MAP with: {individualResult.parameters}")
+
+        # Now we have the maximum values for a technique.
+
+        # Walk through the list again to find the count of the values close to that threshold
+        if threshold > 0.0:
+            countAUC = 0
+            countF1 = 0
+            countPrecision = 0
+            countRecall = 0
+            countMAP = 0
+            countAccuracy = 0
+
+            for individualResult in technique.results:
+                if math.isclose(highestAUC, individualResult.auc, rel_tol=threshold):
+                    countAUC += 1
+                if math.isclose(highestPrecision, individualResult.precision, rel_tol=threshold):
+                    countPrecision += 1
+                if math.isclose(highestRecall, individualResult.recall, rel_tol=threshold):
+                    countRecall += 1
+                if math.isclose(highestF1, individualResult.f1, rel_tol=threshold):
+                    countF1 += 1
+                if math.isclose(highestMAP, individualResult.map, rel_tol=threshold):
+                    countMAP += 1
+                if math.isclose(highestAccuracy, individualResult.accuracy, rel_tol=threshold):
+                    countAccuracy += 1
+
+            # Each entry is an absolute count. Convert them to %
+            percentAUC = (countAUC / len(technique.results)) * 100
+            percentF1 = (countF1 / len(technique.results)) * 100
+            percentPrecision = (countPrecision / len(technique.results)) * 100
+            percentRecall = (countRecall / len(technique.results)) * 100
+            percentMAP = (countMAP / len(technique.results)) * 100
+            percentAccuracy = (countAccuracy / len(technique.results)) * 100
+            highestScores.append({'Technique': technique.technique, 'AUC': percentAUC, 'Precision': percentPrecision, 'Recall': percentRecall, 'F1': percentF1})
+
+        # No threshold, record the actual value
+        else:
+            highestScores.append({'Technique': technique.technique, 'AUC': highestAUC, 'Precision': highestPrecision, 'Recall': highestRecall, 'F1': highestF1})
+
+    # Construct a dataframe from the scores
+    df = pd.DataFrame(highestScores)
+
+    return df
+
+def formCaption(rawCaption: str, threshold: float):
+    """
+    Form the caption for a table, replacing the metacharacters with the threshold
+    :param rawCaption: The caption with %T is to be replaced with threshold
+    :param threshold:
+    :return:
+    """
+    percentage = f"{threshold:.0%}".replace("%", "\\%")
+    caption = rawCaption.replace("%T", str(threshold))
+    return caption
+
 parser = argparse.ArgumentParser("Results file operation")
 
 FORMAT_LATEX = "latex"
@@ -108,6 +201,9 @@ classificationChoices.append(constants.NAME_ALL)
 
 imbalanceNames = [e.name for e in ImbalanceCorrection]
 
+tableItems = ["parameters", "auc", "f1", "precision", "recall", "map"]
+defaultTableItems = ["parameters", "auc"]
+
 parser.add_argument("-c", "--computed", action="store", required=True, help="Pickle format file with computed parameters")
 parser.add_argument("-cr", "--criteria", action="store", required=False, default="AUC", choices=criteriaChoices, help="Criteria to determine maximum")
 parser.add_argument("-cl", "--long", action="store", required=False, default="Long Caption", help="(latex) Table long caption")
@@ -118,6 +214,8 @@ parser.add_argument("-lg", "--logging", action="store", required=False, default=
 parser.add_argument("-n", "--n", action="store", required=False, default=-1, type=int, help="Number of combinations")
 parser.add_argument("-o", "--output", action="store", required=True, choices=[FORMAT_LATEX, FORMAT_TEXT, FORMAT_CSV], help="Output format")
 parser.add_argument("-od", "--directory", action="store", required=True,  help="Results file directory")
+# Items to include in the table -- for example --include auc,f1,precision would include only those as headers
+parser.add_argument("-i", "--include", action="store", required=False, nargs='*', choices=tableItems, default=defaultTableItems, help="Include in table")
 
 options = parser.add_mutually_exclusive_group()
 # The prefix needs a bit of explanation -- the result file has ALL the five evaluation criteria (auc, f1, map, precision, recall)
@@ -127,6 +225,7 @@ options.add_argument("-r", "--results", action="store", help="Pickle file for te
 
 parser.add_argument("-si", "--similarity", action="store", required=False, type=float, help="Show items where similarity matches")
 parser.add_argument("-su", "--summary", action="store_true", required=False, help="Show a summary of the results")
+parser.add_argument("-ct", "--close", action="store_true", required=False, default=False, help="Show count of results close to maximum")
 
 # Produce seasonality comparison table instead of just the attributes
 parser.add_argument("-se", "--seasonality", action="store_true", required=False, default=False, help="Show seasonality instead of attribute names")
@@ -136,6 +235,7 @@ parser.add_argument("-so", "--source", action="store", required=False, help="The
 # For instance the first file was uncorrected, and the second was corrected.
 parser.add_argument("-co", "--compare", action="store_true", required=False, default=False, help="Compare results to specified set")
 parser.add_argument("-t", "--target", action="store", required=False, help="Compare results to this file (required if --compare is")
+parser.add_argument("-th", "--threshold", action="store", required=False, default=3e-9, type=float, help="Threshold for --close option")
 
 parser.add_argument("-table", "--table", action="store", required=False, help="Output file for table")
 # The classification techniques
@@ -155,6 +255,8 @@ niceColumnNames = {"_accuracy": "Accuracy",
                    "_recall": "Recall",
                    "_f1": "F1",
                    "_parameters": "Parameters"}
+
+
 
 if arguments.seasonality:
     if arguments.source is None:
@@ -272,7 +374,8 @@ def averageScores(finalSubset: pd.DataFrame) -> pd.DataFrame:
     """
     # This is a bit of a hack -- just treat the technique and parameter as string, and everything else is a float
     # This is to address the problem where constant values are type Object, not float
-    stringColumns = ['Technique', 'Parameters', 'Correction']
+    #stringColumns = ['Technique', 'Parameters', 'Correction']
+    stringColumns = ['Technique', 'Parameters']
     typeConversions = {}
     for column in finalSubset.columns:
         if column not in stringColumns:
@@ -296,7 +399,7 @@ def averageScores(finalSubset: pd.DataFrame) -> pd.DataFrame:
         finalSubset.at[0, 'Parameters'] = 'UNKNOWN'
 
     if averages[0] > 0 and len(averages) == 5:
-        averaged.loc[0] = [finalSubset.at[0, 'Technique']] + list(averages) + [finalSubset.at[0,'Correction']] + [finalSubset.at[0, 'Parameters']]
+        averaged.loc[0] = [finalSubset.at[0, 'Technique']] + list(averages) + [finalSubset.at[0, 'Parameters']]
 
     # There is a bug in the code -- if the column is constant, it is of type object, not float
     if len(averages) != 5:
@@ -340,13 +443,14 @@ def replaceParametersWithSeasonality(results, sourceDF):
 if arguments.summary:
     columnNames = ['Technique']
     columnNames.extend(list(scoreNames))
-    columnNames.extend(["Correction"])
+    #columnNames.extend(["Correction"])
     columnNames.extend(["Parameters"])
 
     resultsDF = pd.DataFrame(columns=columnNames)
 
     for technique in allResults:
-        print(f"Technique {technique.technique} Correction {technique.correction}")
+        #print(f"Technique {technique.technique} Correction {technique.correction}")
+        print(f"Technique {technique.technique}")
         resultsSubset = pd.DataFrame(columns=columnNames)
         highestAUC = -1
         highestMAP = -1
@@ -359,11 +463,12 @@ if arguments.summary:
 
         # Create 5 entries for a given technique
         for scores in scoreNames:
-            resultsSubset.loc[len(resultsSubset)] = [technique.technique, -1, -1, -1, -1, -1, technique.correction, technique.parameters]
+            #resultsSubset.loc[len(resultsSubset)] = [technique.technique, -1, -1, -1, -1, -1, technique.correction, technique.parameters]
+            resultsSubset.loc[len(resultsSubset)] = [technique.technique, -1, -1, -1, -1, -1, technique.parameters]
 
         # Iterate over the results, replacing as needed
         for result in technique.results:
-            #print(f"Result: {result}")
+            print(f"Result: {result}")
             # Catch the case where the computation is not complete.
             if result.status != Status.COMPLETED:
                 print(f"Entry is not complete: {result}")
@@ -380,7 +485,8 @@ if arguments.summary:
 
             #print(f"{result.auc},{result.accuracy}")
             allParameters = ' '.join(result.parameters)
-            row = [result.technique, result.precision, result.recall, result.f1, result.map, result.auc, result.correction, allParameters]
+            #row = [result.technique, result.precision, result.recall, result.f1, result.map, result.auc, result.correction, allParameters]
+            row = [result.technique, result.precision, result.recall, result.f1, result.map, result.auc, allParameters]
             replacementIndex = -1
 
 
@@ -390,6 +496,11 @@ if arguments.summary:
             # highestF1 = highestAUC.copy()
             # highestPrecision = highestAUC.copy()
             # highestRecall =  highestAUC.copy()
+            closestAUC = 0
+            closestMAP = 0
+            closestF1 = 0
+            closestPrecision = 0
+            closestRecall = 0
 
             highestAUC = -1
             highestMAP = -1
@@ -399,7 +510,8 @@ if arguments.summary:
 
             # Iterate over the results to find the highest score for the results
             for index, techniqueItem in resultsSubset.iterrows():
-                print(f"{techniqueItem['Technique']} + {techniqueItem['Correction']}: AUC: {techniqueItem['AUC']} Parameters: {techniqueItem['Parameters']}")
+                #print(f"{techniqueItem['Technique']} + {techniqueItem['Correction']}: AUC: {techniqueItem['AUC']} Parameters: {techniqueItem['Parameters']}")
+                print(f"{techniqueItem['Technique']} : AUC: {techniqueItem['AUC']} Parameters: {techniqueItem['Parameters']}")
                 #if result.auc > techniqueItem["AUC"] and result.auc > highestAUC[technique["Correction"]]:
                 if arguments.criteria == "AUC":
                     if result.auc > techniqueItem["AUC"] and result.auc > highestAUC:
@@ -433,7 +545,7 @@ if arguments.summary:
                 #     continue
                 #replaceCurrentRow = highestPrecision == result.precision and highestRecall == result.recall and highestF1 == result.f1 and highestMAP == result.map
             if replacementIndex != -1:
-                #print(f"Replacement index {replacementIndex}")
+                print(f"Replacement index {replacementIndex}")
                 resultsSubset.loc[replacementIndex] = row
                 replacementIndex = -1
         # Now we have entries where some rows are not the top in anything or are tied for the top
@@ -452,23 +564,94 @@ if arguments.summary:
             print(f"Appending {len(finalSubset)} to dataframe")
             resultsDF = resultsDF.append(finalSubset)
 
+    # For results that are close to the maximum, we have to go through the list again, now that the maximum is found
+    if arguments.close:
+        # Find the counts of the highest scores that are within the threshold of the maximum
+        highestScores = findHighestScores(allResults, threshold=arguments.threshold)
+        highestScores.sort_values(by=["AUC"], inplace=True)
 
-    if matchingRows > 0:
+        # Form the caption, replacing text for the threshold
+        longCaption = formCaption(arguments.long, arguments.threshold)
+        shortCaption = formCaption(arguments.short, arguments.threshold)
+
+        columnFormat = 'lrrrr'
+        dfLatex = highestScores.to_latex(longtable=True, index_names=False, index=False, caption=(longCaption, shortCaption), float_format='%0.2f', label=arguments.label, column_format=columnFormat)
+        if arguments.table is not None:
+            f = open(arguments.table, "w")
+            f.write(f"{dfLatex}")
+            f.close()
+        print(f"{dfLatex}")
+        #
+        # closeResults = [
+        #     {'Technique': ClassificationTechniques.SVM.name, 'AUC': 0, 'Precision': 0, 'Recall': 0, 'MAP': 0},
+        #     {'Technique': ClassificationTechniques.MLP.name, 'AUC': 0, 'Precision': 0, 'Recall': 0, 'MAP': 0},
+        #     {'Technique': ClassificationTechniques.LDA.name, 'AUC': 0, 'Precision': 0, 'Recall': 0, 'MAP': 0},
+        #     {'Technique': ClassificationTechniques.RANDOMFOREST.name, 'AUC': 0, 'Precision': 0, 'Recall': 0, 'MAP': 0},
+        #     {'Technique': ClassificationTechniques.EXTRA.name, 'AUC': 0, 'Precision': 0, 'Recall': 0, 'MAP': 0},
+        #     {'Technique': ClassificationTechniques.GRADIENT.name, 'AUC': 0, 'Precision': 0, 'Recall': 0, 'MAP': 0},
+        #     {'Technique': ClassificationTechniques.DECISIONTREE.name, 'AUC': 0, 'Precision': 0, 'Recall': 0, 'MAP': 0},
+        #     {'Technique': ClassificationTechniques.KNN.name, 'AUC': 0, 'Precision': 0, 'Recall': 0, 'MAP': 0},
+        #     {'Technique': ClassificationTechniques.LOGISTIC.name, 'AUC': 0, 'Precision': 0, 'Recall': 0, 'MAP': 0}
+        # ]
+        # counts = pd.DataFrame(columns=['Technique', 'AUC', 'Precision', 'Recall', 'MAP'])
+        # counts = pd.DataFrame.from_dict(closeResults)
+        # counts.set_index('Technique', inplace=True)
+        #
+        # # For each of the ML techniques (DECISIONTREE, EXTRA, etc.)
+        # for technique in allResults:
+        #     # For each results
+        #     numberOfResults = 0
+        #     techniqueName = ""
+        #     for result in technique.results:
+        #         techniqueName = result.technique
+        #         techniqueMax = resultsDF.loc[resultsDF['Technique'] == result.technique]
+        #         if math.isclose(techniqueMax.iloc[0][arguments.criteria], result.auc, rel_tol=9e-3):
+        #             #print(f"{result.auc} is close to {techniqueMax.iloc[0][arguments.criteria]}")
+        #             #print(f"{result.technique} has multiple items close to max")
+        #             closeResults[result.technique] += 1
+        #     # The closeResults dictionary holds the raw counts, so convert them to percentages
+        #     closeResults[techniqueName] = (closeResults[techniqueName] / len(technique.results)) * 100
+        # closeDF = pd.DataFrame.from_dict(closeResults, orient='index', columns=["Percentage"])
+        # closeDF.sort_values(by=["Percentage"], inplace=True)
+        # closeDF = closeDF.reset_index()
+        #
+        # longCaption = arguments.long
+        # shortCaption = arguments.short
+        # dfLatex = closeDF.to_latex(longtable=True, index_names=False, index=False, caption=(longCaption, shortCaption), float_format='%.3f', label=arguments.label, column_format='ll')
+        # dfLatex = dfLatex.replace("index", "Technique")
+        # if arguments.table is not None:
+        #     f = open(arguments.table, "w")
+        #     f.write(f"{dfLatex}")
+        #     f.close()
+        # print(f"{dfLatex}")
+
+    if matchingRows > 0 and not arguments.close:
         print(f"-- begin latex for summary ---")
         longCaption = arguments.long
         shortCaption = arguments.short
         #resultsDF = resultsDF.convert_dtypes()
+
+        # Frame cleanup and explicitly set type
         # If we don't explicitly convert the Technique column to a string, we see problems
         resultsDF['Technique'] = resultsDF['Technique'].astype('string')
-        resultsDF['Correction'] = resultsDF['Correction'].astype('string')
+        # All other columns except for Technique and Parameters should be float64, or there are problems
+        stringColumns = ['Technique', 'Parameters']
+        for column in resultsDF.columns:
+            if column not in stringColumns:
+                resultsDF[column] = resultsDF[column].astype('float64')
+
+        #resultsDF['Correction'] = resultsDF['Correction'].astype('string')
         #resultsDF.drop(["Technique"], inplace=True, axis=1)
         resultsDF.drop_duplicates(inplace=True)
 
         # Drop the columns except the technique and parameters
         #whitelist = ['Technique', 'Parameters', 'Correction']
-        whitelist = ['Technique', 'Parameters']
+        whitelist = [item.upper() for item in arguments.include]
+        whitelist.append("TECHNIQUE")
+        print(f"All columns: {resultsDF.columns} Target: {whitelist}")
+        # Drop the columns that are not wanted
         for column in resultsDF.columns:
-            if column not in whitelist and column.upper() != arguments.criteria:
+            if column.upper() not in whitelist and column.upper() != arguments.criteria:
                 resultsDF.drop(column, inplace=True, axis=1)
 
         if arguments.seasonality:
@@ -483,9 +666,14 @@ if arguments.summary:
         if arguments.table is not None:
             f = open(arguments.table, "w")
         with pd.option_context("max_colwidth", 1000):
+            # Formatting table columns based on numbers -- we need technique name and AUC + whatever is specified to include
+            formatOfColumns = 'lc'
+            for columnPosition in range(len(resultsDF.columns) - 2):
+                formatOfColumns += 'l'
+            print(f"Format: {formatOfColumns}")
             if arguments.table is not None:
-                f.write(f"{resultsDF.to_latex(longtable=True, index_names=False, index=False, caption=(longCaption, shortCaption),  float_format='%.3f', label=arguments.label, column_format='lcll')}")
-            print(f"{resultsDF.to_latex(longtable=True, index_names=False, index=False, caption=(longCaption, shortCaption),  float_format='%.3f', label=arguments.label, column_format='lcll')}")
+                f.write(f"{resultsDF.to_latex(longtable=True, index_names=False, index=False, caption=(longCaption, shortCaption),  float_format='%.3f', label=arguments.label)}")
+            #print(f"{resultsDF.to_latex(longtable=True, index_names=False, index=False, caption=(longCaption, shortCaption),  float_format='%.3f', label=arguments.label, column_format=formatOfColumns)}")
         if f is not None:
             f.close()
         print(f"-----------------")
