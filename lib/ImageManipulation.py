@@ -49,7 +49,7 @@ COLOR_IGNORED = (255, 255, 255)
 MIDDLE_THRESHOLD = 200
 
 # The lines for the enclosing rectangle
-BOUNDING_BOX_THICKNESS = 4
+BOUNDING_BOX_THICKNESS = 16
 
 
 class ImageManipulation:
