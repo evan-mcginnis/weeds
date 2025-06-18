@@ -159,7 +159,9 @@ endif
 ifeq ($(ML), mlp)
 	ALGFLAG = -mlp
 endif
-
+ifeq ($(ML), occ)
+	ALGFLAG = -occ
+endif
 
 # Crop in image -- not used for all that much
 CROP?=unknown
@@ -227,7 +229,7 @@ weeds-no-db:
 	#$(eval _CLASSIFICATION = `cygpath -w $(CLASSIFICATION)`)
 	test -n "$(_TRAINING)"
 	#$(PYTHON) weeds.py -i $(_INPUT) -o $(_OUTPUT) -a $(INDEX) -df $(_TRAINING) $(ALGFLAG) -sc -op $(OPERATION) -lg $(LOG) -d $(DECORATIONS) $(CONTOURS) -ini $(INI) $(STANDALONE)  -alt $(ALTITUDE) -cr $(CROP) $(CORRECTIONFLAGS) -t $(THRESHOLD) -c -ma $(AREA) --session-name $(SESSION)
-	$(PYTHON) weeds.py -i $(_INPUT) -o $(_OUTPUT) -a $(INDEX) -df $(_TRAINING) $(ALGFLAG) -sc -op $(OPERATION) -lg $(LOG) -d $(DECORATIONS)  $(_CONTOURS) -ini $(INI) $(STANDALONE)  -alt $(ALTITUDE) -cr $(CROP) $(CORRECTIONFLAGS) -t $(THRESHOLD) -c -ma $(AREA) --session-name $(SESSION) --date $(_DATE) --fontscale $(SCALE) --hull
+	$(PYTHON) weeds.py -i $(_INPUT) -o $(_OUTPUT) -a $(INDEX) -df $(_TRAINING) $(ALGFLAG) -sc -op $(OPERATION) -lg $(LOG) -d $(DECORATIONS)  $(_CONTOURS) -ini $(INI) $(STANDALONE)  -alt $(ALTITUDE) -cr $(CROP) $(CORRECTIONFLAGS) -t $(THRESHOLD) -c -ma $(AREA) --session-name $(SESSION) --date $(_DATE) --fontscale $(SCALE) --hu
 
 
 # Debug memory leak
@@ -279,6 +281,20 @@ else
 _GREYSCALE=
 endif
 
+# Columns to include in the output table
+ifndef COLUMNS
+_COLUMNS=
+else
+_COLUMNS=--include $(COLUMNS)
+endif
+
+# Type of classification
+ifndef APPROACH
+_APPROACH=
+else
+_APPROACH=--technique $(APPROACH)
+endif
+
 optimal-results:
 	$(eval _PARAMETERS = `cygpath -w $(PARAMETERS)`)
 	$(eval _RESULTS = `cygpath -w $(RESULTS)`)
@@ -294,7 +310,14 @@ optimal-results:
 	test -n "$(OUTPUT)"
 	$(eval _OUTPUT = `cygpath -w $(OUTPUT)`)
 	#$(PYTHON) results.py -r $(_RESULTS) -c $(_PARAMETERS) -o $(FORMAT) --type $(TYPE) --subtype $(SUBTYPE) -lg $(LOGGING) --directory $(_ALL_RESULTS) -n 2 --long "$(CAPTION_LONG)"  --short "$(CAPTION_SHORT)" --label $(LABEL)
-	$(PYTHON) results.py --prefix  $(PREFIX) -c $(_PARAMETERS) -o $(FORMAT) --type $(TYPE) --subtype $(SUBTYPE) -lg $(LOGGING) --directory $(_ALL_RESULTS) --long "$(CAPTION_LONG)"  --short "$(CAPTION_SHORT)" --label $(LABEL) --summary $(_IMBALANCE) --table $(_OUTPUT) $(_OMIT)
+	$(PYTHON) results.py --prefix  $(PREFIX) -c $(_PARAMETERS) -o $(FORMAT) --type $(TYPE) --subtype $(SUBTYPE) -lg $(LOGGING) --directory $(_ALL_RESULTS) --long "$(CAPTION_LONG)"  --short "$(CAPTION_SHORT)" --label $(LABEL) --summary $(_IMBALANCE) --table $(_OUTPUT) $(_OMIT) $(_COLUMNS) $(_APPROACH)
+
+# Threshold for counting
+ifndef THRESHOLD
+_THRESHOLD=
+else
+_THRESHOLD=--threshold $(THRESHOLD)
+endif
 
 optimal-counts:
 	$(eval _PARAMETERS = `cygpath -w $(PARAMETERS)`)
@@ -311,7 +334,7 @@ optimal-counts:
 	test -n "$(OUTPUT)"
 	$(eval _OUTPUT = `cygpath -w $(OUTPUT)`)
 	#$(PYTHON) results.py -r $(_RESULTS) -c $(_PARAMETERS) -o $(FORMAT) --type $(TYPE) --subtype $(SUBTYPE) -lg $(LOGGING) --directory $(_ALL_RESULTS) -n 2 --long "$(CAPTION_LONG)"  --short "$(CAPTION_SHORT)" --label $(LABEL)
-	$(PYTHON) results.py --close --prefix  $(PREFIX) -c $(_PARAMETERS) -o $(FORMAT) --type $(TYPE) --subtype $(SUBTYPE) -lg $(LOGGING) --directory $(_ALL_RESULTS) --long "$(CAPTION_LONG)"  --short "$(CAPTION_SHORT)" --label $(LABEL) --summary $(_IMBALANCE) --table $(_OUTPUT)
+	$(PYTHON) results.py --close --prefix  $(PREFIX) -c $(_PARAMETERS) -o $(FORMAT) --type $(TYPE) --subtype $(SUBTYPE) -lg $(LOGGING) --directory $(_ALL_RESULTS) --long "$(CAPTION_LONG)"  --short "$(CAPTION_SHORT)" --label $(LABEL) --summary $(_IMBALANCE) --table $(_OUTPUT) $(_THRESHOLD)
 
 
 optimal-results-seasonality:
