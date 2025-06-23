@@ -1,0 +1,155 @@
+#!/bin/sh
+#
+# Create figures and tables for the dissertation
+#
+# Usage: create-dissertation-text <tables | figures>
+# default is all
+#
+
+if [ $# -eq 0 ]; then
+	action=all
+else
+	action=$1
+fi
+
+# Use these lines for debug
+BASE=/cygdrive/c/tmp/dissertation
+DATA=/cygdrive/c/tmp/dissertation/data
+# Use these lines for a real run
+#BASE=../documents
+#DATA=/cygdrive/d/dissertation-revision
+
+
+# Use these lines for debug
+#MAKE="make -n"
+# Use this line for a real run
+MAKE=make
+
+# Prefix all generated files with this sequence
+FILE_PREFIX=generated
+
+OUTSTDOUT=figures.out
+OUTSTDERR=figures.err
+# Truncate the files
+touch $OUTSTDOUT
+touch $OUTSTDERR
+> $OUTSTDOUT
+> $OUTSTDERR
+
+# Exit if we hit an error
+check_result(){
+	if [ $? -ne 0 ] ; then
+		echo "Error encountered. Exit"
+		exit -1
+	fi
+}
+
+#
+# DATA
+#
+
+if [ $action = "data" ] || [ $action = "all" ]; then
+echo "Phase 1 - Create Data"
+echo "Texture"
+$MAKE optimal TRAINING=/cygdrive/d/dissertation/cantaloupe/season.csv FACTORS=4 PREFIX=cantaloupe_texture TYPE=TEXTURE SUBTYPE=all OUTPUT=$DATA >$OUTSTDOUT
+check_result
+echo "--------" >> $OUTSTDOUT
+echo "GLCM"
+$MAKE optimal TRAINING=/cygdrive/d/dissertation/cantaloupe/season.csv FACTORS=4 PREFIX=cantaloupe_glcm TYPE=TEXTURE SUBTYPE=GLCM OUTPUT=$DATA >> $OUTSTDOUT
+check_result
+echo "--------" >> $OUTSTDOUT
+echo "LBP"
+$MAKE optimal TRAINING=/cygdrive/d/dissertation/cantaloupe/season.csv FACTORS=4 PREFIX=cantaloupe_lbp TYPE=TEXTURE SUBTYPE=LBP OUTPUT=$DATA >> $OUTSTDOUT
+check_result
+echo "--------" >> $OUTSTDOUT
+echo "COLOR"
+$MAKE optimal TRAINING=/cygdrive/d/dissertation/cantaloupe/season.csv FACTORS=4 PREFIX=cantaloupe_color TYPE=COLOR SUBTYPE=all OUTPUT=$DATA >> $OUTSTDOUT
+check_result
+echo "--------" >> $OUTSTDOUT
+echo "SHAPE"
+$MAKE optimal TRAINING=/cygdrive/d/dissertation/shape/season.csv FACTORS=4 PREFIX=cantaloupe_shape TYPE=SHAPE SUBTYPE=all OUTPUT=$DATA >> $OUTSTDOUT
+check_result
+echo "--------" >> $OUTSTDOUT
+echo "All"
+$MAKE optimal TRAINING=/cygdrive/d/dissertation/cantaloupe/season.csv FACTORS=4 PREFIX=cantaloupe_all TYPE=all SUBTYPE=all OUTPUT=$DATA >> $OUTSTDOUT
+check_result
+echo "--------" >> $OUTSTDOUT
+fi;
+
+#
+# TABLES
+#
+
+if [ $action = "tables" ] || [ $action = "all" ]; then
+echo "Phase 2 - Create Tables"
+echo ALL
+$MAKE optimal-results TYPE=all SUBTYPE=all FORMAT=latex PARAMETERS=parameters.pickle LOGGING=tucson-logging.ini ALL_RESULTS=$DATA/ CAPTION_LONG="Classification using all features (revision)" CAPTION_SHORT="Classification using all features (revision)" LABEL=table:optimal PREFIX=cantaloupe_all_auc OUTPUT=$BASE/tables/$FILE_PREFIX-results-optimal.tex COLUMNS="auc f1 precision recall" >>$OUTSTDOUT
+check_result
+echo Texture
+$MAKE optimal-results TYPE=TEXTURE SUBTYPE=all FORMAT=latex PARAMETERS=parameters.pickle LOGGING=tucson-logging.ini ALL_RESULTS=$DATA/ CAPTION_LONG="Classification using texture (revision)" CAPTION_SHORT="Classification using texture (revision)" LABEL=table:optimal PREFIX=cantaloupe_texture_auc OUTPUT=$BASE/tables/$FILE_PREFIX-results-texture.tex COLUMNS="auc f1 precision recall" >>$OUTSTDOUT
+check_result
+echo GLCM
+$MAKE optimal-results TYPE=TEXTURE SUBTYPE=GLCM FORMAT=latex PARAMETERS=parameters.pickle LOGGING=tucson-logging.ini ALL_RESULTS=$DATA/ CAPTION_LONG="Classification using GLCM (revision)" CAPTION_SHORT="Classification using GLCM (revision)" LABEL=table:optimal PREFIX=cantaloupe_glcm_auc OUTPUT=$BASE/tables/$FILE_PREFIX-results-glcm.tex COLUMNS="auc f1 precision recall" >>$OUTSTDOUT
+check_result
+echo LBP
+$MAKE optimal-results TYPE=TEXTURE SUBTYPE=LBP FORMAT=latex PARAMETERS=parameters.pickle LOGGING=tucson-logging.ini ALL_RESULTS=$DATA/ CAPTION_LONG="Classification using LBP (revision)" CAPTION_SHORT="Classification using LBP (revision)" LABEL=table:optimal PREFIX=cantaloupe_lbp_auc OUTPUT=$BASE/tables/$FILE_PREFIX-results-lbp.tex COLUMNS="auc f1 precision recall" >>$OUTSTDOUT
+check_result
+echo Color
+$MAKE optimal-results TYPE=COLOR SUBTYPE=all FORMAT=latex PARAMETERS=parameters.pickle LOGGING=tucson-logging.ini ALL_RESULTS=$DATA/ CAPTION_LONG="Classification using color (revision)" CAPTION_SHORT="Classification using color (revision)" LABEL=table:optimal PREFIX=cantaloupe_color_auc OUTPUT=$BASE/tables/$FILE_PREFIX-results-color.tex COLUMNS="auc f1 precision recall" >>$OUTSTDOUT
+check_result
+echo Shape
+$MAKE optimal-results TYPE=SHAPE SUBTYPE=all FORMAT=latex PARAMETERS=parameters.pickle LOGGING=tucson-logging.ini ALL_RESULTS=$DATA/ CAPTION_LONG="Classification using shape (revision)" CAPTION_SHORT="Classification using shape (revision)" LABEL=table:optimal PREFIX=cantaloupe_shape_auc OUTPUT=$BASE/tables/$FILE_PREFIX-results-shape.tex COLUMNS="auc f1 precision recall" >>$OUTSTDOUT
+check_result
+echo "--------" >> $OUTSTDOUT
+
+echo Counts
+
+$MAKE optimal-counts TYPE=all SUBTYPE=all FORMAT=latex PARAMETERS=parameters.pickle LOGGING=tucson-logging.ini ALL_RESULTS=/cygdrive/c/tmp/dissertation/data CAPTION_LONG="Percentage of Classifications within %T of Maximum (revised)" CAPTION_SHORT="Percentage of Classifications within %T of maximum (revised)" LABEL=table:results-counts PREFIX=cantaloupe_all_auc OUTPUT=/cygdrive/c/tmp/dissertation/tables/$FILE_PREFIX-results-counts.tex THRESHOLD=0.03 >>$OUTSTDOUT
+check_result
+echo "--------" >> $OUTSTDOUT
+
+echo Thresholds
+make optimal-thresholds PREFIX=cantaloupe_all_auc PARAMETERS=parameters.pickle FORMAT=latex TYPE=all SUBTYPE=all LOGGING=tucson-logging.ini ALL_RESULTS=$DATA CAPTION_LONG="Thresholds for classification approaches"  CAPTION_SHORT="Thresholds for classification approaches" LABEL=table:thresholds TRAINING=/cygdrive/d/dissertation/shape/season.csv OUTPUT=$BASE/tables/$FILE_PREFIX-thresholds.tex >> $OUTSTDOUT
+check_result
+
+fi
+
+#
+# FIGURES
+# 
+
+if [ $action = "figures" ] || [ $action = "all" ]; then
+echo "Phase 3 - Create Figures"
+echo "ROC for all - binary"
+$MAKE optimal-roc TYPE=all SUBTYPE=all FORMAT=latex PARAMETERS=parameters.pickle LOGGING=tucson-logging.ini ALL_RESULTS=$DATA/ CAPTION_LONG="Classification using all features (revision)" CAPTION_SHORT="Classification using all features (revision)" LABEL=table:optimal PREFIX=cantaloupe_all_auc OUTPUT=$BASE/figures/$FILE_PREFIX-roc-all.png COLUMNS="auc f1 precision recall" TRAINING=/cygdrive/d/dissertation/cantaloupe/season.csv >>$OUTSTDOUT
+check_result
+echo "ROC for all - unary"
+$MAKE optimal-roc TYPE=all SUBTYPE=all FORMAT=latex PARAMETERS=parameters.pickle LOGGING=tucson-logging.ini ALL_RESULTS=$DATA/ CAPTION_LONG="Classification using all features (revision)" CAPTION_SHORT="Classification using all features (revision)" LABEL=table:optimal PREFIX=cantaloupe_all_auc OUTPUT=$BASE/figures/$FILE_PREFIX-roc-all-occ.png APPROACH=occ COLUMNS="auc f1 precision recall" TRAINING=/cygdrive/d/dissertation/cantaloupe/season.csv >>$OUTSTDOUT
+check_result
+echo "ROC for texture - binary"
+$MAKE optimal-roc TYPE=TEXTURE SUBTYPE=all FORMAT=latex PARAMETERS=parameters.pickle LOGGING=tucson-logging.ini ALL_RESULTS=$DATA/ CAPTION_LONG="Classification using texture (revision)" CAPTION_SHORT="Classification using texture (revision)" LABEL=table:optimal PREFIX=cantaloupe_texture_auc OUTPUT=$BASE/figures/$FILE_PREFIX-roc-texture.png COLUMNS="auc f1 precision recall" TRAINING=/cygdrive/d/dissertation/cantaloupe/season.csv >>$OUTSTDOUT
+check_result
+echo "ROC for texture - unary"
+$MAKE optimal-roc TYPE=TEXTURE SUBTYPE=all FORMAT=latex PARAMETERS=parameters.pickle LOGGING=tucson-logging.ini ALL_RESULTS=$DATA/ CAPTION_LONG="Classification using texture (revision)" CAPTION_SHORT="Classification using texture (revision)" LABEL=table:optimal PREFIX=cantaloupe_texture_auc OUTPUT=$BASE/figures/$FILE_PREFIX-roc-texture-occ.png APPROACH=occ COLUMNS="auc f1 precision recall" TRAINING=/cygdrive/d/dissertation/cantaloupe/season.csv >>$OUTSTDOUT
+check_result
+echo "ROC for GLCM - binary"
+$MAKE optimal-roc TYPE=TEXTURE SUBTYPE=GLCM FORMAT=latex PARAMETERS=parameters.pickle LOGGING=tucson-logging.ini ALL_RESULTS=$DATA/ CAPTION_LONG="Classification using GLCM (revision)" CAPTION_SHORT="Classification using GLCM (revision)" LABEL=table:optimal PREFIX=cantaloupe_glcm OUTPUT=$BASE/figures/$FILE_PREFIX-roc-glcm.png COLUMNS="auc f1 precision recall" TRAINING=/cygdrive/d/dissertation/cantaloupe/season.csv >>$OUTSTDOUT
+check_result
+echo "ROC for GLCM - unary"
+$MAKE optimal-roc TYPE=TEXTURE SUBTYPE=GLCM FORMAT=latex PARAMETERS=parameters.pickle LOGGING=tucson-logging.ini ALL_RESULTS=$DATA/ CAPTION_LONG="Classification using GLCM (revision)" CAPTION_SHORT="Classification using GLCM (revision)" LABEL=table:optimal PREFIX=cantaloupe_glcm_auc OUTPUT=$BASE/figures/$FILE_PREFIX-roc-glcm-occ.png APPROACH=occ COLUMNS="auc f1 precision recall" TRAINING=/cygdrive/d/dissertation/cantaloupe/season.csv >>$OUTSTDOUT
+check_result
+echo "ROC for LBP - binary"
+$MAKE optimal-roc TYPE=TEXTURE SUBTYPE=LBP FORMAT=latex PARAMETERS=parameters.pickle LOGGING=tucson-logging.ini ALL_RESULTS=$DATA/ CAPTION_LONG="Classification using LBP (revision)" CAPTION_SHORT="Classification using LBP (revision)" LABEL=table:optimal PREFIX=cantaloupe_lbp_auc OUTPUT=$BASE/figures/$FILE_PREFIX-roc-lbp.png COLUMNS="auc f1 precision recall" TRAINING=/cygdrive/d/dissertation/cantaloupe/season.csv >>$OUTSTDOUT
+check_result
+echo "ROC for LBP - unary"
+$MAKE optimal-roc TYPE=TEXTURE SUBTYPE=GLCM FORMAT=latex PARAMETERS=parameters.pickle LOGGING=tucson-logging.ini ALL_RESULTS=$DATA/ CAPTION_LONG="Classification using LBP (revision)" CAPTION_SHORT="Classification using LBP (revision)" LABEL=table:optimal PREFIX=cantaloupe_lbp_auc OUTPUT=$BASE/figures/$FILE_PREFIX-roc-lbp-occ.png APPROACH=occ COLUMNS="auc f1 precision recall" TRAINING=/cygdrive/d/dissertation/cantaloupe/season.csv >>$OUTSTDOUT
+check_result
+echo "ROC for color - binary"
+$MAKE optimal-roc TYPE=COLOR SUBTYPE=all FORMAT=latex PARAMETERS=parameters.pickle LOGGING=tucson-logging.ini ALL_RESULTS=$DATA/ CAPTION_LONG="Classification using color (revision)" CAPTION_SHORT="Classification using color (revision)" LABEL=table:optimal PREFIX=cantaloupe_color_auc OUTPUT=$BASE/figures/$FILE_PREFIX-roc-color.png COLUMNS="auc f1 precision recall" TRAINING=/cygdrive/d/dissertation/cantaloupe/season.csv >>$OUTSTDOUT
+check_result
+echo "ROC for color - unary"
+$MAKE optimal-roc TYPE=COLOR SUBTYPE=all FORMAT=latex PARAMETERS=parameters.pickle LOGGING=tucson-logging.ini ALL_RESULTS=$DATA/ CAPTION_LONG="Classification using color (revision)" CAPTION_SHORT="Classification using color (revision)" LABEL=table:optimal PREFIX=cantaloupe_color_auc OUTPUT=$BASE/figures/$FILE_PREFIX-roc-color-occ.png APPROACH=occ COLUMNS="auc f1 precision recall" TRAINING=/cygdrive/d/dissertation/cantaloupe/season.csv >>$OUTSTDOUT
+check_result
+fi;
+exit 0
+
