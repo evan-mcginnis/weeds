@@ -299,7 +299,7 @@ parser.add_argument("-l", "--label", action="store", required=False, default="ta
 parser.add_argument("-lg", "--logging", action="store", required=False, default="logging.ini",
                     help="logging configuration")
 parser.add_argument("-n", "--n", action="store", required=False, default=-1, type=int, help="Number of combinations")
-parser.add_argument("-o", "--output", action="store", required=False, default=FORMAT_LATEX,
+parser.add_argument("-fo", "--format", action="store", required=False, default=FORMAT_LATEX,
                     choices=[FORMAT_LATEX, FORMAT_TEXT, FORMAT_CSV], help="Output format")
 parser.add_argument("-od", "--directory", action="store", required=True, help="Results file directory")
 # Items to include in the table -- for example --include auc,f1,precision would include only those as headers
@@ -321,7 +321,7 @@ operations.add_argument("-ct", "--close", action="store_true", required=False, d
                         help="Show count of results close to maximum")
 operations.add_argument("-roc", "--roc", action="store_true", required=False, default=False, help="Show ROC curves")
 operations.add_argument("-rt", "--roc-thresholds", action="store_true", required=False, default=False, help="Produce table of thresholds based on ROC curves")
-operations.add_argument("-d", "--debug", action="store_true", required=False, default=False, help="Debug results")
+operations.add_argument("-table", "--table", action="store_true", required=False, default=False, help="Generate results table")
 
 # Produce seasonality comparison table instead of just the attributes
 parser.add_argument("-se", "--seasonality", action="store_true", required=False, default=False,
@@ -338,7 +338,8 @@ parser.add_argument("-th", "--threshold", action="store", required=False, defaul
                     help="Threshold for --close option")
 
 parser.add_argument("-graph", "--graph", action="store", required=False, help="Output file for graph")
-parser.add_argument("-table", "--table", action="store", required=False, help="Output file for table")
+parser.add_argument("-o", "--output", action="store", required=False, help="Output file for table")
+
 # The classification techniques
 # Don't make this selectable for now -- not needed
 # parser.add_argument("-s", "--subtypes", action="store", required=False, default=constants.NAME_ALL, nargs='*', choices=attributeSubtypeChoices, help="Attribute types used")
@@ -372,9 +373,9 @@ if arguments.compare:
         print("Target must be specified if compare is.")
         sys.exit(-1)
 
-if arguments.table is not None:
-    if os.path.isfile(arguments.table):
-        print(f"Output file {arguments.table} exists. Will not overwrite")
+if arguments.output is not None:
+    if os.path.isfile(arguments.output):
+        print(f"Output file {arguments.output} exists. Will not overwrite")
         sys.exit(-1)
 
 if arguments.roc and arguments.graph is not None:
@@ -387,7 +388,7 @@ if arguments.roc and arguments.graph is None:
 if arguments.roc and arguments.data is None:
     print("Data file must be specified for ROC")
     sys.exit(-1)
-if arguments.roc_thresholds and arguments.table is None:
+if arguments.roc_thresholds and arguments.output is None:
     print("Table output file must be specified if roc-threshold is")
     sys.exit(-1)
 
@@ -481,7 +482,7 @@ readableNames = {
 }
 
 
-if arguments.debug:
+if arguments.table:
     highestScores = findHighestByCriterion(allResults, constants.Scoring.AUC, ClassificationType[arguments.technique.upper()])
     columnNames = highestScores.columns.to_list()
     columnsToShow = []
@@ -527,8 +528,8 @@ if arguments.debug:
         dfLatex = dfLatex.replace('MINIPAGEEND \\\\', '\\end{minipage} \\\\ \\midrule')
 
     # If the user specified a file, write it there, otherwise stdout
-    if arguments.table is not None:
-        f = open(arguments.table, 'w')
+    if arguments.output is not None:
+        f = open(arguments.output, 'w')
         f.write(dfLatex)
         f.close()
     else:
@@ -779,8 +780,8 @@ if arguments.summary:
         dfLatex = highestScores.to_latex(longtable=True, header=columnsAliases, index_names=False, index=False,
                                          caption=(longCaption, shortCaption), float_format='%0.2f',
                                          label=arguments.label, columns=columnsToShow, column_format=columnFormat)
-        if arguments.table is not None:
-            f = open(arguments.table, "w")
+        if arguments.output is not None:
+            f = open(arguments.output, "w")
             f.write(f"{dfLatex}")
             f.close()
         print(f"{dfLatex}")
@@ -823,8 +824,8 @@ if arguments.summary:
         # shortCaption = arguments.short
         # dfLatex = closeDF.to_latex(longtable=True, index_names=False, index=False, caption=(longCaption, shortCaption), float_format='%.3f', label=arguments.label, column_format='ll')
         # dfLatex = dfLatex.replace("index", "Technique")
-        # if arguments.table is not None:
-        #     f = open(arguments.table, "w")
+        # if arguments.output is not None:
+        #     f = open(arguments.output, "w")
         #     f.write(f"{dfLatex}")
         #     f.close()
         # print(f"{dfLatex}")
@@ -882,8 +883,8 @@ if arguments.summary:
             # If we don't reset the index to numeric and then don't show it, the headers are messed up.
             thresholds.reset_index(inplace=True)
 
-            f = open(arguments.table, "w")
-            f.write( f"{thresholds.to_latex(longtable=True, index=False, caption=(longCaption, shortCaption), float_format='%.3f', label=arguments.label)}")
+            f = open(arguments.output, "w")
+            f.write(f"{thresholds.to_latex(longtable=True, index=False, caption=(longCaption, shortCaption), float_format='%.3f', label=arguments.label)}")
             f.close()
 
         if arguments.roc:
@@ -955,6 +956,8 @@ if arguments.summary:
             sourceDF = pd.read_csv(arguments.source)
             resultsDF = replaceParametersWithSeasonality(resultsDF, sourceDF)
         else:
+            assert(0)
+            # This code should not be used
             # This is a hack to get the parameters to display correctly.  Put them in a minipage, so first insert strings to replace
             if "parameters".upper() in whitelist:
                 # resultsDF['Parameters'] = '\\begin{minipage}[t]{0.5\\textwidth}' + resultsDF['Parameters'] + ' \\end{minipage}'
@@ -965,16 +968,16 @@ if arguments.summary:
         # print(f"{resultsDF.to_latex(longtable=True, index_names=False, index=False, caption=(longCaption, shortCaption), float_format='%.2f', label=arguments.label)}")
         # The max_colwidth option is needed to avoid the row being truncated
         f = None
-        if arguments.table is not None:
-            f = open(arguments.table, "w")
+        if arguments.output is not None:
+            f = open(arguments.output, "w")
         with pd.option_context("max_colwidth", 1000):
             # Formatting table columns based on numbers -- we need technique name and AUC + whatever is specified to include
             formatOfColumns = 'lc'
             for columnPosition in range(len(resultsDF.columns) - 2):
                 formatOfColumns += 'l'
             #print(f"Format: {formatOfColumns}")
-            if arguments.table is not None:
-                latex = resultsDF.to_latex(longtable=True, index_names=False, index=False, caption=(longCaption, shortCaption), float_format='%.3f', label=arguments.label)
+            if arguments.output is not None:
+                latex = resultsDF.to_latex(longtable=True, index_names=False, index=False, caption=(longCaption, shortCaption), float_format='%.2f', label=arguments.label)
                 latex = latex.replace('MINIPAGESTART', '\\begin{minipage}[t]{0.5\\textwidth}')
                 latex = latex.replace('MINIPAGEEND \\\\', '\\end{minipage} \\\\ \\midrule')
                 f.write(f"{latex}")
@@ -1025,7 +1028,7 @@ if arguments.similarity is not None:
     print("-- end latex --")
     exit(0)
 
-if arguments.output is not None:
+if arguments.format is not None:
     if arguments.n == -1:
         for result in allResults:
             result.print()
@@ -1059,7 +1062,7 @@ if arguments.output is not None:
                         f"Something is wrong: results for #{resultNumber} are not complete. Marked as {result} using {technique.technique}")
         dfTopN = pd.DataFrame(topN)
         # print(f"Top {arguments.n} of {len(results)}")
-        if arguments.output == FORMAT_CSV:
+        if arguments.format == FORMAT_CSV:
             # Column headers
             print("sequence,technique,auc,accuracy,base_similarity,parameters", end="")
             for selection in parameters:
@@ -1078,7 +1081,7 @@ if arguments.output is not None:
                             end='')
                         for selection in parameters:
                             print(f",{similarity(topN[i].parameters, computed.loc[selection])}", end='')
-        elif arguments.output == FORMAT_LATEX:
+        elif arguments.format == FORMAT_LATEX:
             # Convert the topN list to a list of dictionaries
             myData = [vars(topN[i]) for i in range(len(topN))]
             dfTopN = pd.DataFrame.from_records(myData)
@@ -1094,11 +1097,11 @@ if arguments.output is not None:
             print(
                 f"{dfTopN.to_latex(longtable=True, index_names=False, index=False, caption=(longCaption, shortCaption), label=arguments.label)}")
             print('----- end latex -------')
-        elif arguments.output == FORMAT_TEXT:
+        elif arguments.format == FORMAT_TEXT:
             print("Text output not supported")
             exit(-1)
         else:
-            print(f"Unknown output format: {arguments.output}")
+            print(f"Unknown output format: {arguments.format}")
             # print()
 
     sys.exit(0)
