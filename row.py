@@ -14,7 +14,7 @@ from imutils import paths
 from CameraFile import CameraFile, CameraPhysical
 from VegetationIndex import VegetationIndex
 from ImageManipulation import ImageManipulation
-from Logger import Logger
+from ImageLogger import ImageLogger
 
 ALG_INCREMENTAL = "incremental"
 ALG_ALL = "all"
