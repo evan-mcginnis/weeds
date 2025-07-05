@@ -17,5 +17,8 @@ clean:
 	rm -f *.run.xml
 	rm -f *.gz
 
+glossary:
+	makeglossaries weed-detection
+
 diffs:
 	latexdiff -c latexdiff.cfg weed-detection-old.tex weed-detection.tex > weed-detection-diffs.tex
