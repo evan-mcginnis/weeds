@@ -5,11 +5,28 @@
 library(rgl)
 library(ConfigParser)
 
+library(optparse)
+
+
+option_list = list(
+  make_option(c("-i", "--ini"), type="character", default="standalone.ini", 
+              help="INI file name", metavar="character"),
+  make_option(c("-f", "--features"), type="character", default="results-latest.csv", 
+              help="Features extracted [default= %default]", metavar="character")
+); 
+
+opt_parser = OptionParser(option_list=option_list);
+opt = parse_args(opt_parser);
+
+setwd("c:/uofa/weeds/jetson")
+
 input <- "results-latest.csv"
 #input <- "results-latest.csv"
 output <- "figures"
 
-cropPredictions <- read.csv(input)
+# Get the file name from the command line
+#cropPredictions <- read.csv(opt$features)
+cropPredictions <- read.csv("dissertation.csv")
 
 #
 # I N I  P R O C E S S I N G
@@ -21,7 +38,11 @@ factorsKey <- "FACTORS_R"
 factorsSection <- "IMAGE-PROCESSING"
 
 config <- ConfigParser$new()
+
+# Get the file name from the command line
+#config$read(opt$ini)
 config$read(iniFile)
+
 classificationFactorsString <- config$get(factorsKey, NA, factorsSection)
 classificationFactors <- unlist(strsplit(classificationFactorsString, split=", "))
 
@@ -34,12 +55,13 @@ if (is.na(classificationFactorsString)) {
 library(dplyr)
 library(scales)
 
-excludedVars <- c("name", "number", "type", "actual")
+excludedVars <- c("name", "number", "type", "actual", "date")
 
+# Rescale is hidden, so specify explicitly
 scaledCropPreds <- cropPredictions %>%
   mutate_at(
     vars(-(excludedVars)),
-    ~(rescale(., to=c(0,1)))
+    ~(scales::rescale(., to=c(0,1)))
   )
 # end of gillian's testing zone
 
@@ -104,8 +126,8 @@ cropPredictions$cluster = as.factor(cropPredictions$actual)
 axx['title'] <- classificationFactors[1]
 axy['title'] <- classificationFactors[2]
 axz['title'] <- classificationFactors[3]
-technique <- "PCA"
-p <- plot_ly(cropPredictions, x=~eval(as.symbol(classificationFactors[1])), y=~eval(as.symbol(classificationFactors[2])), z=~eval(as.symbol(classificationFactors[3])), color=~eval(as.symbol(classificationFactors[5])), symbol=~I(actual), hovertext=cropPredictions$name, hoverinfo="x+y+z+text")
+technique <- "LDA"
+p <- plot_ly(cropPredictions, x=~eval(as.symbol(classificationFactors[1])), y=~eval(as.symbol(classificationFactors[2])), z=~eval(as.symbol(classificationFactors[3])), color=~eval(as.symbol(classificationFactors[4])), symbol=~I(actual), hovertext=cropPredictions$name, hoverinfo="x+y+z+text")
 
 # PCA
 #axx['title'] <- "Hue"
@@ -128,12 +150,13 @@ plotTitle <- sprintf("%s: Features of Weeds [Circles] and Crop [Squares] Crop as
 # This works, but I get an ugly title for the color bar
 # p <- p %>% layout(scene = list(xaxis=axx,yaxis=axy,zaxis=axz), title=plotTitle )
 p <- p %>% layout(scene = list(xaxis=axx,yaxis=axy,zaxis=axz), title=plotTitle)
-p <- p %>% colorbar(title = classificationFactors[5])
+p <- p %>% colorbar(title = classificationFactors[4])
 #p <- p %>% layout(legend = list(x = 100, y = 0.5, title=list(text=' TEXT ')))
 #p <- p %>% colorbar(title="Normalized distance from cropline")
 #p <- p %>% colorbar(title="ASM")
 #p <- p %>% add_trace(y = "blah")
 
 p
+
 
 
