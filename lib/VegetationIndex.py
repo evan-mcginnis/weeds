@@ -1001,8 +1001,8 @@ class VegetationIndex:
         hsv = cv.cvtColor(self.img.astype(np.uint8), cv.COLOR_BGR2HSV)
 
         # Pure colors
-        lower_blue = np.array([110, 50, 50])
-        upper_blue = np.array([130, 255, 255])
+        # lower_blue = np.array([110, 90, 90])
+        # upper_blue = np.array([110, 255, 255])
 
         green = np.uint8([[[0, 255, 0]]])
         red = np.uint8([[[0, 0, 255]]])
@@ -1012,7 +1012,7 @@ class VegetationIndex:
         # Get the HSV for the color green
         hsv_blue = cv.cvtColor(blue, cv.COLOR_BGR2HSV)
         # Compute the lower and upper bound of what we consider green
-        lowerBlue = np.array([int(hsv_blue[0, 0, 0]) - self.HSV_COLOR_THRESHOLD, 100, 100])
+        lowerBlue = np.array([int(hsv_blue[0, 0, 0]) - self.HSV_COLOR_THRESHOLD, 130, 130])
         upperBlue = np.array([int(hsv_blue[0, 0, 0]) + self.HSV_COLOR_THRESHOLD, 255, 255])
 
 
