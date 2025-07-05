@@ -17,11 +17,11 @@ import constants
 from VegetationIndex import VegetationIndex
 from CameraFile import CameraFile
 from Performance import Performance
-from Logger import Logger
+from ImageLogger import ImageLogger
 
 from VegetationIndex import VegetationIndex
 from ImageManipulation import ImageManipulation
-from Logger import Logger
+from ImageLogger import ImageLogger
 from Classifier import Classifier, LogisticRegressionClassifier, KNNClassifier, DecisionTree, RandomForest, GradientBoosting, SuppportVectorMachineClassifier
 from OptionsFile import OptionsFile
 from Reporting import Reporting
@@ -194,7 +194,7 @@ class Processor:
         logging.config.fileConfig(arguments.logging)
         self._log = logging.getLogger("processor")
 
-        self._logger = Logger()
+        self._logger = ImageLogger()
         if not self._logger.connect(outputDirectory):
             print("Unable to connect to logging. ./output does not exist.")
             sys.exit(1)
@@ -290,7 +290,7 @@ class Processor:
 
         # Find the plants in the image
         self._performance.start()
-        contours, hierarchy, blobs, largest = manipulated.findBlobs(arguments.minarea)
+        contours, hierarchy, blobs, largest = manipulated.findBlobs(arguments.minarea, constants.Strategy.CARTOON)
         self._performance.stopAndRecord(constants.PERF_CONTOURS)
 
         # The test should probably be if we did not find any blobs
