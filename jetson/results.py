@@ -322,6 +322,7 @@ operations.add_argument("-ct", "--close", action="store_true", required=False, d
 operations.add_argument("-roc", "--roc", action="store_true", required=False, default=False, help="Show ROC curves")
 operations.add_argument("-rt", "--roc-thresholds", action="store_true", required=False, default=False, help="Produce table of thresholds based on ROC curves")
 operations.add_argument("-table", "--table", action="store_true", required=False, default=False, help="Generate results table")
+operations.add_argument("-pc", "--parameter-counts", action="store_true", required=False, default=False, help="Generate parameter counts table")
 
 # Produce seasonality comparison table instead of just the attributes
 parser.add_argument("-se", "--seasonality", action="store_true", required=False, default=False,
@@ -481,8 +482,10 @@ readableNames = {
     'parameters': {'name': 'Parameters', 'format': 'l'}
 }
 
-
-if arguments.table:
+#
+# The parameter-counts requires the same information as the summary or detail table does
+#
+if arguments.table or arguments.parameter_counts:
     highestScores = findHighestByCriterion(allResults, constants.Scoring.AUC, ClassificationType[arguments.technique.upper()])
     columnNames = highestScores.columns.to_list()
     columnsToShow = []
@@ -510,30 +513,65 @@ if arguments.table:
     # Convert the technique, as errors are encountered it this is not done
     highestScores['Technique'] = highestScores['Technique'].astype('string')
 
-    # The parameters are all series, so convert them to space separated strings
-    highestScores['Parameters'] = highestScores['Parameters'].apply(lambda x: ' '.join(x))
+    # The user wants the table produced
+    if arguments.table:
 
-    # If the user specified that parameters are to be shown, insert keywords that can be replaced
-    if constants.NAME_PARAMETERS.lower() in arguments.include:
-        highestScores['Parameters'] = 'MINIPAGESTART ' + highestScores['Parameters'] + ' MINIPAGEEND'
+        # The parameters are all series, so convert them to space separated strings
+        highestScores['Parameters'] = highestScores['Parameters'].apply(lambda x: ' '.join(x))
 
-    # If the column width is not set to a high value, the output is truncated
-    with pd.option_context("max_colwidth", 1000):
-        dfLatex = highestScores.to_latex(longtable=True, header=columnsAliases, index_names=False, index=False,
-                                         caption=(longCaption, shortCaption), float_format='%0.2f',
-                                         label=arguments.label, columns=columnsToShow, column_format=columnFormat)
+        # If the user specified that parameters are to be shown, insert keywords that can be replaced
+        if constants.NAME_PARAMETERS.lower() in arguments.include:
+            highestScores['Parameters'] = 'MINIPAGESTART ' + highestScores['Parameters'] + ' MINIPAGEEND'
 
-    if constants.NAME_PARAMETERS.lower() in arguments.include:
-        dfLatex = dfLatex.replace('MINIPAGESTART', '\\begin{minipage}[t]{0.5\\textwidth}')
-        dfLatex = dfLatex.replace('MINIPAGEEND \\\\', '\\end{minipage} \\\\ \\midrule')
+        # If the column width is not set to a high value, the output is truncated
+        with pd.option_context("max_colwidth", 1000):
+            dfLatex = highestScores.to_latex(longtable=True, header=columnsAliases, index_names=False, index=False,
+                                             caption=(longCaption, shortCaption), float_format='%0.2f',
+                                             label=arguments.label, columns=columnsToShow, column_format=columnFormat)
 
-    # If the user specified a file, write it there, otherwise stdout
-    if arguments.output is not None:
-        f = open(arguments.output, 'w')
-        f.write(dfLatex)
-        f.close()
-    else:
-        print(f"{dfLatex}")
+        if constants.NAME_PARAMETERS.lower() in arguments.include:
+            dfLatex = dfLatex.replace('MINIPAGESTART', '\\begin{minipage}[t]{0.5\\textwidth}')
+            dfLatex = dfLatex.replace('MINIPAGEEND \\\\', '\\end{minipage} \\\\ \\midrule')
+
+        # If the user specified a file, write it there, otherwise stdout
+        if arguments.output is not None:
+            f = open(arguments.output, 'w')
+            f.write(dfLatex)
+            f.close()
+        else:
+            print(f"{dfLatex}")
+
+    # Produce a table that has the number of times a specific parameter is used in the classification
+
+    if arguments.parameter_counts:
+        # The list of all unique parameters in all the classifications
+        uniqueParameters = set()
+        for index, row in highestScores.iterrows():
+            parameters = list(row['Parameters'])
+            [uniqueParameters.add(parameter) for parameter in parameters]
+        print(f"Unique set: {uniqueParameters}")
+        # Convert to list and dataframe, assigning an initial count
+        countsDict = dict.fromkeys(list(uniqueParameters), 0)
+        counts = pd.DataFrame.from_dict(countsDict, orient='index', columns=['Count'])
+        columnsAliases = ['Parameter', f'Of {len(highestScores)} models']
+
+        # Iterate over the parameters, counting usage
+        for index, row in highestScores.iterrows():
+            for parameter in row['Parameters']:
+                counts.loc[parameter, 'Count'] += 1
+
+        counts.reset_index(inplace=True)
+        dfLatex = counts.to_latex(longtable=True, header=columnsAliases, index_names=False, index=False,
+                                  caption=(longCaption, shortCaption), float_format='%0.2f',
+                                  label=arguments.label)
+        if arguments.output is not None:
+            f = open(arguments.output, "w")
+            f.write(dfLatex)
+            f.close()
+        else:
+            print(f"{dfLatex}")
+
+
     sys.exit(0)
 
 # The parameters selection is really only required in producing the similarity report or to just print them out,
@@ -956,7 +994,7 @@ if arguments.summary:
             sourceDF = pd.read_csv(arguments.source)
             resultsDF = replaceParametersWithSeasonality(resultsDF, sourceDF)
         else:
-            assert(0)
+            assert 0
             # This code should not be used
             # This is a hack to get the parameters to display correctly.  Put them in a minipage, so first insert strings to replace
             if "parameters".upper() in whitelist:
