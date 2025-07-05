@@ -288,12 +288,31 @@ else
 _COLUMNS=--include $(COLUMNS)
 endif
 
-# Type of classification
+# Type of classification: binary or occ
 ifndef APPROACH
 _APPROACH=
 else
 _APPROACH=--technique $(APPROACH)
 endif
+
+
+parameter-counts:
+	$(eval _PARAMETERS = `cygpath -w $(PARAMETERS)`)
+	$(eval _RESULTS = `cygpath -w $(RESULTS)`)
+	$(eval _ALL_RESULTS = `cygpath -w $(ALL_RESULTS)`)
+	test -n "$(TYPE)"
+	test -n "$(SUBTYPE)"
+	test -n "$(FORMAT)"
+	test -n "$(LOGGING)"
+	test -n "$(CAPTION_LONG)"
+	test -n "$(CAPTION_SHORT)"
+	test -n "$(LABEL)"
+	test -n "$(PREFIX)"
+	test -n "$(OUTPUT)"
+	$(eval _OUTPUT = `cygpath -w $(OUTPUT)`)
+	#$(PYTHON) results.py -r $(_RESULTS) -c $(_PARAMETERS) -o $(FORMAT) --type $(TYPE) --subtype $(SUBTYPE) -lg $(LOGGING) --directory $(_ALL_RESULTS) -n 2 --long "$(CAPTION_LONG)"  --short "$(CAPTION_SHORT)" --label $(LABEL)
+	$(PYTHON) results.py --prefix  $(PREFIX) -c $(_PARAMETERS) -o $(FORMAT) --type $(TYPE) --subtype $(SUBTYPE) -lg $(LOGGING) --directory $(_ALL_RESULTS) --long "$(CAPTION_LONG)"  --short "$(CAPTION_SHORT)" --label $(LABEL) --parameter-counts $(_IMBALANCE) --output $(_OUTPUT) $(_OMIT) $(_COLUMNS) $(_APPROACH)
+
 
 optimal-results:
 	$(eval _PARAMETERS = `cygpath -w $(PARAMETERS)`)
@@ -310,7 +329,25 @@ optimal-results:
 	test -n "$(OUTPUT)"
 	$(eval _OUTPUT = `cygpath -w $(OUTPUT)`)
 	#$(PYTHON) results.py -r $(_RESULTS) -c $(_PARAMETERS) -o $(FORMAT) --type $(TYPE) --subtype $(SUBTYPE) -lg $(LOGGING) --directory $(_ALL_RESULTS) -n 2 --long "$(CAPTION_LONG)"  --short "$(CAPTION_SHORT)" --label $(LABEL)
-	$(PYTHON) results.py --prefix  $(PREFIX) -c $(_PARAMETERS) -o $(FORMAT) --type $(TYPE) --subtype $(SUBTYPE) -lg $(LOGGING) --directory $(_ALL_RESULTS) --long "$(CAPTION_LONG)"  --short "$(CAPTION_SHORT)" --label $(LABEL) --summary $(_IMBALANCE) --table $(_OUTPUT) $(_OMIT) $(_COLUMNS) $(_APPROACH)
+	$(PYTHON) results.py --prefix  $(PREFIX) -c $(_PARAMETERS) -o $(FORMAT) --type $(TYPE) --subtype $(SUBTYPE) -lg $(LOGGING) --directory $(_ALL_RESULTS) --long "$(CAPTION_LONG)"  --short "$(CAPTION_SHORT)" --label $(LABEL) --table $(_IMBALANCE) --output $(_OUTPUT) $(_OMIT) $(_COLUMNS) $(_APPROACH)
+
+optimal-roc:
+	$(eval _PARAMETERS = `cygpath -w $(PARAMETERS)`)
+	$(eval _RESULTS = `cygpath -w $(RESULTS)`)
+	$(eval _ALL_RESULTS = `cygpath -w $(ALL_RESULTS)`)
+	test -n "$(TYPE)"
+	test -n "$(SUBTYPE)"
+	test -n "$(FORMAT)"
+	test -n "$(LOGGING)"
+	test -n "$(CAPTION_LONG)"
+	test -n "$(CAPTION_SHORT)"
+	test -n "$(LABEL)"
+	test -n "$(PREFIX)"
+	test -n "$(OUTPUT)"
+	test -n "$(DATA)"
+	$(eval _TRAINING = `cygpath -w $(TRAINING)`)
+	$(eval _OUTPUT = `cygpath -w $(OUTPUT)`)
+	$(PYTHON) results.py --prefix  $(PREFIX) -c $(_PARAMETERS) -o $(FORMAT) --type $(TYPE) --subtype $(SUBTYPE) -lg $(LOGGING) --directory $(_ALL_RESULTS) --long "$(CAPTION_LONG)"  --short "$(CAPTION_SHORT)" --label $(LABEL) --summary --roc --graph $(_OUTPUT) --data $(_TRAINING) $(_APPROACH)
 
 # Threshold for counting
 ifndef THRESHOLD
@@ -334,8 +371,25 @@ optimal-counts:
 	test -n "$(OUTPUT)"
 	$(eval _OUTPUT = `cygpath -w $(OUTPUT)`)
 	#$(PYTHON) results.py -r $(_RESULTS) -c $(_PARAMETERS) -o $(FORMAT) --type $(TYPE) --subtype $(SUBTYPE) -lg $(LOGGING) --directory $(_ALL_RESULTS) -n 2 --long "$(CAPTION_LONG)"  --short "$(CAPTION_SHORT)" --label $(LABEL)
-	$(PYTHON) results.py --close --prefix  $(PREFIX) -c $(_PARAMETERS) -o $(FORMAT) --type $(TYPE) --subtype $(SUBTYPE) -lg $(LOGGING) --directory $(_ALL_RESULTS) --long "$(CAPTION_LONG)"  --short "$(CAPTION_SHORT)" --label $(LABEL) --summary $(_IMBALANCE) --table $(_OUTPUT) $(_THRESHOLD)
+	$(PYTHON) results.py --close --prefix  $(PREFIX) -c $(_PARAMETERS) -o $(FORMAT) --type $(TYPE) --subtype $(SUBTYPE) -lg $(LOGGING) --directory $(_ALL_RESULTS) --long "$(CAPTION_LONG)"  --short "$(CAPTION_SHORT)" --label $(LABEL) --summary $(_IMBALANCE) --output $(_OUTPUT) $(_THRESHOLD)
 
+optimal-thresholds:
+	$(eval _PARAMETERS = `cygpath -w $(PARAMETERS)`)
+	$(eval _RESULTS = `cygpath -w $(RESULTS)`)
+	$(eval _ALL_RESULTS = `cygpath -w $(ALL_RESULTS)`)
+	$(eval _TRAINING = `cygpath -w $(TRAINING)`)
+	test -n "$(TYPE)"
+	test -n "$(SUBTYPE)"
+	test -n "$(FORMAT)"
+	test -n "$(LOGGING)"
+	test -n "$(CAPTION_LONG)"
+	test -n "$(CAPTION_SHORT)"
+	test -n "$(LABEL)"
+	test -n "$(PREFIX)"
+	test -n "$(OUTPUT)"
+	$(eval _OUTPUT = `cygpath -w $(OUTPUT)`)
+	#$(PYTHON) results.py -r $(_RESULTS) -c $(_PARAMETERS) -o $(FORMAT) --type $(TYPE) --subtype $(SUBTYPE) -lg $(LOGGING) --directory $(_ALL_RESULTS) -n 2 --long "$(CAPTION_LONG)"  --short "$(CAPTION_SHORT)" --label $(LABEL)
+	$(PYTHON) results.py --roc-thresholds --summary --prefix  $(PREFIX) -c $(_PARAMETERS) -o $(FORMAT) --type $(TYPE) --subtype $(SUBTYPE) -lg $(LOGGING) --directory $(_ALL_RESULTS) --long "$(CAPTION_LONG)"  --short "$(CAPTION_SHORT)" --label $(LABEL) --summary $(_IMBALANCE) --output $(_OUTPUT) --data $(_TRAINING) --technique binary
 
 optimal-results-seasonality:
 	$(eval _PARAMETERS = `cygpath -w $(PARAMETERS)`)
@@ -353,7 +407,7 @@ optimal-results-seasonality:
 	test -n "$(OUTPUT)"
 	$(eval _OUTPUT = `cygpath -w $(OUTPUT)`)
 	#$(PYTHON) results.py -r $(_RESULTS) -c $(_PARAMETERS) -o $(FORMAT) --type $(TYPE) --subtype $(SUBTYPE) -lg $(LOGGING) --directory $(_ALL_RESULTS) -n 2 --long "$(CAPTION_LONG)"  --short "$(CAPTION_SHORT)" --label $(LABEL)
-	$(PYTHON) results.py --source $(_SOURCE_CSV) --seasonality --prefix $(PREFIX) -c $(_PARAMETERS) -o $(FORMAT) --type $(TYPE) --subtype $(SUBTYPE) -lg $(LOGGING) --directory $(_ALL_RESULTS) --long "$(CAPTION_LONG)"  --short "$(CAPTION_SHORT)" --label $(LABEL) --summary --table $(_OUTPUT)
+	$(PYTHON) results.py --source $(_SOURCE_CSV) --seasonality --prefix $(PREFIX) -c $(_PARAMETERS) -o $(FORMAT) --type $(TYPE) --subtype $(SUBTYPE) -lg $(LOGGING) --directory $(_ALL_RESULTS) --long "$(CAPTION_LONG)"  --short "$(CAPTION_SHORT)" --label $(LABEL) --summary --output $(_OUTPUT)
 
 PREFIX?=comprehensive
 OUTPUT?=c:\comp-results
