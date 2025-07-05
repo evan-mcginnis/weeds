@@ -54,7 +54,7 @@ from VegetationIndex import VegetationIndex
 from ImageManipulation import ImageManipulation
 from ImageLogger import ImageLogger
 from Classifier import Classifier, LogisticRegressionClassifier, KNNClassifier, DecisionTree, RandomForest, \
-    GradientBoosting, SuppportVectorMachineClassifier, LDA, MLP, ExtraTrees
+    GradientBoosting, SuppportVectorMachineClassifier, LDA, MLP, ExtraTrees, OCC, OCCSGD
 from Classifier import Subset
 from OptionsFile import OptionsFile
 from Reporting import Reporting
@@ -858,6 +858,8 @@ group.add_argument("-mlp", "--perceptron", action="store_true", default=False,
                    help="Predict using multi-layer perceptron. Requires data file to be specified")
 group.add_argument("-extra", "--extra", action="store_true", default=False,
                    help="Predict using extra trees. Requires data file to be specified")
+group.add_argument("-occ", "--occ", action="store_true", default=False,
+                   help="Predict using OCC. Requires data file to be specified")
 parser.add_argument("-im", "--image", action="store", default=200, type=int, help="Horizontal length of image")
 parser.add_argument("-lg", "--logging", action="store", default="logging.ini", help="Logging configuration file")
 parser.add_argument("-m", "--mask", action="store_true", default=False, help="Mask only -- no processing")
@@ -866,6 +868,7 @@ parser.add_argument("-mr", "--minratio", action="store", default=5, type=int, he
 parser.add_argument("-n", "--nonegate", action="store_true", default=False, help="Negate image mask")
 parser.add_argument('-o', '--output', action="store", required=True, help="Output directory for processed images")
 parser.add_argument("-p", '--plot', action="store_true", help="Show 3D plot of index", default=False)
+parser.add_argument("-pn", '--plot-name', action="store", required=False, help="Name for plot file")
 parser.add_argument("-P", "--performance", action="store", type=str, default="performance.csv",
                     help="Name of performance file")
 parser.add_argument("-r", "--results", action="store", default="results", help="Name of results file")
@@ -1309,6 +1312,13 @@ elif arguments.extra:
     classifier.createModel(arguments.score)
     #classifier.visualize()
     mlApproach = "extra"
+elif arguments.occ:
+    classifier = OCC()
+    classifier.selections = selections
+    classifier.load(arguments.data, stratify=False)
+    classifier.createModel(arguments.score)
+    # classifier.visualize()
+    mlApproach = "OCC"
 else:
     # TODO: This should be HeuristicClassifier
     classifier = Classifier()
@@ -1319,8 +1329,10 @@ classifier.assess()
 # If this is just to visualize, exit afterwards
 if arguments.operation == OPERATION_VISUALIZE:
     #classifier.visualizeModel()
-    classifier.visualizeFolds()
-
+    if arguments.plot_name:
+        classifier.visualize(arguments.plot_name)
+    else:
+        classifier.visualize()
     sys.exit(0)
 
 # Likewise, if this is just to evaluate the model
