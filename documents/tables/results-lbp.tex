@@ -1,13 +1,13 @@
-\begin{longtable}{lcl}
-\caption[Classify by LBP]{Classify by LBP}
-\label{table:results-lbp}\\
+\begin{longtable}{lcll}
+\caption[Classification using LBP]{Classification using LBP}
+\label{table:texture-lbp}\\
 \toprule
-   Technique &  AUC &                                                                                 Parameters \\
+   Technique &   AUC &                                                                               Parameters \\
 \midrule
 \endfirsthead
-\caption[]{Classify by LBP} \\
+\caption[]{Classification using LBP} \\
 \toprule
-   Technique &  AUC &                                                                                 Parameters \\
+   Technique &   AUC &                                                                               Parameters \\
 \midrule
 \endhead
 \midrule
@@ -17,13 +17,21 @@
 
 \bottomrule
 \endlastfoot
-DECISIONTREE & 0.86 &              cie\_b\_lbp\_variance greyscale\_lbp\_variance ycbcr\_y\_lbp\_stddev yiq\_y\_lbp\_stddev \\
-       EXTRA & 0.95 &          hsi\_hue\_lbp\_stddev hsi\_intensity\_lbp\_variance yiq\_q\_lbp\_variance yiq\_y\_lbp\_stddev \\
-    GRADIENT & 0.93 &                greyscale\_lbp\_stddev ycbcr\_y\_lbp\_stddev yiq\_q\_lbp\_variance yiq\_y\_lbp\_stddev \\
-         KNN & 0.90 &                cie\_l\_lbp\_stddev greyscale\_lbp\_variance hsi\_hue\_lbp\_stddev yiq\_y\_lbp\_stddev \\
-         LDA & 0.95 &       hsi\_intensity\_lbp\_variance ycbcr\_cr\_lbp\_variance ycbcr\_y\_lbp\_stddev yiq\_y\_lbp\_stddev \\
-    LOGISTIC & 0.96 & cie\_b\_lbp\_variance greyscale\_lbp\_variance hsi\_intensity\_lbp\_variance ycbcr\_cr\_lbp\_variance \\
-         MLP & 0.94 &       hsi\_hue\_lbp\_stddev hsi\_intensity\_lbp\_variance ycbcr\_cr\_lbp\_variance yiq\_y\_lbp\_stddev \\
-RANDOMFOREST & 0.95 &         greyscale\_lbp\_variance hsi\_hue\_lbp\_stddev ycbcr\_cr\_lbp\_variance ycbcr\_y\_lbp\_stddev \\
-         SVM & 0.96 & cie\_b\_lbp\_variance greyscale\_lbp\_variance hsi\_intensity\_lbp\_variance ycbcr\_cr\_lbp\_variance \\
+DECISIONTREE & 0.804 & \begin{minipage}[t]{0.5\textwidth}          cie\_l\_lbp\_stddev greyscale\_lbp\_stddev ycbcr\_cr\_lbp\_variance ycbcr\_y\_lbp\_stddev  \end{minipage}\\
+\midrule
+       EXTRA & 0.858 & \begin{minipage}[t]{0.5\textwidth}    cie\_l\_lbp\_stddev hsi\_intensity\_lbp\_variance ycbcr\_cr\_lbp\_variance ycbcr\_y\_lbp\_stddev  \end{minipage}\\
+\midrule
+    GRADIENT & 0.879 & \begin{minipage}[t]{0.5\textwidth}          cie\_l\_lbp\_stddev greyscale\_lbp\_stddev ycbcr\_cr\_lbp\_variance ycbcr\_y\_lbp\_stddev  \end{minipage}\\
+\midrule
+         KNN & 0.857 &\begin{minipage}[t]{0.5\textwidth}     cie\_l\_lbp\_stddev hsi\_intensity\_lbp\_variance ycbcr\_cr\_lbp\_variance ycbcr\_y\_lbp\_stddev  \end{minipage}\\
+\midrule
+         LDA & 0.898 & \begin{minipage}[t]{0.5\textwidth}     cie\_l\_lbp\_stddev greyscale\_lbp\_stddev hsi\_intensity\_lbp\_variance ycbcr\_y\_lbp\_stddev  \end{minipage}\\
+\midrule
+    LOGISTIC & 0.872 & \begin{minipage}[t]{0.5\textwidth}    cie\_l\_lbp\_stddev hsi\_intensity\_lbp\_variance ycbcr\_cr\_lbp\_variance ycbcr\_y\_lbp\_stddev  \end{minipage}\\
+\midrule
+         MLP & 0.899 & \begin{minipage}[t]{0.5\textwidth}greyscale\_lbp\_stddev hsi\_intensity\_lbp\_variance ycbcr\_cr\_lbp\_variance ycbcr\_y\_lbp\_stddev  \end{minipage}\\
+\midrule
+RANDOMFOREST & 0.848 &  \begin{minipage}[t]{0.5\textwidth}   cie\_l\_lbp\_stddev hsi\_intensity\_lbp\_variance ycbcr\_cr\_lbp\_variance ycbcr\_y\_lbp\_stddev  \end{minipage}\\
+\midrule
+         SVM & 0.871 &  \begin{minipage}[t]{0.5\textwidth}   cie\_l\_lbp\_stddev hsi\_intensity\_lbp\_variance ycbcr\_cr\_lbp\_variance ycbcr\_y\_lbp\_stddev  \end{minipage}\\
 \end{longtable}

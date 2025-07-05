@@ -1,29 +1,29 @@
 \begin{longtable}{lcll}
-\caption[Changes During Development Cycle Considering All features]{Changes During Development Cycle}
+\caption[Seasonality of all features]{Seasonality of all features}
 \label{table:optimal-seasonality}\\
 \toprule
-   Technique &   AUC &              Changes \\
+   Technique &   AUC &                 Changes &  Unchanged \\
 \midrule
 \endfirsthead
 \caption[]{Seasonality of all features} \\
 \toprule
-   Technique &   AUC &              Change \\
+   Technique &   AUC &                 Changes &  Unchanged \\
 \midrule
 \endhead
 \midrule
-\multicolumn{3}{r}{{Continued on next page}} \\
+\multicolumn{4}{r}{{Continued on next page}} \\
 \midrule
 \endfoot
 
 \bottomrule
 \endlastfoot
-DECISIONTREE & 0.881 &  False True False False \\
-       EXTRA & 0.920 &   False True True False \\
-    GRADIENT & 0.925 &  False True False False \\
-         KNN & 0.886 &   False False True True \\
-         LDA & 0.920 & False False False False \\
-    LOGISTIC & 0.936 &   False True True False \\
-         MLP & 0.918 &  False True False False \\
-RANDOMFOREST & 0.917 &  False False True False \\
-         SVM & 0.900 & False False False False \\
+DECISIONTREE & 0.883 &  False True False False &     75\% \\
+       EXTRA & 0.917 &   False True True False &      50\%\\
+    GRADIENT & 0.926 &  False True False False &     75\% \\
+         KNN & 0.886 &   False False True True &      50\% \\
+         LDA & 0.916 & False False False False &      100\% \\
+    LOGISTIC & 0.936 &   False True True False &      50\% \\
+         MLP & 0.904 &  False True False False &      75\% \\
+RANDOMFOREST & 0.917 &  False False True False &     75\% \\
+         SVM & 0.900 & False False False False &      100\% \\
 \end{longtable}

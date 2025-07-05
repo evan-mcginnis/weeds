@@ -17,13 +17,21 @@
 
 \bottomrule
 \endlastfoot
-DECISIONTREE & 0.87 &  greyscale\_correlation\_avg greyscale\_homogeneity\_avg hsi\_intensity\_contrast\_avg hsv\_saturation\_ASM\_avg \\
-       EXTRA & 0.94 &            greyscale\_correlation\_avg greyscale\_energy\_avg hsi\_intensity\_ASM\_avg hsv\_saturation\_ASM\_avg \\
-    GRADIENT & 0.94 &        greyscale\_correlation\_avg greyscale\_energy\_avg greyscale\_homogeneity\_avg hsv\_saturation\_ASM\_avg \\
-         KNN & 0.90 &                greyscale\_correlation\_avg hsi\_intensity\_ASM\_avg hsv\_saturation\_ASM\_avg ycbcr\_cr\_ASM\_avg \\
-         LDA & 0.89 & greyscale\_dissimilarity\_avg greyscale\_homogeneity\_avg hsi\_intensity\_ASM\_avg hsi\_intensity\_contrast\_avg \\
-    LOGISTIC & 0.52 &                hsi\_intensity\_ASM\_avg hsi\_intensity\_contrast\_avg red\_dissimilarity\_avg ycbcr\_cr\_ASM\_avg \\
-         MLP & 0.89 &            greyscale\_contrast\_avg greyscale\_correlation\_avg greyscale\_homogeneity\_avg ycbcr\_cr\_ASM\_avg \\
-RANDOMFOREST & 0.92 &            greyscale\_correlation\_avg greyscale\_energy\_avg hsi\_intensity\_ASM\_avg hsv\_saturation\_ASM\_avg \\
-         SVM & 0.90 &                   cie\_b\_ASM\_avg greyscale\_dissimilarity\_avg greyscale\_energy\_avg hsi\_intensity\_ASM\_avg \\
+DECISIONTREE & 0.87 &  \begin{minipage}[t]{0.5\textwidth} greyscale\_correlation\_avg greyscale\_homogeneity\_avg hsi\_intensity\_contrast\_avg hsv\_saturation\_ASM\_avg \end{minipage}\\
+\midrule
+EXTRA & 0.94 & \begin{minipage}[t]{0.5\textwidth} greyscale\_correlation\_avg greyscale\_energy\_avg hsi\_intensity\_ASM\_avg hsv\_saturation\_ASM\_avg \end{minipage}\\
+\midrule
+GRADIENT & 0.94 & \begin{minipage}[t]{0.5\textwidth} greyscale\_correlation\_avg greyscale\_energy\_avg greyscale\_homogeneity\_avg hsv\_saturation\_ASM\_avg \end{minipage}\\
+\midrule
+KNN & 0.90 &  \begin{minipage}[t]{0.5\textwidth} greyscale\_correlation\_avg hsi\_intensity\_ASM\_avg hsv\_saturation\_ASM\_avg ycbcr\_cr\_ASM\_avg \end{minipage}\\
+\midrule
+LDA & 0.89 & \begin{minipage}[t]{0.5\textwidth}greyscale\_dissimilarity\_avg greyscale\_homogeneity\_avg hsi\_intensity\_ASM\_avg hsi\_intensity\_contrast\_avg \end{minipage}\\
+\midrule
+LOGISTIC & 0.52 & \begin{minipage}[t]{0.5\textwidth} hsi\_intensity\_ASM\_avg hsi\_intensity\_contrast\_avg red\_dissimilarity\_avg ycbcr\_cr\_ASM\_avg \end{minipage} \\
+\midrule
+MLP & 0.89 & \begin{minipage}[t]{0.5\textwidth} greyscale\_contrast\_avg greyscale\_correlation\_avg greyscale\_homogeneity\_avg ycbcr\_cr\_ASM\_avg \end{minipage}\\
+\midrule
+RANDOMFOREST & 0.92 & \begin{minipage}[t]{0.5\textwidth} greyscale\_correlation\_avg greyscale\_energy\_avg hsi\_intensity\_ASM\_avg hsv\_saturation\_ASM\_avg \end{minipage}\\
+\midrule
+SVM & 0.90 & \begin{minipage}[t]{0.5\textwidth} cie\_b\_ASM\_avg greyscale\_dissimilarity\_avg greyscale\_energy\_avg hsi\_intensity\_ASM\_avg \end{minipage}\\
 \end{longtable}

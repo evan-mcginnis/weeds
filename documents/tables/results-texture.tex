@@ -17,13 +17,21 @@
 
 \bottomrule
 \endlastfoot
-DECISIONTREE & 0.880 &            hog\_mean hsi\_intensity\_lbp\_variance ycbcr\_cr\_lbp\_variance ycbcr\_y\_lbp\_stddev \\
-       EXTRA & 0.914 &                greyscale\_lbp\_stddev hog\_stddev ycbcr\_cr\_lbp\_variance ycbcr\_y\_lbp\_stddev \\
-    GRADIENT & 0.920 &          greyscale\_lbp\_stddev hog\_variance hsi\_intensity\_lbp\_variance ycbcr\_y\_lbp\_stddev \\
-         KNN & 0.886 &                               cie\_l\_lbp\_stddev greyscale\_lbp\_stddev hog\_mean hog\_stddev \\
-         LDA & 0.901 & greyscale\_lbp\_stddev hsi\_intensity\_lbp\_variance ycbcr\_cr\_lbp\_variance ycbcr\_y\_lbp\_stddev \\
-    LOGISTIC & 0.893 &                                  cie\_l\_lbp\_stddev hog\_mean hog\_stddev ycbcr\_y\_lbp\_stddev \\
-         MLP & 0.904 &                       greyscale\_lbp\_stddev hog\_stddev hog\_variance ycbcr\_cr\_lbp\_variance \\
-RANDOMFOREST & 0.921 &                      greyscale\_lbp\_stddev hog\_mean hog\_stddev hsi\_intensity\_lbp\_variance \\
-         SVM & 0.892 &             cie\_l\_lbp\_stddev hog\_stddev hsi\_intensity\_lbp\_variance ycbcr\_cr\_lbp\_variance \\
+DECISIONTREE & 0.880 &    \begin{minipage}[t]{0.5\textwidth}hog\_mean hsi\_intensity\_lbp\_variance ycbcr\_cr\_lbp\_variance ycbcr\_y\_lbp\_stddev \end{minipage} \vspace{3pt}\\
+\midrule
+EXTRA  & 0.920 & \begin{minipage}[t]{0.5\textwidth} greyscale\_lbp\_stddev hog\_stddev ycbcr\_cr\_lbp\_variance ycbcr\_y\_lbp\_stddev \end{minipage} \vspace{3pt}\\
+\midrule
+GRADIENT & 0.925 & \begin{minipage}[t]{0.5\textwidth}  greyscale\_lbp\_stddev hog\_variance hsi\_intensity\_lbp\_variance ycbcr\_y\_lbp\_stdev \end{minipage} \vspace{3pt}\\
+\midrule
+KNN & 0.900 & \begin{minipage}[t]{0.5\textwidth}cie\_l\_lbp\_stddev greyscale\_lbp\_stddev hog\_mean hog\_stddev \end{minipage}\\
+\midrule
+LDA  & 0.901 & \begin{minipage}[t]{0.5\textwidth} greyscale\_lbp\_stddev hsi\_intensity\_lbp\_variance ycbcr\_cr\_lbp\_variance ycbcr\_y\_lbp\_stddev \end{minipage} \vspace{3pt}\\
+\midrule
+LOGISTIC  & 0.893 &\begin{minipage}[t]{0.5\textwidth}  cie\_l\_lbp\_stddev hog\_mean hog\_stddev ycbcr\_y\_lbp\_stddev \end{minipage} \vspace{3pt}\\
+\midrule
+MLP  & 0.904 &\begin{minipage}[t]{0.5\textwidth} greyscale\_lbp\_stddev hog\_stddev hog\_variance ycbcr\_cr\_lbp\_variance \end{minipage} \vspace{3pt}\\
+\midrule
+RANDOMFOREST  & 0.921 &\begin{minipage}[t]{0.5\textwidth}  greyscale\_lbp\_stddev hog\_mean hog\_stddev hsi\_intensity\_lbp\_variance \end{minipage} \vspace{3pt}\\
+\midrule
+SVM  & 0.900 &\begin{minipage}[t]{0.5\textwidth}   cie\_l\_lbp\_stddev hog\_stddev hsi\_intensity\_lbp\_variance ycbcr\_cr\_lbp\_variance \end{minipage} \vspace{3pt}\\
 \end{longtable}
