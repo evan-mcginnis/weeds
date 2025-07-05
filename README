@@ -1,61 +1,202 @@
-521 Parameter Selection
+Weed/Crop Classification
+------------------------
+This project concerns the classification of blobs in images as either crop or a weed.
+
+This project requires
+Python 3.7.9
+Cygwin base + make
 
 Python requirements are given in requirements.txt, but really just come down to a few things
 numpy
+pandas
 opencv
 scikit-learn
+pyqt5
 
-All interactions are with make. If you are running this on ubuntu, you probably already have this
-There are two makefiles, Makefile and info521.mk, with the latter just for feature selection
+All interactions are with make, which makes calls to the cygpath program as the only known dependancy on cygwin.
+As this can be ported to Ubuntu, this is not a requirement that is difficult to overcome.
 
-Selecting the parameters
+The examples here are for the cygwin shell, but there is no dependancy on the shell, and equivalents for ubuntu or powershell should execute as well.
+
+Directories
+-----------
+drwxrwxr-x+ 1 None      0 May  7  2024  435
+
+Code for the Intel D435 Depth sensor.  Can be ignored for this project.
+
+drwxrwxr-x+ 1 None      0 Sep 13  2024  altitude
+
+Find the blob closest to the disk in the image. Can be ignored for this project
+
+drwxrwxr-x+ 1 None      0 Apr  4  2023  calibration
+
+Code for Basler camera calibration. Can be ignored for this project
+
+drwxrwxr-x+ 1 None      0 Apr  4  2023  composed-with-weeds
+
+Test images where various weeds are inserted.
+
+drwxrwxr-x+ 1 None      0 May 20  2024  comprehensive
+
+Test programs for C++. Can be ignored for this project
+
+drwxrwxr-x+ 1 None      0 Aug 13  2023  deploy
+drwxrwxr-x+ 1 None      0 Jul 18  2023  docker
+
+Docker definitions. Can be ignored for this project
+
+drwxrwxr-x+ 1 None      0 Jul  5 12:41  documents
+
+Latex dissertation & PDFs for research
+
+drwxrwxr-x+ 1 None      0 Jun 16  2023  gabor
+
+Gabor filters
+
+drwxrwxr-x+ 1 None      0 Jul 30  2023  hpcc
+
+Slurm definitions for UA Supercomputer
+
+drwxrwxr-x+ 1 None      0 Dec  5  2022  idea
+
+Project files for PyCharms IDE
+
+drwxrwxr-x+ 1 None      0 Jul  4 16:49  jetson
+
+Image processing -- this is the main directory for all code
+
+drwxrwxr-x+ 1 None      0 Jun 27 15:25  lib
+
+Various libraries for the project.  Most .py files have a main defined for testing purposes
+
+For instance:
+python VegetationIndex.py --help
+usage: Show various vegetation indices [-h] [-e {jpg,png}] -i INPUT -o OUTPUT
+                                       -m MASKS [-nm]
+                                       [-n [{ndi,tgi,ngrdi,exgexr,exg,exr,cive,veg,com1,mexg,com2,tgi,r
+gd,si,di,ycbcri,hv,all} [{ndi,tgi,ngrdi,exgexr,exg,exr,cive,veg,com1,mexg,com2,tgi,rgd,si,di,ycbcri,hv,
+all} ...]]]
+                                       [-p] [-r] [-s] [-t THRESHOLD] [-c CSV]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -e {jpg,png}, --encoding {jpg,png}
+                        Image encoding for output
+  -i INPUT, --input INPUT
+                        Image or directory to process
+  -o OUTPUT, --output OUTPUT
+                        Output directory for processed images
+  -m MASKS, --masks MASKS
+                        Output directory for masks
+  -nm, --no-mask        Don't output mask
+  -n [{ndi,tgi,ngrdi,exgexr,exg,exr,cive,veg,com1,mexg,com2,tgi,rgd,si,di,ycbcri,hv,all} [{ndi,tgi,ngrd
+i,exgexr,exg,exr,cive,veg,com1,mexg,com2,tgi,rgd,si,di,ycbcri,hv,all} ...]], --name [{ndi,tgi,ngrdi,exg
+exr,exg,exr,cive,veg,com1,mexg,com2,tgi,rgd,si,di,ycbcri,hv,all} [{ndi,tgi,ngrdi,exgexr,exg,exr,cive,ve
+g,com1,mexg,com2,tgi,rgd,si,di,ycbcri,hv,all} ...]]
+                        Index name or all
+  -p, --plot            Plot the index
+  -r, --refine          Refine the mask before application
+  -s, --show            Show intermediate images
+  -t THRESHOLD, --threshold THRESHOLD
+                        Calculate thresholds
+  -c CSV, --csv CSV     Performance CSV
+
+drwxrwxr-x+ 1 None      0 Dec  2  2022  licenses
+
+License definition for various libraries used in this project
+
+drwxrwxr-x+ 1 None      0 Jul  5 14:00  post
+
+Post processing utilities
+
+drwxrwxr-x+ 1 None      0 Dec 25  2024  pre
+
+Pre processing utilities
+
+drwxrwxr-x+ 1 None      0 Jun 24 11:55  presentations
+
+Presentations for this project
+
+drwxrwxr-x+ 1 None      0 Aug  8  2023  rio
+
+Code for National Instruments RIO -- Can be ignored
+
+drwxrwxr-x+ 1 None      0 Dec 29  2024  sam
+
+Segment anything -- not directly used in this project
+
+drwxrwxr-x+ 1 None      0 Apr  4  2023  samples
+
+Examples for using Zero-MQ -- not used for this project
+
+drwxrwxr-x+ 1 None      0 Nov 30  2024  test-images
+
+Test images
+
+drwxrwxr-x+ 1 None      0 May  5  2023  tests
+
+Test scripts
+
+drwxrwxr-x+ 1 None      0 Dec 31  2024  u-net
+
+U-Net code for segmentation
+
+drwxrwxr-x+ 1 None      0 Apr 13 16:01  util
+
+Various utilities
+
+Images and Preprocessing
 ------------------------
-Parameter Selection is accomplished with these subclasses of Select: Univariate, FeatureImportance, PrincipleComponentAnalysis, and Recursive
-make -f info521.mk univariate
-make -f info521.mk importance
-make -f info521.mk pca
-make -f info521.mk recursive
+The images of crop and weeds are held in these repos:
 
-For this, you don't need opencv, just scikit-learn.
+These images are in a RAW format, and must be converted to JPG before processing.
+
+Correcting the color of the images is a task best executed by something like Adobe Lightroom, although using that package is not a requirement, it is what was used.  A photo of the color correction chart for each image set is included as the first image.
+
+Preparing the training data
+---------------------------
+Each of the images of the training data must be classified by a human to create a usable training set.
+
+The first step is to processes the images to extract the features and produce an initial guess as to what the blobs are.
+The guess will (probably) be wrong, of course, but that is of no concern here.
+
+Process the image initally with the weeds.py command in the jetson directory
+
+In the directory post, use the review.py command.
+
+$ python review.py --help
+usage: Image Reviewer [-h] [-i INPUT] [-p PATTERN] [-o OUTPUT] [-a ATTRIBUTES]
+                      [-t] [-l LOGGING]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -i INPUT, --input INPUT
+                        Input directory
+  -p PATTERN, --pattern PATTERN
+                        Pattern, i.e., processed-*.jpg
+  -o OUTPUT, --output OUTPUT
+                        Output CSV
+  -a ATTRIBUTES, --attributes ATTRIBUTES
+                        Classification CSV
+  -t, --type            Correct the type and don't write actual column
+  -l LOGGING, --logging LOGGING
+                        Logging configuration
+
+For example:
+python review.py -i /cygdrive/d/maricopa/corrected/2024-05-01/drip-iphone/processed/final/ -p processed-\*jpg -o /cygdrive/c/tmp/2024-05-01.csv -a /cygdrive/d/maricopa/corrected/2024-05-01/drip-iphone/processed/final/corrected.csv
+
+The output file (here, 2024-05-01.csv) is the training data for that one image set
+
+This process must be repeated for each image set and all image sets must be combined into one training/testing set.
 
 
-Training and processing images
-==============================
-To run the training and produce output, you will need to have opencv installed, otherwise you will run into errors.
+Processing the images
+----------------------
 
-Run the train/test with these commands. Each of these will take images from the input2 directory and put both segmented
-and annotated results in the output directory.
+Producing the data
+------------------
 
-Logistic regression
--------------------
-make weeds PARAMETERS=reduced-parameters.csv TRAINING=training-521.csv ML=lr
+Producing the results
+---------------------
 
-A typical run would look like this. Where all those 1s and 0s are the predicted classes
 
-C:\University of Arizona\machine-learning\final_project_optionb-evan-mcginnis>make weeds PARAMETERS=reduced-parameters.csv TRAINING=training-521.csv ML=lr
-python weeds.py -i input2 -o output -a ndi -t "(130,0)" -df training-521.csv -l -sc -v -lg info-logging.yaml -se reduced-parameters.csv
-Logistic regression prediction
-[1 1 0 0 1 1 1 1 1 1 1 1 1 1 1 1 0 1 1 1 1 1 1 1 1 0 1 1 1 1 1 0 1 1 1 1 1
- 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 0 1 1 1 1 1 1 1 0 1 1 1 1 1 1 1 1 1
- 1 0 1 1 1 1 1 1 1 1 1 1 1 1 0 1 1 1 1 1 1 0 1 0 0 0 0 1 1 1 0 1 1 1 1 1 1
- 0 0 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 0 1 1 1 1 1 0 1 1 1]
-Training Score: 0.979
-Testing Score: 0.9787234042553191
-Processing image 0
-... This is repeated for all the 30 images
-
-KNN
----
-make weeds PARAMETERS=reduced-parameters.csv TRAINING=training-521.csv ML=knn
-
-Decision Tree
--------------
-make weeds PARAMETERS=reduced-parameters.csv TRAINING=training-521.csv ML=decision
-
-Boosted Gradient
-----------------
-make weeds PARAMETERS=reduced-parameters.csv TRAINING=training-521.csv ML=gradient
-
-Random Forest
--------------
-make weeds PARAMETERS=reduced-parameters.csv TRAINING=training-521.csv ML=forest
