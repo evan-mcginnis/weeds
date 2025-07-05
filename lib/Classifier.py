@@ -26,6 +26,8 @@ from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.ensemble import ExtraTreesClassifier
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.svm import LinearSVC
+from sklearn.svm import OneClassSVM
+from sklearn.linear_model import SGDOneClassSVM
 from sklearn.metrics import roc_curve
 from sklearn.metrics import auc
 from sklearn.neural_network import MLPClassifier
@@ -87,6 +89,16 @@ class ClassificationTechniques(Enum):
     LOGISTIC = 6
     GRADIENT = 7
     EXTRA = 8
+    #OCC = 9
+
+class OCCClassificationTechniques(Enum):
+    OCC = 1
+
+class ClassificationType(Enum):
+    BINARY = 0
+    OCC = 1
+
+# The problem with adding in OCC here is that older result files will not have these results
 
     def __str__(self):
         return self.name
@@ -498,6 +510,10 @@ class Classifier:
     def auc(self) -> float:
         return self._auc
 
+    @property
+    def thresholds(self) -> float:
+        return self._threshold
+
     # @property
     # def accuracy(self) -> float:
     #     return self._accuracy
@@ -877,17 +893,24 @@ class Classifier:
             self._blobsInView = pd.DataFrame(features, columns=selectedFeatureNames)
             self._blobsInView.sort_index(axis=1, inplace=True)
 
-    def visualize(self):
+    def visualize(self, file: str = None):
+        plt.style.use('ggplot')
+        plt.rc('font', family='Times New Roman')
         plt.title(f'{self.name} Receiver Operating Characteristic')
         plt.plot(self._fpr, self._tpr, 'b', label='AUC = %0.2f' % self._auc)
+        plt.plot([0, 1], [0, 1], 'r--', label='Chance')
         plt.legend(loc='lower right')
-        plt.plot([0, 1], [0, 1], 'r--')
-        plt.xlim([0, 1])
-        plt.ylim([0, 1])
+        plt.xlim([0, 1.03])
+        plt.ylim([0, 1.03])
         plt.ylabel('True Positive Rate')
         plt.xlabel('False Positive Rate')
         plt.title(f'ROC Curve of {self.name}')
-        plt.show()
+
+        # If the name for the file is supplied, save it, otherwise show
+        if file is None:
+            plt.show()
+        else:
+            plt.savefig(file)
 
     def visualizeFolds(self):
         # Adapted from:
@@ -1266,7 +1289,21 @@ class LogisticRegressionClassifier(Classifier):
 
         self.log.debug("Creating LR Model")
         self._model = LogisticRegression(C=100, max_iter=500)
-        self._model.fit(self._xTrain, self._yTrain)
+        try:
+            self._model.fit(self._xTrain, self._yTrain)
+        except sklearn.exceptions.FitFailedWarning as e:
+            self.log.error(f"Fit failed for {self.name}: {e}")
+            self._fpr = 0
+            self._tpr = 0
+            self._threshold = 0
+            self._auc = 0
+            return
+        except sklearn.exceptions.ConvergenceWarning as e:
+            self.log.error(f"Failed to converge with parameters: {self.selections}")
+            self._fpr = 0
+            self._tpr = 0
+            self._threshold = 0
+            self._auc = 0
 
         try:
             self._scores = cross_val_score(self._model, self._x, self._y)
@@ -1555,6 +1592,124 @@ class ExtraTrees(Classifier):
             i = i + 1
         return
 
+class OCC(Classifier):
+
+    name = "OCC"
+
+    def __init__(self):
+        super().__init__()
+
+    def createModel(self, score: bool):
+        # Create the model
+        #self._model = OneClassSVM(gamma='scale', nu=0.01)
+        self._model = OneClassSVM(kernel="sigmoid", gamma='scale', degree=1, nu=0.99)
+
+        # Just use the majority class
+        trainX = self._xTrain[self._yTrain == 0]
+        self._model.fit(trainX)
+
+        # Use both minority and majority
+        #self._model.fit(self._xTrain, self._yTrain)
+
+
+        yhat = self._model.predict(self._xTest)
+        self._yTest[self._yTest == 1] = -1
+        self._yTest[self._yTest == 0] = 1
+        score = f1_score(self._yTest, yhat, pos_label=-1)
+
+        print(f"F1: {score}")
+        # evaluate using cross-validation
+        # cv = KFold(n_splits=10, random_state=42, shuffle=True)
+        # self._scores = cross_val_score(self._model, self._xTrain, self._yTrain, scoring='accuracy', cv=cv, n_jobs=-1)
+
+        distances = self._model.decision_function(self._xTest)
+        #self._y_scores = self._model.predict_proba(self._xTest)
+        self._fpr, self._tpr, self._threshold = roc_curve(self._yTest, distances)
+        self._auc = auc(self._fpr, self._tpr)
+
+        if score:
+            self.log.debug(f"OCC AUC: {self._auc}")
+            # self.log.debug(f"OCC cross validation scores: {np.mean(self._scores)}")
+            # self.log.debug("Training Score: {:.3f}".format(self._model.score(self._xTrain, self._yTrain)))
+            # self.log.debug("Testing Score: {:.3f}".format(self._model.score(self._xTest, self._yTest)))
+
+
+    # def classify(self):
+    #     super().classify(constants.REASON_EXTRA)
+    #     return
+
+    def classify(self):
+
+        self._prepareData()
+
+        predictions = self._model.predict(self._blobsInView)
+                # Mark up the current view
+        i = 0
+        for blobName, blobAttributes in self._blobs.items():
+            if blobAttributes[constants.NAME_REASON] != constants.REASON_AT_EDGE:
+                blobAttributes[constants.NAME_TYPE] = predictions[i]
+                blobAttributes[constants.NAME_REASON] = constants.REASON_DECISION_TREE
+            i = i + 1
+        return
+
+class OCCSGD(Classifier):
+
+    name = "OCCSGD"
+
+    def __init__(self):
+        super().__init__()
+
+    def createModel(self, score: bool):
+        # Create the model
+        self._model = SGDOneClassSVM(nu=0.99)
+
+        # Just use the majority class
+        trainX = self._xTrain[self._yTrain == 0]
+        self._model.fit(trainX)
+
+        # Use both minority and majority
+        #self._model.fit(self._xTrain, self._yTrain)
+
+
+        yhat = self._model.predict(self._xTest)
+        self._yTest[self._yTest == 1] = -1
+        self._yTest[self._yTest == 0] = 1
+        score = f1_score(self._yTest, yhat, pos_label=-1)
+
+        print(f"F1: {score}")
+        # evaluate using cross-validation
+        # cv = KFold(n_splits=10, random_state=42, shuffle=True)
+        # self._scores = cross_val_score(self._model, self._xTrain, self._yTrain, scoring='accuracy', cv=cv, n_jobs=-1)
+
+        distances = self._model.decision_function(self._xTest)
+        #self._y_scores = self._model.predict_proba(self._xTest)
+        self._fpr, self._tpr, self._threshold = roc_curve(self._yTest, distances)
+        self._auc = auc(self._fpr, self._tpr)
+
+        if score:
+            self.log.debug(f"OCCSGD AUC: {self._auc}")
+            # self.log.debug(f"OCC cross validation scores: {np.mean(self._scores)}")
+            # self.log.debug("Training Score: {:.3f}".format(self._model.score(self._xTrain, self._yTrain)))
+            # self.log.debug("Testing Score: {:.3f}".format(self._model.score(self._xTest, self._yTest)))
+
+
+    # def classify(self):
+    #     super().classify(constants.REASON_EXTRA)
+    #     return
+
+    def classify(self):
+
+        self._prepareData()
+
+        predictions = self._model.predict(self._blobsInView)
+                # Mark up the current view
+        i = 0
+        for blobName, blobAttributes in self._blobs.items():
+            if blobAttributes[constants.NAME_REASON] != constants.REASON_AT_EDGE:
+                blobAttributes[constants.NAME_TYPE] = predictions[i]
+                blobAttributes[constants.NAME_REASON] = constants.REASON_DECISION_TREE
+            i = i + 1
+        return
 
 
 def classifierFactory(technique: str) -> Classifier:
@@ -1568,7 +1723,9 @@ def classifierFactory(technique: str) -> Classifier:
         LogisticRegressionClassifier.name.upper(): LogisticRegressionClassifier,
         KNNClassifier.name.upper(): KNNClassifier,
         DecisionTree.name.upper(): DecisionTree,
-        ExtraTrees.name.upper(): ExtraTrees
+        ExtraTrees.name.upper(): ExtraTrees,
+        OCC.name.upper(): OCC,
+        OCCSGD.name.upper(): OCCSGD
     }
 
     return classifiers[technique]()
