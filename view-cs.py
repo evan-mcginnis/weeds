@@ -8,7 +8,7 @@ import os.path
 from CameraFile import CameraFile, CameraPhysical
 from VegetationIndex import VegetationIndex
 from ImageManipulation import ImageManipulation
-from Logger import Logger
+from ImageLogger import ImageLogger
 
 parser = argparse.ArgumentParser("View 3D graph of image in specific colorspace")
 

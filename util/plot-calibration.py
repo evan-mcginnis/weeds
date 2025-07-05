@@ -137,7 +137,7 @@ plt.scatter(combined.index, combined['Corrected'], label='Corrected', color='gre
 plt.xlabel("Acquisition Date")
 plt.ylabel("Hue")
 plt.title("Blue Square of Calibration Plate")
-legend = plt.legend()
+legend = plt.legend(facecolor='darkgrey', framealpha=0.5)
 legend.get_frame().set_edgecolor('black')
 legend.get_frame().set_linewidth(1.0)
 
