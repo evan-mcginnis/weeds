@@ -761,6 +761,9 @@ class IndividualResult:
         theString = f"{self._checked}:{self._accuracy}:{self._parameters}"
         return theString
 
+    def toDict(self) -> {}:
+        return {'Technique': self._technique, 'F1': self._f1, 'AUC': self._auc, 'Precision': self._precision, 'Recall': self._recall, 'MAP': self._map, 'Parameters': self._parameters}
+
 class AllResults:
     def __init__(self, **kwargs):
         """
@@ -892,6 +895,21 @@ class AllResults:
         self._results = pickle.load(dbfile)
         dbfile.close()
 
+    def asDataframe(self) -> pd.DataFrame:
+
+        allResults = []
+        for result in self._results:
+            aResult = {constants.NAME_TECHNIQUE: result.technique,
+                       constants.Scoring.AUC.name: result.auc,
+                       constants.Scoring.F1.name: result.f1,
+                       constants.Scoring.RECALL.name: result.recall,
+                       constants.Scoring.PRECISION.name: result.precision,
+                       constants.NAME_PARAMETERS: result.parameters}
+            allResults.append(aResult)
+        df = pd.DataFrame(allResults)
+        return df
+
+
 
     def print(self):
         print(f"Technique: {self._technique}")
@@ -912,6 +930,7 @@ if __name__ == "__main__":
     #    from Logger import Logger
     from Classifier import Classifier, LogisticRegressionClassifier, KNNClassifier, DecisionTree, RandomForest, GradientBoosting, SuppportVectorMachineClassifier, LDA
     from Classifier import MLP, ExtraTrees
+    from Classifier import OCC
     from Classifier import classifierFactory
     from Performance import Performance
     from enum import Enum
@@ -957,7 +976,8 @@ if __name__ == "__main__":
         SuppportVectorMachineClassifier.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
         LDA.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
         MLP.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
-        ExtraTrees.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE}
+        ExtraTrees.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        OCC.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE}
     }
 
     maximumsAUC = {
@@ -969,7 +989,8 @@ if __name__ == "__main__":
         SuppportVectorMachineClassifier.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
         LDA.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
         MLP.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
-        ExtraTrees.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE}
+        ExtraTrees.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        OCC.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE}
     }
 
     maximumsPrecision = {
@@ -981,7 +1002,8 @@ if __name__ == "__main__":
         SuppportVectorMachineClassifier.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
         LDA.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
         MLP.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
-        ExtraTrees.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE}
+        ExtraTrees.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        OCC.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE}
     }
 
     maximumsRecall = {
@@ -993,7 +1015,8 @@ if __name__ == "__main__":
         SuppportVectorMachineClassifier.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
         LDA.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
         MLP.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
-        ExtraTrees.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE}
+        ExtraTrees.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        OCC.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE}
     }
 
     maximumsF1 = {
@@ -1005,7 +1028,8 @@ if __name__ == "__main__":
         SuppportVectorMachineClassifier.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
         LDA.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
         MLP.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
-        ExtraTrees.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE}
+        ExtraTrees.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        OCC.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE}
     }
 
     maximumsMAP = {
@@ -1017,7 +1041,8 @@ if __name__ == "__main__":
         SuppportVectorMachineClassifier.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
         LDA.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
         MLP.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
-        ExtraTrees.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE}
+        ExtraTrees.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        OCC.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE}
     }
 
     maximumsAccuracyEquivalent = {
@@ -1029,7 +1054,8 @@ if __name__ == "__main__":
         SuppportVectorMachineClassifier.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
         LDA.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
         MLP.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
-        ExtraTrees.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE}
+        ExtraTrees.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        OCC.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE}
     }
 
     maximumsAUCEquivalent = {
@@ -1041,7 +1067,8 @@ if __name__ == "__main__":
         SuppportVectorMachineClassifier.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
         LDA.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
         MLP.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
-        ExtraTrees.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE}
+        ExtraTrees.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        OCC.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE}
     }
 
     maximumsPrecisionEquivalent = {
@@ -1053,7 +1080,8 @@ if __name__ == "__main__":
         SuppportVectorMachineClassifier.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
         LDA.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
         MLP.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
-        ExtraTrees.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE}
+        ExtraTrees.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        OCC.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE}
     }
     maximumsRecallEquivalent = {
         KNNClassifier.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
@@ -1064,7 +1092,8 @@ if __name__ == "__main__":
         SuppportVectorMachineClassifier.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
         LDA.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
         MLP.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
-        ExtraTrees.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE}
+        ExtraTrees.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        OCC.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE}
     }
     maximumsF1Equivalent = {
         KNNClassifier.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
@@ -1075,7 +1104,8 @@ if __name__ == "__main__":
         SuppportVectorMachineClassifier.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
         LDA.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
         MLP.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
-        ExtraTrees.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE}
+        ExtraTrees.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        OCC.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE}
     }
     maximumsMAPEquivalent = {
         KNNClassifier.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
@@ -1086,7 +1116,8 @@ if __name__ == "__main__":
         SuppportVectorMachineClassifier.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
         LDA.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
         MLP.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
-        ExtraTrees.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE}
+        ExtraTrees.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE},
+        OCC.name: {RESULT: 0, PARAMETERS: [], CORRECTION: constants.NAME_NONE}
     }
     resultsSemaphore = Semaphore()
 
@@ -1515,7 +1546,7 @@ if __name__ == "__main__":
         # combinations_1, combinations_2 = itertools.tee(allCombinations, 2)
 
 
-        allTechniques = [RandomForest(), KNNClassifier(), GradientBoosting(), LogisticRegressionClassifier(), DecisionTree(), SuppportVectorMachineClassifier(), LDA(), MLP(), ExtraTrees()]
+        allTechniques = [RandomForest(), KNNClassifier(), GradientBoosting(), LogisticRegressionClassifier(), DecisionTree(), SuppportVectorMachineClassifier(), LDA(), MLP(), ExtraTrees(), OCC()]
         #allTechniques = [KNNClassifier(), RandomForest(), GradientBoosting(), LogisticRegressionClassifier(), DecisionTree(), LDA()]
         allTechniquesNames = [x.name for x in allTechniques]
 
