@@ -77,6 +77,7 @@ MSG_NO_PROBLEM_FOUND = "No problem found"
 # Names for the attributes
 # Some of these are a bit redundant and are there for backwards compatibility
 NAME_TECHNIQUE              = "Technique"
+NAME_PARAMETERS             = "Parameters"
 NAME_DATE                   = "date"
 NAME_BLOB                   = "blob"
 NAME_AREA                   = "area"
@@ -177,6 +178,7 @@ COLUMN_NAME_SUBTYPE         = "subtype"
 COLUMN_NAME_TYPE            = "type"
 COLUMN_NAME_FACTOR          = "factor"
 COLUMN_NAME_KIND            = "kind"
+COLUMN_NAME_COLORSPACE      = "space"
 
 # B A N D S
 # The band names -- used for GLCM computations
@@ -773,6 +775,14 @@ class Score(Enum):
 class Classification(Enum):
     CROP = 0
     WEED = 1
+
+class Scoring(Enum):
+    AUC = 0
+    F1 = 1
+    PRECISION = 2
+    RECALL = 3
+    MAP = 4
+
 
 
 
