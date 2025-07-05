@@ -124,6 +124,12 @@ echo Counts
 $MAKE optimal-counts TYPE=all SUBTYPE=all FORMAT=latex PARAMETERS=parameters.pickle LOGGING=tucson-logging.ini ALL_RESULTS=/cygdrive/c/tmp/dissertation/data CAPTION_LONG="Percentage of Classifications within %T of Maximum" CAPTION_SHORT="Percentage of Classifications within %T of maximum" LABEL=table:results-counts PREFIX=cantaloupe_all_auc OUTPUT=/cygdrive/c/tmp/dissertation/tables/$FILE_PREFIX-results-counts.tex THRESHOLD=0.03 >>$OUTSTDOUT
 check_result
 echo "--------" >> $OUTSTDOUT
+$MAKE parameter-counts TYPE=TEXTURE SUBTYPE=all FORMAT=latex PARAMETERS=parameters.pickle LOGGING=tucson-logging.ini ALL_RESULTS=/cygdrive/c/tmp/dissertation/data CAPTION_LONG="Counts of texture parameters used" CAPTION_SHORT="Counts of texture parameters used" LABEL=table:parameter-counts-texture PREFIX=cantaloupe_texture_auc OUTPUT=/cygdrive/c/tmp/dissertation/tables/$FILE_PREFIX-parameter-counts-texture.tex  >>$OUTSTDOUT
+check_result
+echo "--------" >> $OUTSTDOUT
+$MAKE parameter-counts TYPE=all SUBTYPE=all FORMAT=latex PARAMETERS=parameters.pickle LOGGING=tucson-logging.ini ALL_RESULTS=/cygdrive/c/tmp/dissertation/data CAPTION_LONG="Counts of parameters used" CAPTION_SHORT="Counts of parameters used" LABEL=table:parameter-counts-all PREFIX=cantaloupe_all_auc OUTPUT=/cygdrive/c/tmp/dissertation/tables/$FILE_PREFIX-parameter-counts-all.tex  >>$OUTSTDOUT
+check_result
+echo "--------" >> $OUTSTDOUT
 
 echo Thresholds
 make optimal-thresholds PREFIX=cantaloupe_all_auc PARAMETERS=parameters.pickle FORMAT=latex TYPE=all SUBTYPE=all LOGGING=tucson-logging.ini ALL_RESULTS=$DATA CAPTION_LONG="Thresholds for classification approaches"  CAPTION_SHORT="Thresholds for classification approaches" LABEL=table:thresholds TRAINING=/cygdrive/d/dissertation/shape/season.csv OUTPUT=$BASE/tables/$FILE_PREFIX-thresholds.tex >> $OUTSTDOUT
