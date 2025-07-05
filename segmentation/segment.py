@@ -2,6 +2,8 @@ import argparse
 import os.path
 import glob
 import logging.config
+import sys
+import threading
 from pathlib import Path
 import time
 from threading import Thread, Semaphore
@@ -17,6 +19,7 @@ from Classifier import ClassificationTechniques
 from Classifier import classifierFactory
 from ImageManipulation import ImageManipulation
 from ImageLogger import ImageLogger
+from Performance import Performance
 
 # This is temporary to debug
 class _ClassificationTechniques(Enum):
@@ -32,13 +35,14 @@ class _ClassificationTechniques(Enum):
 
     def __str__(self):
         return self.name
+# End debug
 
-classifications = [c.name for c in _ClassificationTechniques]
+classifications = [c.name for c in ClassificationTechniques]
 classificationChoices = classifications.copy()
 classificationChoices.append("all")
 
 # Names of the color spaces that can be used
-spaces = ["BGR", "RGB", "YIQ", "YUV", "HSI", "HSV", "YCBCR", "CIELAB"]
+spaces = ["RGB", "YIQ", "YUV", "HSI", "HSV", "YCBCR", "CIELAB"]
 spaceChoices = spaces.copy()
 spaceChoices.append("all")
 
@@ -48,13 +52,22 @@ parser.add_argument('-i', '--input', action="store", required=True,  help="Input
 parser.add_argument('-o', '--output', action="store", required=True, help="Output directory")
 parser.add_argument('-t', '--training', action="store", required=True, help="Training file")
 parser.add_argument('-l', '--logging', action="store", required=True, help="Logging configuration")
-parser.add_argument('-a', '--algorithm', action="store", required=False, default="KNN", choices=classificationChoices, help="ML Algorithm")
+parser.add_argument('-a', '--algorithm', action="store", required=False, default="KNN", choices=classificationChoices, nargs='+', help="ML Algorithm")
 parser.add_argument('-c', '--color', action="store", required=False, default="BGR", choices=spaceChoices, help="Color Spaces")
 parser.add_argument('-s', '--score', action="store_true", required=False, default=True, help="Score the model")
+parser.add_argument('-b', '--build', action="store_true", required=False, default=False, help="Build model and summarize -- no actual processing")
 
 
 arguments = parser.parse_args()
 
+#
+# Perfomance
+#
+performanceResults = Performance("performance.csv")
+(performanceOK, performanceDiagnostics) = performanceResults.initialize()
+if not performanceOK:
+    print(performanceDiagnostics)
+    sys.exit(1)
 
 # Input files -- find all jpgs if a directory is specified
 files = []
@@ -118,9 +131,16 @@ def process(algorithm: str, source: str, logger: ImageLogger):
 
         # Set up the classifier
         classifier.selections = features
-        # TODO: stratify should be false for random forest
-        classifier.load(arguments.training, stratify=False)
-        classifier.createModel(arguments.score)
+        stratify = False
+        if algorithm == ClassificationTechniques.RANDOMFOREST.name:
+            stratify = True
+        classifier.load(arguments.training, stratify=stratify)
+        try:
+            classifier.createModel(arguments.score)
+        except Exception as e:
+            log.fatal(f"Unable to create model: {e}")
+            threadStatus[threading.current_thread().name] = -1
+            sys.exit()
 
         log.debug(f"Reading {columns} from {arguments.training}")
 
@@ -162,6 +182,7 @@ def process(algorithm: str, source: str, logger: ImageLogger):
             # For each pixel, predict the class
             height, width, bands = imgAsBGR.shape
 
+            performanceResults.start()
             for h in range(height):
                 log.debug(f"Processing row {h}")
                 for w in range(width):
@@ -170,7 +191,12 @@ def process(algorithm: str, source: str, logger: ImageLogger):
                     band = bandInformation["readings"]
 
                     # Predict based on the band data
-                    predicted = classifier.classifyPixel(band[h, w, 0], band[h, w, 1], band[h, w, 2])
+                    try:
+                        predicted = classifier.classifyPixel(band[h, w, 0], band[h, w, 1], band[h, w, 2])
+                    except Exception as e:
+                        log.fatal(f"Unable to classify: {e}")
+                        threadStatus[threading.current_thread().name] = -1
+                        sys.exit()
 
                     # For the ground, set all the bands to 0 to indicate black
                     if predicted == 1:
@@ -178,27 +204,86 @@ def process(algorithm: str, source: str, logger: ImageLogger):
                         targetImage[h, w, 1] = 0
                         targetImage[h, w, 2] = 0
 
+            performanceResults.stopAndRecord(f"{algorithm}-{color}")
             logger.logImage(f"{Path(file).stem}-{algorithm}-{color}", targetImage)
 
-if arguments.algorithm == "all":
+if arguments.algorithm[0] == "all":
     allTechniques = classifications
 else:
-    allTechniques = arguments.technique
+    allTechniques = arguments.algorithm
+
+log.debug(f"Examine using {allTechniques}")
 
 threads = []
-for technique in allTechniques:
-    search = Thread(name=f"{technique}",
-                    target=process,
-                    args=(technique, arguments.input, logger,))
+threadStatus = {}
 
-    search.daemon = True
-    threads.append(search)
-    search.start()
-    # This is arbitrary but required to avoid errors in startup, it would seem.
-    time.sleep(2)
+# Just build the classifiers
+if arguments.build:
+    allResults = []
 
-# Wait for the threads to finish
-log.info(f"Wait for {len(threads)} threads to finish")
-for x in threads:
-    x.join()
+    for algorithm in allTechniques:
+        for color in spaces:
+            log.debug(f"Building {algorithm}-{color}")
+            classifier = classifierFactory(algorithm)
+
+            # The columns to be read from the training file
+            band0 = f"{color}-band-0"
+            band1 = f"{color}-band-1"
+            band2 = f"{color}-band-2"
+            features = [band0, band1, band2]
+            columns = ["type", band0, band1, band2]
+
+            # Set up the classifier
+            classifier.selections = features
+            stratify = False
+            if algorithm == _ClassificationTechniques.RANDOMFOREST.name:
+                stratify = True
+            classifier.load(arguments.training, stratify=stratify)
+            classifier.createModel(arguments.score)
+            classifier.assess()
+            result = [algorithm, color, classifier.auc, classifier.precision, classifier.recall, classifier.f1]
+            allResults.append(result)
+
+    # The results from building the models go here
+    columns = ["Technique", "Color", "AUC", "Precision", "Recall", "F1"]
+    results = pd.DataFrame(columns=columns, data=allResults)
+
+    shortCaption = "Machine Learning Segmentation"
+    longCaption = "Machine Learning Segmentation"
+    print("---------- begin latex ---------------")
+    print(f"{results.to_latex(longtable=True, index_names=False, index=False, caption=(longCaption, shortCaption), float_format='%.2f', label='table:ml-segmentation', header=columns)}")
+    print("---------- end latex ---------------")
+
+    results.to_csv(f"{arguments.output}/results.csv")
+
+# Process images
+else:
+    for technique in allTechniques:
+        search = Thread(name=f"{technique}",
+                        target=process,
+                        args=(technique, arguments.input, logger,))
+
+        search.daemon = True
+        threads.append(search)
+        threadStatus[search.name] = 0
+        search.start()
+        # This is arbitrary but required to avoid errors in startup, it would seem.
+        time.sleep(2)
+
+    # Wait for the threads to finish
+    log.info(f"Wait for {len(threads)} threads to finish")
+    finished = False
+    while not finished:
+        finishedThreads = 0
+        for x in threads:
+            if not x.is_alive():
+                log.debug(f"{x.name} finished")
+                status = threadStatus[x.name]
+                if status != 0:
+                    log.error(f"Thread {x.name} terminated with an error.")
+                    finished = True
+                finishedThreads += 1
+        if finishedThreads == len(threads):
+            finished = True
+            time.sleep(5)
 

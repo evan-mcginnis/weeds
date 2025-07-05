@@ -3,4 +3,4 @@ default:
 	@echo Specify target: clean
 
 clean:
-	rm -f \*.log
+	rm -f *.log
