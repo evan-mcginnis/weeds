@@ -9,16 +9,28 @@ library(stringr)
 library(gsubfn)
 library(cowplot)
 
+
+# args = commandArgs(trailingOnly=TRUE)
+# if (length(args) == 0) {
+#   INPUT_DIR <- "../../results"
+#   OUTPUT_DIR <- "../../results/figures"
+# } else if (length(args) == 2) {
+#   stop("Not yet implemented")
+# }
+
 # RStudio is a bit of a pain here.  I can't specify run-time parameters, so I suppose I should
 # just make these optional with some defaults so I can debug.
+# 
+# options <- list(
+#   make_option(c("-i", "--input", type="character", default="../../results", help="Input Directory for csv files", metavar="character")),
+#   make_option(c("-o", "--output", type="character", default="../../results/figures", help="Output directory for plots", metavar="character"))
+# )
+# 
+# optParser <- OptionParser(option_list=options)
+# opt = parse_args(optParser)
 
-options <- list(
-  make_option(c("-i", "--input", type="character", default="results.csv", help="Input CSV", metavar="character")),
-  make_option(c("-o", "--output", type="character", default="figures", help="Output directory for plots", metavar="character"))
-)
-
-optParser <- OptionParser(option_list=options)
-opt = parse_args(optParser)
+INPUT_DIR <- './post'
+OUTPUT_DIR <- './post'
 
 RESULT_RESULT <- "results"
 RESULT_TECHNIQUE <- "technique"
@@ -29,15 +41,20 @@ output <- "figures"
 #resultsFiles = c("results-forest.csv", "results-logistic.csv", "results-decision.csv", "results-gradient.csv", "results-knn.csv", "results-svm.csv")
 #resultsTechniques = c("Random Forest", "Logistic Regression", "Decision Tree", "Boosted Gradient", "KNN", "SVM")
 
-resultsFiles = c("results-lower-threshold-svm.csv", "results-lower-threshold-logistic.csv", "results-lower-threshold-forest.csv", "results-lower-threshold-decision.csv", "results-lower-threshold-gradient.csv", "results-lower-threshold-knn.csv")
+# All techniques
+resultsFiles = c("results.svm.csv", "results.lr.csv", "results.forest.csv", "results.tree.csv", "results.gradient.csv", "results.knn.csv")
 resultsTechniques = c("SVM", "Random Forest", "Logistic Regression", "Decision Tree", "Boosted Gradient", "KNN")
+
+# Correcterd vs Uncorrected imbalance
+resultsFiles = c("results.corrected.csv", "results.uncorrected.csv")
+resultsTechniques = c("Corrected", "Uncorrected")
 
 results <- data.frame(resultsFiles, resultsTechniques)
 colnames(results) <- c(RESULT_RESULT, RESULT_TECHNIQUE)
 
 processResults <- function(resultsCSV, technique){
-
-  cropPredictions <- read.csv(resultsCSV)
+  # read.csv(file = "result1", sep = " ")[ ,c('col1', 'col2')]
+  cropPredictions <- read.csv(paste(INPUT_DIR, "/", resultsCSV, sep=""))
 
   totalWeeds = sum(cropPredictions$actual)
   
@@ -50,7 +67,7 @@ processResults <- function(resultsCSV, technique){
   confusionMatrix <- conf_mat(cropPredictions, truth=actual, estimate=type)
   
   # TODO: Must be a better way to form a path to a file
-  filePlot=paste("figures/confusion-",paste(tolower(str_replace(technique, " ", "-")), ".jpg", sep=""), sep="")
+  filePlot=paste(OUTPUT_DIR, "/", "confusion-",paste(tolower(str_replace(technique, " ", "-")), ".jpg", sep=""), sep="")
   
   plot <- autoplot(confusionMatrix, type="heatmap", ) +
             labs(title=technique) +
