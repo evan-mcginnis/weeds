@@ -149,7 +149,7 @@ Images and Preprocessing
 ------------------------
 The images of crop and weeds are held in these repos:
 
-These images are in a RAW format, and must be converted to JPG before processing.
+These images are in a RAW format, and must be converted to JPG before processing. Adobe Ligthroom was used for this task, but is not a requirement.
 
 Correcting the color of the images is a task best executed by something like Adobe Lightroom, although using that package is not a requirement, it is what was used.  A photo of the color correction chart for each image set is included as the first image.
 
@@ -185,9 +185,24 @@ optional arguments:
 For example:
 python review.py -i /cygdrive/d/maricopa/corrected/2024-05-01/drip-iphone/processed/final/ -p processed-\*jpg -o /cygdrive/c/tmp/2024-05-01.csv -a /cygdrive/d/maricopa/corrected/2024-05-01/drip-iphone/processed/final/corrected.csv
 
-The output file (here, 2024-05-01.csv) is the training data for that one image set
+This will present the images and classifications, allowing the user to assign the correct class.
+
+The output file (here, 2024-05-01.csv) is the training data for that one image set.
 
 This process must be repeated for each image set and all image sets must be combined into one training/testing set.
+
+The utility combine.py will perform this combining in the format required by other steps (a single header row)
+
+ python combine.py --help
+usage: Combine CSVs [-h] -i [INPUT [INPUT ...]] -o OUTPUT [-f]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -i [INPUT [INPUT ...]], --input [INPUT [INPUT ...]]
+                        Input CSV
+  -o OUTPUT, --output OUTPUT
+                        Output CSV
+  -f, --force           Force overwrite of output file
 
 
 Processing the images
@@ -195,8 +210,98 @@ Processing the images
 
 Producing the data
 ------------------
+To produce the data that can subsequently be interpreted, use the Selection.py script.  For example, this command will produce the results considering all textural attributes.
+
+python Selection.py -df `cygpath -w /cygdrive/d/dissertation/cantaloupe/season.csv` -fs ALL -f 4 -l -lg standalone-logging.ini -p cantaloupe_texture -o -ty TEXTURE -s all -od `cygpath -w /cygdrive/c/tmp/dissertation/data`
+
+This will search for the optimal set of parameters for a given type and subtype and produce a pickle file that can then be used to produce a results table or plot. The types/subtypes are TEXTURE/[all|GLCM|LBP] or SHAPE/all or COLOR/all or all/all.
+
+
 
 Producing the results
 ---------------------
+The results come in two forms: tables and plots.  Tables are just a summary of various scores for each of the techniques, but the plots are focused on ROC curves for the tecniques.
+
+For example, this will produce a tex table if only GLCM is considered, and includes columns for auc, f1, precision, and recall
+
+python results.py --prefix  cantaloupe_glcm_auc -c `cygpath -w parameters.pickle` -o latex --type TEXTURE --subtype GLCM -lg tucson-logging.ini --directory `cygpath -w /cygdrive/c/tmp/dissertation/data/` --long "Classification using GLCM "  --short "Classification using GLCM " --label table:glcm-summary --table  --output `cygpath -w /cygdrive/c/tmp/dissertation/tables/generated-results-glcm.tex`  --include auc f1 precision recall
+
+
+$ python results.py --help
+usage: Results file operation [-h] -c COMPUTED
+                              [-cr {ACCURACY,AUC,PRECISION,RECALL,F1,MAP,all}]
+                              [-cl LONG] [-cs SHORT] [-te {binary,occ,all}]
+                              [-df DATA] [-f] [-l LABEL] [-lg LOGGING] [-n N]
+                              [-fo {latex,text,csv}] -od DIRECTORY
+                              [-i [{parameters,auc,f1,precision,recall,map} [{parameters,auc,f1,precisi
+on,recall,map} ...]]]
+                              [-p PREFIX | -r RESULTS] [-su]
+                              [-si SIMILARITY | -ct | -roc | -rt | -table | -pc]
+                              [-se] [-so SOURCE] [-co] [-t TARGET]
+                              [-th THRESHOLD] [-graph GRAPH] [-o OUTPUT]
+                              [-s [{NONE,LBP,GLCM,HOG,all} [{NONE,LBP,GLCM,HOG,all} ...]]]
+                              [-ty [{COLOR,SHAPE,TEXTURE,POSITION,all} [{COLOR,SHAPE,TEXTURE,POSITION,a
+ll} ...]]]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -c COMPUTED, --computed COMPUTED
+                        Pickle format file with computed parameters
+  -cr {ACCURACY,AUC,PRECISION,RECALL,F1,MAP,all}, --criteria {ACCURACY,AUC,PRECISION,RECALL,F1,MAP,all}
+                        Criteria to determine maximum
+  -cl LONG, --long LONG
+                        (latex) Table long caption
+  -cs SHORT, --short SHORT
+                        (latex) Table short caption
+  -te {binary,occ,all}, --technique {binary,occ,all}
+                        Classification Approach
+  -df DATA, --data DATA
+                        Name of the data in CSV format (required for --roc
+  -f, --factors         Show only the factors
+  -l LABEL, --label LABEL
+                        (latex) Label for generated table
+  -lg LOGGING, --logging LOGGING
+                        logging configuration
+  -n N, --n N           Number of combinations
+  -fo {latex,text,csv}, --format {latex,text,csv}
+                        Output format
+  -od DIRECTORY, --directory DIRECTORY
+                        Results file directory
+  -i [{parameters,auc,f1,precision,recall,map} [{parameters,auc,f1,precision,recall,map} ...]], --inclu
+de [{parameters,auc,f1,precision,recall,map} [{parameters,auc,f1,precision,recall,map} ...]]
+                        Include in table
+  -p PREFIX, --prefix PREFIX
+                        File prefix
+  -r RESULTS, --results RESULTS
+                        Pickle file for technique
+  -su, --summary        Show a summary of the results
+  -si SIMILARITY, --similarity SIMILARITY
+                        Show items where similarity matches
+  -ct, --close          Show count of results close to maximum
+  -roc, --roc           Show ROC curves
+  -rt, --roc-thresholds
+                        Produce table of thresholds based on ROC curves
+  -table, --table       Generate results table
+  -pc, --parameter-counts
+                        Generate parameter counts table
+  -se, --seasonality    Show seasonality instead of attribute names
+  -so SOURCE, --source SOURCE
+                        The original data for these results
+  -co, --compare        Compare results to specified set
+  -t TARGET, --target TARGET
+                        Compare results to this file (required if --compare is
+  -th THRESHOLD, --threshold THRESHOLD
+                        Threshold for --close option
+  -graph GRAPH, --graph GRAPH
+                        Output file for graph
+  -o OUTPUT, --output OUTPUT
+                        Output file for table
+  -s [{NONE,LBP,GLCM,HOG,all} [{NONE,LBP,GLCM,HOG,all} ...]], --subtypes [{NONE,LBP,GLCM,HOG,all} [{NON
+E,LBP,GLCM,HOG,all} ...]]
+                        Attribute types used
+  -ty [{COLOR,SHAPE,TEXTURE,POSITION,all} [{COLOR,SHAPE,TEXTURE,POSITION,all} ...]], --types [{COLOR,SH
+APE,TEXTURE,POSITION,all} [{COLOR,SHAPE,TEXTURE,POSITION,all} ...]]
+                        Attribute types used
+
 
 
