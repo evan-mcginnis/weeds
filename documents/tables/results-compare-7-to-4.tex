@@ -1,0 +1,29 @@
+\begin{longtable}{llll}
+\caption[Comparing Classification Performance using 7 and 4 Factors]{Comparing Classification Performance using 7 and 4 Factors}
+\label{table:optimal-7-4-comparison}\\
+\toprule
+   Technique &   AUC using 4 & AUC using 7 & AUC Impact  \\
+\midrule
+\endfirsthead
+\caption[]{Comparing Classification Performance using 7 and 4 Factors} \\
+\toprule
+   Technique &  AUC using 4 & AUC using 7 & AUC Impact\\
+\midrule
+\endhead
+\midrule
+\multicolumn{4}{r}{{Continued on next page}} \\
+\midrule
+\endfoot
+
+\bottomrule
+\endlastfoot
+DECISIONTREE & 0.881 & 0.897 & $\color{green}{+1.82\%}$ \\
+       EXTRA  & 0.920 & 0.982 & $\color{green}{+6.73\%}$ \\
+    GRADIENT & 0.925 & 0.971 & $\color{green}{+0.05\%} $ \\
+         KNN & 0.886 & 0.934 & $\color{green}{+4.97\%}$ \\
+         LDA  & 0.920 & 0.947 & $\color{green}{+2.93\%}$ \\
+    LOGISTIC & 0.936 & 0.919 & $\color{red}{-1.82\%} $ \\
+         MLP & 0.918 & 0.957 & $\color{green}{+4.25\%} $ \\
+RANDOMFOREST & 0.917 & 0.975 & $\color{green}{+6.33\%}$ \\
+         SVM & 0.900 & 0.900 & unchanged \\
+\end{longtable}

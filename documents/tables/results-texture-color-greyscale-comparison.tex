@@ -1,0 +1,29 @@
+\begin{longtable}{llll}
+\caption[Effect of using color vs greyscale texture]{Effect of using color vs greyscale texture}
+\label{table:texture-color-greyscale-comparison}\\
+\toprule
+   Technique &   AUC Color & AUC Greyscale & AUC Impact\\
+\midrule
+\endfirsthead
+\caption[]{Effect of using color vs greyscale texture} \\
+\toprule
+   Technique &   AUC Color & AUC Greyscale & AUC Impact \\
+\midrule
+\endhead
+\midrule
+\multicolumn{2}{r}{{Continued on next page}} \\
+\midrule
+\endfoot
+
+\bottomrule
+\endlastfoot
+DECISIONTREE & 0.813 &0.782 & $\color{green}{+3.9\%} $\\
+       EXTRA & 0.897 &0.886 & $\color{green} {+1.2\%}$\\
+    GRADIENT & 0.893 &0.892 & $\color{green} {+0.1\%}$\\
+         KNN & 0.831 &0.818 & $\color{red} {-1.6\%}$\\
+         LDA & 0.857 & 0.852 & $\color{green} {+0.6\%}$\\
+    LOGISTIC & 0.830 &0.832 & $\color{red} {-0.2\%}$\\
+         MLP & 0.865 &0.855 & $\color{green}{+1.2\%}$\\
+RANDOMFOREST & 0.893 & 0.884 & $\color{green} {+1.0\%}$\\
+         SVM & 0.824 & 0.824 &  unchanged\\
+\end{longtable}

@@ -1,0 +1,37 @@
+\begin{longtable}{lcl}
+\caption[Classify by LBP]{Classify by LBP}
+\label{table:results-lbp}\\
+\toprule
+   Technique &  AUC &                                                                                 Parameters \\
+\midrule
+\endfirsthead
+\caption[]{Classify by LBP} \\
+\toprule
+   Technique &  AUC &                                                                                 Parameters \\
+\midrule
+\endhead
+\midrule
+\multicolumn{3}{r}{{Continued on next page}} \\
+\midrule
+\endfoot
+
+\bottomrule
+\endlastfoot
+DECISIONTREE & 0.86 & \begin{minipage}[t]{0.5\textwidth} cie\_b\_lbp\_variance greyscale\_lbp\_variance ycbcr\_y\_lbp\_stddev yiq\_y\_lbp\_stddev  \end{minipage}\\
+\midrule
+EXTRA & 0.95 & \begin{minipage}[t]{0.5\textwidth} hsi\_hue\_lbp\_stddev hsi\_intensity\_lbp\_variance yiq\_q\_lbp\_variance yiq\_y\_lbp\_stddev  \end{minipage}\\
+\midrule
+GRADIENT & 0.93 &\begin{minipage}[t]{0.5\textwidth} greyscale\_lbp\_stddev ycbcr\_y\_lbp\_stddev yiq\_q\_lbp\_variance yiq\_y\_lbp\_stddev  \end{minipage}\\
+\midrule
+KNN & 0.90 & \begin{minipage}[t]{0.5\textwidth} cie\_l\_lbp\_stddev greyscale\_lbp\_variance hsi\_hue\_lbp\_stddev yiq\_y\_lbp\_stddev  \end{minipage}\\
+\midrule
+LDA & 0.95 &  \begin{minipage}[t]{0.5\textwidth} hsi\_intensity\_lbp\_variance ycbcr\_cr\_lbp\_variance ycbcr\_y\_lbp\_stddev yiq\_y\_lbp\_stddev  \end{minipage} \\
+\midrule
+LOGISTIC & 0.96 & \begin{minipage}[t]{0.5\textwidth}cie\_b\_lbp\_variance greyscale\_lbp\_variance hsi\_intensity\_lbp\_variance ycbcr\_cr\_lbp\_variance  \end{minipage}\\
+\midrule
+MLP & 0.94 & \begin{minipage}[t]{0.5\textwidth} hsi\_hue\_lbp\_stddev hsi\_intensity\_lbp\_variance ycbcr\_cr\_lbp\_variance yiq\_y\_lbp\_stddev  \end{minipage} \\
+\midrule
+RANDOMFOREST & 0.95 & \begin{minipage}[t]{0.5\textwidth} greyscale\_lbp\_variance hsi\_hue\_lbp\_stddev ycbcr\_cr\_lbp\_variance ycbcr\_y\_lbp\_stddev  \end{minipage} \\
+\midrule
+SVM & 0.96 & \begin{minipage}[t]{0.5\textwidth} cie\_b\_lbp\_variance greyscale\_lbp\_variance hsi\_intensity\_lbp\_variance ycbcr\_cr\_lbp\_variance  \end{minipage}\\
+\end{longtable}

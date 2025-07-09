@@ -1,0 +1,29 @@
+\begin{longtable}{lcll}
+\caption[Classification Using Imbalance Correction]{Classification Using Imbalance Correction}
+\label{table:results-corrected}\\
+\toprule
+   Technique &   AUC &                                                                   Parameters \\
+\midrule
+\endfirsthead
+\caption[]{Classification Using Imbalance Correction} \\
+\toprule
+   Technique &   AUC &                                                                   Parameters \\
+\midrule
+\endhead
+\midrule
+\multicolumn{3}{r}{{Continued on next page}} \\
+\midrule
+\endfoot
+
+\bottomrule
+\endlastfoot
+DECISIONTREE & 0.883 & cie\_b\_lbp\_variance hog\_mean hsi\_intensity\_lbp\_variance ycbcr\_cr\_lbp\_variance \\
+       EXTRA & 0.917 &                        compactness hog\_mean hog\_stddev ycbcr\_cr\_lbp\_variance \\
+    GRADIENT & 0.926 &         compactness hog\_stddev hsi\_intensity\_lbp\_variance ycbcr\_y\_lbp\_stddev \\
+         KNN & 0.886 &                           cie\_b\_lbp\_variance compactness hog\_mean hog\_stddev \\
+         LDA & 0.916 &                         compactness convexity shape\_index ycbcr\_y\_lbp\_stddev \\
+    LOGISTIC & 0.936 &                                compactness elongation hog\_stddev shape\_index \\
+         MLP & 0.904 &                          convexity hog\_stddev shape\_index ycbcr\_y\_lbp\_stddev \\
+RANDOMFOREST & 0.917 &                compactness convexity hog\_variance hsi\_intensity\_lbp\_variance \\
+         SVM & 0.900 &                         compactness convexity shape\_index ycbcr\_y\_lbp\_stddev \\
+\end{longtable}
