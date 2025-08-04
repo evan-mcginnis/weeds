@@ -6963,3 +6963,64 @@
   doi       = "10.1023/B:VLSI.0000028532.53893.82",
   language  = "en"
 }
+
+@ARTICLE{Gao2023-nw,
+  title     = "Enhancing green fraction estimation in rice and wheat crops: A
+               self-supervised deep learning semantic segmentation approach",
+  author    = "Gao, Yangmingrui and Li, Yinglun and Jiang, Ruibo and Zhan,
+               Xiaohai and Lu, Hao and Guo, Wei and Yang, Wanneng and Ding,
+               Yanfeng and Liu, Shouyang",
+  journal   = "Plant Phenomics",
+  publisher = "Elsevier BV",
+  volume    =  5,
+  pages     =  0064,
+  abstract  = "The green fraction (GF), which is the fraction of green
+               vegetation in a given viewing direction, is closely related to
+               the light interception ability of the crop canopy. Monitoring the
+               dynamics of GF is therefore of great interest for breeders to
+               identify genotypes with high radiation use efficiency. The
+               accuracy of GF estimation depends heavily on the quality of the
+               segmentation dataset and the accuracy of the image segmentation
+               method. To enhance segmentation accuracy while reducing
+               annotation costs, we developed a self-supervised strategy for
+               deep learning semantic segmentation of rice and wheat field
+               images with very contrasting field backgrounds. First, the
+               Digital Plant Phenotyping Platform was used to generate large,
+               perfectly labeled simulated field images for wheat and rice
+               crops, considering diverse canopy structures and a wide range of
+               environmental conditions (sim dataset). We then used the domain
+               adaptation model cycle-consistent generative adversarial network
+               (CycleGAN) to bridge the reality gap between the simulated and
+               real images (real dataset), producing simulation-to-reality
+               images (sim2real dataset). Finally, 3 different semantic
+               segmentation models (U-Net, DeepLabV3+, and SegFormer) were
+               trained using 3 datasets (real, sim, and sim2real datasets). The
+               performance of the 9 training strategies was assessed using real
+               images captured from various sites. The results showed that
+               SegFormer trained using the sim2real dataset achieved the best
+               segmentation performance for both rice and wheat crops (rice:
+               Accuracy = 0.940, F1-score = 0.937; wheat: Accuracy = 0.952,
+               F1-score = 0.935). Likewise, favorable GF estimation results were
+               obtained using the above strategy (rice: R2 = 0.967, RMSE =
+               0.048; wheat: R2 = 0.984, RMSE = 0.028). Compared with SegFormer
+               trained using a real dataset, the optimal strategy demonstrated
+               greater superiority for wheat images than for rice images. This
+               discrepancy can be partially attributed to the differences in the
+               backgrounds of the rice and wheat fields. The uncertainty
+               analysis indicated that our strategy could be disrupted by the
+               inhomogeneity of pixel brightness and the presence of senescent
+               elements in the images. In summary, our self-supervised strategy
+               addresses the issues of high cost and uncertain annotation
+               accuracy during dataset creation, ultimately enhancing GF
+               estimation accuracy for rice and wheat field images. The best
+               weights we trained in wheat and rice are available:
+               https://github.com/PheniX-Lab/sim2real-seg.",
+  month     =  jul,
+  year      =  2023,
+  url       = "http://dx.doi.org/10.34133/plantphenomics.0064",
+  doi       = "10.34133/plantphenomics.0064",
+  pmc       = "PMC10353659",
+  pmid      =  37469555,
+  issn      = "2643-6515",
+  language  = "en"
+}
