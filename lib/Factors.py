@@ -26,6 +26,16 @@ class FactorKind(Enum):
     SCALAR = 0
     VECTOR = 1
 
+class ColorSpace(Enum):
+    NONE = 0
+    GREYSCALE = 1
+    CIELAB = 2
+    RGB = 3
+    YIQ = 4
+    HSI = 5
+    HSV = 6
+    YCBCR = 7
+
 
 class Factors:
     def __init__(self):
@@ -44,230 +54,230 @@ class Factors:
         ]
         _vectorFactors = [
             # Greyscale
-            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_GREYSCALE + constants.DELIMETER + constants.NAME_LBP, FactorKind.VECTOR],
+            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_GREYSCALE + constants.DELIMETER + constants.NAME_LBP, FactorKind.VECTOR, ColorSpace.GREYSCALE],
             # YIQ - Y
-            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_YIQ_Y + constants.DELIMETER + constants.NAME_LBP, FactorKind.VECTOR],
+            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_YIQ_Y + constants.DELIMETER + constants.NAME_LBP, FactorKind.VECTOR, ColorSpace.YIQ],
             # YIQ - I
-            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_YIQ_I + constants.DELIMETER + constants.NAME_LBP, FactorKind.VECTOR],
+            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_YIQ_I + constants.DELIMETER + constants.NAME_LBP, FactorKind.VECTOR, ColorSpace.YIQ],
             # YIQ - Q
-            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_YIQ_Q + constants.DELIMETER + constants.NAME_LBP, FactorKind.VECTOR],
+            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_YIQ_Q + constants.DELIMETER + constants.NAME_LBP, FactorKind.VECTOR, ColorSpace.YIQ],
             # HSV - Hue
-            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_HSV_HUE + constants.DELIMETER + constants.NAME_LBP, FactorKind.VECTOR],
+            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_HSV_HUE + constants.DELIMETER + constants.NAME_LBP, FactorKind.VECTOR, ColorSpace.HSV],
             # HSV - Saturation
-            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_HSV_SATURATION + constants.DELIMETER + constants.NAME_LBP, FactorKind.VECTOR],
+            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_HSV_SATURATION + constants.DELIMETER + constants.NAME_LBP, FactorKind.VECTOR, ColorSpace.HSV],
             # HSV - Value
-            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_HSV_VALUE + constants.DELIMETER + constants.NAME_LBP, FactorKind.VECTOR],
+            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_HSV_VALUE + constants.DELIMETER + constants.NAME_LBP, FactorKind.VECTOR, ColorSpace.HSV],
             # HSI - Hue
-            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_HSI_HUE + constants.DELIMETER + constants.NAME_LBP, FactorKind.VECTOR],
+            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_HSI_HUE + constants.DELIMETER + constants.NAME_LBP, FactorKind.VECTOR, ColorSpace.HSI],
             # HSI - Saturation
-            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_HSI_SATURATION + constants.DELIMETER + constants.NAME_LBP, FactorKind.VECTOR],
+            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_HSI_SATURATION + constants.DELIMETER + constants.NAME_LBP, FactorKind.VECTOR, ColorSpace.HSI],
             # HSI - Intensity
-            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_HSI_INTENSITY + constants.DELIMETER + constants.NAME_LBP, FactorKind.VECTOR],
+            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_HSI_INTENSITY + constants.DELIMETER + constants.NAME_LBP, FactorKind.VECTOR, ColorSpace.HSI],
             # Blue
-            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_BLUE + constants.DELIMETER + constants.NAME_LBP, FactorKind.VECTOR],
+            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_BLUE + constants.DELIMETER + constants.NAME_LBP, FactorKind.VECTOR, ColorSpace.RGB],
             # Green
-            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_GREEN + constants.DELIMETER + constants.NAME_LBP, FactorKind.VECTOR],
+            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_GREEN + constants.DELIMETER + constants.NAME_LBP, FactorKind.VECTOR, ColorSpace.RGB],
             # Red
-            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_RED + constants.DELIMETER + constants.NAME_LBP, FactorKind.VECTOR],
+            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_RED + constants.DELIMETER + constants.NAME_LBP, FactorKind.VECTOR, ColorSpace.RGB],
             # YCBCR - Y
-            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_YCBCR_LUMA + constants.DELIMETER + constants.NAME_LBP, FactorKind.VECTOR],
+            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_YCBCR_LUMA + constants.DELIMETER + constants.NAME_LBP, FactorKind.VECTOR, ColorSpace.YCBCR],
             # YCBCR - CB
-            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_YCBCR_BLUE_DIFFERENCE + constants.DELIMETER + constants.NAME_LBP, FactorKind.VECTOR],
+            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_YCBCR_BLUE_DIFFERENCE + constants.DELIMETER + constants.NAME_LBP, FactorKind.VECTOR, ColorSpace.YCBCR],
             # YCBCR - CR
-            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_YCBCR_RED_DIFFERENCE + constants.DELIMETER + constants.NAME_LBP, FactorKind.VECTOR],
+            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_YCBCR_RED_DIFFERENCE + constants.DELIMETER + constants.NAME_LBP, FactorKind.VECTOR, ColorSpace.YCBCR],
             # CIELAB - L
-            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_CIELAB_L + constants.DELIMETER + constants.NAME_LBP, FactorKind.VECTOR],
+            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_CIELAB_L + constants.DELIMETER + constants.NAME_LBP, FactorKind.VECTOR, ColorSpace.CIELAB],
             # CIELAB - A
-            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_CIELAB_A + constants.DELIMETER + constants.NAME_LBP, FactorKind.VECTOR],
+            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_CIELAB_A + constants.DELIMETER + constants.NAME_LBP, FactorKind.VECTOR, ColorSpace.CIELAB],
             # CIELAB - B
-            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_CIELAB_B + constants.DELIMETER + constants.NAME_LBP, FactorKind.VECTOR]
+            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_CIELAB_B + constants.DELIMETER + constants.NAME_LBP, FactorKind.VECTOR, ColorSpace.CIELAB]
         ]
         # The final list of factors -- the ones here do not have angles associated with them
         allFactors = [
-            [FactorTypes.SHAPE, FactorSubtypes.NONE, constants.NAME_SHAPE_INDEX, FactorKind.SCALAR],
-            [FactorTypes.SHAPE, FactorSubtypes.NONE, constants.NAME_COMPACTNESS, FactorKind.SCALAR],
-            [FactorTypes.SHAPE, FactorSubtypes.NONE, constants.NAME_CONVEXITY, FactorKind.SCALAR],
-            [FactorTypes.SHAPE, FactorSubtypes.NONE, constants.NAME_ELONGATION, FactorKind.SCALAR],
-            [FactorTypes.SHAPE, FactorSubtypes.NONE, constants.NAME_ECCENTRICITY, FactorKind.SCALAR],
-            [FactorTypes.SHAPE, FactorSubtypes.NONE, constants.NAME_ROUNDNESS, FactorKind.SCALAR],
-            [FactorTypes.SHAPE, FactorSubtypes.NONE, constants.NAME_SOLIDITY, FactorKind.SCALAR],
-            [FactorTypes.SHAPE, FactorSubtypes.NONE, constants.NAME_BENDING, FactorKind.SCALAR],
-            [FactorTypes.SHAPE, FactorSubtypes.NONE, constants.NAME_RADIAL_VAR, FactorKind.SCALAR],
-            [FactorTypes.COLOR, FactorSubtypes.NONE, constants.NAME_HUE, FactorKind.SCALAR],
-            [FactorTypes.COLOR, FactorSubtypes.NONE, constants.NAME_SATURATION, FactorKind.SCALAR],
-            [FactorTypes.COLOR, FactorSubtypes.NONE, constants.NAME_I_YIQ, FactorKind.SCALAR],
-            [FactorTypes.COLOR, FactorSubtypes.NONE, constants.NAME_BLUE_DIFFERENCE, FactorKind.SCALAR],
+            [FactorTypes.SHAPE, FactorSubtypes.NONE, constants.NAME_SHAPE_INDEX, FactorKind.SCALAR, ColorSpace.NONE],
+            [FactorTypes.SHAPE, FactorSubtypes.NONE, constants.NAME_COMPACTNESS, FactorKind.SCALAR, ColorSpace.NONE],
+            [FactorTypes.SHAPE, FactorSubtypes.NONE, constants.NAME_CONVEXITY, FactorKind.SCALAR, ColorSpace.NONE],
+            [FactorTypes.SHAPE, FactorSubtypes.NONE, constants.NAME_ELONGATION, FactorKind.SCALAR, ColorSpace.NONE],
+            [FactorTypes.SHAPE, FactorSubtypes.NONE, constants.NAME_ECCENTRICITY, FactorKind.SCALAR, ColorSpace.NONE],
+            [FactorTypes.SHAPE, FactorSubtypes.NONE, constants.NAME_ROUNDNESS, FactorKind.SCALAR, ColorSpace.NONE],
+            [FactorTypes.SHAPE, FactorSubtypes.NONE, constants.NAME_SOLIDITY, FactorKind.SCALAR, ColorSpace.NONE],
+            [FactorTypes.SHAPE, FactorSubtypes.NONE, constants.NAME_BENDING, FactorKind.SCALAR, ColorSpace.NONE],
+            [FactorTypes.SHAPE, FactorSubtypes.NONE, constants.NAME_RADIAL_VAR, FactorKind.SCALAR, ColorSpace.NONE],
+            [FactorTypes.COLOR, FactorSubtypes.NONE, constants.NAME_HUE, FactorKind.SCALAR, ColorSpace.HSV],
+            [FactorTypes.COLOR, FactorSubtypes.NONE, constants.NAME_SATURATION, FactorKind.SCALAR, ColorSpace.HSV],
+            [FactorTypes.COLOR, FactorSubtypes.NONE, constants.NAME_I_YIQ, FactorKind.SCALAR, ColorSpace.YIQ],
+            [FactorTypes.COLOR, FactorSubtypes.NONE, constants.NAME_BLUE_DIFFERENCE, FactorKind.SCALAR, ColorSpace.YIQ],
             #[constants.PROPERTY_FACTOR_POSITION, constants.NAME_DISTANCE],
-            [FactorTypes.POSITION, FactorSubtypes.NONE, constants.NAME_DISTANCE_NORMALIZED, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.HOG, constants.NAME_HOG + constants.DELIMETER + constants.NAME_STDDEV, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.HOG, constants.NAME_HOG + constants.DELIMETER + constants.NAME_MEAN, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.HOG, constants.NAME_HOG + constants.DELIMETER + constants.NAME_VAR, FactorKind.SCALAR],
+            [FactorTypes.POSITION, FactorSubtypes.NONE, constants.NAME_DISTANCE_NORMALIZED, FactorKind.SCALAR, ColorSpace.NONE],
+            [FactorTypes.TEXTURE, FactorSubtypes.HOG, constants.NAME_HOG + constants.DELIMETER + constants.NAME_STDDEV, FactorKind.SCALAR, ColorSpace.GREYSCALE],
+            [FactorTypes.TEXTURE, FactorSubtypes.HOG, constants.NAME_HOG + constants.DELIMETER + constants.NAME_MEAN, FactorKind.SCALAR, ColorSpace.GREYSCALE],
+            [FactorTypes.TEXTURE, FactorSubtypes.HOG, constants.NAME_HOG + constants.DELIMETER + constants.NAME_VAR, FactorKind.SCALAR, ColorSpace.GREYSCALE],
             # Local Binary Pattern
-            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_GREYSCALE + constants.DELIMETER + constants.NAME_LBP + constants.DELIMETER + constants.NAME_STDDEV, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_GREYSCALE + constants.DELIMETER + constants.NAME_LBP + constants.DELIMETER + constants.NAME_MEAN, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_GREYSCALE + constants.DELIMETER + constants.NAME_LBP + constants.DELIMETER + constants.NAME_VAR, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_YIQ_Y + constants.DELIMETER + constants.NAME_LBP + constants.DELIMETER + constants.NAME_STDDEV, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_YIQ_I + constants.DELIMETER + constants.NAME_LBP + constants.DELIMETER + constants.NAME_MEAN,  FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_YIQ_Q + constants.DELIMETER + constants.NAME_LBP + constants.DELIMETER + constants.NAME_VAR, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_HSI_HUE + constants.DELIMETER + constants.NAME_LBP + constants.DELIMETER + constants.NAME_STDDEV, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_HSI_SATURATION + constants.DELIMETER + constants.NAME_LBP + constants.DELIMETER + constants.NAME_MEAN, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_HSI_INTENSITY + constants.DELIMETER + constants.NAME_LBP + constants.DELIMETER + constants.NAME_VAR, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_RED + constants.DELIMETER + constants.NAME_LBP + constants.DELIMETER + constants.NAME_STDDEV, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_BLUE + constants.DELIMETER + constants.NAME_LBP + constants.DELIMETER + constants.NAME_MEAN, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_GREEN + constants.DELIMETER + constants.NAME_LBP + constants.DELIMETER + constants.NAME_VAR, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_HSV_HUE + constants.DELIMETER + constants.NAME_LBP + constants.DELIMETER + constants.NAME_STDDEV, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_HSV_SATURATION + constants.DELIMETER + constants.NAME_LBP + constants.DELIMETER + constants.NAME_MEAN, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_HSV_VALUE + constants.DELIMETER + constants.NAME_LBP + constants.DELIMETER + constants.NAME_VAR, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_YCBCR_LUMA + constants.DELIMETER + constants.NAME_LBP + constants.DELIMETER + constants.NAME_STDDEV, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_YCBCR_BLUE_DIFFERENCE + constants.DELIMETER + constants.NAME_LBP + constants.DELIMETER + constants.NAME_MEAN, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_YCBCR_RED_DIFFERENCE + constants.DELIMETER + constants.NAME_LBP + constants.DELIMETER + constants.NAME_VAR, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_CIELAB_L + constants.DELIMETER + constants.NAME_LBP + constants.DELIMETER + constants.NAME_STDDEV, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_CIELAB_A + constants.DELIMETER + constants.NAME_LBP + constants.DELIMETER + constants.NAME_MEAN, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_CIELAB_B + constants.DELIMETER + constants.NAME_LBP + constants.DELIMETER + constants.NAME_VAR, FactorKind.SCALAR]
+            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_GREYSCALE + constants.DELIMETER + constants.NAME_LBP + constants.DELIMETER + constants.NAME_STDDEV, FactorKind.SCALAR, ColorSpace.GREYSCALE],
+            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_GREYSCALE + constants.DELIMETER + constants.NAME_LBP + constants.DELIMETER + constants.NAME_MEAN, FactorKind.SCALAR, ColorSpace.GREYSCALE],
+            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_GREYSCALE + constants.DELIMETER + constants.NAME_LBP + constants.DELIMETER + constants.NAME_VAR, FactorKind.SCALAR, ColorSpace.GREYSCALE],
+            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_YIQ_Y + constants.DELIMETER + constants.NAME_LBP + constants.DELIMETER + constants.NAME_STDDEV, FactorKind.SCALAR, ColorSpace.YIQ],
+            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_YIQ_I + constants.DELIMETER + constants.NAME_LBP + constants.DELIMETER + constants.NAME_MEAN,  FactorKind.SCALAR, ColorSpace.YIQ],
+            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_YIQ_Q + constants.DELIMETER + constants.NAME_LBP + constants.DELIMETER + constants.NAME_VAR, FactorKind.SCALAR, ColorSpace.YIQ],
+            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_HSI_HUE + constants.DELIMETER + constants.NAME_LBP + constants.DELIMETER + constants.NAME_STDDEV, FactorKind.SCALAR, ColorSpace.HSI],
+            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_HSI_SATURATION + constants.DELIMETER + constants.NAME_LBP + constants.DELIMETER + constants.NAME_MEAN, FactorKind.SCALAR, ColorSpace.HSI],
+            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_HSI_INTENSITY + constants.DELIMETER + constants.NAME_LBP + constants.DELIMETER + constants.NAME_VAR, FactorKind.SCALAR, ColorSpace.HSI],
+            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_RED + constants.DELIMETER + constants.NAME_LBP + constants.DELIMETER + constants.NAME_STDDEV, FactorKind.SCALAR, ColorSpace.RGB],
+            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_BLUE + constants.DELIMETER + constants.NAME_LBP + constants.DELIMETER + constants.NAME_MEAN, FactorKind.SCALAR, ColorSpace.RGB],
+            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_GREEN + constants.DELIMETER + constants.NAME_LBP + constants.DELIMETER + constants.NAME_VAR, FactorKind.SCALAR, ColorSpace.RGB],
+            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_HSV_HUE + constants.DELIMETER + constants.NAME_LBP + constants.DELIMETER + constants.NAME_STDDEV, FactorKind.SCALAR, ColorSpace.HSV],
+            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_HSV_SATURATION + constants.DELIMETER + constants.NAME_LBP + constants.DELIMETER + constants.NAME_MEAN, FactorKind.SCALAR, ColorSpace.HSV],
+            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_HSV_VALUE + constants.DELIMETER + constants.NAME_LBP + constants.DELIMETER + constants.NAME_VAR, FactorKind.SCALAR, ColorSpace.HSV],
+            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_YCBCR_LUMA + constants.DELIMETER + constants.NAME_LBP + constants.DELIMETER + constants.NAME_STDDEV, FactorKind.SCALAR, ColorSpace.YCBCR],
+            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_YCBCR_BLUE_DIFFERENCE + constants.DELIMETER + constants.NAME_LBP + constants.DELIMETER + constants.NAME_MEAN, FactorKind.SCALAR, ColorSpace.YCBCR],
+            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_YCBCR_RED_DIFFERENCE + constants.DELIMETER + constants.NAME_LBP + constants.DELIMETER + constants.NAME_VAR, FactorKind.SCALAR, ColorSpace.YCBCR],
+            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_CIELAB_L + constants.DELIMETER + constants.NAME_LBP + constants.DELIMETER + constants.NAME_STDDEV, FactorKind.SCALAR, ColorSpace.YCBCR],
+            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_CIELAB_A + constants.DELIMETER + constants.NAME_LBP + constants.DELIMETER + constants.NAME_MEAN, FactorKind.SCALAR, ColorSpace.YCBCR],
+            [FactorTypes.TEXTURE, FactorSubtypes.LBP, constants.NAME_CIELAB_B + constants.DELIMETER + constants.NAME_LBP + constants.DELIMETER + constants.NAME_VAR, FactorKind.SCALAR, ColorSpace.YCBCR]
         ]
 
         # The factors that need to be expanded with their angles
         _factorsWithAngles = [
             # Greyscale
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_GREYSCALE + constants.DELIMETER + constants.NAME_HOMOGENEITY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_GREYSCALE + constants.DELIMETER + constants.NAME_ENERGY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_GREYSCALE + constants.DELIMETER + constants.NAME_CONTRAST, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_GREYSCALE + constants.DELIMETER + constants.NAME_DISSIMILARITY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_GREYSCALE + constants.DELIMETER + constants.NAME_ASM, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_GREYSCALE + constants.DELIMETER + constants.NAME_CORRELATION, FactorKind.SCALAR],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_GREYSCALE + constants.DELIMETER + constants.NAME_HOMOGENEITY, FactorKind.SCALAR, ColorSpace.GREYSCALE],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_GREYSCALE + constants.DELIMETER + constants.NAME_ENERGY, FactorKind.SCALAR, ColorSpace.GREYSCALE],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_GREYSCALE + constants.DELIMETER + constants.NAME_CONTRAST, FactorKind.SCALAR, ColorSpace.GREYSCALE],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_GREYSCALE + constants.DELIMETER + constants.NAME_DISSIMILARITY, FactorKind.SCALAR, ColorSpace.GREYSCALE],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_GREYSCALE + constants.DELIMETER + constants.NAME_ASM, FactorKind.SCALAR, ColorSpace.GREYSCALE],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_GREYSCALE + constants.DELIMETER + constants.NAME_CORRELATION, FactorKind.SCALAR, ColorSpace.GREYSCALE],
             # YIQ - Y
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YIQ_Y + constants.DELIMETER + constants.NAME_HOMOGENEITY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YIQ_Y + constants.DELIMETER + constants.NAME_ENERGY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YIQ_Y + constants.DELIMETER + constants.NAME_CONTRAST, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YIQ_Y + constants.DELIMETER + constants.NAME_DISSIMILARITY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YIQ_Y + constants.DELIMETER + constants.NAME_ASM, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YIQ_Y + constants.DELIMETER + constants.NAME_CORRELATION, FactorKind.SCALAR],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YIQ_Y + constants.DELIMETER + constants.NAME_HOMOGENEITY, FactorKind.SCALAR, ColorSpace.YIQ],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YIQ_Y + constants.DELIMETER + constants.NAME_ENERGY, FactorKind.SCALAR, ColorSpace.YIQ],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YIQ_Y + constants.DELIMETER + constants.NAME_CONTRAST, FactorKind.SCALAR, ColorSpace.YIQ],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YIQ_Y + constants.DELIMETER + constants.NAME_DISSIMILARITY, FactorKind.SCALAR, ColorSpace.YIQ],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YIQ_Y + constants.DELIMETER + constants.NAME_ASM, FactorKind.SCALAR, ColorSpace.YIQ],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YIQ_Y + constants.DELIMETER + constants.NAME_CORRELATION, FactorKind.SCALAR, ColorSpace.YIQ],
             # YIQ - I
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YIQ_I + constants.DELIMETER + constants.NAME_HOMOGENEITY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YIQ_I + constants.DELIMETER + constants.NAME_ENERGY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YIQ_I + constants.DELIMETER + constants.NAME_CONTRAST, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YIQ_I + constants.DELIMETER + constants.NAME_DISSIMILARITY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YIQ_I + constants.DELIMETER + constants.NAME_ASM, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YIQ_I + constants.DELIMETER + constants.NAME_CORRELATION, FactorKind.SCALAR],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YIQ_I + constants.DELIMETER + constants.NAME_HOMOGENEITY, FactorKind.SCALAR, ColorSpace.YIQ],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YIQ_I + constants.DELIMETER + constants.NAME_ENERGY, FactorKind.SCALAR, ColorSpace.YIQ],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YIQ_I + constants.DELIMETER + constants.NAME_CONTRAST, FactorKind.SCALAR, ColorSpace.YIQ],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YIQ_I + constants.DELIMETER + constants.NAME_DISSIMILARITY, FactorKind.SCALAR, ColorSpace.YIQ],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YIQ_I + constants.DELIMETER + constants.NAME_ASM, FactorKind.SCALAR, ColorSpace.YIQ],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YIQ_I + constants.DELIMETER + constants.NAME_CORRELATION, FactorKind.SCALAR, ColorSpace.YIQ],
             # YIQ - Q
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YIQ_Q + constants.DELIMETER + constants.NAME_HOMOGENEITY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YIQ_Q + constants.DELIMETER + constants.NAME_ENERGY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YIQ_Q + constants.DELIMETER + constants.NAME_CONTRAST, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YIQ_Q + constants.DELIMETER + constants.NAME_DISSIMILARITY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YIQ_Q + constants.DELIMETER + constants.NAME_ASM, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YIQ_Q + constants.DELIMETER + constants.NAME_CORRELATION, FactorKind.SCALAR],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YIQ_Q + constants.DELIMETER + constants.NAME_HOMOGENEITY, FactorKind.SCALAR, ColorSpace.YIQ],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YIQ_Q + constants.DELIMETER + constants.NAME_ENERGY, FactorKind.SCALAR, ColorSpace.YIQ],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YIQ_Q + constants.DELIMETER + constants.NAME_CONTRAST, FactorKind.SCALAR, ColorSpace.YIQ],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YIQ_Q + constants.DELIMETER + constants.NAME_DISSIMILARITY, FactorKind.SCALAR, ColorSpace.YIQ],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YIQ_Q + constants.DELIMETER + constants.NAME_ASM, FactorKind.SCALAR, ColorSpace.YIQ],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YIQ_Q + constants.DELIMETER + constants.NAME_CORRELATION, FactorKind.SCALAR, ColorSpace.YIQ],
             # HSV - Hue
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSV_HUE + constants.DELIMETER + constants.NAME_HOMOGENEITY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSV_HUE + constants.DELIMETER + constants.NAME_ENERGY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSV_HUE + constants.DELIMETER + constants.NAME_CONTRAST, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSV_HUE + constants.DELIMETER + constants.NAME_DISSIMILARITY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSV_HUE + constants.DELIMETER + constants.NAME_ASM, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSV_HUE + constants.DELIMETER + constants.NAME_CORRELATION, FactorKind.SCALAR],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSV_HUE + constants.DELIMETER + constants.NAME_HOMOGENEITY, FactorKind.SCALAR, ColorSpace.HSV],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSV_HUE + constants.DELIMETER + constants.NAME_ENERGY, FactorKind.SCALAR, ColorSpace.HSV],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSV_HUE + constants.DELIMETER + constants.NAME_CONTRAST, FactorKind.SCALAR, ColorSpace.HSV],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSV_HUE + constants.DELIMETER + constants.NAME_DISSIMILARITY, FactorKind.SCALAR, ColorSpace.HSV],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSV_HUE + constants.DELIMETER + constants.NAME_ASM, FactorKind.SCALAR, ColorSpace.HSV],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSV_HUE + constants.DELIMETER + constants.NAME_CORRELATION, FactorKind.SCALAR, ColorSpace.HSV],
             # HSV - Saturation
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSV_SATURATION + constants.DELIMETER + constants.NAME_HOMOGENEITY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSV_SATURATION + constants.DELIMETER + constants.NAME_ENERGY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSV_SATURATION + constants.DELIMETER + constants.NAME_CONTRAST, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSV_SATURATION + constants.DELIMETER + constants.NAME_DISSIMILARITY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSV_SATURATION + constants.DELIMETER + constants.NAME_ASM, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSV_SATURATION + constants.DELIMETER + constants.NAME_CORRELATION, FactorKind.SCALAR],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSV_SATURATION + constants.DELIMETER + constants.NAME_HOMOGENEITY, FactorKind.SCALAR, ColorSpace.HSV],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSV_SATURATION + constants.DELIMETER + constants.NAME_ENERGY, FactorKind.SCALAR, ColorSpace.HSV],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSV_SATURATION + constants.DELIMETER + constants.NAME_CONTRAST, FactorKind.SCALAR, ColorSpace.HSV],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSV_SATURATION + constants.DELIMETER + constants.NAME_DISSIMILARITY, FactorKind.SCALAR, ColorSpace.HSV],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSV_SATURATION + constants.DELIMETER + constants.NAME_ASM, FactorKind.SCALAR, ColorSpace.HSV],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSV_SATURATION + constants.DELIMETER + constants.NAME_CORRELATION, FactorKind.SCALAR, ColorSpace.HSV],
             # HSV - Value
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSV_VALUE + constants.DELIMETER + constants.NAME_HOMOGENEITY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSV_VALUE + constants.DELIMETER + constants.NAME_ENERGY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSV_VALUE + constants.DELIMETER + constants.NAME_CONTRAST, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSV_VALUE + constants.DELIMETER + constants.NAME_DISSIMILARITY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSV_VALUE + constants.DELIMETER + constants.NAME_ASM, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSV_VALUE + constants.DELIMETER + constants.NAME_CORRELATION, FactorKind.SCALAR],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSV_VALUE + constants.DELIMETER + constants.NAME_HOMOGENEITY, FactorKind.SCALAR, ColorSpace.HSV],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSV_VALUE + constants.DELIMETER + constants.NAME_ENERGY, FactorKind.SCALAR, ColorSpace.HSV],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSV_VALUE + constants.DELIMETER + constants.NAME_CONTRAST, FactorKind.SCALAR, ColorSpace.HSV],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSV_VALUE + constants.DELIMETER + constants.NAME_DISSIMILARITY, FactorKind.SCALAR, ColorSpace.HSV],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSV_VALUE + constants.DELIMETER + constants.NAME_ASM, FactorKind.SCALAR, ColorSpace.HSV],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSV_VALUE + constants.DELIMETER + constants.NAME_CORRELATION, FactorKind.SCALAR, ColorSpace.HSV],
             # HSI - Hue
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSI_HUE + constants.DELIMETER + constants.NAME_HOMOGENEITY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSI_HUE + constants.DELIMETER + constants.NAME_ENERGY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSI_HUE + constants.DELIMETER + constants.NAME_CONTRAST, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSI_HUE + constants.DELIMETER + constants.NAME_DISSIMILARITY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSI_HUE + constants.DELIMETER + constants.NAME_ASM, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSI_HUE + constants.DELIMETER + constants.NAME_CORRELATION, FactorKind.SCALAR],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSI_HUE + constants.DELIMETER + constants.NAME_HOMOGENEITY, FactorKind.SCALAR, ColorSpace.HSI],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSI_HUE + constants.DELIMETER + constants.NAME_ENERGY, FactorKind.SCALAR, ColorSpace.HSI],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSI_HUE + constants.DELIMETER + constants.NAME_CONTRAST, FactorKind.SCALAR, ColorSpace.HSI],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSI_HUE + constants.DELIMETER + constants.NAME_DISSIMILARITY, FactorKind.SCALAR, ColorSpace.HSI],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSI_HUE + constants.DELIMETER + constants.NAME_ASM, FactorKind.SCALAR, ColorSpace.HSI],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSI_HUE + constants.DELIMETER + constants.NAME_CORRELATION, FactorKind.SCALAR, ColorSpace.HSI],
             # HSI - Saturation
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSI_SATURATION + constants.DELIMETER + constants.NAME_HOMOGENEITY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSI_SATURATION + constants.DELIMETER + constants.NAME_ENERGY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSI_SATURATION + constants.DELIMETER + constants.NAME_CONTRAST, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSI_SATURATION + constants.DELIMETER + constants.NAME_DISSIMILARITY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSI_SATURATION + constants.DELIMETER + constants.NAME_ASM, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSI_SATURATION + constants.DELIMETER + constants.NAME_CORRELATION, FactorKind.SCALAR],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSI_SATURATION + constants.DELIMETER + constants.NAME_HOMOGENEITY, FactorKind.SCALAR, ColorSpace.HSI],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSI_SATURATION + constants.DELIMETER + constants.NAME_ENERGY, FactorKind.SCALAR, ColorSpace.HSI],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSI_SATURATION + constants.DELIMETER + constants.NAME_CONTRAST, FactorKind.SCALAR, ColorSpace.HSI],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSI_SATURATION + constants.DELIMETER + constants.NAME_DISSIMILARITY, FactorKind.SCALAR, ColorSpace.HSI],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSI_SATURATION + constants.DELIMETER + constants.NAME_ASM, FactorKind.SCALAR, ColorSpace.HSI],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSI_SATURATION + constants.DELIMETER + constants.NAME_CORRELATION, FactorKind.SCALAR, ColorSpace.HSI],
             # HSI - Intensity
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSI_INTENSITY + constants.DELIMETER + constants.NAME_HOMOGENEITY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSI_INTENSITY + constants.DELIMETER + constants.NAME_ENERGY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSI_INTENSITY + constants.DELIMETER + constants.NAME_CONTRAST, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSI_INTENSITY + constants.DELIMETER + constants.NAME_DISSIMILARITY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSI_INTENSITY + constants.DELIMETER + constants.NAME_ASM, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSI_INTENSITY + constants.DELIMETER + constants.NAME_CORRELATION, FactorKind.SCALAR],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSI_INTENSITY + constants.DELIMETER + constants.NAME_HOMOGENEITY, FactorKind.SCALAR, ColorSpace.HSI],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSI_INTENSITY + constants.DELIMETER + constants.NAME_ENERGY, FactorKind.SCALAR, ColorSpace.HSI],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSI_INTENSITY + constants.DELIMETER + constants.NAME_CONTRAST, FactorKind.SCALAR, ColorSpace.HSI],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSI_INTENSITY + constants.DELIMETER + constants.NAME_DISSIMILARITY, FactorKind.SCALAR, ColorSpace.HSI],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSI_INTENSITY + constants.DELIMETER + constants.NAME_ASM, FactorKind.SCALAR, ColorSpace.HSI],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_HSI_INTENSITY + constants.DELIMETER + constants.NAME_CORRELATION, FactorKind.SCALAR, ColorSpace.HSI],
             # Blue
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_BLUE + constants.DELIMETER + constants.NAME_CORRELATION, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_BLUE + constants.DELIMETER + constants.NAME_HOMOGENEITY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_BLUE + constants.DELIMETER + constants.NAME_ENERGY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_BLUE + constants.DELIMETER + constants.NAME_CONTRAST, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_BLUE + constants.DELIMETER + constants.NAME_DISSIMILARITY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_BLUE + constants.DELIMETER + constants.NAME_ASM, FactorKind.SCALAR],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_BLUE + constants.DELIMETER + constants.NAME_CORRELATION, FactorKind.SCALAR, ColorSpace.RGB],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_BLUE + constants.DELIMETER + constants.NAME_HOMOGENEITY, FactorKind.SCALAR, ColorSpace.RGB],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_BLUE + constants.DELIMETER + constants.NAME_ENERGY, FactorKind.SCALAR, ColorSpace.RGB],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_BLUE + constants.DELIMETER + constants.NAME_CONTRAST, FactorKind.SCALAR, ColorSpace.RGB],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_BLUE + constants.DELIMETER + constants.NAME_DISSIMILARITY, FactorKind.SCALAR, ColorSpace.RGB],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_BLUE + constants.DELIMETER + constants.NAME_ASM, FactorKind.SCALAR, ColorSpace.RGB],
             # Green
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_GREEN + constants.DELIMETER + constants.NAME_CORRELATION, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_GREEN + constants.DELIMETER + constants.NAME_HOMOGENEITY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_GREEN + constants.DELIMETER + constants.NAME_ENERGY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_GREEN + constants.DELIMETER + constants.NAME_CONTRAST, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_GREEN + constants.DELIMETER + constants.NAME_DISSIMILARITY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_GREEN + constants.DELIMETER + constants.NAME_ASM, FactorKind.SCALAR],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_GREEN + constants.DELIMETER + constants.NAME_CORRELATION, FactorKind.SCALAR, ColorSpace.RGB],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_GREEN + constants.DELIMETER + constants.NAME_HOMOGENEITY, FactorKind.SCALAR, ColorSpace.RGB],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_GREEN + constants.DELIMETER + constants.NAME_ENERGY, FactorKind.SCALAR, ColorSpace.RGB],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_GREEN + constants.DELIMETER + constants.NAME_CONTRAST, FactorKind.SCALAR, ColorSpace.RGB],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_GREEN + constants.DELIMETER + constants.NAME_DISSIMILARITY, FactorKind.SCALAR, ColorSpace.RGB],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_GREEN + constants.DELIMETER + constants.NAME_ASM, FactorKind.SCALAR, ColorSpace.RGB],
             # Red
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_RED + constants.DELIMETER + constants.NAME_CORRELATION, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_RED + constants.DELIMETER + constants.NAME_HOMOGENEITY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_RED + constants.DELIMETER + constants.NAME_ENERGY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_RED + constants.DELIMETER + constants.NAME_CONTRAST, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_RED + constants.DELIMETER + constants.NAME_DISSIMILARITY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_RED + constants.DELIMETER + constants.NAME_ASM, FactorKind.SCALAR],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_RED + constants.DELIMETER + constants.NAME_CORRELATION, FactorKind.SCALAR, ColorSpace.RGB],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_RED + constants.DELIMETER + constants.NAME_HOMOGENEITY, FactorKind.SCALAR, ColorSpace.RGB],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_RED + constants.DELIMETER + constants.NAME_ENERGY, FactorKind.SCALAR, ColorSpace.RGB],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_RED + constants.DELIMETER + constants.NAME_CONTRAST, FactorKind.SCALAR, ColorSpace.RGB],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_RED + constants.DELIMETER + constants.NAME_DISSIMILARITY, FactorKind.SCALAR, ColorSpace.RGB],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_RED + constants.DELIMETER + constants.NAME_ASM, FactorKind.SCALAR, ColorSpace.RGB],
             # YCBCR - Y
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YCBCR_LUMA + constants.DELIMETER + constants.NAME_CORRELATION, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YCBCR_LUMA + constants.DELIMETER + constants.NAME_HOMOGENEITY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YCBCR_LUMA + constants.DELIMETER + constants.NAME_ENERGY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YCBCR_LUMA + constants.DELIMETER + constants.NAME_CONTRAST, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YCBCR_LUMA + constants.DELIMETER + constants.NAME_DISSIMILARITY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YCBCR_LUMA + constants.DELIMETER + constants.NAME_ASM, FactorKind.SCALAR],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YCBCR_LUMA + constants.DELIMETER + constants.NAME_CORRELATION, FactorKind.SCALAR, ColorSpace.YCBCR],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YCBCR_LUMA + constants.DELIMETER + constants.NAME_HOMOGENEITY, FactorKind.SCALAR, ColorSpace.YCBCR],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YCBCR_LUMA + constants.DELIMETER + constants.NAME_ENERGY, FactorKind.SCALAR, ColorSpace.YCBCR],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YCBCR_LUMA + constants.DELIMETER + constants.NAME_CONTRAST, FactorKind.SCALAR, ColorSpace.YCBCR],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YCBCR_LUMA + constants.DELIMETER + constants.NAME_DISSIMILARITY, FactorKind.SCALAR, ColorSpace.YCBCR],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YCBCR_LUMA + constants.DELIMETER + constants.NAME_ASM, FactorKind.SCALAR, ColorSpace.YCBCR],
             # YCBCR - CB
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YCBCR_BLUE_DIFFERENCE + constants.DELIMETER + constants.NAME_CORRELATION, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YCBCR_BLUE_DIFFERENCE + constants.DELIMETER + constants.NAME_HOMOGENEITY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YCBCR_BLUE_DIFFERENCE + constants.DELIMETER + constants.NAME_ENERGY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YCBCR_BLUE_DIFFERENCE + constants.DELIMETER + constants.NAME_CONTRAST, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YCBCR_BLUE_DIFFERENCE + constants.DELIMETER + constants.NAME_DISSIMILARITY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YCBCR_BLUE_DIFFERENCE + constants.DELIMETER + constants.NAME_ASM, FactorKind.SCALAR],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YCBCR_BLUE_DIFFERENCE + constants.DELIMETER + constants.NAME_CORRELATION, FactorKind.SCALAR, ColorSpace.YCBCR],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YCBCR_BLUE_DIFFERENCE + constants.DELIMETER + constants.NAME_HOMOGENEITY, FactorKind.SCALAR, ColorSpace.YCBCR],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YCBCR_BLUE_DIFFERENCE + constants.DELIMETER + constants.NAME_ENERGY, FactorKind.SCALAR, ColorSpace.YCBCR],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YCBCR_BLUE_DIFFERENCE + constants.DELIMETER + constants.NAME_CONTRAST, FactorKind.SCALAR, ColorSpace.YCBCR],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YCBCR_BLUE_DIFFERENCE + constants.DELIMETER + constants.NAME_DISSIMILARITY, FactorKind.SCALAR, ColorSpace.YCBCR],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YCBCR_BLUE_DIFFERENCE + constants.DELIMETER + constants.NAME_ASM, FactorKind.SCALAR, ColorSpace.YCBCR],
             # YCBCR - CR
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YCBCR_RED_DIFFERENCE + constants.DELIMETER + constants.NAME_CORRELATION, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YCBCR_RED_DIFFERENCE + constants.DELIMETER + constants.NAME_HOMOGENEITY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YCBCR_RED_DIFFERENCE + constants.DELIMETER + constants.NAME_ENERGY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YCBCR_RED_DIFFERENCE + constants.DELIMETER + constants.NAME_CONTRAST, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YCBCR_RED_DIFFERENCE + constants.DELIMETER + constants.NAME_DISSIMILARITY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YCBCR_RED_DIFFERENCE + constants.DELIMETER + constants.NAME_ASM, FactorKind.SCALAR],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YCBCR_RED_DIFFERENCE + constants.DELIMETER + constants.NAME_CORRELATION, FactorKind.SCALAR, ColorSpace.YCBCR],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YCBCR_RED_DIFFERENCE + constants.DELIMETER + constants.NAME_HOMOGENEITY, FactorKind.SCALAR, ColorSpace.YCBCR],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YCBCR_RED_DIFFERENCE + constants.DELIMETER + constants.NAME_ENERGY, FactorKind.SCALAR, ColorSpace.YCBCR],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YCBCR_RED_DIFFERENCE + constants.DELIMETER + constants.NAME_CONTRAST, FactorKind.SCALAR, ColorSpace.YCBCR],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YCBCR_RED_DIFFERENCE + constants.DELIMETER + constants.NAME_DISSIMILARITY, FactorKind.SCALAR, ColorSpace.YCBCR],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_YCBCR_RED_DIFFERENCE + constants.DELIMETER + constants.NAME_ASM, FactorKind.SCALAR, ColorSpace.YCBCR],
             # CIELAB - L
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_CIELAB_L + constants.DELIMETER + constants.NAME_CORRELATION, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_CIELAB_L + constants.DELIMETER + constants.NAME_HOMOGENEITY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_CIELAB_L + constants.DELIMETER + constants.NAME_ENERGY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_CIELAB_L + constants.DELIMETER + constants.NAME_CONTRAST, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_CIELAB_L + constants.DELIMETER + constants.NAME_DISSIMILARITY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_CIELAB_L + constants.DELIMETER + constants.NAME_ASM, FactorKind.SCALAR],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_CIELAB_L + constants.DELIMETER + constants.NAME_CORRELATION, FactorKind.SCALAR, ColorSpace.CIELAB],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_CIELAB_L + constants.DELIMETER + constants.NAME_HOMOGENEITY, FactorKind.SCALAR, ColorSpace.CIELAB],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_CIELAB_L + constants.DELIMETER + constants.NAME_ENERGY, FactorKind.SCALAR, ColorSpace.CIELAB],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_CIELAB_L + constants.DELIMETER + constants.NAME_CONTRAST, FactorKind.SCALAR, ColorSpace.CIELAB],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_CIELAB_L + constants.DELIMETER + constants.NAME_DISSIMILARITY, FactorKind.SCALAR, ColorSpace.CIELAB],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_CIELAB_L + constants.DELIMETER + constants.NAME_ASM, FactorKind.SCALAR, ColorSpace.CIELAB],
             # CIELAB - A
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_CIELAB_A + constants.DELIMETER + constants.NAME_CORRELATION, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_CIELAB_A + constants.DELIMETER + constants.NAME_HOMOGENEITY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_CIELAB_A + constants.DELIMETER + constants.NAME_ENERGY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_CIELAB_A + constants.DELIMETER + constants.NAME_CONTRAST, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_CIELAB_A + constants.DELIMETER + constants.NAME_DISSIMILARITY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_CIELAB_A + constants.DELIMETER + constants.NAME_ASM, FactorKind.SCALAR],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_CIELAB_A + constants.DELIMETER + constants.NAME_CORRELATION, FactorKind.SCALAR, ColorSpace.CIELAB],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_CIELAB_A + constants.DELIMETER + constants.NAME_HOMOGENEITY, FactorKind.SCALAR, ColorSpace.CIELAB],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_CIELAB_A + constants.DELIMETER + constants.NAME_ENERGY, FactorKind.SCALAR, ColorSpace.CIELAB],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_CIELAB_A + constants.DELIMETER + constants.NAME_CONTRAST, FactorKind.SCALAR, ColorSpace.CIELAB],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_CIELAB_A + constants.DELIMETER + constants.NAME_DISSIMILARITY, FactorKind.SCALAR, ColorSpace.CIELAB],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_CIELAB_A + constants.DELIMETER + constants.NAME_ASM, FactorKind.SCALAR, ColorSpace.CIELAB],
             # CIELAB - B
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_CIELAB_B + constants.DELIMETER + constants.NAME_CORRELATION, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_CIELAB_B + constants.DELIMETER + constants.NAME_HOMOGENEITY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_CIELAB_B + constants.DELIMETER + constants.NAME_ENERGY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_CIELAB_B + constants.DELIMETER + constants.NAME_CONTRAST, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_CIELAB_B + constants.DELIMETER + constants.NAME_DISSIMILARITY, FactorKind.SCALAR],
-            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_CIELAB_B + constants.DELIMETER + constants.NAME_ASM, FactorKind.SCALAR],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_CIELAB_B + constants.DELIMETER + constants.NAME_CORRELATION, FactorKind.SCALAR, ColorSpace.CIELAB],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_CIELAB_B + constants.DELIMETER + constants.NAME_HOMOGENEITY, FactorKind.SCALAR, ColorSpace.CIELAB],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_CIELAB_B + constants.DELIMETER + constants.NAME_ENERGY, FactorKind.SCALAR, ColorSpace.CIELAB],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_CIELAB_B + constants.DELIMETER + constants.NAME_CONTRAST, FactorKind.SCALAR, ColorSpace.CIELAB],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_CIELAB_B + constants.DELIMETER + constants.NAME_DISSIMILARITY, FactorKind.SCALAR, ColorSpace.CIELAB],
+            [FactorTypes.TEXTURE, FactorSubtypes.GLCM, constants.NAME_CIELAB_B + constants.DELIMETER + constants.NAME_ASM, FactorKind.SCALAR, ColorSpace.CIELAB],
         ]
-        _columnNames = [constants.COLUMN_NAME_TYPE, constants.COLUMN_NAME_SUBTYPE, constants.COLUMN_NAME_FACTOR, constants.COLUMN_NAME_KIND]
+        _columnNames = [constants.COLUMN_NAME_TYPE, constants.COLUMN_NAME_SUBTYPE, constants.COLUMN_NAME_FACTOR, constants.COLUMN_NAME_KIND, constants.COLUMN_NAME_COLORSPACE]
 
         # Add in the GLCM factors
         for factor in _factorsWithAngles:
             for angleName in GLCM.anglesAvailable:
-                factorWithAngleName = [factor[0], factor[1], factor[2] + constants.DELIMETER + angleName, FactorKind.SCALAR]
+                factorWithAngleName = [factor[0], factor[1], factor[2] + constants.DELIMETER + angleName, FactorKind.SCALAR, factor[4]]
                 allFactors.append(factorWithAngleName)
 
         # This is not the right thing to do -- better to add a type (scalar or vector) and filter on that.
@@ -307,18 +317,31 @@ class Factors:
         return countOfType == len(factors)
 
 
-    def composedOfTypes(self, factorTypes: List[FactorTypes], factors: []) -> bool:
+
+    def composedOfTypes(self, factorTypes: List[FactorTypes], factors: [], **kwargs) -> bool:
         """
         Determine if all of the factors are of the type provided.
-        :param factorType:
+        Keywords
+        restricted: [(type, colorspace), ...] indicates attribute type must be from specified colorspace
+         For instance (FactorTypes.TEXTURE, Colorspace.GREYSCALE) indicates that a TEXTURE attribute must be from the GREYSCALE color space
+        :param factorTypes:
         :param factors:
         :return:
         """
+
+        if "restricted" in kwargs:
+            restricted = kwargs["restricted"]
+        else:
+            restricted = None
 
         countOfType = 0
         for factor in factors:
             row = self._data.loc[factor]
             #self._log.debug(f"Determine if {row[constants.COLUMN_NAME_TYPE]} is in type {factorTypes}")
+            if restricted is not None:
+                for restriction in restricted:
+                    if row[constants.COLUMN_NAME_TYPE] == restriction[0] and row[constants.COLUMN_NAME_COLORSPACE] is not restricted[1]:
+                        continue
             if row[constants.COLUMN_NAME_TYPE] in factorTypes:
                 countOfType += 1
         return countOfType == len(factors)
@@ -339,6 +362,12 @@ class Factors:
                 blacklist = []
         else:
             blacklist = []
+
+        if "restricted" in kwargs:
+            restricted = kwargs["restricted"]
+        else:
+            restricted = None
+
 
         # All of the factors and subtypes
         allFactorTypes = [e for e in FactorTypes]
@@ -375,8 +404,24 @@ class Factors:
                         and row[constants.COLUMN_NAME_SUBTYPE] in factorSubtype \
                         and row[constants.COLUMN_NAME_KIND] == kind \
                         and index not in blacklist:
-                    #subset.append(row[constants.COLUMN_NAME_FACTOR])
-                    subset.append(index)
+
+                    # Step through the restriction pairs to see if a row matches
+                    if restricted is not None:
+                        parameterOK = False
+                        for restriction in restricted:
+                            #print(f"Check for restriction: ({restriction[0]}, {restriction[1]}): ({row[constants.COLUMN_NAME_TYPE]}, {row[constants.COLUMN_NAME_COLORSPACE]})")
+                            # Check to see if the type is not restricted
+                            if row[constants.COLUMN_NAME_TYPE] != restriction[0] and row[constants.COLUMN_NAME_COLORSPACE] != restriction[1]:
+                                parameterOK = True
+                            # Check to see if the type and the colorspace match
+                            if row[constants.COLUMN_NAME_TYPE] == restriction[0] and row[constants.COLUMN_NAME_COLORSPACE] == restriction[1]:
+                                parameterOK = True
+
+                        if parameterOK:
+                            subset.append(index)
+                    else:
+                        #subset.append(row[constants.COLUMN_NAME_FACTOR])
+                        subset.append(index)
                 else:
                     pass
                     #print(f"Rejected: {row}")
@@ -406,11 +451,14 @@ if __name__ == "__main__":
 
 
     parser = argparse.ArgumentParser("Show factors")
+    #parser.add_argument("-n", "--name", required=False, help="Restrict names to specified prefix")
     parser.add_argument("-t", "--type", required=False, nargs='*', choices=factorChoices, default=constants.NAME_ALL, help="Types to display")
     parser.add_argument("-s", "--subtype", required=False, nargs='*', choices=factorSubtypeChoices, default=constants.NAME_ALL, help="Types to display")
     parser.add_argument("-k", "--kind", required=False, choices=kindChoices, default=FactorKind.SCALAR.name, help="Kinds to display")
+    parser.add_argument("-g", "--greyscale", required=False, action="store_true", default=False, help="Restrict texture attributes to greyscale")
     parser.add_argument('-i', '--input', required=False, help="Input CSV -- used for analysis")
     arguments = parser.parse_args()
+
     if constants.NAME_ALL in arguments.type:
         types = factorTypes
     else:
@@ -432,12 +480,16 @@ if __name__ == "__main__":
     else:
         exclude = None
 
+    if arguments.greyscale:
+        restrictions = [(FactorTypes.TEXTURE, ColorSpace.GREYSCALE)]
+    else:
+        restrictions = None
 
     # Convert string to enum
     kind = FactorKind[arguments.kind]
 
     allFactors = Factors()
-    print(f"Type :{arguments.type} subtype: {arguments.subtype} | {allFactors.getColumns(types, subtypes, kind, blacklist=exclude)}")
+    print(f"Type :{arguments.type} subtype: {arguments.subtype} | {allFactors.getColumns(types, subtypes, kind, blacklist=exclude, restricted=restrictions)}")
     # print(f"Shape: {allFactors.getColumns([FactorTypes.SHAPE], [])}")
     # print(f"Color: {allFactors.getColumns([FactorTypes.COLOR], [])}")
     # print(f"GLCM: {allFactors.getColumns([FactorTypes.TEXTURE], [])}")
