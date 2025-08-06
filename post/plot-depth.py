@@ -97,7 +97,18 @@ if depth is not None:
         if arguments.output is not None:
             plt.imsave(arguments.output, depth, vmin=250, vmax=340)
         else:
-            plt.imshow(depth, interpolation='none', vmin=minval, vmax=maxval)
+            desired_width_pixels = 1280
+            desired_height_pixels = 720
+            chosen_dpi = 100
+
+            fig_width_inches = desired_width_pixels / chosen_dpi
+            fig_height_inches = desired_height_pixels / chosen_dpi
+
+            plt.figure(figsize=(fig_width_inches, fig_height_inches))
+            im = plt.imshow(depth, interpolation='none', vmin=minval, vmax=maxval)
+            cbar = plt.colorbar(im)
+            cbar.set_label("Distance from Sensor (mm)", labelpad=29)
+
             plt.show()
 
 # if depth is not None:
